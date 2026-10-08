@@ -175,6 +175,13 @@ struct StrandiOSApp: App {
         model.healthWriteBack = { [weak bridge] in
             _ = await bridge?.writeBackAfterNewData()
         }
+        model.selfHostedPush = { [weak model] in
+            guard let model else { return }
+            // Detached from BLE completion: a slow or unavailable PaceForge server cannot delay strap sync.
+            Task(priority: .utility) {
+                await SelfHostedPushClient.pushIfEnabled(repo: model.repo)
+            }
+        }
     }
 
     /// The Shortcut-import alert's presentation binding, hoisted OUT of the `.alert` chain.
@@ -347,6 +354,10 @@ struct StrandiOSApp: App {
         // safe no-op until the user opts in.
         .onChange(of: scenePhase, initial: true) { _, phase in
             if phase == .active {
+                // Retry any batches that were interrupted while iOS suspended the app.
+                Task(priority: .utility) {
+                    await SelfHostedPushClient.pushIfEnabled(repo: model.repo)
+                }
                 CoachBriefScheduler.activateIfEnabled { await model.coach.generateBrief() }
                 model.drainPendingIntents(router: router)
                 // iOS starts a Lift Log banner only for an app on screen, so a banner lost while NOOP was in

@@ -58,13 +58,13 @@ and configures. It remains in scope only while all of these boundaries hold:
   not read or sent.
 - Identity is local to the installation and device. There is no NOOP account, hosted service,
   third-party destination, or telemetry channel. Endpoint and bearer credential are user supplied.
-- This repository ships the client and the versioned [push format](PUSH_PROTOCOL.md), not a server.
+- This repository ships the Android and iOS clients and the versioned [push format](PUSH_PROTOCOL.md), not a server.
   A receiver, dashboard, vault, or agent belongs to the user and lives outside this repository.
 
 This is automated export, not restore or two-way sync. A NOOP-operated receiver, accounts, server
 read-back, remote writes, or making app behaviour depend on endpoint availability remain out of
-scope. The feature stays Experimental until its Android background behaviour is proven quiet and
-reliable in real-world use.
+scope. The feature stays Experimental until its Android and iOS background behaviour is proven quiet
+and reliable in real-world use.
 
 ## Proposing a scope change
 

@@ -702,6 +702,8 @@ final class AppModel: ObservableObject {
     /// A closure rather than a direct reference because `HealthKitBridge` owns iOS-only HealthKit state
     /// while this type is shared with macOS, and the bridge is a `@StateObject` the app scene owns.
     var healthWriteBack: (() async -> Void)?
+    /// One-way NOOP → user-owned PaceForge transfer; implementation is installed only by iOS.
+    var selfHostedPush: (() async -> Void)?
     #endif
 
     /// Settle a re-score that is owed (#1538) — one an earlier attempt started and was killed partway
@@ -741,6 +743,9 @@ final class AppModel: ObservableObject {
         // not scored yet and only reached Health on some later foreground. This is the first moment they
         // exist. The bridge coalesces a call that lands during an in-flight write-back.
         await healthWriteBack?()
+        // Like the HealthKit bridge, the sender is iOS-only. Its closure schedules independent work;
+        // URL latency and receiver errors never hold the BLE/backfill completion path open.
+        await selfHostedPush?()
         #endif
     }
 

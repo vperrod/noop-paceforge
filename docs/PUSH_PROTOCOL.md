@@ -1,7 +1,7 @@
 # Self-hosted push protocol
 
 This document specifies the wire contract for NOOP's **Experimental**, default-off export to a
-user-owned HTTP(S) endpoint. Protocol version **1.0** covers the Android-first client. It is a
+user-owned HTTP(S) endpoint. Protocol version **1.0** is implemented by the Android and iOS clients. It is a
 one-way export protocol: the on-device database is authoritative, the receiver acknowledges writes
 and may advertise only which fixed v1 streams it accepts. NOOP never reads health data, commands,
 URLs, field names, or other configuration back from the receiver.
@@ -91,6 +91,9 @@ Content-Encoding: gzip
   snapshots fail without truncation or cursor movement before unrestricted text enters app memory.
 - Network or receiver failure must not block strap offload, local writes, analytics, or UI. Delivery
   is retried by the independent background worker.
+- On iOS, the experimental sender runs independently after a successful strap offload and retries
+  when the app next enters the foreground. iOS decides when background execution is available, so
+  this is best-effort scheduling rather than a promise of an exact 15-minute upload interval.
 - Android coalesces triggers that arrive during a running worker, processes at most one remembered
   device scope per attempt, and rotates that durable device cursor only after the slice completes.
   Per-call DNS and HTTP deadlines keep the attempt below WorkManager's execution window; automatic
