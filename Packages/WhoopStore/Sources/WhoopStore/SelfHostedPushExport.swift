@@ -153,8 +153,11 @@ private enum SelfHostedPushRegistry {
     private static func object(_ row: Row, columns: [String], booleans: Set<String>) throws -> [String: Any] {
         var result: [String: Any] = [:]
         for column in columns {
-            let value = row.databaseValue(named: column).storage
-            switch value {
+            // Decode through GRDB's public Row subscript. databaseValue(at:) is
+            // intentionally internal, so this API keeps the projection typed
+            // while preserving SQLite nulls as DatabaseValue.null.
+            let value: DatabaseValue = row[column]
+            switch value.storage {
             case .null: result[column] = NSNull()
             case .int64(let integer): result[column] = booleans.contains(column) ? (integer != 0) as Any : integer as Any
             case .double(let number): result[column] = number
