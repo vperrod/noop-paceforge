@@ -37,18 +37,24 @@ public struct ImportCoordinator {
     public func importAppleHealth(
         from url: URL,
         retainRawSamples: Bool = true,
-        progress: (@Sendable (Int) -> Void)? = nil
+        progress: (@Sendable (Int) -> Void)? = nil,
+        phase: (@Sendable (String) -> Void)? = nil
     ) throws -> AppleHealthImportResult {
         // Reuse the injected importer when its flag already matches (keeps any
         // custom importer the caller supplied); otherwise build one with the
         // requested retention so callers can opt into bounded memory per-call.
         if retainRawSamples == appleHealth.retainRawSamples {
             if let progress {
-                return try AppleHealthImporter(retainRawSamples: retainRawSamples, progress: progress).import(from: url)
+                return try AppleHealthImporter(retainRawSamples: retainRawSamples, progress: progress,
+                                              phase: phase).import(from: url)
+            }
+            if let phase {
+                return try AppleHealthImporter(retainRawSamples: retainRawSamples, phase: phase).import(from: url)
             }
             return try appleHealth.import(from: url)
         }
-        return try AppleHealthImporter(retainRawSamples: retainRawSamples, progress: progress).import(from: url)
+        return try AppleHealthImporter(retainRawSamples: retainRawSamples, progress: progress,
+                                      phase: phase).import(from: url)
     }
 
     /// Parse a Whoop CSV export (`.zip` or folder).

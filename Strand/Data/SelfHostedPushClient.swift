@@ -11,6 +11,7 @@ enum SelfHostedPushClient {
     private static let receiverIdKey = "noop.selfHostedPush.receiverStateId"
     static let lastSuccessKey = "noop.selfHostedPush.lastSuccess"
     static let lastActivityFetchKey = "noop.selfHostedPush.lastActivityFetch"
+    static let lastGarminMetricsFetchKey = "noop.selfHostedPush.lastGarminMetricsFetch"
     private static let service = "com.noop.self-hosted-push"
     private static let account = "bearer-token"
     private static let version = "1.0"
@@ -47,6 +48,7 @@ enum SelfHostedPushClient {
         let (endpoint, token) = try configuration()
         let streams = try await discover(endpoint: endpoint, token: token).streams
         _ = try await fetchPaceForgeActivities(endpoint: activitiesEndpoint(from: endpoint), token: token)
+        _ = try await fetchPaceForgeGarminMetrics(endpoint: garminMetricsEndpoint(from: endpoint), token: token)
         return streams
     }
 
@@ -57,6 +59,8 @@ enum SelfHostedPushClient {
         catch { NSLog("NOOP self-hosted upload deferred: %@", error.localizedDescription) }
         do { _ = try await pullActivities(repo: repo) }
         catch { NSLog("NOOP PaceForge activity fetch deferred: %@", error.localizedDescription) }
+        do { _ = try await pullGarminMetrics(repo: repo) }
+        catch { NSLog("NOOP PaceForge Garmin metrics fetch deferred: %@", error.localizedDescription) }
     }
 
     @MainActor
@@ -129,10 +133,44 @@ enum SelfHostedPushClient {
                               durationS: duration, energyKcal: energy, avgHr: avgHr, maxHr: maxHr,
                               strain: nil, distanceM: distance, zonesJSON: nil, notes: notes, steps: nil)
         }
-        let imported = try await store.upsertWorkouts(rows, deviceId: "paceforge")
+        _ = try await store.upsertWorkouts(rows, deviceId: "paceforge")
         if !rows.isEmpty { await repo.refresh() }
         UserDefaults.standard.set(Date().timeIntervalSince1970, forKey: lastActivityFetchKey)
-        return imported
+        return rows.count
+    }
+
+    /// Fetch Garmin's own daily steps and SpO₂ from PaceForge into a separate source, preserving NOOP values.
+    @MainActor
+    @discardableResult
+    static func pullGarminMetrics(repo: Repository) async throws -> Int {
+        let (endpoint, token) = try configuration()
+        let response = try await fetchPaceForgeGarminMetrics(
+            endpoint: garminMetricsEndpoint(from: endpoint), token: token)
+        guard let store = await repo.storeHandle() else {
+            throw Failure.configuration("NOOP's local database is unavailable.")
+        }
+        let rows = try response.map { item -> DailyMetric in
+            guard let day = item["date"] as? String, day.count == 10 else {
+                throw Failure.receiver("PaceForge returned an invalid Garmin metric date.")
+            }
+            let steps = (item["steps"] as? NSNumber)?.intValue
+            let spo2 = (item["spo2Pct"] as? NSNumber)?.doubleValue
+            if let steps, steps < 0 { throw Failure.receiver("PaceForge returned negative Garmin steps.") }
+            if let spo2, !(50...100).contains(spo2) {
+                throw Failure.receiver("PaceForge returned an invalid Garmin SpO₂ value.")
+            }
+            guard steps != nil || spo2 != nil else {
+                throw Failure.receiver("PaceForge returned an empty Garmin metric record.")
+            }
+            return DailyMetric(day: day, totalSleepMin: nil, efficiency: nil, deepMin: nil,
+                               remMin: nil, lightMin: nil, disturbances: nil, restingHr: nil,
+                               avgHrv: nil, recovery: nil, strain: nil, exerciseCount: nil,
+                               spo2Pct: spo2, steps: steps)
+        }
+        _ = try await store.upsertDailyMetrics(rows, deviceId: "paceforge-garmin")
+        if !rows.isEmpty { await repo.refresh() }
+        UserDefaults.standard.set(Date().timeIntervalSince1970, forKey: lastGarminMetricsFetchKey)
+        return rows.count
     }
 
     private static func fetchPaceForgeActivities(endpoint: URL, token: String) async throws -> [[String: Any]] {
@@ -154,12 +192,41 @@ enum SelfHostedPushClient {
         return activities
     }
 
+    private static func fetchPaceForgeGarminMetrics(endpoint: URL, token: String) async throws -> [[String: Any]] {
+        var request = URLRequest(url: endpoint, timeoutInterval: 30)
+        request.httpMethod = "GET"
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        let session = noRedirectSession()
+        defer { session.finishTasksAndInvalidate() }
+        let (data, response) = try await session.data(for: request)
+        guard let http = response as? HTTPURLResponse, http.statusCode == 200,
+              data.count <= 2 * 1024 * 1024,
+              let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+              json["type"] as? String == "paceforge_garmin_metrics",
+              json["version"] as? String == "1",
+              let metrics = json["metrics"] as? [[String: Any]], metrics.count <= 2_000 else {
+            throw Failure.receiver("PaceForge did not return a valid Garmin metrics list.")
+        }
+        return metrics
+    }
+
     private static func activitiesEndpoint(from endpoint: URL) -> URL {
         guard var components = URLComponents(url: endpoint, resolvingAgainstBaseURL: false) else {
             return endpoint
         }
         if components.path.hasSuffix("/push") {
             components.path = String(components.path.dropLast("push".count)) + "activities"
+        }
+        return components.url ?? endpoint
+    }
+
+    private static func garminMetricsEndpoint(from endpoint: URL) -> URL {
+        guard var components = URLComponents(url: endpoint, resolvingAgainstBaseURL: false) else {
+            return endpoint
+        }
+        if components.path.hasSuffix("/push") {
+            components.path = String(components.path.dropLast("push".count)) + "garmin-metrics"
         }
         return components.url ?? endpoint
     }

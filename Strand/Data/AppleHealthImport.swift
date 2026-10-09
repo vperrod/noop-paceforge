@@ -29,18 +29,21 @@ enum AppleHealthImport {
     @discardableResult
     static func importExport(url: URL, into store: WhoopStore, deviceId: String,
                              trace: (@Sendable ([String]) -> Void)? = nil,
-                             progress: (@Sendable (Int) -> Void)? = nil) async throws -> ImportSummary {
+                             progress: (@Sendable (Int) -> Void)? = nil,
+                             phase: (@Sendable (String) -> Void)? = nil) async throws -> ImportSummary {
         // Parsing and aggregation are CPU-heavy, especially for multi-year exports. This method is
         // called from the UI model; doing either step inline inherits its actor and freezes the UI
         // until the full XML file has been parsed. Keep the bounded-memory streaming parser, but run
         // the complete parse + fold on a utility executor so the import status remains responsive.
         let (result, daily) = try await Task.detached(priority: .utility) {
             let result = try ImportCoordinator().importAppleHealth(from: url, retainRawSamples: false,
-                                                                    progress: progress)
+                                                                    progress: progress, phase: phase)
+            phase?("Organizing Apple Health readings…")
             let daily = AppleHealthAggregator.aggregate(result)
             return (result, daily)
         }.value
 
+        phase?("Saving Apple Health daily totals…")
         // Apple-specific daily aggregates (steps/energy/vo2/hr/weight).
         let appleRows = daily.map { d in
             AppleDaily(day: d.day,
@@ -56,6 +59,7 @@ enum AppleHealthImport {
         let appleWritten = try await store.upsertAppleDaily(appleRows, deviceId: deviceId)
 
         // Recovery-relevant subset into dailyMetric (recovery/strain are nil — Apple doesn't compute them).
+        phase?("Saving Apple Health metrics…")
         let dm = daily.map { d in
             DailyMetric(day: d.day,
                         totalSleepMin: d.asleepMin, efficiency: nil,
@@ -73,11 +77,13 @@ enum AppleHealthImport {
         let dmWritten = try await store.upsertDailyMetrics(dm, deviceId: deviceId)
 
         // Everything, generically, for the metric explorer.
+        phase?("Saving Apple Health history…")
         let points = AppleHealthAggregator.metricPoints(daily)
             .map { MetricPoint(day: $0.day, key: $0.key, value: $0.value) }
         try await store.upsertMetricSeries(points, deviceId: deviceId)
 
         // Workouts.
+        phase?("Saving Apple Health workouts…")
         let workouts = result.workouts.map { w in
             WorkoutRow(startTs: Int(w.start.timeIntervalSince1970),
                        endTs: Int(w.end.timeIntervalSince1970),

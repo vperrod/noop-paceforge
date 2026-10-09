@@ -72,6 +72,7 @@ struct ScoreInputProvider: Equatable, Sendable {
 enum DailyMetricSource: Equatable {
     case whoopImport
     case noopComputed
+    case paceForgeGarmin
     case appleHealth
     case localCache
 
@@ -79,8 +80,9 @@ enum DailyMetricSource: Equatable {
         switch self {
         case .whoopImport:  return 0
         case .noopComputed: return 1
-        case .appleHealth:  return 2
-        case .localCache:   return 3
+        case .paceForgeGarmin: return 2
+        case .appleHealth:  return 3
+        case .localCache:   return 4
         }
     }
 }
@@ -957,6 +959,8 @@ final class Repository: ObservableObject {
         let imported = await unionDailyMetrics(store: store, from: fromDay, to: toDay)
         let computed = await unionComputedDailyMetrics(store: store, from: fromDay, to: toDay)
         let apple = (try? await store.dailyMetrics(deviceId: Self.appleHealthSource, from: fromDay, to: toDay)) ?? []
+        let paceForgeGarmin = (try? await store.dailyMetrics(deviceId: "paceforge-garmin",
+                                                              from: fromDay, to: toDay)) ?? []
         let activityFile = (try? await store.dailyMetrics(deviceId: Self.activityFileSource, from: fromDay, to: toDay)) ?? []
         let impSleep = await unionSleepSessions(store: store, from: lo, to: hi)
         let compSleep = await unionComputedSleepSessions(store: store, from: lo, to: hi)
@@ -992,16 +996,19 @@ final class Repository: ObservableObject {
             return MergedCaches(
                 importedSleep: fig,
                 days: Self.mergeActivityFileSteps(
-                    into: Self.mergeDaily(imported: imported, computed: computed, userEditedDays: editedDays),
-                    activityFile
-                ),
+                    into: Self.mergePaceForgeGarmin(
+                        into: Self.mergeDaily(imported: imported, computed: computed,
+                                              userEditedDays: editedDays),
+                        paceForgeGarmin),
+                    activityFile),
                 // From the two buckets BEFORE `mergeDaily` blends them: the rule needs to know which nights
                 // are imported and which are the wearer's own.
                 chargeBaselines: ChargeBaselines.resolve(imported: imported, own: computed,
                                                          anchorDay: chargeAnchorDay,
                                                          hrvEpoch: hrvEpoch, recoveryEpoch: recoveryEpoch),
                 sleeps: Self.mergeSleep(imported: impSleep, computed: compSleep),
-                vitalRows: Self.sourceRows(imported: imported, computed: computed, apple: apple),
+                vitalRows: Self.sourceRows(imported: imported, computed: computed,
+                                           paceForgeGarmin: paceForgeGarmin, apple: apple),
                 freshness: Self.computeFreshness(imported: imported, computed: computed, apple: apple,
                                                  importedSleeps: impSleep, computedSleeps: compSleep))
         }.value
@@ -1089,6 +1096,21 @@ final class Repository: ObservableObject {
         return byDay.values.sorted { $0.day < $1.day }
     }
 
+    /// Garmin metrics fetched through PaceForge fill missing fields only; they never replace NOOP/WHOOP data.
+    nonisolated static func mergePaceForgeGarmin(into base: [DailyMetric],
+                                                 _ garmin: [DailyMetric]) -> [DailyMetric] {
+        guard !garmin.isEmpty else { return base }
+        var byDay = Dictionary(base.map { ($0.day, $0) }, uniquingKeysWith: { _, last in last })
+        for row in garmin {
+            if let existing = byDay[row.day] {
+                byDay[row.day] = coalesceDay(existing, row)
+            } else {
+                byDay[row.day] = row
+            }
+        }
+        return byDay.values.sorted { $0.day < $1.day }
+    }
+
     nonisolated static func mergeActivityFileSteps(into base: [DailyMetric],
                                                    _ activityFile: [DailyMetric]) -> [DailyMetric] {
         guard !activityFile.isEmpty else { return base }
@@ -1147,9 +1169,10 @@ final class Repository: ObservableObject {
     /// > Apple); ordered by day, then source priority, so a stable list reaches the UI.
     /// `nonisolated` (FIX 3) so `refresh()`'s detached merge task can call it off the main actor.
     nonisolated private static func sourceRows(imported: [DailyMetric], computed: [DailyMetric],
-                                   apple: [DailyMetric]) -> [SourcedDailyMetric] {
+                                   paceForgeGarmin: [DailyMetric], apple: [DailyMetric]) -> [SourcedDailyMetric] {
         (imported.map { SourcedDailyMetric(metric: $0, source: .whoopImport) }
             + computed.map { SourcedDailyMetric(metric: $0, source: .noopComputed) }
+            + paceForgeGarmin.map { SourcedDailyMetric(metric: $0, source: .paceForgeGarmin) }
             + apple.map { SourcedDailyMetric(metric: $0, source: .appleHealth) })
             .sorted { lhs, rhs in
                 if lhs.metric.day == rhs.metric.day {

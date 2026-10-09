@@ -101,6 +101,8 @@ struct BodyVitalReading: Identifiable {
             // Live pipeline stores ±°C vs personal baseline (#622) — not absolute wrist °C.
             if key == "skin" { return String(localized: "vs baseline") }
             return String(localized: "NOOP computed")
+        case .paceForgeGarmin:
+            return String(localized: "Garmin via PaceForge")
         case .appleHealth:
             return String(localized: "Apple Health")
         case .localCache:
@@ -514,7 +516,7 @@ private extension DailyMetricSource {
         case "skin":
             return [.whoopImport, .noopComputed, .localCache]
         default:
-            return [.whoopImport, .noopComputed, .appleHealth, .localCache]
+            return [.whoopImport, .noopComputed, .paceForgeGarmin, .appleHealth, .localCache]
         }
     }
 }

@@ -58,7 +58,6 @@ struct WorkoutsView: View {
     /// the rest (`expandWindow`).
     @State private var allRows: [WorkoutRow]
     @State private var loaded: Bool
-    @State private var seededInitialRange = false
     /// Current (the most recent sessions) or Archived (everything older). A view split only: archived rows
     /// stay in the database and are one tap away.
     @State private var scope: Scope = .current
@@ -203,16 +202,21 @@ struct WorkoutsView: View {
                 // Current / Archived applies to what the LIST and its summaries show. `unscopedRows`
                 // itself stays unscoped so the HR-recovery trend and the auto-widen probe keep seeing the
                 // whole window.
-                let windowRows = Self.scopedRows(unscopedRows, scope: scope)
+                // Archive is the older workout history, so it must not inherit the selected 7D/30D/etc.
+                // window. Applying that window first made Archive empty whenever only the newest 10
+                // sessions fell inside the selected range.
+                let listRows = scope == .archived ? filter.apply(allRows) : unscopedRows
+                let windowRows = Self.scopedRows(listRows, scope: scope)
+                let listRange: Range = scope == .archived ? .all : resolved
                 let groups = sportGroups(from: windowRows)
                 let zonesSummary = WorkoutZones.summary(from: windowRows)
 
                 workoutActionRow
                 scopeBar
-                rangeBar(rows: windowRows, effectiveRange: resolved)
+                rangeBar(rows: windowRows, effectiveRange: listRange)
                 if let postLogNote { postLogBanner(postLogNote) }
-                effortHero(rows: windowRows, effectiveRange: resolved, groups: groups)
-                summarySection(rows: windowRows, effectiveRange: resolved, groups: groups)
+                effortHero(rows: windowRows, effectiveRange: listRange, groups: groups)
+                summarySection(rows: windowRows, effectiveRange: listRange, groups: groups)
                 heatmapSection()
                 breakdownSection(groups: groups, rows: windowRows)
                 if let z = zonesSummary {
@@ -230,8 +234,10 @@ struct WorkoutsView: View {
             let wasLoaded = loaded
             loaded = true
             if !wasLoaded {
-                range = defaultRange(for: r)
-                seededInitialRange = true
+                // Start on the full history so older PaceForge imports aren't hidden by a silently
+                // narrowed date range (which also made the Archived tab appear empty).
+                range = .all
+                await expandWindowIfNeeded(for: .all)
             }
             // 13-week active-calorie heatmap: pull ~100 days of daily metrics and map day → active kcal.
             // Loaded AFTER `loaded`/range are set so the secondary heatmap never delays the list's first
@@ -241,13 +247,6 @@ struct WorkoutsView: View {
             let metrics = await repo.dailyMetrics(fromDay: Self.dayFormatter.string(from: fromDate), toDay: toDay)
             dailyKcal = Dictionary(metrics.compactMap { m in m.activeKcalEst.map { (m.day, $0) } },
                                    uniquingKeysWith: max)
-        }
-        .onAppear {
-            // Preview-seeded rows skip `.task`; still choose a range that has data.
-            if loaded && !seededInitialRange {
-                range = defaultRange(for: allRows)
-                seededInitialRange = true
-            }
         }
         // #797: when the user picks a range wider than the bounded first-paint window (typically "All"),
         // page the full history in. A pick that fits the loaded window is a no-op. Also covers the
@@ -731,16 +730,6 @@ struct WorkoutsView: View {
         return (n == 1
             ? String(localized: "1 session · \(effectiveRange.caption)")
             : String(localized: "\(n) sessions · \(effectiveRange.caption)")) + suffix
-    }
-
-    /// Pick the tightest range that still holds ≥2 sessions; otherwise show All.
-    private func defaultRange(for source: [WorkoutRow]) -> Range {
-        guard let last = source.map(\.startTs).max() else { return .all }
-        for r in Range.allCases where r.days != nil {
-            let cutoff = last - (r.days ?? 0) * 86_400
-            if source.filter({ $0.startTs >= cutoff }).count >= 2 { return r }
-        }
-        return .all
     }
 
     // MARK: - Effort hero (typical effort on a flat Reset card)

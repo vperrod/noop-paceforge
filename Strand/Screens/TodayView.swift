@@ -929,6 +929,7 @@ struct TodayView: View {
     /// Any other real source (Mi Band, Health Connect, nutrition) keeps its `FusionSource.displayName`
     ///, still the genuine merge winner, never a blanket claim. Mirror EXACTLY in Kotlin.
     static func provenanceDisplayLabel(rawSource: String, deviceId: String) -> String {
+        if rawSource == "paceforge-garmin" { return "Garmin via PaceForge" }
         if rawSource.hasPrefix(vo2MaxAttributionPrefix) {
             let raw = String(rawSource.dropFirst(vo2MaxAttributionPrefix.count))
             let method = vo2MaxEstimatorDisplayName(Vo2MaxEstimator(rawValue: raw))
@@ -1004,6 +1005,7 @@ struct TodayView: View {
     static func todayScoreProviderLabel(sourceId: String, brand: String?) -> String {
         let source = sourceId.lowercased()
         switch source {
+        case "paceforge-garmin": return "Garmin via PaceForge"
         case Repository.appleHealthSource: return "Apple Watch"
         case Repository.healthConnectSource: return "Health Connect"
         case "oura-import", "oura-api": return "Oura"

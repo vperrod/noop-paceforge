@@ -9,13 +9,14 @@ struct SelfHostedPushSettingsView: View {
     @AppStorage(SelfHostedPushClient.endpointKey) private var endpoint = ""
     @AppStorage(SelfHostedPushClient.lastSuccessKey) private var lastSuccess = 0.0
     @AppStorage(SelfHostedPushClient.lastActivityFetchKey) private var lastActivityFetch = 0.0
+    @AppStorage(SelfHostedPushClient.lastGarminMetricsFetchKey) private var lastGarminMetricsFetch = 0.0
     @State private var token = ""
     @State private var status = "Off. Nothing syncs until you enable this."
     @State private var busy = false
 
     var body: some View {
         ScreenScaffold(title: "PaceForge sync",
-                       subtitle: "Keep NOOP data and PaceForge activities in sync.") {
+                       subtitle: "Keep NOOP data, Garmin metrics and activities in sync.") {
             StrandCard(padding: 20) {
                 VStack(alignment: .leading, spacing: 14) {
                     Toggle(isOn: $enabled) {
@@ -26,7 +27,7 @@ struct SelfHostedPushSettingsView: View {
                     .toggleStyle(.switch)
                     .tint(StrandPalette.accent)
                     .disabled(!enabled && !ready)
-                    Text("NOOP uploads its health data to PaceForge and fetches your recent Garmin activities into a separate PaceForge source. Sync runs when NOOP opens or finishes a strap sync, and you can also run it here.")
+                    Text("NOOP uploads its health data to PaceForge and fetches Garmin steps, blood oxygen and activities into separate sources. Sync runs when NOOP opens or finishes a strap sync, and you can also run it here.")
                         .font(StrandFont.caption)
                         .foregroundStyle(StrandPalette.textTertiary)
                         .fixedSize(horizontal: false, vertical: true)
@@ -78,6 +79,12 @@ struct SelfHostedPushSettingsView: View {
                             .font(StrandFont.caption)
                             .foregroundStyle(StrandPalette.textTertiary)
                     }
+                    if lastGarminMetricsFetch > 0 {
+                        let last = lastGarminMetricsFetch
+                        Text("Last successful Garmin metrics fetch: \(Date(timeIntervalSince1970: last).formatted(date: .abbreviated, time: .shortened))")
+                            .font(StrandFont.caption)
+                            .foregroundStyle(StrandPalette.textTertiary)
+                    }
                 }
             }
         }
@@ -89,7 +96,7 @@ struct SelfHostedPushSettingsView: View {
             defer { busy = false }
             do {
                 let streams = try await SelfHostedPushClient.testConnection()
-                status = "Connected. \(streams.count) NOOP streams and PaceForge activities are available."
+                status = "Connected. \(streams.count) NOOP streams, PaceForge activities, and Garmin metrics are available."
             } catch { status = error.localizedDescription }
         }
     }
@@ -105,14 +112,18 @@ struct SelfHostedPushSettingsView: View {
             defer { busy = false }
             var sent: Int?
             var received: Int?
+            var receivedMetrics: Int?
             var failures: [String] = []
             do { sent = try await SelfHostedPushClient.push(repo: repo) }
             catch { failures.append("NOOP upload: \(error.localizedDescription)") }
             do { received = try await SelfHostedPushClient.pullActivities(repo: repo) }
             catch { failures.append("PaceForge activities: \(error.localizedDescription)") }
+            do { receivedMetrics = try await SelfHostedPushClient.pullGarminMetrics(repo: repo) }
+            catch { failures.append("PaceForge Garmin metrics: \(error.localizedDescription)") }
             var outcomes: [String] = []
             if let sent { outcomes.append("Sent \(sent) NOOP records") }
             if let received { outcomes.append("received \(received) PaceForge activities") }
+            if let receivedMetrics { outcomes.append("received \(receivedMetrics) Garmin metric days") }
             outcomes += failures
             status = (failures.isEmpty ? "Sync complete. " : "Sync incomplete. ")
                 + outcomes.joined(separator: " · ")

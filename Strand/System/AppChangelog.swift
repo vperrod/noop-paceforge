@@ -7,7 +7,7 @@ enum AppChangelog {
 
     /// Bump this when you add a release below. The "What's New" sheet shows automatically when the
     /// stored last-seen version is behind this. (Decoupled from the bundle version on purpose.)
-    static let currentVersion = "12.0.0"
+    static let currentVersion = "12.0.11"
 
     struct Release: Identifiable {
         let version: String
@@ -19,6 +19,17 @@ enum AppChangelog {
 
     /// Newest first.
     static let releases: [Release] = [
+        Release(
+            version: "12.0.11",
+            title: "Garmin metrics in NOOP and a working PaceForge sync",
+            date: "October 2026",
+            items: [
+                "**PaceForge and NOOP sync directly.** NOOP sends its available health streams to PaceForge and imports Garmin daily steps, blood oxygen and workouts into separate Garmin and PaceForge sources. Garmin values fill missing data and don't overwrite WHOOP/NOOP readings. The sync screen shows upload and import status, and offers Test connection and Sync now.",
+                "**Apple Health imports show their progress.** Large exports report file-copy, parsing and saving stages while the import runs away from the main screen, so the app remains responsive and errors are visible.",
+                "**Older workouts are visible in Archive.** Archive now searches the full workout history instead of inheriting the current date-range filter. The workout list opens on all history.",
+                "**Live heart rate is off by default.** Turn it on only if you want a live heart-rate activity on the Lock Screen or Dynamic Island; strap-sync status keeps its separate control.",
+            ]
+        ),
         Release(
             version: "12.0.0",
             title: "Today your way, heart rate any app can read, and Italian",

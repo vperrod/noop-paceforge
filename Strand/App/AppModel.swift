@@ -2410,7 +2410,10 @@ final class AppModel: ObservableObject {
 
     /// Runs off the main actor (nonisolated) so copying a large export never blocks the UI; the
     /// caller holds the security scope (process-wide) for the duration.
-    nonisolated static func materializeForImport(_ picked: URL) async throws -> ImportFile {
+    nonisolated static func materializeForImport(
+        _ picked: URL,
+        progress: (@Sendable (Int64, Int64?) -> Void)? = nil
+    ) async throws -> ImportFile {
         #if os(iOS)
         let ext = picked.pathExtension.isEmpty ? "dat" : picked.pathExtension
         let dst = NoopScratch.file("import-\(UUID().uuidString)")
@@ -2423,11 +2426,35 @@ final class AppModel: ObservableObject {
                 if FileManager.default.fileExists(atPath: dst.path) {
                     try FileManager.default.removeItem(at: dst)
                 }
-                try FileManager.default.copyItem(at: readURL, to: dst)
+                if let progress {
+                    let total = (try? readURL.resourceValues(forKeys: [.fileSizeKey]).fileSize).map(Int64.init)
+                    guard FileManager.default.createFile(atPath: dst.path, contents: nil) else {
+                        throw CocoaError(.fileWriteUnknown)
+                    }
+                    let input = try FileHandle(forReadingFrom: readURL)
+                    let output = try FileHandle(forWritingTo: dst)
+                    defer { try? input.close(); try? output.close() }
+                    var copied: Int64 = 0
+                    var lastReported: Int64 = 0
+                    while let chunk = try input.read(upToCount: 1 << 20), !chunk.isEmpty {
+                        try output.write(contentsOf: chunk)
+                        copied += Int64(chunk.count)
+                        if copied - lastReported >= 8 << 20 || copied == total {
+                            progress(copied, total)
+                            lastReported = copied
+                        }
+                    }
+                    if copied != lastReported { progress(copied, total) }
+                } else {
+                    try FileManager.default.copyItem(at: readURL, to: dst)
+                }
             } catch { ioError = error }
         }
         if let coordError { throw coordError }
-        if let ioError { throw ioError }
+        if let ioError {
+            try? FileManager.default.removeItem(at: dst)
+            throw ioError
+        }
         // The picked URL is the picker's own `asCopy:true` duplicate in Documents/Inbox; pass it
         // through so cleanup() can reclaim it (it's the original of `dst`, not a user file).
         return ImportFile(url: dst, temp: dst, inboxOriginal: picked)
@@ -2521,7 +2548,7 @@ final class AppModel: ObservableObject {
 
     func importAppleHealth(url: URL) {
         beginImport(.appleHealth)
-        appleHealthImportProgress = "Preparing Apple Health export…"
+        appleHealthImportProgress = "Copying Apple Health export to this iPhone…"
         // FIX 2(c): run the parse+writes at `.utility` so a large Apple Health import yields to UI
         // rendering instead of inheriting the user-initiated QoS of the calling tap , the import's bulk
         // work was contending with the main actor and contributing to the transient post-import lag.
@@ -2533,7 +2560,18 @@ final class AppModel: ObservableObject {
                     finishImport(.appleHealth, summary: "Couldn't open the local store.", failed: true)
                     return
                 }
-                let local = try await Self.materializeForImport(url)
+                let copyProgress: @Sendable (Int64, Int64?) -> Void = { [weak self] copied, total in
+                    Task { @MainActor in
+                        guard let self, self.isImporting(.appleHealth) else { return }
+                        let copiedMB = copied / 1_048_576
+                        if let total {
+                            self.appleHealthImportProgress = "Copied \(copiedMB.formatted()) of \((total / 1_048_576).formatted()) MB…"
+                        } else {
+                            self.appleHealthImportProgress = "Copied \(copiedMB.formatted()) MB…"
+                        }
+                    }
+                }
+                let local = try await Self.materializeForImport(url, progress: copyProgress)
                 defer { local.cleanup() }
                 emitImportFileMeta(kind: .appleHealth, url: local.url)
                 self.appleHealthImportProgress = "Reading Apple Health records…"
@@ -2543,9 +2581,16 @@ final class AppModel: ObservableObject {
                         self.appleHealthImportProgress = "Read \(count.formatted()) Apple Health records…"
                     }
                 }
+                let phase: @Sendable (String) -> Void = { [weak self] message in
+                    Task { @MainActor in
+                        guard let self, self.isImporting(.appleHealth) else { return }
+                        self.appleHealthImportProgress = message
+                    }
+                }
                 let summary = try await AppleHealthImport.importExport(url: local.url, into: store,
                                                                        deviceId: appleDeviceId, trace: importTraceSink(),
-                                                                       progress: progress)
+                                                                       progress: progress, phase: phase)
+                appleHealthImportProgress = "Refreshing NOOP data…"
                 try? await store.checkpointWAL()   // reclaim the WAL a bulk import grew (#590)
                 await repo.refresh()
                 // #833/v7.7.2: an Apple Health import may write ONLY body-composition series (weight/body_fat/

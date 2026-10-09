@@ -316,7 +316,7 @@ struct VitalReading: Equatable {
 /// latter's source has higher row priority. Within one column, imported wins over computed.
 func skinTempSourceByDay(_ rows: [SourcedDailyMetric], leadsAbsolute: Bool) -> [String: String] {
     var sources: [String: String] = [:]
-    let priority: [DailyMetricSource] = [.whoopImport, .noopComputed, .localCache]
+    let priority: [DailyMetricSource] = [.whoopImport, .noopComputed, .paceForgeGarmin, .localCache]
     let columns = leadsAbsolute ? [0, 1] : [1]
     for column in columns {
         for source in priority {
@@ -333,6 +333,7 @@ func skinTempSourceByDay(_ rows: [SourcedDailyMetric], leadsAbsolute: Bool) -> [
                 switch source {
                 case .whoopImport:  sources[row.metric.day] = FusionSource.whoopImport.rawValue
                 case .noopComputed: sources[row.metric.day] = FusionSource.noopComputed.rawValue
+                case .paceForgeGarmin: sources[row.metric.day] = "paceforge-garmin"
                 case .localCache:   sources[row.metric.day] = FusionSource.localCache.rawValue
                 case .appleHealth:  break // Skin-temperature series never includes Apple Health.
                 }

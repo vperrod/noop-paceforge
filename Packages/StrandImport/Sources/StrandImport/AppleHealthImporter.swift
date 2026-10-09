@@ -31,10 +31,13 @@ public struct AppleHealthImporter {
     /// produced regardless of this flag.
     public let retainRawSamples: Bool
     private let progress: (@Sendable (Int) -> Void)?
+    private let phase: (@Sendable (String) -> Void)?
 
-    public init(retainRawSamples: Bool = true, progress: (@Sendable (Int) -> Void)? = nil) {
+    public init(retainRawSamples: Bool = true, progress: (@Sendable (Int) -> Void)? = nil,
+                phase: (@Sendable (String) -> Void)? = nil) {
         self.retainRawSamples = retainRawSamples
         self.progress = progress
+        self.phase = phase
     }
 
     /// Health types Strand cares about (prefix already stripped).
@@ -71,6 +74,7 @@ public struct AppleHealthImporter {
         }
 
         if isDir.boolValue {
+            phase?("Finding Apple Health export…")
             guard let xmlURL = findExportXML(inFolder: url) else {
                 throw ImportError.missingEntry("export.xml")
             }
@@ -79,9 +83,11 @@ public struct AppleHealthImporter {
 
         let ext = url.pathExtension.lowercased()
         if ext == "xml" {
+            phase?("Reading Apple Health records…")
             return try importXML(at: url)
         }
         if ext == "zip" {
+            phase?("Unpacking Apple Health export…")
             return try importZip(at: url)
         }
         // Unknown extension: try zip first, then raw XML.
@@ -116,6 +122,7 @@ public struct AppleHealthImporter {
     // MARK: - Zip handling
 
     private func importZip(at zipURL: URL) throws -> AppleHealthImportResult {
+        phase?("Unpacking Apple Health export…")
         let archive: Archive
         do {
             archive = try Archive(url: zipURL, accessMode: .read)
@@ -176,6 +183,7 @@ public struct AppleHealthImporter {
         _ parser: XMLParser,
         sanitizer: SanitizingInputStream? = nil
     ) throws -> AppleHealthImportResult {
+        phase?("Reading Apple Health records…")
         let delegate = HealthXMLDelegate(retainRawSamples: retainRawSamples, progress: progress)
         parser.delegate = delegate
         parser.shouldProcessNamespaces = false
