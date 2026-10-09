@@ -123360,6 +123360,16 @@
         }
       }
     },
+    "PaceForge push": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "PaceForge push"
+          }
+        }
+      }
+    },
     "Pair and manage the bands NOOP reads from.": {
       "localizations": {
         "de": {
