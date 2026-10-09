@@ -20,6 +20,24 @@ jobs:
         run: >-
           xcodebuild -scheme NOOPiOS -configuration Debug
           -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=latest'
-          -derivedDataPath build/simulator
+          -derivedDataPath build/derivedData
+          -resultBundlePath build/NOOPiOS.xcresult
           CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY=""
           test
+      - name: Export simulator screenshot
+        if: always()
+        run: |
+          if [ -d build/NOOPiOS.xcresult ]; then
+            xcrun xcresulttool export attachments \
+              --path build/NOOPiOS.xcresult \
+              --output-path build/simulator-screenshot
+          else
+            echo "No simulator result bundle was produced."
+          fi
+      - name: Upload simulator screenshot
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: noop-ios-simulator-screenshot
+          path: build/simulator-screenshot
+          if-no-files-found: warn

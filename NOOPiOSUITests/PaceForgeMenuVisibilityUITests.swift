@@ -22,5 +22,14 @@ final class PaceForgeMenuVisibilityUITests: XCTestCase {
 
         let paceForgeRow = app.staticTexts["PaceForge push"]
         XCTAssertTrue(paceForgeRow.waitForExistence(timeout: 10), "The PaceForge push setting should appear under More → Data.")
+        for _ in 0..<8 where !paceForgeRow.isHittable {
+            app.swipeUp()
+        }
+        XCTAssertTrue(paceForgeRow.isHittable, "The PaceForge push setting should be visible on screen.")
+
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "NOOP — PaceForge push in iPhone Simulator"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
     }
 }
