@@ -2359,7 +2359,14 @@ struct SettingsView: View {
                         .font(StrandFont.title2)
                         .foregroundStyle(StrandPalette.textPrimary)
                     StatePill("v\(bundleVersionString)", tone: .neutral, showsDot: false)
-                    StatePill(bundleBuildString, tone: .neutral, showsDot: false)
+                    Text(bundleBuildString)
+                        .font(StrandFont.overline)
+                        .tracking(0.4)
+                        .foregroundStyle(StrandPalette.textSecondary)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
+                        .background(Capsule(style: .continuous).fill(StrandPalette.textTertiary.opacity(0.12)))
+                        .overlay(Capsule(style: .continuous).stroke(StrandPalette.textTertiary.opacity(0.28), lineWidth: 1))
                     Spacer()
                     NoopButton("What's new", systemImage: "sparkles", kind: .secondary) {
                         showWhatsNew = true
