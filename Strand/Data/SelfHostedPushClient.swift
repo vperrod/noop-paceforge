@@ -84,8 +84,12 @@ enum SelfHostedPushClient {
                                               store: store, defaults: defaults)
         }
         for stream in SelfHostedPushExport.mutableStreams where capability.streams.contains(stream) {
+            // IntelligenceEngine stores its computed daily metrics and sleep sessions under the
+            // derived owner ID; raw sensor append streams remain under repo.deviceId.
+            let mutableDeviceId = (stream == "dailyMetric" || stream == "sleepSession")
+                ? repo.deviceId + "-noop" : repo.deviceId
             accepted += try await pushMutable(stream: stream, endpoint: endpoint, token: token,
-                                               sourceId: sourceId, deviceId: repo.deviceId, store: store)
+                                               sourceId: sourceId, deviceId: mutableDeviceId, store: store)
         }
         UserDefaults.standard.set(Date().timeIntervalSince1970, forKey: lastSuccessKey)
         return accepted
