@@ -370,6 +370,21 @@ targets:
       # Apple ID is unproven (an Apple limitation), so the docs steer watch users to a source build for now.
       - target: NOOPWatch
 
+  # Simulator-only UI check for the private PaceForge integration.
+  NOOPiOSUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - NOOPiOSUITests
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: $(BUNDLE_ID_PREFIX).noop.uitests
+        TEST_TARGET_NAME: NOOPiOS
+    dependencies:
+      - target: NOOPiOS
+
   # WidgetKit + Live Activity extension — the iOS analogue of the macOS menu-bar
   # extra. Reads a tiny snapshot the app publishes into the shared App Group.
   NOOPiOSWidgets:
@@ -539,6 +554,10 @@ schemes:
         NOOPiOS: all
     run:
       config: Debug
+    test:
+      config: Debug
+      targets:
+        - NOOPiOSUITests
   # `xcodebuild -scheme NOOPWatch …` compile-verifies the watchOS app + its embedded complication
   # extension (M3). Name matches the app-build CI matrix entry the verify script adds.
   NOOPWatch:

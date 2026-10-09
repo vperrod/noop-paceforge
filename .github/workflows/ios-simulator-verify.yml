@@ -1,0 +1,25 @@
+name: iOS Simulator verification
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-paceforge-menu:
+    runs-on: macos-26
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Generate Xcode project
+        run: xcodegen generate
+      - name: Verify PaceForge menu in iPhone Simulator
+        run: >-
+          xcodebuild -scheme NOOPiOS -configuration Debug
+          -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=latest'
+          -derivedDataPath build/simulator
+          CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY=""
+          test
