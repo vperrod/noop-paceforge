@@ -2359,6 +2359,7 @@ struct SettingsView: View {
                         .font(StrandFont.title2)
                         .foregroundStyle(StrandPalette.textPrimary)
                     StatePill("v\(bundleVersionString)", tone: .neutral, showsDot: false)
+                    StatePill(bundleBuildString, tone: .neutral, showsDot: false)
                     Spacer()
                     NoopButton("What's new", systemImage: "sparkles", kind: .secondary) {
                         showWhatsNew = true
