@@ -52,8 +52,8 @@ jobs:
           DISPLAY=$(/usr/libexec/PlistBuddy -c 'Print CFBundleDisplayName' "$INFO")
           VERSION=$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' "$INFO")
           BUILD=$(/usr/libexec/PlistBuddy -c 'Print CFBundleVersion' "$INFO")
-          test "$BUNDLE" = "com.paceforge.noop" || { echo "Unexpected bundle id: $BUNDLE"; exit 1; }
-          test "$DISPLAY" = "NOOP PaceForge" || { echo "Unexpected app name: $DISPLAY"; exit 1; }
+          test "$BUNDLE" = "com.noopapp.noop" || { echo "Unexpected bundle id: $BUNDLE"; exit 1; }
+          test "$DISPLAY" = "NOOP" || { echo "Unexpected app name: $DISPLAY"; exit 1; }
 
           EXECUTABLE=$(/usr/libexec/PlistBuddy -c 'Print CFBundleExecutable' "$INFO")
           strings "$APP/$EXECUTABLE" > build/iphone-app-strings.txt
