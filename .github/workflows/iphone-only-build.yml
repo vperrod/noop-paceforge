@@ -57,7 +57,7 @@ jobs:
 
           EXECUTABLE=$(/usr/libexec/PlistBuddy -c 'Print CFBundleExecutable' "$INFO")
           strings "$APP/$EXECUTABLE" > build/iphone-app-strings.txt
-          rg -q 'noopVersionBuild' build/iphone-app-strings.txt || {
+          /usr/bin/grep -Fq 'noopVersionBuild' build/iphone-app-strings.txt || {
             echo "Settings version/build label missing from iPhone app"; exit 1;
           }
 
