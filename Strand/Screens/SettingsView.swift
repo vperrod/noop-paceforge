@@ -293,6 +293,13 @@ struct SettingsView: View {
 
                 // About stays expanded at the foot (version, links and the help sheets people return to).
                 aboutCard.staggeredAppear(index: 7)
+
+                Text("Version \(bundleVersionString) · Build \(bundleBuildString)")
+                    .font(StrandFont.caption)
+                    .foregroundStyle(StrandPalette.textTertiary)
+                    .frame(maxWidth: .infinity)
+                    .padding(.top, 4)
+                    .accessibilityIdentifier("noopVersionBuild")
             }
         }
         .alert(backupAlertTitle, isPresented: $showBackupAlert) {
@@ -2335,6 +2342,10 @@ struct SettingsView: View {
     /// Swift constant can. Mirrors how Android's pill reads BuildConfig.VERSION_NAME. Falls back to
     /// the hand-maintained changelog version only if the Info.plist key is somehow missing.
     private var bundleVersionString: String { UpdateWatch.installedVersion }
+
+    private var bundleBuildString: String {
+        Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "?"
+    }
 
     private var aboutCard: some View {
         SettingsSection(

@@ -213,6 +213,7 @@ jobs:
         run: |
           APP=$(find build/dd/Build/Products/Release-iphoneos -maxdepth 1 -name '*.app' -type d | head -1)
           test -n "$APP" || { echo ".app (iphoneos) not found"; exit 1; }
+          BUILD=$(/usr/libexec/PlistBuddy -c 'Print CFBundleVersion' "$APP/Info.plist")
           rm -rf "$APP/Watch"
           # Keep NOOPWidgets.appex. It renders both the Home/Lock-Screen widgets AND the Live Activity;
           # deleting PlugIns still lets ActivityKit create an activity, but iOS can only show an empty
@@ -225,7 +226,10 @@ jobs:
           Tools/prepare-ios-sideload-app.sh "$APP"
           rm -rf Payload && mkdir Payload && cp -R "$APP" Payload/
           zip -qr "NOOP-ios-unsigned-v${VER}.ipa" Payload
-          gh release upload "${{ needs.meta.outputs.tag }}" "NOOP-ios-unsigned-v${VER}.ipa" --repo "$GITHUB_REPOSITORY" --clobber
+          cp "NOOP-ios-unsigned-v${VER}.ipa" "NOOP-ios-unsigned-v${VER}-b${BUILD}.ipa"
+          gh release upload "${{ needs.meta.outputs.tag }}" \
+            "NOOP-ios-unsigned-v${VER}.ipa" "NOOP-ios-unsigned-v${VER}-b${BUILD}.ipa" \
+            --repo "$GITHUB_REPOSITORY" --clobber
 
   # Fork-only housekeeping: the disposable `noop-staging` branch exists ONLY to feed this build. Once every
   # platform job has finished (pass OR fail — always()), delete it so GitHub's "Compare & pull request"
