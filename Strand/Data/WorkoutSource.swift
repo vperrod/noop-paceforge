@@ -15,7 +15,7 @@ import StrandAnalytics   // WorkoutsTrace: the dedup-decision line formatter for
 /// Classification order matters: "-noop" is checked BEFORE "whoop" because the computed id
 /// "my-whoop-noop" also contains the substring "whoop".
 enum WorkoutSource: Equatable {
-    case whoop, apple, detected, manual, lifting, activityFile
+    case whoop, apple, paceforge, detected, manual, lifting, activityFile
 
     /// Canonical Apple Health source id written by new imports. The early rows used the underscore
     /// spelling, so reads must accept both — see `isAppleHealth`.
@@ -28,6 +28,7 @@ enum WorkoutSource: Equatable {
         if s == "manual" { return .manual }
         if s == "lifting" { return .lifting }          // imported Hevy / Liftosaur strength session
         if s == "activity-file" { return .activityFile } // imported GPX / TCX / FIT activity file
+        if s == "paceforge" { return .paceforge }
         if isAppleHealth(s) { return .apple }          // both spellings → Apple Health
         if s.contains("whoop") { return .whoop }
         return .apple
@@ -269,6 +270,7 @@ enum WorkoutSource: Equatable {
         switch classify(row.source) {
         case .whoop:        return "strap"
         case .apple:        return "apple"
+        case .paceforge:    return "paceforge"
         case .detected:     return "detected"
         case .manual:       return "manual"
         case .lifting:      return "lifting"
@@ -496,7 +498,7 @@ enum WorkoutMerge {
     static func isMergeable(_ row: WorkoutRow) -> Bool {
         switch WorkoutSource.classify(row.source) {
         case .manual, .detected: return true
-        case .whoop, .apple, .lifting, .activityFile: return false
+        case .whoop, .apple, .paceforge, .lifting, .activityFile: return false
         }
     }
 

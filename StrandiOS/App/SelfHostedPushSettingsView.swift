@@ -2,19 +2,20 @@
 import SwiftUI
 import StrandDesign
 
-/// Opt-in configuration for the existing one-way NOOP push protocol.
+/// Opt-in configuration for the NOOP ↔ PaceForge sync.
 struct SelfHostedPushSettingsView: View {
     @EnvironmentObject private var repo: Repository
     @AppStorage(SelfHostedPushClient.enabledKey) private var enabled = false
     @AppStorage(SelfHostedPushClient.endpointKey) private var endpoint = ""
     @AppStorage(SelfHostedPushClient.lastSuccessKey) private var lastSuccess = 0.0
+    @AppStorage(SelfHostedPushClient.lastActivityFetchKey) private var lastActivityFetch = 0.0
     @State private var token = ""
-    @State private var status = "Off. Nothing is sent until you enable this."
+    @State private var status = "Off. Nothing syncs until you enable this."
     @State private var busy = false
 
     var body: some View {
-        ScreenScaffold(title: "PaceForge push",
-                       subtitle: "Send your NOOP data directly to your PaceForge server.") {
+        ScreenScaffold(title: "PaceForge sync",
+                       subtitle: "Keep NOOP data and PaceForge activities in sync.") {
             StrandCard(padding: 20) {
                 VStack(alignment: .leading, spacing: 14) {
                     Toggle(isOn: $enabled) {
@@ -25,7 +26,7 @@ struct SelfHostedPushSettingsView: View {
                     .toggleStyle(.switch)
                     .tint(StrandPalette.accent)
                     .disabled(!enabled && !ready)
-                    Text("One-way: NOOP sends its supported health streams to the endpoint you enter. PaceForge never sends commands or settings back to NOOP. Uploads run separately from strap sync and retry when the app next runs.")
+                    Text("NOOP uploads its health data to PaceForge and fetches your recent Garmin activities into a separate PaceForge source. Sync runs when NOOP opens or finishes a strap sync, and you can also run it here.")
                         .font(StrandFont.caption)
                         .foregroundStyle(StrandPalette.textTertiary)
                         .fixedSize(horizontal: false, vertical: true)
@@ -52,7 +53,7 @@ struct SelfHostedPushSettingsView: View {
                             .disabled(busy)
                     }
                     HStack(spacing: 10) {
-                        Button("Send now") { sendNow() }
+                        Button("Sync now") { sendNow() }
                             .buttonStyle(.bordered)
                             .disabled(busy || !enabled)
                         Button("Forget token", role: .destructive) {
@@ -71,6 +72,12 @@ struct SelfHostedPushSettingsView: View {
                             .font(StrandFont.caption)
                             .foregroundStyle(StrandPalette.textTertiary)
                     }
+                    if lastActivityFetch > 0 {
+                        let last = lastActivityFetch
+                        Text("Last successful PaceForge activity fetch: \(Date(timeIntervalSince1970: last).formatted(date: .abbreviated, time: .shortened))")
+                            .font(StrandFont.caption)
+                            .foregroundStyle(StrandPalette.textTertiary)
+                    }
                 }
             }
         }
@@ -82,7 +89,7 @@ struct SelfHostedPushSettingsView: View {
             defer { busy = false }
             do {
                 let streams = try await SelfHostedPushClient.testConnection()
-                status = "Connected. PaceForge accepts \(streams.count) streams."
+                status = "Connected. \(streams.count) NOOP streams and PaceForge activities are available."
             } catch { status = error.localizedDescription }
         }
     }
@@ -96,10 +103,19 @@ struct SelfHostedPushSettingsView: View {
         busy = true
         Task {
             defer { busy = false }
-            do {
-                let count = try await SelfHostedPushClient.push(repo: repo)
-                status = count == 0 ? "Up to date." : "Accepted \(count) records."
-            } catch { status = error.localizedDescription }
+            var sent: Int?
+            var received: Int?
+            var failures: [String] = []
+            do { sent = try await SelfHostedPushClient.push(repo: repo) }
+            catch { failures.append("NOOP upload: \(error.localizedDescription)") }
+            do { received = try await SelfHostedPushClient.pullActivities(repo: repo) }
+            catch { failures.append("PaceForge activities: \(error.localizedDescription)") }
+            var outcomes: [String] = []
+            if let sent { outcomes.append("Sent \(sent) NOOP records") }
+            if let received { outcomes.append("received \(received) PaceForge activities") }
+            outcomes += failures
+            status = (failures.isEmpty ? "Sync complete. " : "Sync incomplete. ")
+                + outcomes.joined(separator: " · ")
         }
     }
 }

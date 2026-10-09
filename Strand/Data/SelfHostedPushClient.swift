@@ -3,13 +3,14 @@ import Foundation
 import Security
 import WhoopStore
 
-/// iOS sender for NOOP's existing, one-way self-hosted push protocol 1.0.
+/// iOS client for the self-hosted NOOP ↔ PaceForge sync.
 enum SelfHostedPushClient {
     static let enabledKey = "noop.selfHostedPush.enabled"
     static let endpointKey = "noop.selfHostedPush.endpoint"
     private static let sourceIdKey = "noop.selfHostedPush.sourceId"
     private static let receiverIdKey = "noop.selfHostedPush.receiverStateId"
     static let lastSuccessKey = "noop.selfHostedPush.lastSuccess"
+    static let lastActivityFetchKey = "noop.selfHostedPush.lastActivityFetch"
     private static let service = "com.noop.self-hosted-push"
     private static let account = "bearer-token"
     private static let version = "1.0"
@@ -44,14 +45,18 @@ enum SelfHostedPushClient {
     @MainActor
     static func testConnection() async throws -> [String] {
         let (endpoint, token) = try configuration()
-        return try await discover(endpoint: endpoint, token: token).streams
+        let streams = try await discover(endpoint: endpoint, token: token).streams
+        _ = try await fetchPaceForgeActivities(endpoint: activitiesEndpoint(from: endpoint), token: token)
+        return streams
     }
 
     @MainActor
     static func pushIfEnabled(repo: Repository) async {
         guard UserDefaults.standard.bool(forKey: enabledKey) else { return }
         do { _ = try await push(repo: repo) }
-        catch { NSLog("NOOP self-hosted push deferred: %@", error.localizedDescription) }
+        catch { NSLog("NOOP self-hosted upload deferred: %@", error.localizedDescription) }
+        do { _ = try await pullActivities(repo: repo) }
+        catch { NSLog("NOOP PaceForge activity fetch deferred: %@", error.localizedDescription) }
     }
 
     @MainActor
@@ -84,6 +89,75 @@ enum SelfHostedPushClient {
         }
         UserDefaults.standard.set(Date().timeIntervalSince1970, forKey: lastSuccessKey)
         return accepted
+    }
+
+    /// Fetch PaceForge's recent Garmin activities into NOOP's separate `paceforge` source.
+    /// Upserts use the workout's start time and sport, so repeating a foreground sync is safe.
+    @MainActor
+    @discardableResult
+    static func pullActivities(repo: Repository) async throws -> Int {
+        let (endpoint, token) = try configuration()
+        let response = try await fetchPaceForgeActivities(
+            endpoint: activitiesEndpoint(from: endpoint), token: token)
+        guard let store = await repo.storeHandle() else {
+            throw Failure.configuration("NOOP's local database is unavailable.")
+        }
+        let rows = try response.map { item -> WorkoutRow in
+            guard let start = item["startTs"] as? Int,
+                  let end = item["endTs"] as? Int,
+                  end >= start,
+                  let sport = item["sport"] as? String, !sport.isEmpty,
+                  let identifier = item["id"] as? String else {
+                throw Failure.receiver("PaceForge returned an invalid activity record.")
+            }
+            let duration = item["durationS"] as? Double ?? Double(end - start)
+            let distance = item["distanceM"] as? Double
+            let energy = item["energyKcal"] as? Double
+            let avgHr = item["avgHr"] as? Int
+            let maxHr = item["maxHr"] as? Int
+            let name = item["name"] as? String ?? sport
+            let power = item["avgPower"] as? Double
+            let aerobicEffect = item["aerobicEffect"] as? Double
+            let powerNote = power.map { " · \(Int($0.rounded())) W avg" } ?? ""
+            let effectNote = aerobicEffect.map { " · Garmin aerobic effect \(String(format: "%.1f", $0))" } ?? ""
+            let notes = "PaceForge #\(identifier): \(name)" + powerNote + effectNote
+            return WorkoutRow(startTs: start, endTs: end, sport: sport, source: "paceforge",
+                              durationS: duration, energyKcal: energy, avgHr: avgHr, maxHr: maxHr,
+                              strain: nil, distanceM: distance, zonesJSON: nil, notes: notes, steps: nil)
+        }
+        let imported = try await store.upsertWorkouts(rows, deviceId: "paceforge")
+        if !rows.isEmpty { await repo.refresh() }
+        UserDefaults.standard.set(Date().timeIntervalSince1970, forKey: lastActivityFetchKey)
+        return imported
+    }
+
+    private static func fetchPaceForgeActivities(endpoint: URL, token: String) async throws -> [[String: Any]] {
+        var request = URLRequest(url: endpoint, timeoutInterval: 30)
+        request.httpMethod = "GET"
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        let session = noRedirectSession()
+        defer { session.finishTasksAndInvalidate() }
+        let (data, response) = try await session.data(for: request)
+        guard let http = response as? HTTPURLResponse, http.statusCode == 200,
+              data.count <= 2 * 1024 * 1024,
+              let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+              json["type"] as? String == "paceforge_activities",
+              json["version"] as? String == "1",
+              let activities = json["activities"] as? [[String: Any]], activities.count <= 500 else {
+            throw Failure.receiver("PaceForge did not return a valid activity list.")
+        }
+        return activities
+    }
+
+    private static func activitiesEndpoint(from endpoint: URL) -> URL {
+        guard var components = URLComponents(url: endpoint, resolvingAgainstBaseURL: false) else {
+            return endpoint
+        }
+        if components.path.hasSuffix("/push") {
+            components.path = String(components.path.dropLast("push".count)) + "activities"
+        }
+        return components.url ?? endpoint
     }
 
     private static func pushAppend(stream: String, endpoint: URL, token: String, sourceId: String,
@@ -140,7 +214,7 @@ enum SelfHostedPushClient {
                                     deviceId: String, store: WhoopStore) async throws -> Int {
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: Date())
-        guard let from = calendar.date(byAdding: .day, value: -13, to: today),
+        guard let from = calendar.date(byAdding: .day, value: -89, to: today),
               let tomorrow = calendar.date(byAdding: .day, value: 1, to: today) else { return 0 }
         let startDay = SelfHostedPushRegistry.day(from)
         let endDay = SelfHostedPushRegistry.day(tomorrow)
@@ -276,7 +350,7 @@ enum SelfHostedPushClient {
               ["https"].contains(url.scheme?.lowercased() ?? ""), url.host != nil,
               url.user == nil, url.password == nil, url.fragment == nil,
               let token = loadToken(), !token.isEmpty else {
-            throw Failure.configuration("Enter a PaceForge HTTPS endpoint and bearer token in Self-hosted push settings.")
+            throw Failure.configuration("Enter a PaceForge HTTPS endpoint and bearer token in PaceForge sync settings.")
         }
         return (url, token)
     }

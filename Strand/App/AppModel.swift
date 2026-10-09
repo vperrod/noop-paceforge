@@ -702,7 +702,7 @@ final class AppModel: ObservableObject {
     /// A closure rather than a direct reference because `HealthKitBridge` owns iOS-only HealthKit state
     /// while this type is shared with macOS, and the bridge is a `@StateObject` the app scene owns.
     var healthWriteBack: (() async -> Void)?
-    /// One-way NOOP → user-owned PaceForge transfer; implementation is installed only by iOS.
+    /// User-owned NOOP ↔ PaceForge transfer; implementation is installed only by iOS.
     var selfHostedPush: (() async -> Void)?
     #endif
 

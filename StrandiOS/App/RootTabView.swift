@@ -492,7 +492,7 @@ struct RootTabView: View {
                     // #155: HealthKit-free Apple Health path for sideloaded installs (Siri Shortcut
                     // reads the opt-in Documents/noop_sync.txt drop file).
                     MoreRow("Shortcuts Export", "square.and.arrow.up.fill", .shortcutsExport)
-                    MoreRow("PaceForge push", "arrow.up.forward.circle.fill", .selfHostedPush)
+                    MoreRow("PaceForge sync", "arrow.left.arrow.right.circle.fill", .selfHostedPush)
                     // The plain 4.0 vs 5.0/MG capability grid — what NOOP reads live off each strap.
                     MoreRow("NOOP Limitations", "list.bullet.rectangle", .noopLimitations)
                 }

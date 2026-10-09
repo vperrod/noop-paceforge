@@ -296,7 +296,7 @@ final class Repository: ObservableObject {
     /// disagree, and a future namespace added to the read alone would reintroduce exactly this bug.
     nonisolated static func workoutNamespaces(rawIds: [String]) -> [String] {
         deletableWorkoutNamespaces(rawIds: rawIds)
-            + [WorkoutSource.appleHealthSource, "lifting", "activity-file"]
+            + [WorkoutSource.appleHealthSource, "lifting", "activity-file", "paceforge"]
     }
 
     /// The subset of [workoutNamespaces] a DELETE may touch: the strap namespaces only.
@@ -3140,7 +3140,7 @@ final class Repository: ObservableObject {
             switch WorkoutSource.classify(r.source) {
             case .detected: await dismissDetected(r)
             case .manual:   await deleteWorkout(r)
-            case .whoop, .apple, .lifting, .activityFile:
+            case .whoop, .apple, .paceforge, .lifting, .activityFile:
                 // Defensive: canMerge already excludes imported rows; never rewrite imported history.
                 continue
             }
@@ -3165,7 +3165,7 @@ final class Repository: ObservableObject {
             switch WorkoutSource.classify(r.source) {
             case .detected: await dismissDetected(r)
             case .manual:   await deleteWorkout(r)
-            case .whoop, .apple, .lifting, .activityFile: continue
+            case .whoop, .apple, .paceforge, .lifting, .activityFile: continue
             }
         }
     }
