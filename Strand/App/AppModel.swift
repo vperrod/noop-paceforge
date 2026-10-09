@@ -204,6 +204,8 @@ final class AppModel: ObservableObject {
     @Published var whoopImportSummary: String?
     /// Last Apple Health import result surfaced in the Apple Health card.
     @Published var appleHealthImportSummary: String?
+    /// Present the completion result once so a large import's outcome cannot be missed below the card.
+    @Published var appleHealthImportResultPresented = false
     /// Last Xiaomi / Mi Band import result surfaced in the Mi Band card.
     @Published var xiaomiImportSummary: String?
     /// Typed failure flags per source , the summary's warning styling reads these instead of
@@ -2684,6 +2686,7 @@ final class AppModel: ObservableObject {
         case .appleHealth:
             appleHealthImportSummary = nil
             appleHealthImportFailed = false
+            appleHealthImportResultPresented = false
         case .xiaomi:
             xiaomiImportSummary = nil
             xiaomiImportFailed = false
@@ -2699,6 +2702,7 @@ final class AppModel: ObservableObject {
         case .appleHealth:
             appleHealthImportSummary = summary
             appleHealthImportFailed = failed
+            appleHealthImportResultPresented = true
         case .xiaomi:
             xiaomiImportSummary = summary
             xiaomiImportFailed = failed

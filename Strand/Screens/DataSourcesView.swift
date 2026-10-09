@@ -198,6 +198,11 @@ struct DataSourcesView: View {
                     .foregroundStyle(StrandPalette.statusPositive)
             }
         }
+        .alert("Apple Health import", isPresented: $model.appleHealthImportResultPresented) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(model.appleHealthImportSummary ?? "The import finished without a result.")
+        }
     }
 
     private var xiaomiCard: some View {
