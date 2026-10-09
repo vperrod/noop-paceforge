@@ -113,9 +113,21 @@ private enum SelfHostedPushRegistry {
     static let maxMaterializedBytes: Int64 = 48 * 1024 * 1024
     struct Spec {
         let keys: [String]
+        /// Columns that exist on this platform's database and are read from SQLite.
         let fields: [String]
         let selector: String?
         let booleans: Set<String>
+        /// Protocol fields absent from this platform's schema are emitted as JSON null.
+        let nullFields: Set<String>
+
+        init(keys: [String], fields: [String], selector: String?, booleans: Set<String>,
+             nullFields: Set<String> = []) {
+            self.keys = keys
+            self.fields = fields
+            self.selector = selector
+            self.booleans = booleans
+            self.nullFields = nullFields
+        }
     }
 
     static let append: [String: Spec] = [
@@ -131,14 +143,17 @@ private enum SelfHostedPushRegistry {
     static let mutable: [String: Spec] = [
         "dailyMetric": Spec(keys: ["day"], fields: ["totalSleepMin", "efficiency", "deepMin", "remMin", "lightMin", "disturbances", "restingHr", "avgHrv", "recovery", "strain", "exerciseCount", "spo2Pct", "skinTempDevC", "respRateBpm", "steps", "activeKcalEst", "spo2Red", "spo2Ir"], selector: "day", booleans: []),
         "sleepSession": Spec(keys: ["startTs"], fields: ["endTs", "efficiency", "restingHr", "avgHrv", "stagesJSON", "userEdited", "startTsAdjusted", "motionJSON", "sleepStateJSON", "stagingSparse"], selector: "startTs", booleans: ["userEdited", "stagingSparse"]),
-        "workout": Spec(keys: ["startTs", "sport"], fields: ["endTs", "source", "durationS", "energyKcal", "avgHr", "maxHr", "strain", "distanceM", "zonesJSON", "notes", "routePolyline", "steps"], selector: "startTs", booleans: []),
+        // routePolyline is Android-only (see schema_oracle.json). Keep the shared protocol shape while
+        // avoiding a SELECT of a column that is not present in the iOS/macOS GRDB workout table.
+        "workout": Spec(keys: ["startTs", "sport"], fields: ["endTs", "source", "durationS", "energyKcal", "avgHr", "maxHr", "strain", "distanceM", "zonesJSON", "notes", "steps"], selector: "startTs", booleans: [], nullFields: ["routePolyline"]),
         "journal": Spec(keys: ["day", "question"], fields: ["answeredYes", "notes", "numericValue"], selector: "day", booleans: ["answeredYes"]),
     ]
 
     static func makeRow(_ row: Row, spec: Spec, deviceId: String, stream: String,
                         append: Bool) throws -> SelfHostedPushRow {
         let key = try object(row, columns: spec.keys, booleans: spec.booleans)
-        let data = try object(row, columns: spec.fields, booleans: spec.booleans)
+        var data = try object(row, columns: spec.fields, booleans: spec.booleans)
+        for column in spec.nullFields { data[column] = NSNull() }
         let keyJSON = try canonical(key)
         let dataJSON = try canonical(data)
         let orderedKey = try orderedObject(key, columns: spec.keys)
