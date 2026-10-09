@@ -1,0 +1,61 @@
+workflows:
+  paceforge-noop-iphone:
+    name: NOOP PaceForge — iPhone IPA
+    instance_type: mac_mini_m2
+    max_build_duration: 30
+    environment:
+      xcode: latest
+    scripts:
+      - name: Generate iPhone Xcode project
+        script: |
+          set -euo pipefail
+          cd "$CM_BUILD_DIR"
+          brew install xcodegen
+          xcodegen generate
+      - name: Build iPhone app
+        script: |
+          set -euo pipefail
+          cd "$CM_BUILD_DIR"
+          mkdir -p build
+          xcodebuild -project Strand.xcodeproj -scheme NOOPiOS \
+            -configuration Release -destination 'generic/platform=iOS' \
+            -derivedDataPath build/derived \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY='' \
+            build > build/iphone-build.log 2>&1 || {
+              tail -n 120 build/iphone-build.log
+              exit 1
+            }
+      - name: Verify fork identity and package iPhone IPA
+        script: |
+          set -euo pipefail
+          cd "$CM_BUILD_DIR"
+          APP="$CM_BUILD_DIR/build/derived/Build/Products/Release-iphoneos/NOOP.app"
+          export APP
+          python3 - <<'PY'
+          import json, os, pathlib, plistlib, subprocess
+          app = pathlib.Path(os.environ['APP'])
+          info = plistlib.loads((app / 'Info.plist').read_bytes())
+          assert info['CFBundleIdentifier'] == 'com.paceforge.noop', info
+          assert info['CFBundleDisplayName'] == 'NOOP PaceForge', info
+          assert (app / 'PlugIns/NOOPWidgets.appex').is_dir()
+          assert not (app / 'Watch').exists(), 'Unexpected Watch app'
+          binary = (app / info['CFBundleExecutable']).read_bytes()
+          assert b'noopVersionBuild' in binary, 'Settings version footer missing'
+          identity = {key: info[key] for key in (
+              'CFBundleIdentifier', 'CFBundleDisplayName',
+              'CFBundleShortVersionString', 'CFBundleVersion')}
+          identity['commit'] = subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()
+          pathlib.Path('build/iphone-build-identity.json').write_text(json.dumps(identity, indent=2))
+          print(json.dumps(identity, indent=2))
+          PY
+          Tools/prepare-ios-sideload-app.sh "$APP"
+          mkdir -p build/ipa/Payload
+          cp -R "$APP" build/ipa/Payload/NOOP.app
+          VERSION=$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' "$APP/Info.plist")
+          BUILD_NUMBER=$(/usr/libexec/PlistBuddy -c 'Print CFBundleVersion' "$APP/Info.plist")
+          cd build/ipa
+          zip -qry "../NOOP-PaceForge-${VERSION}-b${BUILD_NUMBER}.ipa" Payload
+    artifacts:
+      - build/NOOP-PaceForge-*.ipa
+      - build/iphone-build-identity.json
+      - build/iphone-build.log
