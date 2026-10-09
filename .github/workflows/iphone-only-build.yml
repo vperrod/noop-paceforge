@@ -1,0 +1,81 @@
+name: NOOP iPhone IPA (PaceForge)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: noop-iphone-ipa
+  cancel-in-progress: false
+
+jobs:
+  build-iphone-ipa:
+    name: Build iPhone IPA only
+    runs-on: macos-26
+    timeout-minutes: 40
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v5
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        run: xcodegen generate
+
+      - name: Build iPhone app
+        run: >-
+          xcodebuild -scheme NOOPiOS -configuration Release
+          -destination 'generic/platform=iOS'
+          -derivedDataPath build/derived
+          CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY=""
+          build
+
+      - name: Verify, package, and publish the iPhone IPA
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          APP="build/derived/Build/Products/Release-iphoneos/NOOP.app"
+          test -d "$APP" || { echo "Built NOOP.app was not found"; exit 1; }
+          test -d "$APP/PlugIns/NOOPWidgets.appex" || {
+            echo "NOOPWidgets.appex missing from iPhone build"; exit 1;
+          }
+          if [ -d "$APP/Watch" ]; then
+            echo "Unexpected Watch app in iPhone-only package"; exit 1
+          fi
+
+          INFO="$APP/Info.plist"
+          BUNDLE=$(/usr/libexec/PlistBuddy -c 'Print CFBundleIdentifier' "$INFO")
+          DISPLAY=$(/usr/libexec/PlistBuddy -c 'Print CFBundleDisplayName' "$INFO")
+          VERSION=$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' "$INFO")
+          BUILD=$(/usr/libexec/PlistBuddy -c 'Print CFBundleVersion' "$INFO")
+          test "$BUNDLE" = "com.paceforge.noop" || { echo "Unexpected bundle id: $BUNDLE"; exit 1; }
+          test "$DISPLAY" = "NOOP PaceForge" || { echo "Unexpected app name: $DISPLAY"; exit 1; }
+
+          EXECUTABLE=$(/usr/libexec/PlistBuddy -c 'Print CFBundleExecutable' "$INFO")
+          strings "$APP/$EXECUTABLE" > build/iphone-app-strings.txt
+          rg -q 'noopVersionBuild' build/iphone-app-strings.txt || {
+            echo "Settings version/build label missing from iPhone app"; exit 1;
+          }
+
+          Tools/prepare-ios-sideload-app.sh "$APP"
+          mkdir -p build/ipa/Payload
+          cp -R "$APP" build/ipa/Payload/NOOP.app
+          IPA="$GITHUB_WORKSPACE/NOOP-PaceForge-v${VERSION}-b${BUILD}.ipa"
+          (cd build/ipa && zip -qry "$IPA" Payload)
+          unzip -t "$IPA"
+
+          TAG="noop-ios-v${VERSION}-b${BUILD}"
+          TITLE="NOOP PaceForge iPhone v${VERSION} build ${BUILD}"
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$IPA" --repo "$GITHUB_REPOSITORY" --clobber
+          else
+            gh release create "$TAG" "$IPA" --repo "$GITHUB_REPOSITORY" \
+              --title "$TITLE" \
+              --notes "Unsigned iPhone IPA. Bundle: $BUNDLE; version: $VERSION; build: $BUILD."
+          fi
+
+          echo "Published $IPA"
