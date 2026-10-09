@@ -206,6 +206,8 @@ final class AppModel: ObservableObject {
     @Published var appleHealthImportSummary: String?
     /// Present the completion result once so a large import's outcome cannot be missed below the card.
     @Published var appleHealthImportResultPresented = false
+    /// Current Apple Health import phase and parsed-record count, displayed while the import runs.
+    @Published var appleHealthImportProgress: String?
     /// Last Xiaomi / Mi Band import result surfaced in the Mi Band card.
     @Published var xiaomiImportSummary: String?
     /// Typed failure flags per source , the summary's warning styling reads these instead of
@@ -2519,6 +2521,7 @@ final class AppModel: ObservableObject {
 
     func importAppleHealth(url: URL) {
         beginImport(.appleHealth)
+        appleHealthImportProgress = "Preparing Apple Health export…"
         // FIX 2(c): run the parse+writes at `.utility` so a large Apple Health import yields to UI
         // rendering instead of inheriting the user-initiated QoS of the calling tap , the import's bulk
         // work was contending with the main actor and contributing to the transient post-import lag.
@@ -2533,8 +2536,16 @@ final class AppModel: ObservableObject {
                 let local = try await Self.materializeForImport(url)
                 defer { local.cleanup() }
                 emitImportFileMeta(kind: .appleHealth, url: local.url)
+                self.appleHealthImportProgress = "Reading Apple Health records…"
+                let progress: @Sendable (Int) -> Void = { [weak self] count in
+                    Task { @MainActor in
+                        guard let self, self.isImporting(.appleHealth) else { return }
+                        self.appleHealthImportProgress = "Read \(count.formatted()) Apple Health records…"
+                    }
+                }
                 let summary = try await AppleHealthImport.importExport(url: local.url, into: store,
-                                                                       deviceId: appleDeviceId, trace: importTraceSink())
+                                                                       deviceId: appleDeviceId, trace: importTraceSink(),
+                                                                       progress: progress)
                 try? await store.checkpointWAL()   // reclaim the WAL a bulk import grew (#590)
                 await repo.refresh()
                 // #833/v7.7.2: an Apple Health import may write ONLY body-composition series (weight/body_fat/
@@ -2687,6 +2698,7 @@ final class AppModel: ObservableObject {
             appleHealthImportSummary = nil
             appleHealthImportFailed = false
             appleHealthImportResultPresented = false
+            appleHealthImportProgress = nil
         case .xiaomi:
             xiaomiImportSummary = nil
             xiaomiImportFailed = false
@@ -2703,6 +2715,7 @@ final class AppModel: ObservableObject {
             appleHealthImportSummary = summary
             appleHealthImportFailed = failed
             appleHealthImportResultPresented = true
+            appleHealthImportProgress = nil
         case .xiaomi:
             xiaomiImportSummary = summary
             xiaomiImportFailed = failed

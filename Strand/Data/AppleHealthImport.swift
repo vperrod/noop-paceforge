@@ -28,13 +28,15 @@ enum AppleHealthImport {
 
     @discardableResult
     static func importExport(url: URL, into store: WhoopStore, deviceId: String,
-                             trace: (@Sendable ([String]) -> Void)? = nil) async throws -> ImportSummary {
+                             trace: (@Sendable ([String]) -> Void)? = nil,
+                             progress: (@Sendable (Int) -> Void)? = nil) async throws -> ImportSummary {
         // Parsing and aggregation are CPU-heavy, especially for multi-year exports. This method is
         // called from the UI model; doing either step inline inherits its actor and freezes the UI
         // until the full XML file has been parsed. Keep the bounded-memory streaming parser, but run
         // the complete parse + fold on a utility executor so the import status remains responsive.
         let (result, daily) = try await Task.detached(priority: .utility) {
-            let result = try ImportCoordinator().importAppleHealth(from: url, retainRawSamples: false)
+            let result = try ImportCoordinator().importAppleHealth(from: url, retainRawSamples: false,
+                                                                    progress: progress)
             let daily = AppleHealthAggregator.aggregate(result)
             return (result, daily)
         }.value

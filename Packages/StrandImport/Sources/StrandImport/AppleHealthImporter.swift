@@ -30,9 +30,11 @@ public struct AppleHealthImporter {
     /// peak memory bounded (issue #355). The per-day `sampleDailies` are always
     /// produced regardless of this flag.
     public let retainRawSamples: Bool
+    private let progress: (@Sendable (Int) -> Void)?
 
-    public init(retainRawSamples: Bool = true) {
+    public init(retainRawSamples: Bool = true, progress: (@Sendable (Int) -> Void)? = nil) {
         self.retainRawSamples = retainRawSamples
+        self.progress = progress
     }
 
     /// Health types Strand cares about (prefix already stripped).
@@ -174,7 +176,7 @@ public struct AppleHealthImporter {
         _ parser: XMLParser,
         sanitizer: SanitizingInputStream? = nil
     ) throws -> AppleHealthImportResult {
-        let delegate = HealthXMLDelegate(retainRawSamples: retainRawSamples)
+        let delegate = HealthXMLDelegate(retainRawSamples: retainRawSamples, progress: progress)
         parser.delegate = delegate
         parser.shouldProcessNamespaces = false
         let ok = parser.parse()
@@ -246,9 +248,11 @@ final class HealthXMLDelegate: NSObject, XMLParserDelegate {
     /// bounded memory budget (issue #355). `true` keeps the raw array for
     /// callers/tests that need it.
     let retainRawSamples: Bool
+    private let progress: (@Sendable (Int) -> Void)?
 
-    init(retainRawSamples: Bool = true) {
+    init(retainRawSamples: Bool = true, progress: (@Sendable (Int) -> Void)? = nil) {
         self.retainRawSamples = retainRawSamples
+        self.progress = progress
         super.init()
     }
 
@@ -276,6 +280,7 @@ final class HealthXMLDelegate: NSObject, XMLParserDelegate {
     /// Count of distinct (post-dedupe) samples folded in — the `samples.count`
     /// equivalent for the summary's recordCount when raw samples were dropped.
     private var sampleCount = 0
+    private var lastProgressCount = 0
 
     // Element nesting stack (just the element names).
     private var stack: [String] = []
@@ -489,6 +494,10 @@ final class HealthXMLDelegate: NSObject, XMLParserDelegate {
             dailyAcc.add(sample)
             anyRecordSeen = true
             sampleCount += 1
+            if sampleCount - lastProgressCount >= 50_000 {
+                lastProgressCount = sampleCount
+                progress?(sampleCount)
+            }
             // Track the date span incrementally so makeResult never needs the
             // (possibly empty) raw `samples` array. Matches the prior summary,
             // which spanned sample/workout/sleep `start` dates.

@@ -174,6 +174,10 @@ struct DataSourcesView: View {
                 .disabled(model.hasActiveImport || nutritionImporting || liftingImporting || activityFileImporting || appleHealthDeleting)
                 if importingAppleHealth { ProgressView().controlSize(.small) }
             }
+            if importingAppleHealth, let progress = model.appleHealthImportProgress {
+                Text(progress).font(StrandFont.caption)
+                    .foregroundStyle(StrandPalette.textSecondary)
+            }
             if let s = model.appleHealthImportSummary {
                 Text(s).font(StrandFont.subhead)
                     .foregroundStyle(model.appleHealthImportFailed ? StrandPalette.statusWarning : StrandPalette.statusPositive)
