@@ -1,4 +1,4 @@
-name: PaceForge iPhone IPA
+name: NOOP iPhone IPA
 
 on:
   workflow_dispatch:
@@ -54,10 +54,9 @@ jobs:
           VERSION=$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' "$INFO")
           BUILD=$(/usr/libexec/PlistBuddy -c 'Print CFBundleVersion' "$INFO")
           test "$BUNDLE" = "com.paceforge.noop" || { echo "Unexpected bundle id: $BUNDLE"; exit 1; }
-          /usr/libexec/PlistBuddy -c 'Set :CFBundleDisplayName PaceForge' "$INFO"
-          /usr/libexec/PlistBuddy -c 'Set :CFBundleName PaceForge' "$INFO"
-          DISPLAY=$(/usr/libexec/PlistBuddy -c 'Print CFBundleDisplayName' "$INFO")
-          test "$DISPLAY" = "PaceForge" || { echo "Unexpected app name: $DISPLAY"; exit 1; }
+          test "$DISPLAY" = "NOOP" || { echo "Unexpected app name: $DISPLAY"; exit 1; }
+          NAME=$(/usr/libexec/PlistBuddy -c 'Print CFBundleName' "$INFO")
+          test "$NAME" = "NOOP" || { echo "Unexpected bundle name: $NAME"; exit 1; }
 
           EXECUTABLE=$(/usr/libexec/PlistBuddy -c 'Print CFBundleExecutable' "$INFO")
           strings "$APP/$EXECUTABLE" > build/iphone-app-strings.txt
@@ -68,18 +67,18 @@ jobs:
           Tools/prepare-ios-sideload-app.sh "$APP"
           mkdir -p build/ipa/Payload
           cp -R "$APP" build/ipa/Payload/NOOP.app
-          IPA="$GITHUB_WORKSPACE/PaceForge-v${VERSION}-b${BUILD}.ipa"
+          IPA="$GITHUB_WORKSPACE/NOOP-v${VERSION}-b${BUILD}.ipa"
           (cd build/ipa && zip -qry "$IPA" Payload)
           unzip -t "$IPA"
 
-          TAG="paceforge-ios-v${VERSION}-b${BUILD}"
-          TITLE="PaceForge iPhone v${VERSION} build ${BUILD}"
+          TAG="noop-ios-v${VERSION}-b${BUILD}"
+          TITLE="NOOP iPhone v${VERSION} build ${BUILD}"
           if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             gh release upload "$TAG" "$IPA" --repo "$GITHUB_REPOSITORY" --clobber
           else
             gh release create "$TAG" "$IPA" --repo "$GITHUB_REPOSITORY" \
               --title "$TITLE" \
-              --notes "Unsigned iPhone-only PaceForge IPA. Bundle: $BUNDLE; version: $VERSION; build: $BUILD. Installs beside NOOP; import a .noopbak backup to move history."
+              --notes "Unsigned iPhone-only NOOP IPA with optional PaceForge integration. Bundle: $BUNDLE; version: $VERSION; build: $BUILD. Updates the existing NOOP app in place."
           fi
 
           echo "Published $IPA"
