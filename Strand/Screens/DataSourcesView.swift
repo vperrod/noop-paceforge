@@ -125,20 +125,11 @@ struct DataSourcesView: View {
             handleImportResult(result, for: importTarget)
         }
         // ah-delete (#616): strongly-worded confirm before purging the Apple Health source.
-        .confirmationDialog("Remove Apple Health imported data?", isPresented: $confirmDeleteAppleHealth,
-                           titleVisibility: .visible) {
-            Button("Remove", role: .destructive) { deleteAppleHealthData() }
+        .alert("Remove Apple Health imported data?", isPresented: $confirmDeleteAppleHealth) {
             Button("Cancel", role: .cancel) { }
+            Button("Remove", role: .destructive) { deleteAppleHealthData() }
         } message: {
             Text("This permanently deletes everything imported from Apple Health: heart rate, HRV, sleep, steps, workouts and more. Your live strap data is untouched. This can't be undone.")
-        }
-        // Keep completion presentation at the screen root. The import starts from a document picker;
-        // presenting its result alert from a nested LazyVStack card can be dropped when the picker
-        // dismisses or the card is recreated. The inline summary remains visible on the card as well.
-        .alert("Apple Health import", isPresented: $model.appleHealthImportResultPresented) {
-            Button("OK", role: .cancel) { }
-        } message: {
-            Text(model.appleHealthImportSummary ?? "The import finished without a result.")
         }
     }
 
@@ -210,6 +201,11 @@ struct DataSourcesView: View {
                 Text(s).font(StrandFont.subhead)
                     .foregroundStyle(StrandPalette.statusPositive)
             }
+        }
+        .alert("Apple Health import", isPresented: $model.appleHealthImportResultPresented) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(model.appleHealthImportSummary ?? "The import finished without a result.")
         }
     }
 
