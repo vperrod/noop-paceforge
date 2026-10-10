@@ -182,13 +182,13 @@ enum SelfHostedPushClient {
             guard steps != nil || spo2 != nil || restingHr != nil || avgHrv != nil || sleepSeconds != nil else {
                 throw Failure.receiver("PaceForge returned an empty Garmin metric record.")
             }
-            return DailyMetric(day: day, totalSleepMin: sleepSeconds.map { Int(($0 / 60).rounded()) },
+            return DailyMetric(day: day, totalSleepMin: sleepSeconds.map { ($0 / 60).rounded() },
                                efficiency: nil,
-                               deepMin: deepSeconds.map { Int(($0 / 60).rounded()) },
-                               remMin: remSeconds.map { Int(($0 / 60).rounded()) },
-                               lightMin: lightSeconds.map { Int(($0 / 60).rounded()) },
+                               deepMin: deepSeconds.map { ($0 / 60).rounded() },
+                               remMin: remSeconds.map { ($0 / 60).rounded() },
+                               lightMin: lightSeconds.map { ($0 / 60).rounded() },
                                disturbances: nil, restingHr: restingHr,
-                               avgHrv: avgHrv.map { Int($0.rounded()) }, recovery: nil, strain: nil, exerciseCount: nil,
+                               avgHrv: avgHrv, recovery: nil, strain: nil, exerciseCount: nil,
                                spo2Pct: spo2, steps: steps)
         }
         _ = try await store.upsertDailyMetrics(rows, deviceId: "paceforge-garmin")
