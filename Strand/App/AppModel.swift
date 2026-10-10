@@ -2609,6 +2609,11 @@ final class AppModel: ObservableObject {
                 } else {
                     finishImport(.appleHealth, summary: result + ".")
                 }
+                #if os(iOS)
+                // A completed file import is new local data too. Send it through the user's
+                // already-enabled NOOP ↔ PaceForge sync instead of waiting for a strap offload.
+                await selfHostedPush?()
+                #endif
             } catch {
                 finishImport(.appleHealth, summary: "Import failed: \(error)", failed: true)
             }

@@ -2,6 +2,17 @@ import Foundation
 import WhoopStore
 import StrandImport
 
+private enum AppleHealthImportFailure: LocalizedError {
+    case noSupportedRecords
+
+    var errorDescription: String? {
+        switch self {
+        case .noSupportedRecords:
+            return "This file contained no Apple Health records NOOP can import. Choose export.zip from Health → your profile → Export All Health Data."
+        }
+    }
+}
+
 /// Maps a parsed + aggregated Apple Health export into the on-device store under its own
 /// source id ("apple-health"), so it sits BESIDE Whoop for the per-source pages and cross-source
 /// consensus. Populates appleDaily, dailyMetric, the generic metricSeries, and workouts.
@@ -40,6 +51,9 @@ enum AppleHealthImport {
                                                                     progress: progress, phase: phase)
             phase?("Organizing Apple Health readings…")
             let daily = AppleHealthAggregator.aggregate(result)
+            guard !daily.isEmpty || !result.workouts.isEmpty else {
+                throw AppleHealthImportFailure.noSupportedRecords
+            }
             return (result, daily)
         }.value
 
