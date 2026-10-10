@@ -192,7 +192,7 @@ public actor WhoopStore {
                 ? Double(state.totalPageCount - state.remainingPageCount) / Double(state.totalPageCount)
                 : 1)
         }
-        try destination.writeWithoutTransaction { db in
+        try await destination.writeWithoutTransaction { db in
             try db.execute(sql: "PRAGMA wal_checkpoint(TRUNCATE)")
         }
     }
