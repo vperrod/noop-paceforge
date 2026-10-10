@@ -251,12 +251,14 @@ enum SelfHostedPushClient {
         var offset = 0
         var expectedTotal: Int?
         repeat {
-            var components = URLComponents(url: endpoint, resolvingAgainstBaseURL: false)
-            components?.queryItems = (components?.queryItems ?? []) + [
+            guard var components = URLComponents(url: endpoint, resolvingAgainstBaseURL: false) else {
+                throw Failure.configuration("Invalid PaceForge activities URL.")
+            }
+            components.queryItems = (components.queryItems ?? []) + [
                 URLQueryItem(name: "offset", value: String(offset)),
                 URLQueryItem(name: "limit", value: "20"),
             ]
-            guard let url = components?.url else { throw Failure.configuration("Invalid PaceForge activities URL.") }
+            guard let url = components.url else { throw Failure.configuration("Invalid PaceForge activities URL.") }
             var request = URLRequest(url: url, timeoutInterval: 60)
             request.httpMethod = "GET"
             request.setValue("application/json", forHTTPHeaderField: "Accept")
