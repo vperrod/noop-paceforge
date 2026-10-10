@@ -1,7 +1,6 @@
 #if os(iOS)
 import SwiftUI
 import StrandDesign
-import WhoopStore
 
 /// Opt-in configuration for the NOOP ↔ PaceForge sync.
 struct SelfHostedPushSettingsView: View {
@@ -15,8 +14,6 @@ struct SelfHostedPushSettingsView: View {
     @State private var busy = false
     @State private var dataSummary = "Checking data stored on this iPhone…"
     @State private var dataRows: [SyncedDataRow] = []
-    @State private var appleHealthInventory: AppleHealthDataInventory?
-    @State private var appleHealthInventoryError: String?
 
     private struct SyncedDataRow: Identifiable {
         let id: String
@@ -113,61 +110,10 @@ struct SelfHostedPushSettingsView: View {
                                 .multilineTextAlignment(.trailing)
                         }
                     }
-                    if let inventory = appleHealthInventory {
-                        HStack {
-                            Text("Apple Health records saved on this iPhone")
-                                .font(StrandFont.subhead)
-                                .foregroundStyle(StrandPalette.textPrimary)
-                            Spacer()
-                            Button {
-                                Task { await refreshAppleHealthInventory() }
-                            } label: {
-                                Label("Refresh", systemImage: "arrow.clockwise")
-                                    .labelStyle(.iconOnly)
-                            }
-                            .buttonStyle(.borderless)
-                            .accessibilityLabel("Refresh Apple Health counts")
-                        }
-                        Divider().padding(.vertical, 4)
-                        Text("\(inventory.dailyDays) days · \(inventory.workouts) workouts · \(inventory.sleepSessions) sleep sessions · \(inventory.hourlyStepEntries) hourly step entries")
-                            .font(StrandFont.caption)
-                            .foregroundStyle(StrandPalette.textSecondary)
-                        if let first = inventory.earliestDay, let last = inventory.latestDay {
-                            Text(first == last ? first : "Date range: \(first) to \(last)")
-                                .font(StrandFont.caption)
-                                .foregroundStyle(StrandPalette.textTertiary)
-                        }
-                        ForEach(Array(appleHealthMetricRows.indices), id: \.self) { index in
-                            let metric = appleHealthMetricRows[index]
-                            HStack {
-                                Text(metric.title)
-                                    .font(StrandFont.caption)
-                                    .foregroundStyle(StrandPalette.textSecondary)
-                                Spacer()
-                                Text("\(inventory.metricDays[metric.key, default: 0]) days")
-                                    .font(StrandFont.caption.monospacedDigit())
-                                    .foregroundStyle(StrandPalette.textPrimary)
-                            }
-                        }
-                        Text("Counts are days with a saved value, not raw samples.")
-                            .font(StrandFont.caption)
-                            .foregroundStyle(StrandPalette.textTertiary)
-                    } else if let appleHealthInventoryError {
-                        Text("Could not read Apple Health counts: \(appleHealthInventoryError)")
-                            .font(StrandFont.caption)
-                            .foregroundStyle(StrandPalette.statusWarning)
-                    } else {
-                        Text("Reading Apple Health counts…")
-                            .font(StrandFont.caption)
-                            .foregroundStyle(StrandPalette.textTertiary)
-                    }
                 }
             }
         }
-        .task {
-            await refreshDataSummary()
-            await refreshAppleHealthInventory()
-        }
+        .task { await refreshDataSummary() }
     }
 
     private func runTest() {
@@ -200,49 +146,6 @@ struct SelfHostedPushSettingsView: View {
             status = (failures.isEmpty ? "Sync complete. " : "Sync incomplete. ")
                 + outcomes.joined(separator: " · ")
             await refreshDataSummary()
-            await refreshAppleHealthInventory()
-        }
-    }
-
-    private var appleHealthMetricRows: [(title: String, key: String)] {
-        [
-            ("Steps", "steps"),
-            ("Resting heart rate", "resting_hr"),
-            ("HRV", "hrv"),
-            ("Blood oxygen (SpO₂)", "spo2"),
-            ("Respiratory rate", "resp_rate"),
-            ("Average heart rate", "avg_hr"),
-            ("Maximum heart rate", "max_hr"),
-            ("Walking heart rate", "walking_hr"),
-            ("VO₂ max", "vo2max"),
-            ("Active calories", "active_kcal"),
-            ("Basal calories", "basal_kcal"),
-            ("Sleep", "asleep_min"),
-            ("Deep sleep", "deep_min"),
-            ("REM sleep", "rem_min"),
-            ("Core sleep", "core_min"),
-            ("Awake during sleep", "awake_min"),
-            ("Time in bed", "in_bed_min"),
-            ("Weight", "weight"),
-            ("Body fat", "body_fat"),
-            ("Lean mass", "lean_mass"),
-            ("BMI", "bmi"),
-        ]
-    }
-
-    @MainActor
-    private func refreshAppleHealthInventory() async {
-        do {
-            guard let store = await repo.storeHandle() else {
-                appleHealthInventory = nil
-                appleHealthInventoryError = "NOOP's local database is unavailable."
-                return
-            }
-            appleHealthInventory = try await store.appleHealthDataInventory(deviceId: "apple-health")
-            appleHealthInventoryError = nil
-        } catch {
-            appleHealthInventory = nil
-            appleHealthInventoryError = error.localizedDescription
         }
     }
 
@@ -262,6 +165,8 @@ struct SelfHostedPushSettingsView: View {
             let vo2 = try await store.metricSeries(deviceId: "paceforge-garmin", key: "vo2max", from: from, to: through)
             let workouts = try await store.workouts(deviceId: "paceforge", from: 0,
                                                      to: Int(Date().timeIntervalSince1970), limit: 10_000)
+            let apple = try await store.appleDaily(deviceId: "apple-health", from: from, to: through)
+
             func dated(_ value: String?, _ day: String?) -> String {
                 guard let value, let day else { return "Not synced to this iPhone yet" }
                 return "\(value) · \(day)"
@@ -276,6 +181,7 @@ struct SelfHostedPushSettingsView: View {
                 SyncedDataRow(id: "vo2", label: "Garmin VO₂ max", value: dated(latestVO2.map { String(format: "%.1f", $0.value) }, latestVO2?.day)),
                 SyncedDataRow(id: "weight", label: "Hume weight", value: dated(latestWeight.map { String(format: "%.1f kg", $0.value) }, latestWeight?.day)),
                 SyncedDataRow(id: "workouts", label: "PaceForge workouts", value: workouts.count.formatted()),
+                SyncedDataRow(id: "apple", label: "Apple Health imported days", value: apple.count.formatted()),
             ]
             let hasPaceForgeData = !garmin.isEmpty || !weight.isEmpty || !workouts.isEmpty
             dataSummary = hasPaceForgeData
