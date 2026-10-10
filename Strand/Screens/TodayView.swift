@@ -4724,6 +4724,8 @@ struct TodayView: View {
         async let stressStoredA      = repo.series(key: "stress", source: "my-whoop")
         async let fitnessAgeSeriesA  = repo.exploreSeries(key: "fitness_age", source: "my-whoop")
         async let vo2maxSeriesA      = repo.exploreSeries(key: "vo2max_est", source: "my-whoop")
+        async let garminVo2maxA      = repo.series(key: "vo2max", source: "paceforge-garmin")
+        async let appleVo2maxA       = repo.series(key: "vo2max", source: "apple-health")
         async let vitalitySeriesA    = repo.exploreSeries(key: "vitality", source: "my-whoop")
 
         // Steps ESTIMATE per day (WHOOP 4.0 motion → calibrated steps). exploreSeries reads the computed
@@ -4747,7 +4749,13 @@ struct TodayView: View {
         // placeholder, matching StressView's empty state. Fitness age / Vitality keep their merged reads.
         stressToday = StressModel(days: repo.days, stored: await stressStoredA)?.score
         fitnessAgeToday = (await fitnessAgeSeriesA).last?.value
-        vo2maxToday = (await vo2maxSeriesA).last?.value   // #1391: latest banked NOOP estimate.
+        // Prefer an imported measurement (Garmin, then Apple Health); use the on-device estimate only
+        // when no measured VO₂ max exists. The actual Garmin series is keyed `vo2max`, not `vo2max_est`.
+        let garminVo2 = await garminVo2maxA
+        let appleVo2 = await appleVo2maxA
+        let measuredVo2 = garminVo2.last ?? appleVo2.last
+        let estimatedVo2 = (await vo2maxSeriesA).last?.value
+        vo2maxToday = measuredVo2?.value ?? estimatedVo2
         vitalityToday = (await vitalitySeriesA).last?.value
         // Hydration card (opt-in): today's stored total + the sex/Effort goal. Only loaded when the
         // feature is on, so a disabled feature does zero work and the card stays hidden.

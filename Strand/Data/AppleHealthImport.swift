@@ -13,6 +13,12 @@ private enum AppleHealthImportFailure: LocalizedError {
     }
 }
 
+/// One coalescible snapshot from the streaming parser.
+private struct AppleHealthCheckpoint: Sendable {
+    let sampleCount: Int
+    let daily: [AppleDailyAggregate]
+}
+
 /// Maps a parsed + aggregated Apple Health export into the on-device store under its own
 /// source id ("apple-health"), so it sits BESIDE Whoop for the per-source pages and cross-source
 /// consensus. Populates appleDaily, dailyMetric, the generic metricSeries, and workouts.
@@ -42,20 +48,53 @@ enum AppleHealthImport {
                              trace: (@Sendable ([String]) -> Void)? = nil,
                              progress: (@Sendable (Int) -> Void)? = nil,
                              phase: (@Sendable (String) -> Void)? = nil) async throws -> ImportSummary {
+        // Keep only the newest pending checkpoint if SQLite falls behind parsing.
+        // This bounds memory while guaranteeing snapshots are persisted in order.
+        let (checkpointStream, checkpointContinuation) = AsyncStream<AppleHealthCheckpoint>.makeStream(
+            bufferingPolicy: .bufferingNewest(1))
+        let checkpointWriter = Task.detached(priority: .utility) {
+            var lastSampleCount = 0
+            for await checkpoint in checkpointStream {
+                guard checkpoint.sampleCount > lastSampleCount else { continue }
+                lastSampleCount = checkpoint.sampleCount
+                try await Self.persist(checkpoint.daily, into: store, deviceId: deviceId)
+            }
+        }
+        let checkpoint: @Sendable (Int, [AppleDailyAggregate]) -> Void = { count, daily in
+            phase?("Saving Apple Health checkpoint… (\(count.formatted()) records)")
+            checkpointContinuation.yield(AppleHealthCheckpoint(sampleCount: count, daily: daily))
+        }
         // Parsing and aggregation are CPU-heavy, especially for multi-year exports. This method is
         // called from the UI model; doing either step inline inherits its actor and freezes the UI
         // until the full XML file has been parsed. Keep the bounded-memory streaming parser, but run
         // the complete parse + fold on a utility executor so the import status remains responsive.
-        let (result, daily) = try await Task.detached(priority: .utility) {
-            let result = try ImportCoordinator().importAppleHealth(from: url, retainRawSamples: false,
-                                                                    progress: progress, phase: phase)
-            phase?("Organizing Apple Health readings…")
-            let daily = AppleHealthAggregator.aggregate(result)
-            guard !daily.isEmpty || !result.workouts.isEmpty else {
-                throw AppleHealthImportFailure.noSupportedRecords
-            }
-            return (result, daily)
-        }.value
+        let parsed: (AppleHealthImportResult, [AppleDailyAggregate])
+        do {
+            parsed = try await Task.detached(priority: .utility) {
+                let result = try ImportCoordinator().importAppleHealth(from: url, retainRawSamples: false,
+                                                                        progress: progress, phase: phase,
+                                                                        checkpoint: checkpoint)
+                phase?("Organizing Apple Health readings…")
+                let daily = AppleHealthAggregator.aggregate(result)
+                guard !daily.isEmpty || !result.workouts.isEmpty else {
+                    throw AppleHealthImportFailure.noSupportedRecords
+                }
+                return (result, daily)
+            }.value
+        } catch {
+            checkpointContinuation.finish()
+            _ = try? await checkpointWriter.value
+            throw error
+        }
+        let (result, daily) = parsed
+
+        // Enqueue the final sample snapshot as well, covering exports with fewer
+        // than one checkpoint interval of records, then wait until every durable
+        // checkpoint has reached SQLite before starting the final full-row writes.
+        checkpointContinuation.yield(AppleHealthCheckpoint(sampleCount: result.summary.recordCount,
+                                                            daily: result.sampleDailies))
+        checkpointContinuation.finish()
+        try await checkpointWriter.value
 
         // Commit in bounded day batches. An interrupted import may leave completed batches in the
         // source-scoped tables; rerunning is safe because every write is an upsert on the natural key.
@@ -139,5 +178,31 @@ enum AppleHealthImport {
         summary.countsByCategory["workouts"] = result.workouts.count
         summary.countsByCategory["dailyAggregates"] = daily.count
         return summary
+    }
+
+    private static func persist(_ daily: [AppleDailyAggregate], into store: WhoopStore,
+                                deviceId: String) async throws {
+        let appleRows = daily.map { d in
+            AppleDaily(day: d.day, steps: d.steps.map(stepsInt),
+                       activeKcal: d.activeKcal, basalKcal: d.basalKcal, vo2max: d.vo2max,
+                       avgHr: d.avgHr.map { Int($0.rounded()) },
+                       maxHr: d.maxHr.map { Int($0.rounded()) },
+                       walkingHr: d.walkingHr.map { Int($0.rounded()) }, weightKg: d.weightKg)
+        }
+        _ = try await store.mergeAppleDailyCheckpoint(appleRows, deviceId: deviceId)
+
+        let partialDailyMetrics = daily.map { d in
+            DailyMetric(day: d.day, totalSleepMin: nil, efficiency: nil, deepMin: nil,
+                        remMin: nil, lightMin: nil, disturbances: nil,
+                        restingHr: d.restingHr.map { Int($0.rounded()) }, avgHrv: d.hrvSDNN,
+                        recovery: nil, strain: nil, exerciseCount: nil,
+                        spo2Pct: d.spo2Pct, skinTempDevC: nil, respRateBpm: d.respRate,
+                        steps: d.steps.map(stepsInt), avgSdnn: d.hrvSDNN)
+        }
+        _ = try await store.mergeDailyMetricsCheckpoint(partialDailyMetrics, deviceId: deviceId)
+
+        let points = AppleHealthAggregator.metricPoints(daily)
+            .map { MetricPoint(day: $0.day, key: $0.key, value: $0.value) }
+        _ = try await store.upsertMetricSeries(points, deviceId: deviceId)
     }
 }

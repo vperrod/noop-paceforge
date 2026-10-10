@@ -42,14 +42,17 @@ public enum HeartRateRecovery {
     public static let maximumContinuousGapSeconds = 10
 
     public static func calculate(samples: [HRSample], workoutStart: Int, workoutEnd: Int,
-                                 maxHR: Double) -> Result? {
+                                 maxHR: Double,
+                                 minimumSamplesPerReading: Int = HeartRateRecovery.minimumSamplesPerReading,
+                                 measurementToleranceSeconds: Int = HeartRateRecovery.measurementToleranceSeconds,
+                                 minimumCessationSamples: Int = HeartRateRecovery.minimumSamplesPerReading) -> Result? {
         guard workoutStart > 0, workoutEnd > workoutStart, maxHR > 0 else { return nil }
         let lowerBound = max(workoutStart, workoutEnd - eligibilityLookbackSeconds)
-        let upperBound = workoutEnd + 5 * 60 + measurementToleranceSeconds
+        let upperBound = workoutEnd + 5 * 60 + max(0, measurementToleranceSeconds)
         let sorted = samples
             .filter { $0.ts >= lowerBound && $0.ts <= upperBound && (30...250).contains($0.bpm) }
             .sorted { lhs, rhs in lhs.ts == rhs.ts ? lhs.bpm < rhs.bpm : lhs.ts < rhs.ts }
-        guard sorted.count >= minimumSamplesPerReading else { return nil }
+        guard sorted.count >= max(1, minimumSamplesPerReading) else { return nil }
 
         let beforeEnd = sorted.filter { $0.ts <= workoutEnd }
         let threshold = maxHR * eligibilityFractionOfMaxHR
@@ -60,14 +63,14 @@ public enum HeartRateRecovery {
         let cessation = beforeEnd
             .filter { $0.ts >= workoutEnd - cessationWindowSeconds }
             .map(\.bpm)
-        guard cessation.count >= minimumSamplesPerReading, let endHR = cessation.max() else { return nil }
+        guard cessation.count >= max(1, minimumCessationSamples), let endHR = cessation.max() else { return nil }
 
         func recovery(at minutes: Int) -> Int? {
             let target = workoutEnd + minutes * 60
             let values = sorted
                 .filter { abs($0.ts - target) <= measurementToleranceSeconds }
                 .map(\.bpm)
-            guard values.count >= minimumSamplesPerReading, let reading = median(values) else { return nil }
+            guard values.count >= max(1, minimumSamplesPerReading), let reading = median(values) else { return nil }
             return endHR - reading
         }
 

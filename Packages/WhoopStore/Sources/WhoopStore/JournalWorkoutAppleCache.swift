@@ -221,6 +221,37 @@ extension WhoopStore {
         }
     }
 
+    /// Merge a partial Apple Health import checkpoint. A checkpoint can see only
+    /// part of a day's samples, so nil values must not erase values from an
+    /// earlier import or a previous checkpoint. The final import still uses
+    /// `upsertAppleDaily` to replace each complete day's aggregate.
+    @discardableResult
+    public func mergeAppleDailyCheckpoint(_ rows: [AppleDaily], deviceId: String) async throws -> Int {
+        try syncWrite { db in
+            var n = 0
+            for r in rows {
+                try db.execute(sql: """
+                    INSERT INTO appleDaily
+                        (deviceId, day, steps, activeKcal, basalKcal, vo2max,
+                         avgHr, maxHr, walkingHr, weightKg)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ON CONFLICT(deviceId, day) DO UPDATE SET
+                        steps = COALESCE(excluded.steps, appleDaily.steps),
+                        activeKcal = COALESCE(excluded.activeKcal, appleDaily.activeKcal),
+                        basalKcal = COALESCE(excluded.basalKcal, appleDaily.basalKcal),
+                        vo2max = COALESCE(excluded.vo2max, appleDaily.vo2max),
+                        avgHr = COALESCE(excluded.avgHr, appleDaily.avgHr),
+                        maxHr = COALESCE(excluded.maxHr, appleDaily.maxHr),
+                        walkingHr = COALESCE(excluded.walkingHr, appleDaily.walkingHr),
+                        weightKg = COALESCE(excluded.weightKg, appleDaily.weightKg)
+                    """, arguments: [deviceId, r.day, r.steps, r.activeKcal, r.basalKcal, r.vo2max,
+                                     r.avgHr, r.maxHr, r.walkingHr, r.weightKg])
+                n += db.changesCount
+            }
+            return n
+        }
+    }
+
     // MARK: - Reads
 
     /// Journal entries for days in [from, to] (lexicographic YYYY-MM-DD compare),

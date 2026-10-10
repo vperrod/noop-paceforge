@@ -1113,7 +1113,7 @@ final class Repository: ObservableObject {
                                                  _ garmin: [DailyMetric]) -> [DailyMetric] {
         guard !garmin.isEmpty else { return base }
         var byDay = Dictionary(base.map { ($0.day, $0) }, uniquingKeysWith: { _, last in last })
-        for row in garmin {
+        for row in paceForgeGarminRecoveryRows(garmin) {
             if let existing = byDay[row.day] {
                 byDay[row.day] = coalesceDay(existing, row)
             } else {
@@ -1121,6 +1121,44 @@ final class Repository: ObservableObject {
             }
         }
         return byDay.values.sorted { $0.day < $1.day }
+    }
+
+    /// When Garmin is the only source for a night, derive NOOP's transparent recovery proxy from
+    /// Garmin's overnight HRV and resting HR. The baseline is Garmin-only and prior-night-only; this
+    /// never replaces an imported WHOOP/NOOP score because `coalesceDay` keeps the existing value.
+    /// Garmin's `avgHrv` is its overnight HRV (RMSSD), so this does not use Apple Watch/HealthKit data.
+    nonisolated static func paceForgeGarminRecoveryRows(_ rows: [DailyMetric]) -> [DailyMetric] {
+        let ordered = rows.sorted { $0.day < $1.day }
+        var scored: [DailyMetric] = []
+        for (index, day) in ordered.enumerated() {
+            guard day.recovery == nil, let hrv = day.avgHrv else {
+                scored.append(day)
+                continue
+            }
+            let prior = ordered[..<index]
+            let hrvBaseline = Baselines.foldHistory(prior.map(\.avgHrv), cfg: Baselines.hrvCfg)
+            guard hrvBaseline.usable else {
+                scored.append(day)
+                continue
+            }
+            let rhrBaseline = Baselines.foldHistory(prior.map { $0.restingHr.map(Double.init) },
+                                                    cfg: Baselines.restingHRCfg)
+            let respBaseline = Baselines.foldHistory(prior.map(\.respRateBpm), cfg: Baselines.respCfg)
+            let restQuality = AnalyticsEngine.Rest.composite(daily: day).map { $0 / 100.0 } ?? day.efficiency
+            let recovery = RecoveryScorer.recovery(
+                hrv: hrv,
+                rhr: Double(day.restingHr ?? Int(rhrBaseline.baseline.rounded())),
+                resp: day.respRateBpm,
+                hrvBaseline: RecoveryScorer.DriverBaseline(hrvBaseline),
+                rhrBaseline: rhrBaseline.usable ? RecoveryScorer.DriverBaseline(rhrBaseline) : nil,
+                respBaseline: respBaseline.usable ? RecoveryScorer.DriverBaseline(respBaseline) : nil,
+                sleepPerf: restQuality,
+                skinTempDev: day.skinTempDevC,
+                hrvBaselineUsable: hrvBaseline.usable)
+            scored.append(day.with(recovery: recovery, skinTempDevC: day.skinTempDevC,
+                                   skinTempC: day.skinTempC))
+        }
+        return scored
     }
 
     nonisolated static func mergeActivityFileSteps(into base: [DailyMetric],
@@ -2923,10 +2961,8 @@ final class Repository: ObservableObject {
         // `reduceWorkoutHr` helper this comment used to describe. Rows are read only for a strain fill.
         let readChunk = 8
 
-        // Phase 1 , resolve eligibility + spend the `cap` budget in ORIGINAL row order, exactly as the old
-        // sequential loop did. Only these indices get a trace read; everything else passes through verbatim.
+        // Phase 1 , resolve eligibility before spending the bounded read budget.
         // (Strap-native is recomputed in Phase 3 from the same `classify`, so it isn't carried here.)
-        var budget = cap
         var eligibleIndices: [Int] = []
         for (i, row) in rows.enumerated() {
             let cls = WorkoutSource.classify(row.source)
@@ -2935,12 +2971,19 @@ final class Repository: ObservableObject {
             // already present, so a session that ended with an HR but no strain (sparse live HR at save)
             // still gets its Effort backfilled once the strap trace covers the window. Needs the injected
             // profile; without it the strain fill is skipped and eligibility is unchanged from before.
-            let needsStrainFill = strapNative && row.strain == nil && strainProfile != nil
-            guard row.endTs > row.startTs, budget > 0,
+            let needsStrainFill = (strapNative || cls == .paceforge) && row.strain == nil && strainProfile != nil
+            guard row.endTs > row.startTs,
                   strapNative || row.avgHr == nil || needsStrainFill else { continue }
-            budget -= 1
             eligibleIndices.append(i)
         }
+        // Spend the bounded read budget on rows that can actually produce a missing effort first.
+        // Apple Health workouts have no imported HR stream here and previously could consume all 300 slots.
+        eligibleIndices.sort {
+            let lhs = WorkoutSource.classify(rows[$0].source) == .paceforge && rows[$0].strain == nil
+            let rhs = WorkoutSource.classify(rows[$1].source) == .paceforge && rows[$1].strain == nil
+            return lhs == rhs ? rows[$0].startTs > rows[$1].startTs : lhs
+        }
+        eligibleIndices = Array(eligibleIndices.prefix(cap))
 
         // Phase 2 , read each eligible window with BOUNDED concurrency (chunks of `readChunk`) and reduce it
         // OFF the main actor, then return only PLAIN Ints (index, avg, peak) from the child tasks. Keeping the
@@ -3463,8 +3506,14 @@ final class Repository: ObservableObject {
         let ids = Self.workoutHrDeviceIds(source: source, activeStrapId: deviceId,
                                           importedIds: importedReadIds)
         let samples = await hrSamples(deviceIds: ids, from: readFrom, to: readTo, limit: 2_000)
+        // Garmin's post-workout stream is sampled sparsely. Keep the same sustained-intensity and
+        // cessation checks, but accept one nearest measurement within 30 seconds for each recovery point.
+        let isPaceForge = WorkoutSource.classify(source) == .paceforge
         return HeartRateRecovery.calculate(samples: samples, workoutStart: from, workoutEnd: to,
-                                           maxHR: maxHR)
+                                           maxHR: maxHR,
+                                           minimumSamplesPerReading: isPaceForge ? 1 : HeartRateRecovery.minimumSamplesPerReading,
+                                           measurementToleranceSeconds: isPaceForge ? 30 : HeartRateRecovery.measurementToleranceSeconds,
+                                           minimumCessationSamples: isPaceForge ? 1 : HeartRateRecovery.minimumSamplesPerReading)
     }
 
     /// Apple Health daily aggregates (steps/energy/vo2/hr).
