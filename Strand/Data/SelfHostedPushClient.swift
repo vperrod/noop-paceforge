@@ -89,10 +89,12 @@ enum SelfHostedPushClient {
         let (endpoint, token) = try configuration()
         guard let store = await repo.storeHandle() else { throw Failure.configuration("NOOP's local database is unavailable.") }
         try await seedReplicaIfNeeded(endpoint: endpoint, token: token, store: store)
+        let refreshSeqBeforeSync = repo.refreshSeq
         let accepted = try await replicateChanges(endpoint: endpoint, token: token,
                                                    peerId: stableSourceId(), store: store)
         if accepted > 0 {
             await repo.refresh()
+            repo.invalidateExternalDataCaches(ifRefreshSeqUnchangedSince: refreshSeqBeforeSync)
             repo.appleHealthCache = nil
             repo.appleHealthLoadedSeq = -1
         }
@@ -111,6 +113,7 @@ enum SelfHostedPushClient {
         guard let store = await repo.storeHandle() else {
             throw Failure.configuration("NOOP's local database is unavailable.")
         }
+        let refreshSeqBeforeImport = repo.refreshSeq
         let rows = try response.map { item -> WorkoutRow in
             guard let start = item["startTs"] as? Int,
                   let end = item["endTs"] as? Int,
@@ -148,7 +151,10 @@ enum SelfHostedPushClient {
             }
         }
         if !hr.isEmpty { _ = try await store.insert(Streams(hr: hr), deviceId: "paceforge-garmin") }
-        if !rows.isEmpty { await repo.refresh() }
+        if !rows.isEmpty {
+            await repo.refresh()
+            repo.invalidateExternalDataCaches(ifRefreshSeqUnchangedSince: refreshSeqBeforeImport)
+        }
         UserDefaults.standard.set(Date().timeIntervalSince1970, forKey: lastActivityFetchKey)
         return rows.count
     }
@@ -163,6 +169,7 @@ enum SelfHostedPushClient {
         guard let store = await repo.storeHandle() else {
             throw Failure.configuration("NOOP's local database is unavailable.")
         }
+        let refreshSeqBeforeImport = repo.refreshSeq
         let rows = try response.map { item -> DailyMetric in
             guard let day = item["date"] as? String, day.count == 10 else {
                 throw Failure.receiver("PaceForge returned an invalid Garmin metric date.")
@@ -207,7 +214,10 @@ enum SelfHostedPushClient {
             }
         }
         if !points.isEmpty { _ = try await store.upsertMetricSeries(points, deviceId: "paceforge-garmin") }
-        if !rows.isEmpty { await repo.refresh() }
+        if !rows.isEmpty || !points.isEmpty {
+            await repo.refresh()
+            repo.invalidateExternalDataCaches(ifRefreshSeqUnchangedSince: refreshSeqBeforeImport)
+        }
         UserDefaults.standard.set(Date().timeIntervalSince1970, forKey: lastGarminMetricsFetchKey)
         return GarminMetricsImportSummary(days: rows.count,
                                           stepDays: rows.filter { $0.steps != nil }.count,
@@ -222,6 +232,7 @@ enum SelfHostedPushClient {
         guard let store = await repo.storeHandle() else {
             throw Failure.configuration("NOOP's local database is unavailable.")
         }
+        let refreshSeqBeforeImport = repo.refreshSeq
         let keyMap = ["weight": "weight", "body_fat": "body_fat", "lean_mass": "lean_mass",
                       "bmi": "bmi", "fat_mass": "fat_mass", "skeletal_muscle": "skeletal_muscle",
                       "total_body_water": "total_body_water", "visceral_fat": "visceral_fat", "bmr": "bmr"]
@@ -239,6 +250,7 @@ enum SelfHostedPushClient {
         if !points.isEmpty {
             _ = try await store.upsertMetricSeries(points, deviceId: "paceforge-hume")
             await repo.refresh()
+            repo.invalidateExternalDataCaches(ifRefreshSeqUnchangedSince: refreshSeqBeforeImport)
         }
         UserDefaults.standard.set(Date().timeIntervalSince1970, forKey: lastHumeMetricsFetchKey)
         return HumeMetricsImportSummary(measurements: Set(points.map(\.day)).count)

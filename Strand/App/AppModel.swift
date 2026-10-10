@@ -2497,10 +2497,12 @@ final class AppModel: ObservableObject {
                 let local = try await Self.materializeForImport(url)
                 defer { local.cleanup() }
                 emitImportFileMeta(kind: .whoopExport, url: local.url)
+                let refreshSeqBeforeImport = repo.refreshSeq
                 let summary = try await WhoopImporter.importExport(url: local.url, into: store,
                                                                    deviceId: deviceId, trace: importTraceSink())
                 try? await store.checkpointWAL()   // reclaim the WAL a bulk import grew (#590)
                 await repo.refresh()
+                repo.invalidateExternalDataCaches(ifRefreshSeqUnchangedSince: refreshSeqBeforeImport)
                 let span: String
                 if let a = summary.earliest, let b = summary.latest {
                     let f = DateFormatter(); f.dateFormat = "MMM yyyy"
@@ -2528,10 +2530,12 @@ final class AppModel: ObservableObject {
                 let local = try await Self.materializeForImport(url)
                 defer { local.cleanup() }
                 emitImportFileMeta(kind: .xiaomiBand, url: local.url)
+                let refreshSeqBeforeImport = repo.refreshSeq
                 let summary = try await XiaomiImporter.importExport(url: local.url, into: store,
                                                                     trace: importTraceSink())
                 try? await store.checkpointWAL()   // reclaim the WAL a bulk import grew (#590)
                 await repo.refresh()
+                repo.invalidateExternalDataCaches(ifRefreshSeqUnchangedSince: refreshSeqBeforeImport)
                 let span: String
                 if let a = summary.earliest, let b = summary.latest {
                     let f = DateFormatter(); f.dateFormat = "MMM yyyy"
@@ -2560,6 +2564,7 @@ final class AppModel: ObservableObject {
                     finishImport(.appleHealth, summary: "Couldn't open the local store.", failed: true)
                     return
                 }
+                let refreshSeqBeforeImport = repo.refreshSeq
                 let copyProgress: @Sendable (Int64, Int64?) -> Void = { [weak self] copied, total in
                     Task { @MainActor in
                         guard let self, self.isImporting(.appleHealth) else { return }
@@ -2593,13 +2598,9 @@ final class AppModel: ObservableObject {
                 appleHealthImportProgress = "Refreshing NOOP data…"
                 try? await store.checkpointWAL()   // reclaim the WAL a bulk import grew (#590)
                 await repo.refresh()
-                // #833/v7.7.2: an Apple Health import may write ONLY body-composition series (weight/body_fat/
-                // lean_mass/bmi/vo2max), which live in metricSeries OUTSIDE refresh()'s diff over daily/sleep/
-                // vitals, so refresh() may not bump `refreshSeq`. AppleHealthView's re-mount cache keys on
-                // `refreshSeq`, so it would keep serving the pre-import snapshot. Explicitly drop the cache so
-                // the next visit re-reads the freshly imported data. (refresh() alone is insufficient here.)
-                repo.appleHealthCache = nil
-                repo.appleHealthLoadedSeq = -1
+                // Body-only imports can change metricSeries while daily caches stay identical. Ensure all
+                // source-dependent screens reload even when refresh()'s day diff found no change.
+                repo.invalidateExternalDataCaches(ifRefreshSeqUnchangedSince: refreshSeqBeforeImport)
                 let workoutCount = summary.countsByCategory["workouts"] ?? 0
                 let result = "Imported \(summary.recordCount.formatted()) records and \(workoutCount.formatted()) workouts"
                 if summary.skippedSpans > 0 {
@@ -2721,21 +2722,20 @@ final class AppModel: ObservableObject {
                 finishImport(.appleHealth, summary: "Couldn't open the local store.", failed: true)
                 return
             }
+            let refreshSeqBeforeImport = repo.refreshSeq
             let outcome = await ShortcutHealthImport.ingest(prepared: pending, into: store)
-            await finishShortcutHealthImport(outcome)
+            await finishShortcutHealthImport(outcome, refreshSeqBeforeImport: refreshSeqBeforeImport)
         }
     }
 
-    private func finishShortcutHealthImport(_ outcome: ShortcutHealthImport.Outcome) async {
+    private func finishShortcutHealthImport(_ outcome: ShortcutHealthImport.Outcome,
+                                            refreshSeqBeforeImport: Int? = nil) async {
         switch outcome {
         case .imported(let days, let workouts):
             await repo.refresh()
-            // #833/v7.7.2: the Shortcuts import writes body-composition series (e.g. weight) into
-            // metricSeries, which sits OUTSIDE refresh()'s diff, so refresh() may leave `refreshSeq`
-            // unchanged and AppleHealthView's re-mount cache would serve stale data. Drop the cache so the
-            // next visit re-reads. (Same reasoning as the file-import path above.)
-            repo.appleHealthCache = nil
-            repo.appleHealthLoadedSeq = -1
+            if let refreshSeqBeforeImport {
+                repo.invalidateExternalDataCaches(ifRefreshSeqUnchangedSince: refreshSeqBeforeImport)
+            }
             let w = workouts > 0 ? " · \(workouts) workouts" : ""
             finishImport(.appleHealth, summary: "Imported \(days) days\(w)")
         case .nothingToImport:

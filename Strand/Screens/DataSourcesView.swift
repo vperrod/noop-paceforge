@@ -421,8 +421,10 @@ struct DataSourcesView: View {
                     return
                 }
                 let points = result.metricPoints.map { MetricPoint(day: $0.day, key: $0.key, value: $0.value) }
+                let refreshSeqBeforeImport = repo.refreshSeq
                 try await store.upsertMetricSeries(points, deviceId: NutritionCsvImporter.sourceId)
                 await repo.refresh()
+                repo.invalidateExternalDataCaches(ifRefreshSeqUnchangedSince: refreshSeqBeforeImport)
                 var msg = String(localized: "Imported \(result.importedDays) days (\(points.count) values)")
                 if let a = result.earliestDay, let b = result.latestDay, a != b { msg += " · \(a)-\(b)" }
                 if result.skippedRows > 0 {
@@ -485,8 +487,10 @@ struct DataSourcesView: View {
                         notes: s.volumeLoadNote(), steps: nil
                     )
                 }
+                let refreshSeqBeforeImport = repo.refreshSeq
                 try await store.upsertWorkouts(rows, deviceId: LiftingImporter.sourceId)
                 await repo.refresh()
+                repo.invalidateExternalDataCaches(ifRefreshSeqUnchangedSince: refreshSeqBeforeImport)
                 let totalVolume = result.sessions.reduce(0.0) { $0 + $1.volumeLoadKg }
                 // Whole-phrase variants per count so translators never see a stitched plural.
                 var msg = result.sessionCount == 1
@@ -574,6 +578,7 @@ struct DataSourcesView: View {
                     notes: activity.importNote(),
                     steps: activity.steps                 // #1058: per-session steps, summed into the day below
                 )
+                let refreshSeqBeforeImport = repo.refreshSeq
                 try await store.upsertWorkouts([row], deviceId: ActivityFileImporter.sourceId)
 
                 // #137 (A): persist the ride's real per-sample HR under the activity-file source. The
@@ -640,6 +645,7 @@ struct DataSourcesView: View {
                 )
 
                 await repo.refresh()
+                repo.invalidateExternalDataCaches(ifRefreshSeqUnchangedSince: refreshSeqBeforeImport)
                 activityFileSummary = ActivityFileImporter.summaryText(activity)
                 activityFileFailed = false
                 logImport("Workout file (\(sport)): 1 workout imported")
@@ -679,6 +685,7 @@ struct DataSourcesView: View {
                 // the post-result file-meta line below share it), so a mid-import toggle can't make the two
                 // reads disagree and the bool is read a single time.
                 let importTracing = TestCentre.active(.dataImport)
+                let refreshSeqBeforeImport = repo.refreshSeq
                 let result = try await WearableImporter.importExport(
                     url: url, into: store,
                     trace: importTracing
@@ -696,6 +703,7 @@ struct DataSourcesView: View {
                                 domain: .dataImport)
                 }
                 await repo.refresh()
+                repo.invalidateExternalDataCaches(ifRefreshSeqUnchangedSince: refreshSeqBeforeImport)
                 wearableSummary = WearableExportImporter.summaryText(result)
                 wearableFailed = false
                 logImport("\(result.brand.displayName) export: \(result.days.count) days, \(result.sleeps.count) sleeps, \(result.summary.skippedSpans) rejected")
@@ -725,19 +733,14 @@ struct DataSourcesView: View {
                 return
             }
             do {
+                let refreshSeqBeforeDelete = repo.refreshSeq
                 // Route the purge through the WhoopStore actor's `deleteAllData` so the heavy 16+-table
                 // delete runs on the actor's OWN (off-main) executor. Calling the synchronous
                 // `DeviceRegistryStore(...).deleteAllData` directly here ran the whole transaction on the
                 // main actor and froze the UI on a large Apple Health dataset.
                 try await store.deleteAllData(deviceId: model.appleDeviceId)
                 await repo.refresh()
-                // #833/v7.7.2: this purge clears the body-composition series (weight/body_fat/lean_mass/bmi/
-                // vo2max) that live in metricSeries OUTSIDE refresh()'s diff, so refresh() may not bump
-                // `refreshSeq` and AppleHealthView's re-mount cache would keep serving the now-DELETED data.
-                // Explicitly drop the cache so the next visit re-reads the emptied source. (refresh() alone is
-                // insufficient for the body-comp keys.)
-                repo.appleHealthCache = nil
-                repo.appleHealthLoadedSeq = -1
+                repo.invalidateExternalDataCaches(ifRefreshSeqUnchangedSince: refreshSeqBeforeDelete)
                 model.appleHealthImportSummary = nil
                 model.appleHealthImportFailed = false
                 appleHealthDeletedSummary = String(localized: "Removed all Apple Health imported data.")

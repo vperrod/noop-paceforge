@@ -1054,6 +1054,16 @@ final class Repository: ObservableObject {
         self.refreshSeq += 1
     }
 
+    /// External imports and the PaceForge replica can change metricSeries or workouts without changing
+    /// the daily/sleep/vital caches compared by `refresh()`. Tell dependent screens to reload after those
+    /// writes. If `refresh()` already advanced the sequence, avoid a second UI reload for the same batch.
+    func invalidateExternalDataCaches(ifRefreshSeqUnchangedSince previousSequence: Int) {
+        exploreAllCache = nil
+        appleHealthCache = nil
+        appleHealthLoadedSeq = -1
+        if refreshSeq == previousSequence { refreshSeq += 1 }
+    }
+
     /// Per-source coverage counts for the Freshness Pipeline card. Pure over the rows already read.
     /// `nonisolated` (FIX 3) so `refresh()`'s detached merge task can call it off the main actor.
     nonisolated private static func computeFreshness(imported: [DailyMetric], computed: [DailyMetric],
@@ -2295,10 +2305,10 @@ final class Repository: ObservableObject {
 
     // MARK: - Cross-source resolver (PR#196)
 
-    /// Product-facing daily series for a metric across every COMPATIBLE source, freshest-wins. Use this
-    /// on surfaces where the user expects the best available signal (Compare/Insights/Stress/Explore/
-    /// Today); use `series(key:source:)` where a single source must be honoured verbatim. Precedence is
-    /// explicit per `sourceCandidates`: imported WHOOP > NOOP-computed > declared-compatible Apple Health.
+    /// Product-facing daily series for a metric across every compatible source, freshest-wins per day.
+    /// Use this on surfaces where the user expects the best available signal; use `series(key:source:)`
+    /// where a single source must be honoured verbatim. Source order is explicit per `sourceCandidates`:
+    /// the preferred source wins, with compatible Apple Health, Garmin, or Hume values filling gaps.
     /// #833/v7.7.2: `fullHistory` forces the full recordable epoch ("0000-01-01" ... "9999-12-31")
     /// regardless of `days`; false (the default) honours `days` exactly as before, so existing callers are
     /// byte-identical.
@@ -2398,10 +2408,8 @@ final class Repository: ObservableObject {
     /// The candidate (source, key) pairs to try for `key`, in precedence order, given the user's
     /// `preferredSource`. The strap's real id is `actualWhoopSource` (`deviceId`), so the computed
     /// sibling is `actualWhoopSource + "-noop"`.
-    ///  • strap-preferred → [imported strap, computed strap, compatible Apple] (Apple only for vitals
-    ///    that have a declared 1:1 mapping);
-    ///  • Apple-preferred → [Apple] (+ computed strap ONLY for steps/active_kcal, which the strap
-    ///    estimates and Apple may not carry);
+    ///  • strap-preferred → [imported strap, computed strap, compatible Garmin, compatible Apple];
+    ///  • Apple-preferred → [Apple, Health Connect, compatible Hume, computed strap for estimates];
     ///  • any other source → itself only (nutrition/mood are single-source by design).
     static func sourceCandidates(forKey key: String, preferredSource: String,
                                  actualWhoopSource: String) -> [MetricSourceCandidate] {
@@ -2420,14 +2428,17 @@ final class Repository: ObservableObject {
             // canonical import, so after a device re-add (active != canonical) the new strap's computed
             // estimates shadowed richer imported my-whoop history (Swift twin of the ryanbr/noop#240
             // precedence fix). `uniqued` collapses these to one pair per source on a single-device
-            // install (active == canonical), so that path is byte-identical. Apple is the final
-            // cross-source fallback.
+            // install (active == canonical), so that path is byte-identical. Compatible Garmin then
+            // Apple signals fill missing days while preserving provider attribution.
             var candidates = [
                 MetricSourceCandidate(source: actualWhoopSource, key: key),
                 MetricSourceCandidate(source: whoopSource, key: key),
                 MetricSourceCandidate(source: computedSource, key: key),
                 MetricSourceCandidate(source: whoopSource + "-noop", key: key),
             ]
+            if let garminKey = paceForgeGarminCompatibleKey(forWhoopKey: key) {
+                candidates.append(MetricSourceCandidate(source: "paceforge-garmin", key: garminKey))
+            }
             if let appleKey = appleCompatibleKey(forWhoopKey: key) {
                 candidates.append(MetricSourceCandidate(source: appleHealthSource, key: appleKey))
             }
@@ -2440,6 +2451,9 @@ final class Repository: ObservableObject {
             // byte-identical to Android's, where it makes a Health-Connect-only weight history resolve in
             // Compare (#443). A real Apple export still wins per day; HC fills the rest.
             candidates.append(MetricSourceCandidate(source: healthConnectSource, key: key))
+            if humeMetricKeys.contains(key) {
+                candidates.append(MetricSourceCandidate(source: "paceforge-hume", key: key))
+            }
             if noopComputedCanFillAppleMetric(key) {
                 candidates.append(MetricSourceCandidate(source: computedSource, key: key))
             }
@@ -2447,6 +2461,25 @@ final class Repository: ObservableObject {
         }
         return [MetricSourceCandidate(source: preferredSource, key: key)]
     }
+
+    /// Garmin daily metrics synced through PaceForge can fill matching WHOOP metrics on days WHOOP has
+    /// no value. Their provider identity remains available to the detail view and source comparisons.
+    private static func paceForgeGarminCompatibleKey(forWhoopKey key: String) -> String? {
+        switch key {
+        case "steps", "rhr", "hrv", "spo2", "resp_rate",
+             "sleep_total_min", "sleep_deep_min", "sleep_rem_min", "sleep_light_min": return key
+        case "resting_hr": return "rhr"
+        default: return nil
+        }
+    }
+
+    private static let humeMetricKeys: Set<String> = [
+        "weight", "body_fat", "lean_mass", "bmi", "fat_mass", "skeletal_muscle",
+        "total_body_water", "visceral_fat", "bmr", "subcutaneous_fat", "fat_free_mass",
+        "muscle_mass", "bone_mass", "mineral_mass", "organ_mass", "total_body_water_pct",
+        "extracellular_water", "intracellular_water", "body_cell_mass", "metabolic_age",
+        "whole_body_impedance", "android_gynoid_ratio",
+    ]
 
     /// The Apple-Health series key that carries the SAME physiological quantity as a WHOOP key , used
     /// only for the declared-compatible vitals; nil means "no Apple equivalent, don't fall back to it".

@@ -1104,6 +1104,11 @@ struct MetricDetailView: View {
                     key: metric.key, source: metric.source, fullHistory: fullHistory)
             }
             loadedSeries = resolution.values
+        } else if metric.key == "weight" && metric.source == "apple-health" {
+            // These product-facing metrics combine compatible providers per day. Preserve their source
+            // labels in the readings table, with NOOP/Apple first and PaceForge Garmin/Hume filling gaps.
+            resolution = await repo.resolvedSeries(key: metric.key, source: metric.source)
+            loadedSeries = resolution.values
         } else {
             // Preserve the generic explorer's established value path and load order.
             loadedSeries = await repo.exploreSeries(key: metric.key, source: metric.source)
@@ -1118,6 +1123,10 @@ struct MetricDetailView: View {
         if metric.key == "vo2max_est" {
             var attributed: [String: String] = [:]
             for point in resolution.points {
+                if point.source == "paceforge-garmin" {
+                    attributed[point.day] = point.source
+                    continue
+                }
                 let tag = await repo.scoreProvenanceTag(
                     resolvedSource: point.source, day: point.day, metricKey: metric.key)
                 attributed[point.day] = vo2MaxAttributionSource(tag.flatMap { Vo2MaxEstimator(rawValue: $0) })

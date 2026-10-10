@@ -318,6 +318,7 @@ struct TodayView: View {
 
     // 14-day sparkline series, keyed by metric key. Loaded once in .task.
     @State private var sparks: [String: [Double]] = [:]
+    @State private var weightSourceCaption = String(localized: "latest")
     @State private var workouts: [WorkoutRow] = []
     /// #1694: a tapped Latest-Workouts tile. Wrapped so `.sheet(item:)` drives presentation, mirroring
     /// WorkoutsView's own detail target — the feed was read-only, so the only route to a session's
@@ -4647,10 +4648,10 @@ struct TodayView: View {
         // actor and the final values are byte-identical to the sequential version.
         async let recoverySpark      = sparkValues("recovery", source: "my-whoop", window: 14)
         async let strainSpark        = sparkValues("strain", source: "my-whoop", window: 14)
-        async let sleepTotalSpark    = sparkValues("sleep_total_min", source: "my-whoop", window: 14)
-        async let hrvSpark           = sparkValues("hrv", source: "my-whoop", window: 14)
-        async let rhrSpark           = sparkValues("rhr", source: "my-whoop", window: 14)
-        async let spo2Spark          = sparkValues("spo2", source: "my-whoop", window: 14)
+        async let sleepTotalSpark    = sparkValuesExplore("sleep_total_min", source: "my-whoop", window: 14)
+        async let hrvSpark           = sparkValuesExplore("hrv", source: "my-whoop", window: 14)
+        async let rhrSpark           = sparkValuesExplore("rhr", source: "my-whoop", window: 14)
+        async let spo2Spark          = sparkValuesExplore("spo2", source: "my-whoop", window: 14)
         // #103/queue-11a: SpO₂ candidate nightly mean — WHOOP `spo2_candidate_82`, or an Oura owner's
         // ceiling@100 `0x6F` mean (device-conditional, see IntelligenceEngine). Read via `exploreSeries`
         // so the computed "-noop" metricSeries backs the trend; "my-whoop" here is the generic "active
@@ -4669,9 +4670,11 @@ struct TodayView: View {
         // which is empty without a Health import — parity bug vs Android's `DailyMetric.respRateBpm`
         // trend. "my-whoop" covers imported WHOOP CSV (Layer 1) + computed DailyMetric (Layer 3).
         async let respRateSpark      = sparkValuesExplore("resp_rate", source: "my-whoop", window: 14)
-        async let stepsAppleSpark    = sparkValues("steps", source: "apple-health", window: 14)
-        async let weightSpark        = sparkValues("weight", source: "apple-health", window: 90)
-        async let activeKcalSpark    = sparkValues("active_kcal", source: "apple-health", window: 14)
+        let stepsFromDay = Repository.localDayKey(Calendar.current.date(byAdding: .day, value: -13, to: Date()) ?? Date())
+        let stepsThroughDay = Repository.localDayKey(Calendar.current.date(byAdding: .day, value: 1, to: Date()) ?? Date())
+        async let stepsResolution   = repo.resolvedSteps(from: stepsFromDay, to: stepsThroughDay)
+        async let weightResolution   = repo.resolvedSeries(key: "weight", source: "apple-health", days: 91)
+        async let activeKcalSpark    = activeKcalTrend()
 
         sparks["recovery"]        = await recoverySpark
         sparks["strain"]          = await strainSpark
@@ -4682,14 +4685,20 @@ struct TodayView: View {
         sparks["spo2_candidate"]  = await spo2CandidateSpark
         sparks["skin_temp"]       = await skinTempSpark
         sparks["resp_rate"]   = await respRateSpark
-        sparks["steps"]       = await stepsAppleSpark
-        // Steps prefer the strap's own @57 daily total (no metricSeries, it lives on the daily row),
-        // so a strap-only WHOOP 5/MG user gets a steps trend without Apple Health. Falls back to the
-        // Apple Health series above when the strap supplied no steps (#276). This synchronous overwrite
-        // must run AFTER sparks["steps"] is assigned from the Apple-Health read above (unchanged order).
-        let strapSteps = repo.days.suffix(14).compactMap { $0.steps.map(Double.init) }
-        if !strapSteps.isEmpty { sparks["steps"] = strapSteps }
-        sparks["weight"]      = await weightSpark
+        let recentSteps = await stepsResolution
+        sparks["steps"] = recentSteps.values.map { $0.value }
+        let resolvedWeight = await weightResolution
+        let recentWeight = trailingWindow(resolvedWeight.values, days: 90)
+        sparks["weight"] = recentWeight.map { $0.value }
+        weightSourceCaption = String(localized: "latest")
+        if let source = resolvedWeight.points.last?.source {
+            switch source {
+            case "paceforge-hume": weightSourceCaption = "Hume via PaceForge"
+            case "apple-health": weightSourceCaption = "Apple Health"
+            case "health-connect": weightSourceCaption = "Health Connect"
+            default: weightSourceCaption = String(localized: "latest")
+            }
+        }
         sparks["active_kcal"] = await activeKcalSpark
 
         // Steps ESTIMATE per day (WHOOP 4.0 motion → calibrated steps), the Mi-Band series, workout +
@@ -4738,7 +4747,7 @@ struct TodayView: View {
         // placeholder, matching StressView's empty state. Fitness age / Vitality keep their merged reads.
         stressToday = StressModel(days: repo.days, stored: await stressStoredA)?.score
         fitnessAgeToday = (await fitnessAgeSeriesA).last?.value
-        vo2maxToday = (await vo2maxSeriesA).last?.value   // #1391: latest banked VO₂max estimate
+        vo2maxToday = (await vo2maxSeriesA).last?.value   // #1391: latest banked NOOP estimate.
         vitalityToday = (await vitalitySeriesA).last?.value
         // Hydration card (opt-in): today's stored total + the sex/Effort goal. Only loaded when the
         // feature is on, so a disabled feature does zero work and the card stays hidden.
@@ -5154,6 +5163,22 @@ struct TodayView: View {
         return trailingWindow(all, days: window).map { $0.value }
     }
 
+    /// Daily calories use the Apple Health total when it exists and NOOP's own estimate otherwise.
+    /// Keep the provider streams separate in storage; this is a display-only, same-day fallback.
+    private func activeKcalTrend() async -> [Double] {
+        let from = Repository.localDayKey(Calendar.current.date(byAdding: .day, value: -13, to: Date()) ?? Date())
+        let through = Repository.localDayKey(Date())
+        var byDay: [String: Double] = [:]
+        for row in repo.days where row.day >= from && row.day <= through {
+            if let kcal = row.activeKcalEst { byDay[row.day] = kcal }
+        }
+        let imported = await repo.appleDailyRows()
+        for row in imported where row.day >= from && row.day <= through {
+            if let kcal = row.activeKcal { byDay[row.day] = kcal }
+        }
+        return byDay.keys.sorted().compactMap { byDay[$0] }
+    }
+
     /// Same as `sparkValues` but reads via `exploreSeries` so the on-device COMPUTED `DailyMetric`
     /// column backs the sparkline for a BLE-only WHOOP user (no CSV/Health import). `series` reads
     /// metricSeries only, which is empty for computed keys like `resp_rate` (the engine writes
@@ -5184,13 +5209,13 @@ struct TodayView: View {
     }
 
     /// The Weight tile's display string + an honest caption ("from profile" only on the fallback).
-    /// Prefers a real Apple-Health reading (today's daily, else the "weight" series' newest point so a
-    /// sparse-but-recent value still renders); when neither carries a weight, falls back to the user's
+    /// Prefers the newest resolved Apple Health / Hume reading (Apple wins same-day conflicts); when
+    /// neither carries a weight, falls back to the user's
     /// self-reported profile weight instead of ", " (#204). Always formatted through the shared
-    /// `UnitFormatter` so the Imperial/Metric toggle reaches this tile. Mirrors Android's `weightTile`.
+    /// `UnitFormatter` so the Imperial/Metric toggle reaches this tile.
     private func weightTile(_ appleWeightKg: Double?) -> (value: String, caption: String) {
-        if let kg = appleWeightKg ?? sparks["weight"]?.last {
-            return (UnitFormatter.massFromKilograms(kg, system: unitSystem), String(localized: "latest"))
+        if let kg = sparks["weight"]?.last ?? appleWeightKg {
+            return (UnitFormatter.massFromKilograms(kg, system: unitSystem), weightSourceCaption)
         }
         return (UnitFormatter.massFromKilograms(profile.weightKg, system: unitSystem), String(localized: "from profile"))
     }
@@ -5356,9 +5381,11 @@ struct TodayView: View {
         }
     }
 
-    /// Active calories (Apple) for the latest day, falling back to the sparkline tail.
+    /// Active calories prefer Apple Health for the selected day, then NOOP's same-day estimate.
     private func caloriesValue(_ a: AppleDaily?) -> String {
-        if let kcal = a?.activeKcal { return intString(kcal) }
+        let appleValue = appleDays.last(where: { $0.day == selectedDayKey })?.activeKcal ?? a?.activeKcal
+        let estimatedValue = repo.days.last(where: { $0.day == selectedDayKey })?.activeKcalEst
+        if let kcal = appleValue ?? estimatedValue { return intString(kcal) }
         return latestString("active_kcal", decimals: 0)
     }
 

@@ -68,7 +68,8 @@ struct LiquidTodayView: View {
     @State private var stepsEst: Double?           // steps_est, day-keyed to the selected day (fallback)
     @State private var importedStepsDay: Int?      // Apple Health steps for the selected day (middle tier)
     @State private var importedActiveKcalDay: Double?  // #616: Apple Health active energy for the day (calorie fallback)
-    @State private var weightKg: Double?           // #204: Apple Health weight ?: profile fallback
+    @State private var weightKg: Double?           // Apple Health / Hume weight ?: profile fallback
+    @State private var weightSourceCaption = String(localized: "latest")
     @State private var hrValues: [Double] = []     // hrBuckets since midnight → 5-min means
     /// Line identity for [hrValues], from the bucket timestamps this used to discard (#2082).
     ///
@@ -1725,7 +1726,7 @@ struct LiquidTodayView: View {
         async let stepsA = repo.exploreSeries(key: "steps_est", source: "my-whoop")
         // Queue 11a: SpO₂ candidate fallback (see `spo2CandidateByDay`'s declaration).
         async let spo2CandA = repo.exploreSeries(key: "spo2_candidate", source: "my-whoop")
-        async let weightA = repo.series(key: "weight", source: "apple-health", days: 91)
+        async let weightA = repo.resolvedSeries(key: "weight", source: "apple-health", days: 91)
         async let appleA = repo.appleDailyRows()
         async let hrA = repo.hrBuckets(from: from, to: to, bucketSeconds: 300)
         async let wkA = repo.workoutRows()
@@ -1743,6 +1744,7 @@ struct LiquidTodayView: View {
 
         let restSeries = await restA
         let stepsSeries = await stepsA
+        let resolvedWeight = await weightA
         let restByDay = Dictionary(restSeries.map { ($0.day, $0.value) }, uniquingKeysWith: { _, last in last })
         // Selected day's Rest; tail fallback only at offset 0 (a past day with no row shows nothing) AND
         // only when the tail night is still fresh. #977: a live 5.0 whose sleep never scores (no overnight
@@ -1803,34 +1805,40 @@ struct LiquidTodayView: View {
                 .map { ($0.day, $0.value) },
             "sleep_performance": restSeries.filter { $0.day >= sparkCutoff && $0.day <= selectedDayKey }
                 .map { ($0.day, $0.value) },
-            "weight": (await weightA).filter { $0.day >= sparkCutoff && $0.day <= selectedDayKey },
+            "weight": resolvedWeight.values.filter { $0.day >= sparkCutoff && $0.day <= selectedDayKey },
         ]
         stress = await Task.detached(priority: .utility) {
             StressModel(days: daysSnapshot, stored: storedStress)?.score
         }.value
         fitnessAge = (await fitA).last?.value   // history-wide latest banked (not day-scoped)
-        vo2max = (await vo2A).last?.value        // #1391: latest banked VO₂max estimate
+        vo2max = (await vo2A).last?.value          // NOOP's estimate remains distinct from Garmin VO₂max.
         vitality = (await vitA).last?.value
         // Steps is a DAILY metric, so key it to the SELECTED day (like restScore above), not the history-wide
         // latest. Without this, swiping to a past day with no strap step count showed today's estimate (the
         // `.last` value) instead of that day's. Mirrors the classic Today's stepsEstByDay[selectedDayKey].
         let stepsByDay = Dictionary(stepsSeries.map { ($0.day, $0.value) }, uniquingKeysWith: { _, last in last })
         stepsEst = stepsByDay[selectedDayKey] ?? (selectedDayOffset == 0 ? stepsSeries.last?.value : nil)
-        // Imported Apple Health steps for the SELECTED day (max across rows), the middle tier between the
-        // measured strap count and the motion estimate. Health Connect is Android-only, so apple-health is
-        // the sole import source on iOS. Mirrors Android `stepsForDay` (#377).
+        // Imported Apple Health steps for the SELECTED day (max across rows). They follow the merged
+        // WHOOP/Garmin daily count and precede the motion estimate.
         importedStepsDay = (await appleA).filter { $0.day == selectedDayKey }.compactMap { $0.steps }.max()
         // #616: same-day imported active energy — the calorie fallback when the strap banked no on-device
         // HR estimate for the day, so the tile/card/detail agree (imported-first, mirrors steps).
         importedActiveKcalDay = (await appleA).filter { $0.day == selectedDayKey }.compactMap { $0.activeKcal }.max()
 
-        // Weight for the SELECTED day: prefers a real Apple-Health reading (today's daily, else the
-        // "weight" series' newest point so a sparse-but-recent value still renders). Falls back to the
-        // user's profile weight in the renderer (weightTile).
+        // Weight for the SELECTED day: Apple Health wins a same-day match; the resolved series lets Hume
+        // fill missing days. Falls back to the user's profile weight in the renderer (weightTile).
         let appleRows = await appleA
-        let weightSeries = await weightA
+        let weightSeries = resolvedWeight.values
         weightKg = appleRows.filter { $0.day == selectedDayKey }.compactMap { $0.weightKg }.max()
             ?? weightSeries.last(where: { $0.day <= selectedDayKey })?.value
+        if let source = resolvedWeight.points.last(where: { $0.day <= selectedDayKey })?.source {
+            switch source {
+            case "paceforge-hume": weightSourceCaption = "Hume via PaceForge"
+            case "apple-health": weightSourceCaption = "Apple Health"
+            case "health-connect": weightSourceCaption = "Health Connect"
+            default: weightSourceCaption = String(localized: "latest")
+            }
+        }
 
         // Awaited ONCE: the timestamps and the means have to come from the same read, or the segments
         // would describe a different series than the one drawn.
@@ -1985,8 +1993,7 @@ struct LiquidTodayView: View {
             : String(localized: "Good evening")
     }
 
-    // Measured strap count ?: imported Apple Health count ?: motion estimate — the same precedence the
-    // detail routing follows below, so the tapped-through source always matches the number shown (#377).
+    // Merged WHOOP/Garmin count ?: Apple Health count ?: motion estimate; detail routing uses the same order.
     private var stepCount: Double? {
         displayDay?.steps.map(Double.init) ?? importedStepsDay.map(Double.init) ?? stepsEst
     }
@@ -2104,7 +2111,7 @@ struct LiquidTodayView: View {
     /// tile. Mirrors the classic TodayView's `weightTile`.
     private func weightTile(_ appleWeightKg: Double?) -> (value: String, caption: String) {
         if let kg = appleWeightKg {
-            return (UnitFormatter.massFromKilograms(kg, system: unitSystem), String(localized: "latest"))
+            return (UnitFormatter.massFromKilograms(kg, system: unitSystem), weightSourceCaption)
         }
         return (UnitFormatter.massFromKilograms(profile.weightKg, system: unitSystem), String(localized: "from profile"))
     }

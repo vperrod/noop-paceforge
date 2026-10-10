@@ -33,7 +33,7 @@ struct RollingStepsAverage: Equatable {
 }
 
 extension Repository {
-    /// Shared by the detail and rolling tile: measured strap, phone import, then strap estimate.
+    /// Shared by the detail and rolling tile: NOOP/WHOOP count, PaceForge Garmin, Apple Health, then estimate.
     func resolvedSteps(from: String, to: String) async -> MetricSeriesResolution {
         async let strap = resolvedSeries(key: "steps", source: Self.whoopSource, from: from, to: to)
         async let phone = resolvedSeries(key: "steps", source: "apple-health", from: from, to: to)

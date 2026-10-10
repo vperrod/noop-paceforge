@@ -270,10 +270,8 @@ enum MetricCatalog {
         return all.first { $0.key == key && $0.source == source }
     }
 
-    /// The source the Today steps tile taps through to, matching the value it displays. Precedence
-    /// mirrors Android's `TodayScreen` (#377): the measured WHOOP 5.0 / MG count, else the imported
-    /// Apple Health count, else the WHOOP 4.0 motion estimate. `hasImportedSteps` defaults false so
-    /// existing callers keep the measured-or-estimate behaviour unchanged.
+    /// The source the Today steps tile taps through to, matching the displayed merged count. A measured
+    /// WHOOP or PaceForge Garmin daily count wins, then Apple Health, then the WHOOP motion estimate.
     static func todayStepsMetric(hasMeasuredSteps: Bool, hasImportedSteps: Bool = false) -> MetricDescriptor? {
         if hasMeasuredSteps { return metric(key: "steps", source: "my-whoop") }
         if hasImportedSteps { return metric(key: "steps", source: "apple-health") }
