@@ -91,6 +91,8 @@ struct WorkoutDetailView: View {
             heartRateRecoveryCard
             if let strain = row.strain {
                 effortCard(strain: strain)
+            } else if WorkoutSource.classify(row.source) == .paceforge {
+                unavailableEffortCard
             }
         }
         .toolbar {
@@ -189,6 +191,28 @@ struct WorkoutDetailView: View {
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 }
+            }
+        } else if WorkoutSource.classify(row.source) == .paceforge {
+            NoopCard(tint: StrandPalette.metricRose) {
+                VStack(alignment: .leading, spacing: 6) {
+                    SectionHeader("Heart Rate Recovery", overline: "Garmin activity")
+                    Text("Unavailable: there are not enough timestamped Garmin heart-rate samples around this workout to calculate recovery.")
+                        .font(StrandFont.footnote)
+                        .foregroundStyle(StrandPalette.textTertiary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+        }
+    }
+
+    private var unavailableEffortCard: some View {
+        NoopCard(tint: StrandPalette.metricAmber) {
+            VStack(alignment: .leading, spacing: 6) {
+                SectionHeader("Effort", overline: "This session")
+                Text("Unavailable: this activity does not have enough timestamped Garmin heart-rate samples for NOOP to calculate session Effort.")
+                    .font(StrandFont.footnote)
+                    .foregroundStyle(StrandPalette.textTertiary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
     }

@@ -1103,6 +1103,9 @@ extension WhoopStore {
         migrator.registerMigration("v47-rr-whoop5-fill") { db in
             try db.execute(sql: WhoopStore.whoop5RrFillMigrationSQL)
         }
+        migrator.registerMigration("v48-replica-change-journal") { db in
+            try WhoopStore.installReplicaTriggers(db)
+        }
         return migrator
     }
 }

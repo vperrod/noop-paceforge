@@ -43,57 +43,64 @@ enum AppleHealthImport {
             return (result, daily)
         }.value
 
-        phase?("Saving Apple Health daily totals…")
-        // Apple-specific daily aggregates (steps/energy/vo2/hr/weight).
-        let appleRows = daily.map { d in
-            AppleDaily(day: d.day,
-                       steps: d.steps.map(stepsInt),
-                       activeKcal: d.activeKcal, basalKcal: d.basalKcal, vo2max: d.vo2max,
-                       avgHr: d.avgHr.map { Int($0.rounded()) },
-                       maxHr: d.maxHr.map { Int($0.rounded()) },
-                       walkingHr: d.walkingHr.map { Int($0.rounded()) },
-                       weightKg: d.weightKg)
+        // Commit in bounded day batches. An interrupted import may leave completed batches in the
+        // source-scoped tables; rerunning is safe because every write is an upsert on the natural key.
+        let batchSize = 90
+        var appleWritten = 0
+        var dmWritten = 0
+        var pointsMapped = 0
+        var pointsWritten = 0
+        for lower in stride(from: 0, to: daily.count, by: batchSize) {
+            let upper = min(lower + batchSize, daily.count)
+            let batch = Array(daily[lower..<upper])
+            phase?("Saving Apple Health daily totals… (\(upper) of \(daily.count) days)")
+            let appleRows = batch.map { d in
+                AppleDaily(day: d.day,
+                           steps: d.steps.map(stepsInt),
+                           activeKcal: d.activeKcal, basalKcal: d.basalKcal, vo2max: d.vo2max,
+                           avgHr: d.avgHr.map { Int($0.rounded()) },
+                           maxHr: d.maxHr.map { Int($0.rounded()) },
+                           walkingHr: d.walkingHr.map { Int($0.rounded()) },
+                           weightKg: d.weightKg)
+            }
+            appleWritten += try await store.upsertAppleDaily(appleRows, deviceId: deviceId)
+
+            // Recovery-relevant subset into dailyMetric (recovery/strain are nil — Apple doesn't compute them).
+            phase?("Saving Apple Health metrics… (\(upper) of \(daily.count) days)")
+            let dm = batch.map { d in
+                DailyMetric(day: d.day,
+                            totalSleepMin: d.asleepMin, efficiency: nil,
+                            deepMin: d.deepMin, remMin: d.remMin, lightMin: d.coreMin,
+                            disturbances: nil,
+                            restingHr: d.restingHr.map { Int($0.rounded()) },
+                            avgHrv: d.hrvSDNN, recovery: nil, strain: nil, exerciseCount: nil,
+                            spo2Pct: d.spo2Pct, skinTempDevC: nil, respRateBpm: d.respRate,
+                            steps: d.steps.map(stepsInt), avgSdnn: d.hrvSDNN)
+            }
+            dmWritten += try await store.upsertDailyMetrics(dm, deviceId: deviceId)
+
+            // Metric explorer/correlation rows are generated and committed per day batch too.
+            let points = AppleHealthAggregator.metricPoints(batch)
+                .map { MetricPoint(day: $0.day, key: $0.key, value: $0.value) }
+            pointsMapped += points.count
+            pointsWritten += try await store.upsertMetricSeries(points, deviceId: deviceId)
         }
-        // Capture the rows the store actually wrote (summed SQLite changes) for the Import test mode; the
-        // return value already exists, so capturing it changes nothing about what is saved.
-        let appleWritten = try await store.upsertAppleDaily(appleRows, deviceId: deviceId)
 
-        // Recovery-relevant subset into dailyMetric (recovery/strain are nil — Apple doesn't compute them).
-        phase?("Saving Apple Health metrics…")
-        let dm = daily.map { d in
-            DailyMetric(day: d.day,
-                        totalSleepMin: d.asleepMin, efficiency: nil,
-                        deepMin: d.deepMin, remMin: d.remMin, lightMin: d.coreMin,
-                        disturbances: nil,
-                        restingHr: d.restingHr.map { Int($0.rounded()) },
-                        avgHrv: d.hrvSDNN, recovery: nil, strain: nil, exerciseCount: nil,
-                        spo2Pct: d.spo2Pct, skinTempDevC: nil, respRateBpm: d.respRate,
-                        // #89: Apple Health steps must land in DailyMetric.steps too — the sourced-daily
-                        // arbitration resolves "steps" via metricValue(d) = d.steps, so leaving it nil (the
-                        // pre-fix state) meant imported Apple steps never surfaced there.
-                        steps: d.steps.map(stepsInt),
-                        avgSdnn: d.hrvSDNN)   // Apple HRV is SDNN — mirror into the SDNN field
-        }
-        let dmWritten = try await store.upsertDailyMetrics(dm, deviceId: deviceId)
-
-        // Everything, generically, for the metric explorer.
-        phase?("Saving Apple Health history…")
-        let points = AppleHealthAggregator.metricPoints(daily)
-            .map { MetricPoint(day: $0.day, key: $0.key, value: $0.value) }
-        try await store.upsertMetricSeries(points, deviceId: deviceId)
-
-        // Workouts.
         phase?("Saving Apple Health workouts…")
-        let workouts = result.workouts.map { w in
-            WorkoutRow(startTs: Int(w.start.timeIntervalSince1970),
-                       endTs: Int(w.end.timeIntervalSince1970),
-                       sport: w.activityType, source: WorkoutSource.appleHealthSource,
-                       durationS: w.durationS, energyKcal: w.energyKcal,
-                       avgHr: w.avgHr.map { Int($0.rounded()) },
-                       maxHr: w.maxHr.map { Int($0.rounded()) }, strain: nil,
-                       distanceM: w.distanceM, zonesJSON: nil, notes: nil, steps: nil)
+        var workoutsWritten = 0
+        for lower in stride(from: 0, to: result.workouts.count, by: batchSize) {
+            let upper = min(lower + batchSize, result.workouts.count)
+            let workouts = result.workouts[lower..<upper].map { w in
+                WorkoutRow(startTs: Int(w.start.timeIntervalSince1970),
+                           endTs: Int(w.end.timeIntervalSince1970),
+                           sport: w.activityType, source: WorkoutSource.appleHealthSource,
+                           durationS: w.durationS, energyKcal: w.energyKcal,
+                           avgHr: w.avgHr.map { Int($0.rounded()) },
+                           maxHr: w.maxHr.map { Int($0.rounded()) }, strain: nil,
+                           distanceM: w.distanceM, zonesJSON: nil, notes: nil, steps: nil)
+            }
+            workoutsWritten += try await store.upsertWorkouts(workouts, deviceId: deviceId)
         }
-        let workoutsWritten = try await store.upsertWorkouts(workouts, deviceId: deviceId)
 
         // Import & Data Ingest test mode: emit the per-stage / reject / day-delta trace iff the mode is on
         // (the caller passes a non-nil `trace` only when TestCentre.active(.dataImport)). The numbers are
@@ -102,9 +109,10 @@ enum AppleHealthImport {
             let daysMapped = Set(daily.map { $0.day }).count
             let lines: [String] = [
                 ImportTrace.parserVersionLine(sourceKind: .appleHealth, importerVersion: importerVersion),
-                ImportTrace.stageLine(category: "appleDaily", rowsIn: appleRows.count, rowsOut: appleWritten),
-                ImportTrace.stageLine(category: "dailyMetric", rowsIn: dm.count, rowsOut: dmWritten),
-                ImportTrace.stageLine(category: "workouts", rowsIn: workouts.count, rowsOut: workoutsWritten),
+                ImportTrace.stageLine(category: "appleDaily", rowsIn: daily.count, rowsOut: appleWritten),
+                ImportTrace.stageLine(category: "dailyMetric", rowsIn: daily.count, rowsOut: dmWritten),
+                ImportTrace.stageLine(category: "metricSeries", rowsIn: pointsMapped, rowsOut: pointsWritten),
+                ImportTrace.stageLine(category: "workouts", rowsIn: result.workouts.count, rowsOut: workoutsWritten),
                 // Apple Health is tolerant: skippedSpans counts XML spans the sanitizer scrubbed / a partial
                 // parse. The aggregator drops nothing further, so droppedRows is 0 here.
                 ImportTrace.rejectLine(droppedRows: 0, skippedSpans: result.summary.skippedSpans),
@@ -113,6 +121,9 @@ enum AppleHealthImport {
             trace(lines)
         }
 
-        return result.summary
+        var summary = result.summary
+        summary.countsByCategory["workouts"] = result.workouts.count
+        summary.countsByCategory["dailyAggregates"] = daily.count
+        return summary
     }
 }

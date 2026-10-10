@@ -1,4 +1,5 @@
 import Foundation
+import GRDB
 #if canImport(FoundationXML)
 // corelibs Foundation moved the event-driven XML parser into its own module; Darwin keeps it in
 // Foundation. Conditional so one import serves both, with no #if at the use sites.
@@ -188,6 +189,7 @@ public struct AppleHealthImporter {
         parser.delegate = delegate
         parser.shouldProcessNamespaces = false
         let ok = parser.parse()
+        try delegate.finishStaging()
 
         // How many illegal-byte runs the sanitizer scrubbed before the parser ran. Always surfaced.
         let scrubbedRuns = sanitizer?.scrubbedRunCount ?? 0
@@ -258,12 +260,6 @@ final class HealthXMLDelegate: NSObject, XMLParserDelegate {
     let retainRawSamples: Bool
     private let progress: (@Sendable (Int) -> Void)?
 
-    init(retainRawSamples: Bool = true, progress: (@Sendable (Int) -> Void)? = nil) {
-        self.retainRawSamples = retainRawSamples
-        self.progress = progress
-        super.init()
-    }
-
     // Outputs
     private(set) var samples: [HealthSample] = []
     private(set) var workouts: [HealthWorkout] = []
@@ -301,13 +297,72 @@ final class HealthXMLDelegate: NSObject, XMLParserDelegate {
     // never appear inside a Correlation, so a single slot (not a stack) is sufficient.
     private var pendingWorkout: HealthWorkout?
 
-    // Dedupe set over HealthSample dedupeKeys — stored as the key's 64-bit HASH, not the full String
-    // (#183). A large Apple Health export has tens of millions of unique samples; retaining a ~50-100 B
-    // String each was ~1-2 GB of RAM, enough to push an import into sustained memory pressure and hang.
-    // A 64-bit hash is 8 B/entry (~10x less); a collision across even 20M samples is ~1e-5, and a rare
-    // one just drops a look-alike duplicate — the same effect dedup intends. Within one import run the
-    // hash is stable, so identical keys always dedupe.
+    // Raw-sample callers keep the in-memory dedupe set. The app's aggregate-only path stages hashes in
+    // a temporary SQLite index so memory does not grow with the size of the export.
     private var seenSampleKeys: Set<Int> = []
+    private var pendingSamples: [(HealthSample, Int)] = []
+    private var stagingDB: DatabaseQueue?
+    private var stagingURL: URL?
+    private(set) var stagingError: Error?
+    private let stagingBatchSize = 2_000
+
+    init(retainRawSamples: Bool = true, progress: (@Sendable (Int) -> Void)? = nil) {
+        self.retainRawSamples = retainRawSamples
+        self.progress = progress
+        super.init()
+        guard !retainRawSamples else { return }
+        do {
+            let scratch = FileManager.default.temporaryDirectory
+                .appendingPathComponent((Bundle.main.bundleIdentifier ?? "com.noopapp.noop") + ".scratch",
+                                        isDirectory: true)
+            try FileManager.default.createDirectory(at: scratch, withIntermediateDirectories: true)
+            let url = scratch.appendingPathComponent("apple-health-dedupe-\(UUID().uuidString).sqlite")
+            let db = try DatabaseQueue(path: url.path)
+            try db.write { connection in
+                try connection.execute(sql: "CREATE TABLE seen_sample (hash INTEGER PRIMARY KEY)")
+            }
+            stagingURL = url
+            stagingDB = db
+        } catch {
+            stagingError = error
+        }
+    }
+
+    deinit {
+        stagingDB = nil
+        guard let stagingURL else { return }
+        for suffix in ["", "-wal", "-shm"] {
+            try? FileManager.default.removeItem(atPath: stagingURL.path + suffix)
+        }
+    }
+
+    /// Persist a bounded batch of sample hashes and fold only newly inserted samples.
+    func finishStaging() throws {
+        if let stagingError { throw stagingError }
+        try flushStagedSamples()
+        stagingDB = nil
+        guard let stagingURL else { return }
+        for suffix in ["", "-wal", "-shm"] {
+            try? FileManager.default.removeItem(atPath: stagingURL.path + suffix)
+        }
+        self.stagingURL = nil
+    }
+
+    private func flushStagedSamples() throws {
+        guard !pendingSamples.isEmpty else { return }
+        guard let stagingDB else {
+            throw ImportError.xmlParseFailed("Apple Health deduplication staging is unavailable")
+        }
+        let batch = pendingSamples
+        pendingSamples.removeAll(keepingCapacity: true)
+        try stagingDB.write { db in
+            for (sample, hash) in batch {
+                try db.execute(sql: "INSERT OR IGNORE INTO seen_sample (hash) VALUES (?)", arguments: [hash])
+                guard db.changesCount > 0 else { continue }
+                fold(sample)
+            }
+        }
+    }
 
     /// 64-bit FNV-1a over `s`'s UTF-16 code units — byte-identical to the Android `hash64` (both iterate
     /// UTF-16 units with the same offset basis + prime, wrapping at 64 bits), so the two platforms produce
@@ -338,6 +393,10 @@ final class HealthXMLDelegate: NSObject, XMLParserDelegate {
         qualifiedName qName: String?,
         attributes attributeDict: [String: String]
     ) {
+        if stagingError != nil {
+            parser.abortParsing()
+            return
+        }
         let parentIsCorrelation = (stack.last == "Correlation")
         stack.append(elementName)
 
@@ -494,28 +553,30 @@ final class HealthXMLDelegate: NSObject, XMLParserDelegate {
             tzOffsetMin: tzOffsetMin,
             sourceName: sourceName
         )
-        // Dedupe on type+start+end+source+value (correctness-critical). Retain only the key's 64-bit
-        // hash, not the String, so the set stays ~10x smaller on a huge export (#183). Uses the SAME
-        // FNV-1a as Android (NOT Swift's per-run-randomized hashValue) so both platforms dedupe identically.
-        if seenSampleKeys.insert(Self.hash64(sample.dedupeKey)).inserted {
-            // Always fold into the bounded per-day accumulator.
-            dailyAcc.add(sample)
-            anyRecordSeen = true
-            sampleCount += 1
-            if sampleCount - lastProgressCount >= 50_000 {
-                lastProgressCount = sampleCount
-                progress?(sampleCount)
-            }
-            // Track the date span incrementally so makeResult never needs the
-            // (possibly empty) raw `samples` array. Matches the prior summary,
-            // which spanned sample/workout/sleep `start` dates.
-            if earliestDate == nil || start < earliestDate! { earliestDate = start }
-            if latestDate == nil || start > latestDate! { latestDate = start }
-            // Only retain the raw struct when the caller asked for it.
-            if retainRawSamples {
-                samples.append(sample)
+        let hash = Self.hash64(sample.dedupeKey)
+        if retainRawSamples {
+            guard seenSampleKeys.insert(hash).inserted else { return }
+            fold(sample)
+        } else {
+            pendingSamples.append((sample, hash))
+            if pendingSamples.count >= stagingBatchSize {
+                do { try flushStagedSamples() }
+                catch { stagingError = error }
             }
         }
+    }
+
+    private func fold(_ sample: HealthSample) {
+        dailyAcc.add(sample)
+        anyRecordSeen = true
+        sampleCount += 1
+        if sampleCount - lastProgressCount >= 10_000 {
+            lastProgressCount = sampleCount
+            progress?(sampleCount)
+        }
+        if earliestDate == nil || sample.start < earliestDate! { earliestDate = sample.start }
+        if latestDate == nil || sample.start > latestDate! { latestDate = sample.start }
+        if retainRawSamples { samples.append(sample) }
     }
 
     // MARK: Workout handling

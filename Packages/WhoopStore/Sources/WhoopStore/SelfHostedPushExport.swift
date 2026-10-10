@@ -106,7 +106,7 @@ public enum SelfHostedPushExportError: Error {
 
 public enum SelfHostedPushExport {
     public static let appendStreams = ["hrSample", "rrInterval", "event", "battery", "spo2Sample", "skinTempSample", "respSample", "gravitySample"]
-    public static let mutableStreams = ["dailyMetric", "sleepSession", "workout", "journal"]
+    public static let mutableStreams = ["dailyMetric", "sleepSession", "workout", "journal", "appleDaily"]
 }
 
 private enum SelfHostedPushRegistry {
@@ -142,6 +142,7 @@ private enum SelfHostedPushRegistry {
     ]
     static let mutable: [String: Spec] = [
         "dailyMetric": Spec(keys: ["day"], fields: ["totalSleepMin", "efficiency", "deepMin", "remMin", "lightMin", "disturbances", "restingHr", "avgHrv", "recovery", "strain", "exerciseCount", "spo2Pct", "skinTempDevC", "respRateBpm", "steps", "activeKcalEst", "spo2Red", "spo2Ir"], selector: "day", booleans: []),
+        "appleDaily": Spec(keys: ["day"], fields: ["steps", "activeKcal", "basalKcal", "vo2max", "avgHr", "maxHr", "walkingHr", "weightKg"], selector: "day", booleans: []),
         "sleepSession": Spec(keys: ["startTs"], fields: ["endTs", "efficiency", "restingHr", "avgHrv", "stagesJSON", "userEdited", "startTsAdjusted", "motionJSON", "sleepStateJSON", "stagingSparse"], selector: "startTs", booleans: ["userEdited", "stagingSparse"]),
         // routePolyline is Android-only (see schema_oracle.json). Keep the shared protocol shape while
         // avoiding a SELECT of a column that is not present in the iOS/macOS GRDB workout table.

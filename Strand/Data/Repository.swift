@@ -1010,6 +1010,7 @@ final class Repository: ObservableObject {
                 vitalRows: Self.sourceRows(imported: imported, computed: computed,
                                            paceForgeGarmin: paceForgeGarmin, apple: apple),
                 freshness: Self.computeFreshness(imported: imported, computed: computed, apple: apple,
+                                                 paceForgeGarmin: paceForgeGarmin,
                                                  importedSleeps: impSleep, computedSleeps: compSleep))
         }.value
 
@@ -1056,9 +1057,10 @@ final class Repository: ObservableObject {
     /// Per-source coverage counts for the Freshness Pipeline card. Pure over the rows already read.
     /// `nonisolated` (FIX 3) so `refresh()`'s detached merge task can call it off the main actor.
     nonisolated private static func computeFreshness(imported: [DailyMetric], computed: [DailyMetric],
-                                         apple: [DailyMetric], importedSleeps: [CachedSleepSession],
+                                         apple: [DailyMetric], paceForgeGarmin: [DailyMetric],
+                                         importedSleeps: [CachedSleepSession],
                                          computedSleeps: [CachedSleepSession]) -> RepositoryFreshness {
-        let days = (imported + computed + apple).map(\.day)
+        let days = (imported + computed + apple + paceForgeGarmin).map(\.day)
         return RepositoryFreshness(
             importedDays: imported.count,
             computedDays: computed.count,
@@ -1886,6 +1888,12 @@ final class Repository: ObservableObject {
         let now = Date()
         let from = fullHistory ? "0000-01-01" : Self.dayString(now.addingTimeInterval(-Double(days) * 86_400))
         let to = fullHistory ? "9999-12-31" : Self.dayString(now.addingTimeInterval(86_400))
+        if source == "paceforge-garmin" {
+            let rows = (try? await store.dailyMetrics(deviceId: source, from: from, to: to)) ?? []
+            return rows.compactMap { row in
+                Self.dailyColumn(key: key, day: row).map { (day: row.day, value: $0) }
+            }
+        }
         let pts: [MetricPoint]
         if source == canonicalDeviceId {
             pts = await unionMetricSeries(store: store, key: key, from: from, to: to)
@@ -2651,6 +2659,13 @@ final class Repository: ObservableObject {
                 }
             } else {
                 keys.formUnion((try? await store.metricKeys(deviceId: source)) ?? [])
+                if source == "paceforge-garmin" {
+                    let rows = (try? await store.dailyMetrics(deviceId: source,
+                                                               from: "0000-01-01", to: "9999-12-31")) ?? []
+                    if rows.contains(where: { Self.dailyColumn(key: "steps", day: $0) != nil }) {
+                        keys.insert("steps")
+                    }
+                }
             }
             keysBySource[source] = keys
         }
@@ -2914,7 +2929,8 @@ final class Repository: ObservableObject {
                     // own. Resolve this on the main actor (WorkoutSource.classify) and capture the plain Bool,
                     // so the child task crosses only Sendable scalars.
                     let cls = WorkoutSource.classify(rows[idx].source)
-                    let wantStrain = (cls == .manual || cls == .detected) && rows[idx].strain == nil
+                    let wantStrain = (cls == .manual || cls == .detected || cls == .paceforge)
+                        && rows[idx].strain == nil
                     // #510: read HR under the workout's OWN recording strap, not a single active id. A detected
                     // row's `source` IS its computed strap id ("<base>-noop"), so a bout auto-detected on a 2nd
                     // WHOOP reads "<base>" instead of the active strap's empty window. Resolved on the main actor;
@@ -3000,6 +3016,9 @@ final class Repository: ObservableObject {
     /// install collapses to one in both branches — so every existing number is unchanged.
     nonisolated static func workoutHrDeviceIds(source: String, activeStrapId: String,
                                                importedIds: [String]) -> [String] {
+        // Imported Garmin workouts use only Garmin activity HR. Mixing the nearby WHOOP trace
+        // would attribute another device's readings to this workout and corrupt Effort/HRR.
+        if WorkoutSource.classify(source) == .paceforge { return ["paceforge-garmin"] }
         guard WorkoutSource.classify(source) == .detected else { return importedIds }
         return [source.hasSuffix("-noop") ? String(source.dropLast(5)) : source]
     }

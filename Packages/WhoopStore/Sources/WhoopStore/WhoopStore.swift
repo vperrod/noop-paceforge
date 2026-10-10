@@ -182,6 +182,21 @@ public actor WhoopStore {
         try checkpointWALImpl()
     }
 
+    /// Create a transactionally consistent SQLite backup, including committed WAL contents.
+    /// The destination must be a disposable path chosen by the caller.
+    public func backupDatabase(to path: String,
+                               progress: ((Double) -> Void)? = nil) async throws {
+        let destination = try DatabaseQueue(path: path)
+        try dbWriter.backup(to: destination, pagesPerStep: 512) { state in
+            progress?(state.totalPageCount > 0
+                ? Double(state.totalPageCount - state.remainingPageCount) / Double(state.totalPageCount)
+                : 1)
+        }
+        try destination.writeWithoutTransaction { db in
+            try db.execute(sql: "PRAGMA wal_checkpoint(TRUNCATE)")
+        }
+    }
+
     /// #1410: append one app-level event (e.g. `APP_VERSION_CHANGED`) onto the event table. Idempotent on
     /// the `(deviceId, ts, kind)` primary key. Twin of Android `WhoopRepository.recordEvent`.
     public func recordEvent(deviceId: String, ts: Int, kind: String, payloadJSON: String) async throws {

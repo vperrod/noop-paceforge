@@ -2,9 +2,17 @@ import CryptoKit
 import Foundation
 import Security
 import WhoopStore
+import WhoopProtocol
 
 /// iOS client for the self-hosted NOOP ↔ PaceForge sync.
 enum SelfHostedPushClient {
+    struct GarminMetricsImportSummary {
+        let days: Int
+        let stepDays: Int
+        let spo2Days: Int
+    }
+    struct HumeMetricsImportSummary { let measurements: Int }
+
     static let enabledKey = "noop.selfHostedPush.enabled"
     static let endpointKey = "noop.selfHostedPush.endpoint"
     private static let sourceIdKey = "noop.selfHostedPush.sourceId"
@@ -12,6 +20,9 @@ enum SelfHostedPushClient {
     static let lastSuccessKey = "noop.selfHostedPush.lastSuccess"
     static let lastActivityFetchKey = "noop.selfHostedPush.lastActivityFetch"
     static let lastGarminMetricsFetchKey = "noop.selfHostedPush.lastGarminMetricsFetch"
+    static let lastHumeMetricsFetchKey = "noop.selfHostedPush.lastHumeMetricsFetch"
+    static let replicaConflictCountKey = "noop.selfHostedPush.replicaConflictCount"
+    @MainActor private static var replicationTask: Task<Int, Error>?
     private static let service = "com.noop.self-hosted-push"
     private static let account = "bearer-token"
     private static let version = "1.0"
@@ -46,54 +57,44 @@ enum SelfHostedPushClient {
     @MainActor
     static func testConnection() async throws -> [String] {
         let (endpoint, token) = try configuration()
-        let streams = try await discover(endpoint: endpoint, token: token).streams
-        _ = try await fetchPaceForgeActivities(endpoint: activitiesEndpoint(from: endpoint), token: token)
-        _ = try await fetchPaceForgeGarminMetrics(endpoint: garminMetricsEndpoint(from: endpoint), token: token)
-        return streams
+        let (data, response) = try await getData(databaseEndpoint(from: endpoint, suffix: "status"), token: token)
+        guard let http = response as? HTTPURLResponse, http.statusCode == 200,
+              let status = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            throw Failure.receiver("PaceForge did not return a valid NOOP replica status.")
+        }
+        return status["ready"] as? Bool == true
+            ? ["phone-seeded SQLite replica", "two-way change journal"]
+            : ["Mini PC receiver reachable", "database seed required"]
     }
 
     @MainActor
     static func pushIfEnabled(repo: Repository) async {
         guard UserDefaults.standard.bool(forKey: enabledKey) else { return }
         do { _ = try await push(repo: repo) }
-        catch { NSLog("NOOP self-hosted upload deferred: %@", error.localizedDescription) }
-        do { _ = try await pullActivities(repo: repo) }
-        catch { NSLog("NOOP PaceForge activity fetch deferred: %@", error.localizedDescription) }
-        do { _ = try await pullGarminMetrics(repo: repo) }
-        catch { NSLog("NOOP PaceForge Garmin metrics fetch deferred: %@", error.localizedDescription) }
+        catch { NSLog("NOOP self-hosted sync deferred: %@", error.localizedDescription) }
     }
 
     @MainActor
     @discardableResult
     static func push(repo: Repository) async throws -> Int {
+        if let replicationTask { return try await replicationTask.value }
+        let task = Task { try await performPush(repo: repo) }
+        replicationTask = task
+        defer { replicationTask = nil }
+        return try await task.value
+    }
+
+    @MainActor
+    private static func performPush(repo: Repository) async throws -> Int {
         let (endpoint, token) = try configuration()
         guard let store = await repo.storeHandle() else { throw Failure.configuration("NOOP's local database is unavailable.") }
-        let capability = try await discover(endpoint: endpoint, token: token)
-        let sourceId = stableSourceId()
-        let defaults = UserDefaults.standard
-        if defaults.string(forKey: receiverIdKey) != capability.receiverStateId {
-            defaults.set(capability.receiverStateId, forKey: receiverIdKey)
-            // A receiver reset means every stream gets a fresh baseline.
-            for name in SelfHostedPushExport.appendStreams {
-                defaults.removeObject(forKey: cursorKey(endpoint, sourceId, name))
-            }
-            for name in SelfHostedPushExport.mutableStreams {
-                defaults.removeObject(forKey: snapshotKey(endpoint, sourceId, name))
-            }
-        }
-        var accepted = 0
-        for stream in SelfHostedPushExport.appendStreams where capability.streams.contains(stream) {
-            accepted += try await pushAppend(stream: stream, endpoint: endpoint, token: token,
-                                              sourceId: sourceId, deviceId: repo.deviceId,
-                                              store: store, defaults: defaults)
-        }
-        for stream in SelfHostedPushExport.mutableStreams where capability.streams.contains(stream) {
-            // IntelligenceEngine stores its computed daily metrics and sleep sessions under the
-            // derived owner ID; raw sensor append streams remain under repo.deviceId.
-            let mutableDeviceId = (stream == "dailyMetric" || stream == "sleepSession")
-                ? repo.deviceId + "-noop" : repo.deviceId
-            accepted += try await pushMutable(stream: stream, endpoint: endpoint, token: token,
-                                               sourceId: sourceId, deviceId: mutableDeviceId, store: store)
+        try await seedReplicaIfNeeded(endpoint: endpoint, token: token, store: store)
+        let accepted = try await replicateChanges(endpoint: endpoint, token: token,
+                                                   peerId: stableSourceId(), store: store)
+        if accepted > 0 {
+            await repo.refresh()
+            repo.appleHealthCache = nil
+            repo.appleHealthLoadedSeq = -1
         }
         UserDefaults.standard.set(Date().timeIntervalSince1970, forKey: lastSuccessKey)
         return accepted
@@ -134,6 +135,19 @@ enum SelfHostedPushClient {
                               strain: nil, distanceM: distance, zonesJSON: nil, notes: notes, steps: nil)
         }
         _ = try await store.upsertWorkouts(rows, deviceId: "paceforge")
+        // Import Garmin's actual timestamped workout HR under its own source. Never borrow nearby
+        // WHOOP readings to fill these workouts; both apps calculate effort independently.
+        let hr = response.flatMap { item -> [HRSample] in
+            guard let start = item["startTs"] as? Int,
+                  let samples = item["hrSamples"] as? [[String: Any]] else { return [] }
+            return samples.compactMap { sample in
+                guard let elapsed = (sample["t"] as? NSNumber)?.intValue,
+                      let bpm = (sample["bpm"] as? NSNumber)?.intValue,
+                      elapsed >= 0, (25...240).contains(bpm) else { return nil }
+                return HRSample(ts: start + elapsed, bpm: bpm)
+            }
+        }
+        if !hr.isEmpty { _ = try await store.insert(Streams(hr: hr), deviceId: "paceforge-garmin") }
         if !rows.isEmpty { await repo.refresh() }
         UserDefaults.standard.set(Date().timeIntervalSince1970, forKey: lastActivityFetchKey)
         return rows.count
@@ -142,7 +156,7 @@ enum SelfHostedPushClient {
     /// Fetch Garmin's own daily steps and SpO₂ from PaceForge into a separate source, preserving NOOP values.
     @MainActor
     @discardableResult
-    static func pullGarminMetrics(repo: Repository) async throws -> Int {
+    static func pullGarminMetrics(repo: Repository) async throws -> GarminMetricsImportSummary {
         let (endpoint, token) = try configuration()
         let response = try await fetchPaceForgeGarminMetrics(
             endpoint: garminMetricsEndpoint(from: endpoint), token: token)
@@ -155,41 +169,316 @@ enum SelfHostedPushClient {
             }
             let steps = (item["steps"] as? NSNumber)?.intValue
             let spo2 = (item["spo2Pct"] as? NSNumber)?.doubleValue
+            let restingHr = (item["restingHr"] as? NSNumber)?.intValue
+            let avgHrv = (item["avgHrv"] as? NSNumber)?.doubleValue
+            let sleepSeconds = (item["sleepSeconds"] as? NSNumber)?.doubleValue
+            let deepSeconds = (item["deepSeconds"] as? NSNumber)?.doubleValue
+            let remSeconds = (item["remSeconds"] as? NSNumber)?.doubleValue
+            let lightSeconds = (item["lightSeconds"] as? NSNumber)?.doubleValue
             if let steps, steps < 0 { throw Failure.receiver("PaceForge returned negative Garmin steps.") }
             if let spo2, !(50...100).contains(spo2) {
                 throw Failure.receiver("PaceForge returned an invalid Garmin SpO₂ value.")
             }
-            guard steps != nil || spo2 != nil else {
+            guard steps != nil || spo2 != nil || restingHr != nil || avgHrv != nil || sleepSeconds != nil else {
                 throw Failure.receiver("PaceForge returned an empty Garmin metric record.")
             }
-            return DailyMetric(day: day, totalSleepMin: nil, efficiency: nil, deepMin: nil,
-                               remMin: nil, lightMin: nil, disturbances: nil, restingHr: nil,
-                               avgHrv: nil, recovery: nil, strain: nil, exerciseCount: nil,
+            return DailyMetric(day: day, totalSleepMin: sleepSeconds.map { Int(($0 / 60).rounded()) },
+                               efficiency: nil,
+                               deepMin: deepSeconds.map { Int(($0 / 60).rounded()) },
+                               remMin: remSeconds.map { Int(($0 / 60).rounded()) },
+                               lightMin: lightSeconds.map { Int(($0 / 60).rounded()) },
+                               disturbances: nil, restingHr: restingHr,
+                               avgHrv: avgHrv.map { Int($0.rounded()) }, recovery: nil, strain: nil, exerciseCount: nil,
                                spo2Pct: spo2, steps: steps)
         }
         _ = try await store.upsertDailyMetrics(rows, deviceId: "paceforge-garmin")
+        let pointKeys: [String: String] = [
+            "vo2max": "vo2max", "sleepScore": "sleep_score", "stressAvg": "stress",
+            "respRate": "resp_rate", "spo2Lowest": "spo2_lowest",
+            "trainingReadiness": "training_readiness", "trainingLoad7d": "training_load_7day",
+            "bodyBattery": "body_battery", "weightKg": "weight", "bodyFatPct": "body_fat",
+            "leanMassKg": "lean_mass", "bmi": "bmi",
+        ]
+        let points = response.flatMap { item -> [MetricPoint] in
+            guard let day = item["date"] as? String else { return [] }
+            return pointKeys.compactMap { field, key in
+                guard let value = (item[field] as? NSNumber)?.doubleValue, value.isFinite, value > 0 else { return nil }
+                return MetricPoint(day: day, key: key, value: value)
+            }
+        }
+        if !points.isEmpty { _ = try await store.upsertMetricSeries(points, deviceId: "paceforge-garmin") }
         if !rows.isEmpty { await repo.refresh() }
         UserDefaults.standard.set(Date().timeIntervalSince1970, forKey: lastGarminMetricsFetchKey)
-        return rows.count
+        return GarminMetricsImportSummary(days: rows.count,
+                                          stepDays: rows.filter { $0.steps != nil }.count,
+                                          spo2Days: rows.filter { $0.spo2Pct != nil }.count)
+    }
+
+    @MainActor
+    @discardableResult
+    static func pullHumeMetrics(repo: Repository) async throws -> HumeMetricsImportSummary {
+        let (endpoint, token) = try configuration()
+        let response = try await fetchPaceForgeHumeMetrics(endpoint: humeMetricsEndpoint(from: endpoint), token: token)
+        guard let store = await repo.storeHandle() else {
+            throw Failure.configuration("NOOP's local database is unavailable.")
+        }
+        let keyMap = ["weight": "weight", "body_fat": "body_fat", "lean_mass": "lean_mass",
+                      "bmi": "bmi", "fat_mass": "fat_mass", "skeletal_muscle": "skeletal_muscle",
+                      "total_body_water": "total_body_water", "visceral_fat": "visceral_fat", "bmr": "bmr"]
+        var points: [MetricPoint] = []
+        for item in response {
+            guard let day = item["date"] as? String, day.count == 10 else {
+                throw Failure.receiver("PaceForge returned an invalid Hume measurement date.")
+            }
+            for (field, key) in keyMap {
+                if let value = (item[field] as? NSNumber)?.doubleValue, value.isFinite, value > 0 {
+                    points.append(MetricPoint(day: day, key: key, value: value))
+                }
+            }
+        }
+        if !points.isEmpty {
+            _ = try await store.upsertMetricSeries(points, deviceId: "paceforge-hume")
+            await repo.refresh()
+        }
+        UserDefaults.standard.set(Date().timeIntervalSince1970, forKey: lastHumeMetricsFetchKey)
+        return HumeMetricsImportSummary(measurements: Set(points.map(\.day)).count)
     }
 
     private static func fetchPaceForgeActivities(endpoint: URL, token: String) async throws -> [[String: Any]] {
-        var request = URLRequest(url: endpoint, timeoutInterval: 30)
+        let session = noRedirectSession()
+        defer { session.finishTasksAndInvalidate() }
+        var result: [[String: Any]] = []
+        var offset = 0
+        var expectedTotal: Int?
+        repeat {
+            var components = URLComponents(url: endpoint, resolvingAgainstBaseURL: false)
+            components?.queryItems = (components?.queryItems ?? []) + [
+                URLQueryItem(name: "offset", value: String(offset)),
+                URLQueryItem(name: "limit", value: "20"),
+            ]
+            guard let url = components?.url else { throw Failure.configuration("Invalid PaceForge activities URL.") }
+            var request = URLRequest(url: url, timeoutInterval: 60)
+            request.httpMethod = "GET"
+            request.setValue("application/json", forHTTPHeaderField: "Accept")
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+            let (data, response) = try await session.data(for: request)
+            guard let http = response as? HTTPURLResponse, http.statusCode == 200,
+                  data.count <= 2 * 1024 * 1024,
+                  let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  json["type"] as? String == "paceforge_activities",
+                  json["version"] as? String == "1",
+                  (json["offset"] as? Int) == offset,
+                  let total = json["total"] as? Int, total >= 0,
+                  let page = json["activities"] as? [[String: Any]], page.count <= 20,
+                  !page.isEmpty || offset >= total else {
+                throw Failure.receiver("PaceForge returned an invalid Garmin activity page at offset \(offset).")
+            }
+            if let expectedTotal, expectedTotal != total {
+                throw Failure.receiver("PaceForge's Garmin activity count changed during sync; retry to avoid a partial import.")
+            }
+            expectedTotal = total
+            result.append(contentsOf: page)
+            offset += page.count
+        } while offset < (expectedTotal ?? 0)
+        return result
+    }
+
+    /// First sync seeds the Mini PC with a consistent SQLite backup of the phone's existing database.
+    /// Subsequent incremental bidirectional changes are handled by the replication journal protocol.
+    private static func seedReplicaIfNeeded(endpoint: URL, token: String, store: WhoopStore) async throws {
+        let statusURL = databaseEndpoint(from: endpoint, suffix: "status")
+        let (data, response) = try await getData(statusURL, token: token)
+        guard let http = response as? HTTPURLResponse, http.statusCode == 200,
+              let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            throw Failure.receiver("Could not check the Mini PC NOOP database status.")
+        }
+        if json["ready"] as? Bool == true {
+            let peerId = stableSourceId()
+            if let seedPeerId = json["seedPeerId"] as? String, seedPeerId != peerId {
+                throw Failure.receiver("The Mini PC database was seeded from a different NOOP iPhone. Sync stopped to protect both databases.")
+            }
+            let uploadKey = replicaCursorKey(endpoint, peerId, "upload")
+            let downloadKey = replicaCursorKey(endpoint, peerId, "download")
+            if let cursor = json["baseCursor"] as? Int {
+                if UserDefaults.standard.object(forKey: uploadKey) == nil {
+                    UserDefaults.standard.set(cursor, forKey: uploadKey)
+                }
+                if UserDefaults.standard.object(forKey: downloadKey) == nil {
+                    UserDefaults.standard.set(cursor, forKey: downloadKey)
+                }
+            }
+            return
+        }
+
+        let fm = FileManager.default
+        let appSupport = try fm.url(for: .applicationSupportDirectory, in: .userDomainMask,
+                                    appropriateFor: nil, create: true)
+        let directory = appSupport.appendingPathComponent("NOOPReplicaSeed", isDirectory: true)
+        try fm.createDirectory(at: directory, withIntermediateDirectories: true)
+        let stateKey = "noop.selfHostedPush.replicaSeedState"
+        let seedPeerId = stableSourceId()
+        let saved = UserDefaults.standard.dictionary(forKey: stateKey)
+        let savedPath = saved?["path"] as? String
+        let snapshot = savedPath.map { URL(fileURLWithPath: $0) }
+            ?? directory.appendingPathComponent("\(UUID().uuidString).sqlite")
+        let canResumeSnapshot = savedPath != nil && fm.fileExists(atPath: snapshot.path)
+        if !canResumeSnapshot {
+            try await store.backupDatabase(to: snapshot.path)
+        }
+        let attributes = try fm.attributesOfItem(atPath: snapshot.path)
+        guard let totalBytes = attributes[.size] as? Int, totalBytes > 0 else {
+            throw Failure.receiver("The NOOP database backup is empty.")
+        }
+        let chunkBytes = 512 * 1024
+        let chunkCount = (totalBytes + chunkBytes - 1) / chunkBytes
+        let uploadId = canResumeSnapshot
+            ? (saved?["uploadId"] as? String ?? UUID().uuidString.lowercased())
+            : UUID().uuidString.lowercased()
+        let file = try FileHandle(forReadingFrom: snapshot)
+        defer { try? file.close() }
+        var hasher = SHA256()
+        while let chunk = try file.read(upToCount: chunkBytes), !chunk.isEmpty { hasher.update(data: chunk) }
+        let wholeHash = hasher.finalize().map { String(format: "%02x", $0) }.joined()
+        UserDefaults.standard.set(["uploadId": uploadId, "path": snapshot.path, "bytes": totalBytes,
+                                   "chunkBytes": chunkBytes, "chunks": chunkCount,
+                                   "sha256": wholeHash, "nextChunk": saved?["nextChunk"] as? Int ?? 0],
+                                  forKey: stateKey)
+        let beginResult = try await postJSON(databaseEndpoint(from: endpoint, suffix: "bootstrap"), token: token,
+            payload: ["action": "begin", "uploadId": uploadId, "bytes": totalBytes,
+                      "chunkBytes": chunkBytes, "chunks": chunkCount, "sha256": wholeHash,
+                      "seedPeerId": seedPeerId])
+        let acceptedChunks = Set(beginResult["receivedChunks"] as? [Int] ?? [])
+        try file.seek(toOffset: 0)
+        for index in 0..<chunkCount {
+            guard let chunk = try file.read(upToCount: chunkBytes), !chunk.isEmpty else {
+                throw Failure.receiver("The database backup changed during transfer; retry the seed.")
+            }
+            if acceptedChunks.contains(index) { continue }
+            let digest = SHA256.hash(data: chunk).map { String(format: "%02x", $0) }.joined()
+            _ = try await postJSON(databaseEndpoint(from: endpoint, suffix: "bootstrap"), token: token,
+                payload: ["action": "chunk", "uploadId": uploadId, "index": index,
+                          "sha256": digest, "data": chunk.base64EncodedString()])
+            UserDefaults.standard.set(["uploadId": uploadId, "path": snapshot.path, "bytes": totalBytes,
+                                       "chunkBytes": chunkBytes, "chunks": chunkCount,
+                                       "sha256": wholeHash, "nextChunk": index + 1], forKey: stateKey)
+        }
+        let result = try await postJSON(databaseEndpoint(from: endpoint, suffix: "bootstrap"), token: token,
+                                         payload: ["action": "commit", "uploadId": uploadId])
+        guard result["activated"] as? Bool == true, result["seedPeerId"] as? String == seedPeerId else {
+            throw Failure.receiver("The Mini PC did not activate the validated NOOP database backup.")
+        }
+        UserDefaults.standard.removeObject(forKey: stateKey)
+        if let cursor = result["changeCursor"] as? Int {
+            let peerId = stableSourceId()
+            UserDefaults.standard.set(cursor, forKey: replicaCursorKey(endpoint, peerId, "upload"))
+            UserDefaults.standard.set(cursor, forKey: replicaCursorKey(endpoint, peerId, "download"))
+        }
+        try? fm.removeItem(at: snapshot)
+    }
+
+    private static func getData(_ url: URL, token: String) async throws -> (Data, URLResponse) {
+        var request = URLRequest(url: url, timeoutInterval: 30)
         request.httpMethod = "GET"
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         let session = noRedirectSession()
         defer { session.finishTasksAndInvalidate() }
+        return try await session.data(for: request)
+    }
+
+    private static func postJSON(_ url: URL, token: String, payload: [String: Any]) async throws -> [String: Any] {
+        var request = URLRequest(url: url, timeoutInterval: 120)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.httpBody = try JSONSerialization.data(withJSONObject: payload)
+        let session = noRedirectSession()
+        defer { session.finishTasksAndInvalidate() }
         let (data, response) = try await session.data(for: request)
         guard let http = response as? HTTPURLResponse, http.statusCode == 200,
-              data.count <= 2 * 1024 * 1024,
-              let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-              json["type"] as? String == "paceforge_activities",
-              json["version"] as? String == "1",
-              let activities = json["activities"] as? [[String: Any]], activities.count <= 500 else {
-            throw Failure.receiver("PaceForge did not return a valid activity list.")
+              let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            let message = (try? JSONSerialization.jsonObject(with: data) as? [String: Any])?["message"] as? String
+            throw Failure.receiver(message ?? "Mini PC replica transfer failed.")
         }
-        return activities
+        return json
+    }
+
+    /// Exchange all committed, journaled NOOP rows in bounded, retry-safe batches.
+    @MainActor
+    private static func replicateChanges(endpoint: URL, token: String, peerId: String,
+                                         store: WhoopStore) async throws -> Int {
+        var exchanged = 0
+        let uploadKey = replicaCursorKey(endpoint, peerId, "upload")
+        let downloadKey = replicaCursorKey(endpoint, peerId, "download")
+        var uploadCursor = Int64(UserDefaults.standard.integer(forKey: uploadKey))
+        let baseServerCursor = Int64(UserDefaults.standard.integer(forKey: downloadKey))
+        for _ in 0..<1_000 {
+            let page = try await store.replicaChanges(after: uploadCursor, limit: 500)
+            guard !page.isEmpty else { break }
+        let changes: [[String: Any]] = page.map { change in
+            ["seq": change.seq, "table": change.table, "key": change.keyJSON,
+             "operation": change.operation, "row": change.rowJSON.map { $0 as Any } ?? NSNull()]
+            }
+            let response = try await postJSON(databaseEndpoint(from: endpoint, suffix: "changes"), token: token,
+                payload: ["peerId": peerId, "baseServerCursor": baseServerCursor, "changes": changes])
+            guard let ack = response["ackCursor"] as? Int64 ?? (response["ackCursor"] as? Int).map(Int64.init),
+                  ack >= uploadCursor else {
+                throw Failure.receiver("The Mini PC did not acknowledge the NOOP change batch.")
+            }
+            uploadCursor = ack
+            UserDefaults.standard.set(uploadCursor, forKey: uploadKey)
+            exchanged += page.count
+            let conflicts = (response["conflicts"] as? [Int])?.count ?? 0
+            if conflicts > 0 {
+                UserDefaults.standard.set(UserDefaults.standard.integer(forKey: replicaConflictCountKey) + conflicts,
+                                          forKey: replicaConflictCountKey)
+            }
+        }
+
+        var downloadCursor = Int64(UserDefaults.standard.integer(forKey: downloadKey))
+        for _ in 0..<1_000 {
+            var components = URLComponents(url: databaseEndpoint(from: endpoint, suffix: "changes"),
+                                           resolvingAgainstBaseURL: false)
+            components?.queryItems = [URLQueryItem(name: "after", value: String(downloadCursor)),
+                                      URLQueryItem(name: "limit", value: "500")]
+            guard let url = components?.url else { throw Failure.configuration("Invalid replica changes URL.") }
+            let (data, response) = try await getData(url, token: token)
+            guard let http = response as? HTTPURLResponse, http.statusCode == 200,
+                  let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let rawChanges = json["changes"] as? [[String: Any]],
+                  let next = json["nextCursor"] as? Int64 ?? (json["nextCursor"] as? Int).map(Int64.init),
+                  next >= downloadCursor else {
+                throw Failure.receiver("The Mini PC returned an invalid change batch.")
+            }
+            guard !rawChanges.isEmpty else { break }
+            let changes = try rawChanges.map { row -> ReplicaChange in
+                guard let seq = row["seq"] as? Int64 ?? (row["seq"] as? Int).map(Int64.init),
+                      let table = row["table"] as? String, let key = row["key"] as? String,
+                      let operation = row["operation"] as? String else { throw Failure.receiver("Invalid replica record.") }
+                return ReplicaChange(seq: seq, table: table, keyJSON: key, operation: operation,
+                                     rowJSON: row["row"] as? String)
+            }
+            try await store.applyReplicaChanges(changes)
+            downloadCursor = next
+            UserDefaults.standard.set(downloadCursor, forKey: downloadKey)
+            exchanged += changes.count
+        }
+        if let (data, response) = try? await getData(databaseEndpoint(from: endpoint, suffix: "status"), token: token),
+           let http = response as? HTTPURLResponse, http.statusCode == 200,
+           let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+           let conflicts = json["conflicts"] as? Int {
+            UserDefaults.standard.set(conflicts, forKey: replicaConflictCountKey)
+        }
+        return exchanged
+    }
+
+    private static func databaseEndpoint(from endpoint: URL, suffix: String) -> URL {
+        guard var components = URLComponents(url: endpoint, resolvingAgainstBaseURL: false) else { return endpoint }
+        if components.path.hasSuffix("/push") {
+            components.path = String(components.path.dropLast("push".count)) + "db/" + suffix
+        }
+        return components.url ?? endpoint
     }
 
     private static func fetchPaceForgeGarminMetrics(endpoint: URL, token: String) async throws -> [[String: Any]] {
@@ -201,12 +490,31 @@ enum SelfHostedPushClient {
         defer { session.finishTasksAndInvalidate() }
         let (data, response) = try await session.data(for: request)
         guard let http = response as? HTTPURLResponse, http.statusCode == 200,
-              data.count <= 2 * 1024 * 1024,
+              data.count <= 20 * 1024 * 1024,
               let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
               json["type"] as? String == "paceforge_garmin_metrics",
               json["version"] as? String == "1",
-              let metrics = json["metrics"] as? [[String: Any]], metrics.count <= 2_000 else {
+              let metrics = json["metrics"] as? [[String: Any]], metrics.count <= 25_000 else {
             throw Failure.receiver("PaceForge did not return a valid Garmin metrics list.")
+        }
+        return metrics
+    }
+
+    private static func fetchPaceForgeHumeMetrics(endpoint: URL, token: String) async throws -> [[String: Any]] {
+        var request = URLRequest(url: endpoint, timeoutInterval: 30)
+        request.httpMethod = "GET"
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        let session = noRedirectSession()
+        defer { session.finishTasksAndInvalidate() }
+        let (data, response) = try await session.data(for: request)
+        guard let http = response as? HTTPURLResponse, http.statusCode == 200,
+              data.count <= 5 * 1024 * 1024,
+              let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+              json["type"] as? String == "paceforge_hume_metrics",
+              json["version"] as? String == "1",
+              let metrics = json["metrics"] as? [[String: Any]], metrics.count <= 10_000 else {
+            throw Failure.receiver("PaceForge did not return a valid Hume metrics list.")
         }
         return metrics
     }
@@ -227,6 +535,14 @@ enum SelfHostedPushClient {
         }
         if components.path.hasSuffix("/push") {
             components.path = String(components.path.dropLast("push".count)) + "garmin-metrics"
+        }
+        return components.url ?? endpoint
+    }
+
+    private static func humeMetricsEndpoint(from endpoint: URL) -> URL {
+        guard var components = URLComponents(url: endpoint, resolvingAgainstBaseURL: false) else { return endpoint }
+        if components.path.hasSuffix("/push") {
+            components.path = String(components.path.dropLast("push".count)) + "hume-metrics"
         }
         return components.url ?? endpoint
     }
@@ -464,6 +780,10 @@ enum SelfHostedPushClient {
         return "noop.selfHostedPush.\(prefix).\(namespace).\(stream)"
     }
 
+    private static func replicaCursorKey(_ endpoint: URL, _ peerId: String, _ direction: String) -> String {
+        namespaceKey(endpoint, peerId, direction, prefix: "replica")
+    }
+
     private static func hashSnapshot(stream: String, lines: [Data]) -> String {
         var data = Data("noop-push-day-hash\n\(version)\n\(stream)\n".utf8)
         lines.forEach { data.append($0) }
@@ -481,7 +801,7 @@ private final class NoRedirectDelegate: NSObject, URLSessionTaskDelegate {
 
 private enum SelfHostedPushRegistry {
     static let allNames = SelfHostedPushExport.appendStreams + SelfHostedPushExport.mutableStreams
-    static func usesDay(_ stream: String) -> Bool { ["dailyMetric", "journal"].contains(stream) }
+    static func usesDay(_ stream: String) -> Bool { ["dailyMetric", "journal", "appleDaily"].contains(stream) }
     static func day(_ date: Date) -> String {
         let formatter = DateFormatter()
         formatter.calendar = Calendar(identifier: .gregorian)

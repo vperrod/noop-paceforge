@@ -21,6 +21,8 @@ struct MetricDescriptor: Identifiable, Hashable {
     var sourceLabel: String {
         switch source {
         case "apple-health": return "Apple Health"
+        case "paceforge-garmin": return "Garmin via PaceForge"
+        case "paceforge-hume": return "Hume via PaceForge"
         case "xiaomi-band":  return "Mi Band"
         case "nutrition-csv": return String(localized: "Nutrition")
         case "noop-mood":    return String(localized: "Mood")
@@ -163,6 +165,30 @@ enum MetricCatalog {
         // changes where any of them tap through. The Today card/tile route to it EXPLICITLY by source
         // (`.metricSourced` / `todayStepsMetric`), which is what actually needs it.
         d("steps", String(localized: "Steps"), "Effort", "steps", "my-whoop", "figure.walk", 0, true),
+        d("steps", String(localized: "Steps (Garmin)"), "Effort", "steps", "paceforge-garmin", "figure.walk", 0, true),
+        d("vo2max", String(localized: "VO₂ Max (Garmin)"), "Heart", "ml/kg/min", "paceforge-garmin", "lungs.fill", 1, true),
+        d("rhr", String(localized: "Resting Heart Rate (Garmin)"), "Charge", "bpm", "paceforge-garmin", "heart", 0, false),
+        d("hrv", String(localized: "HRV (Garmin)"), "Charge", "ms", "paceforge-garmin", "waveform.path.ecg", 0, true),
+        d("spo2", String(localized: "Blood Oxygen (Garmin)"), "Charge", "%", "paceforge-garmin", "drop", 0, true),
+        d("sleep_score", String(localized: "Sleep Score (Garmin)"), "Rest", "", "paceforge-garmin", "moon.stars", 0, true),
+        d("sleep_total_min", String(localized: "Sleep Duration (Garmin)"), "Rest", "min", "paceforge-garmin", "moon.zzz", 0, true),
+        d("sleep_deep_min", String(localized: "Deep Sleep (Garmin)"), "Rest", "min", "paceforge-garmin", "moon.fill", 0, true),
+        d("sleep_rem_min", String(localized: "REM Sleep (Garmin)"), "Rest", "min", "paceforge-garmin", "moon.haze", 0, true),
+        d("sleep_light_min", String(localized: "Light Sleep (Garmin)"), "Rest", "min", "paceforge-garmin", "moon", 0, nil),
+        d("stress", String(localized: "Day Stress (Garmin)"), "Health", "", "paceforge-garmin", "gauge.with.dots.needle.50percent", 1, false),
+        d("training_readiness", String(localized: "Training Readiness (Garmin)"), "Effort", "", "paceforge-garmin", "figure.run", 0, true),
+        d("training_load_7day", String(localized: "7-Day Training Load (Garmin)"), "Effort", "", "paceforge-garmin", "chart.bar", 0, nil),
+        d("body_battery", String(localized: "Body Battery (Garmin)"), "Charge", "%", "paceforge-garmin", "battery.100percent", 0, true),
+        d("resp_rate", String(localized: "Respiration (Garmin)"), "Charge", "rpm", "paceforge-garmin", "lungs", 1, nil),
+        d("spo2_lowest", String(localized: "Lowest Blood Oxygen (Garmin)"), "Charge", "%", "paceforge-garmin", "drop", 0, true),
+        d("skin_temp", String(localized: "Skin Temperature Deviation (Garmin)"), "Health", "°C", "paceforge-garmin", "thermometer", 1, nil),
+        d("fitness_age", String(localized: "Fitness Age (Garmin)"), "Heart", "yrs", "paceforge-garmin", "figure.run", 0, false),
+        d("hill_score", String(localized: "Hill Score (Garmin)"), "Effort", "", "paceforge-garmin", "mountain.2", 1, true),
+        d("running_tolerance", String(localized: "Running Tolerance (Garmin)"), "Effort", "", "paceforge-garmin", "figure.run", 1, true),
+        d("weekly_mileage_km", String(localized: "Weekly Distance (Garmin)"), "Effort", "km", "paceforge-garmin", "figure.run", 1, nil),
+        d("stress_high", String(localized: "Peak Stress (Garmin)"), "Health", "", "paceforge-garmin", "gauge.with.dots.needle.50percent", 0, false),
+        d("sleep_avg_stress", String(localized: "Sleep Stress (Garmin)"), "Rest", "", "paceforge-garmin", "moon.zzz", 1, false),
+        d("sleep_restless_moments", String(localized: "Restless Moments (Garmin)"), "Rest", "", "paceforge-garmin", "moon.zzz", 0, false),
         // On-device steps ESTIMATE for a WHOOP 4.0 (no real step count over BLE): the strap's daily
         // motion volume scaled by a personal calibration. Stored under the computed "-noop" source, so
         // it reads through the same exploreSeries fallback fitness_age/vitality use. Distinct from the
@@ -180,6 +206,28 @@ enum MetricCatalog {
         d("body_fat", String(localized: "Body Fat"), "Health", "%", "apple-health", "percent", 1, false),
         d("lean_mass", String(localized: "Lean Body Mass"), "Health", "kg", "apple-health", "figure.arms.open", 1, true),
         d("bmi", "BMI", "Health", "", "apple-health", "figure", 1, nil),
+        d("weight", String(localized: "Weight (Hume)"), "Health", "kg", "paceforge-hume", "scalemass", 1, nil),
+        d("body_fat", String(localized: "Body Fat (Hume)"), "Health", "%", "paceforge-hume", "percent", 1, false),
+        d("lean_mass", String(localized: "Lean Body Mass (Hume)"), "Health", "kg", "paceforge-hume", "figure.arms.open", 1, true),
+        d("bmi", "BMI (Hume)", "Health", "", "paceforge-hume", "figure", 1, nil),
+        d("fat_mass", String(localized: "Fat Mass (Hume)"), "Health", "kg", "paceforge-hume", "scalemass", 1, false),
+        d("skeletal_muscle", String(localized: "Skeletal Muscle (Hume)"), "Health", "kg", "paceforge-hume", "figure.strengthtraining.traditional", 1, true),
+        d("total_body_water", String(localized: "Total Body Water (Hume)"), "Health", "kg", "paceforge-hume", "drop", 1, nil),
+        d("visceral_fat", String(localized: "Visceral Fat (Hume)"), "Health", "", "paceforge-hume", "cross.case", 1, false),
+        d("bmr", String(localized: "Basal Metabolic Rate (Hume)"), "Health", "kcal", "paceforge-hume", "flame", 1, nil),
+        d("subcutaneous_fat", String(localized: "Subcutaneous Fat (Hume)"), "Health", "kg", "paceforge-hume", "scalemass", 1, false),
+        d("fat_free_mass", String(localized: "Fat Free Mass (Hume)"), "Health", "kg", "paceforge-hume", "figure.arms.open", 1, true),
+        d("muscle_mass", String(localized: "Muscle Mass (Hume)"), "Health", "kg", "paceforge-hume", "figure.strengthtraining.traditional", 1, true),
+        d("bone_mass", String(localized: "Bone Mass (Hume)"), "Health", "kg", "paceforge-hume", "figure.stand", 1, true),
+        d("mineral_mass", String(localized: "Mineral Mass (Hume)"), "Health", "kg", "paceforge-hume", "atom", 1, nil),
+        d("organ_mass", String(localized: "Organ Mass (Hume)"), "Health", "kg", "paceforge-hume", "heart", 1, nil),
+        d("total_body_water_pct", String(localized: "Total Body Water (Hume)"), "Health", "%", "paceforge-hume", "drop", 1, nil),
+        d("extracellular_water", String(localized: "Extracellular Water (Hume)"), "Health", "kg", "paceforge-hume", "drop", 1, nil),
+        d("intracellular_water", String(localized: "Intracellular Water (Hume)"), "Health", "kg", "paceforge-hume", "drop", 1, nil),
+        d("body_cell_mass", String(localized: "Body Cell Mass (Hume)"), "Health", "kg", "paceforge-hume", "figure", 1, nil),
+        d("metabolic_age", String(localized: "Metabolic Age (Hume)"), "Health", "yrs", "paceforge-hume", "figure", 0, nil),
+        d("whole_body_impedance", String(localized: "Whole Body Impedance (Hume)"), "Health", "Ω", "paceforge-hume", "waveform.path", 0, nil),
+        d("android_gynoid_ratio", String(localized: "Android-Gynoid Ratio (Hume)"), "Health", "", "paceforge-hume", "figure", 2, nil),
         d("stress", String(localized: "Day Stress"), "Health", "/3", "my-whoop", "gauge.with.dots.needle.50percent", 1, false),
 
         // ── Nutrition (imported from a food-tracker CSV: calories-in alongside calories-out)

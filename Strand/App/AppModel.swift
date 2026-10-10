@@ -2600,7 +2600,15 @@ final class AppModel: ObservableObject {
                 // the next visit re-reads the freshly imported data. (refresh() alone is insufficient here.)
                 repo.appleHealthCache = nil
                 repo.appleHealthLoadedSeq = -1
-                finishImport(.appleHealth, summary: "Imported \(summary.recordCount) records")
+                let workoutCount = summary.countsByCategory["workouts"] ?? 0
+                let result = "Imported \(summary.recordCount.formatted()) records and \(workoutCount.formatted()) workouts"
+                if summary.skippedSpans > 0 {
+                    finishImport(.appleHealth,
+                                 summary: result + ". Some damaged sections were skipped (\(summary.skippedSpans)); re-export Apple Health and import again if you need a complete history.",
+                                 failed: true)
+                } else {
+                    finishImport(.appleHealth, summary: result + ".")
+                }
             } catch {
                 finishImport(.appleHealth, summary: "Import failed: \(error)", failed: true)
             }
