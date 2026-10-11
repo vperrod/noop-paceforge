@@ -65,7 +65,7 @@ struct PFBodyView: View {
             }
             .chartYScale(domain: min(lo, weightGoal?.target ?? lo)...hi)
             .chartXAxis {
-                AxisMarks(values: .automatic(desiredCount: 3)) { _ in
+                AxisMarks(values: points.map { PFFormat.date($0.date) }) { _ in
                     AxisGridLine().foregroundStyle(StrandPalette.hairline)
                     AxisValueLabel(format: .dateTime.day().month(.abbreviated))
                         .foregroundStyle(StrandPalette.textTertiary)

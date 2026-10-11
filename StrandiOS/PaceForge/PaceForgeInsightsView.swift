@@ -32,9 +32,9 @@ struct PFInsightsView: View {
                     .frame(height: 220)
                     .accessibilityIdentifier("pf-load-chart")
                 HStack(spacing: 14) {
-                    legend(StrandPalette.chargeColor, "Fitness")
-                    legend(StrandPalette.effortColor, "Fatigue")
-                    legend(StrandPalette.restColor, "Form")
+                    legend(PFColor.positive, "Fitness")
+                    legend(PFColor.warning, "Fatigue")
+                    legend(PFColor.violet, "Form")
                     Text("Dashed = projected")
                         .font(StrandFont.caption)
                         .foregroundStyle(StrandPalette.textTertiary)
@@ -200,12 +200,12 @@ private struct PFLoadChart: View {
             Line(id: id, color: color, dashed: dashed, points: rows.map { (date: PFFormat.date($0.date), value: $0[keyPath: key]) })
         }
         return [
-            series("ctl", StrandPalette.chargeColor, false, hist, \.ctl),
-            series("atl", StrandPalette.effortColor, false, hist, \.atl),
-            series("tsb", StrandPalette.restColor, false, hist, \.tsb),
-            series("ctl-p", StrandPalette.chargeColor, true, proj, \.ctl),
-            series("atl-p", StrandPalette.effortColor, true, proj, \.atl),
-            series("tsb-p", StrandPalette.restColor, true, proj, \.tsb),
+            series("ctl", PFColor.positive, false, hist, \.ctl),
+            series("atl", PFColor.warning, false, hist, \.atl),
+            series("tsb", PFColor.violet, false, hist, \.tsb),
+            series("ctl-p", PFColor.positive, true, proj, \.ctl),
+            series("atl-p", PFColor.warning, true, proj, \.atl),
+            series("tsb-p", PFColor.violet, true, proj, \.tsb),
         ]
     }
 

@@ -20,7 +20,7 @@ final class PaceForgeMenuVisibilityUITests: XCTestCase {
             dataSection.tap()
         }
 
-        let paceForgeRow = app.staticTexts["PaceForge push"]
+        let paceForgeRow = app.staticTexts["PaceForge sync"]
         XCTAssertTrue(paceForgeRow.waitForExistence(timeout: 10), "The PaceForge push setting should appear under More → Data.")
         for _ in 0..<8 where !paceForgeRow.isHittable {
             app.swipeUp()
