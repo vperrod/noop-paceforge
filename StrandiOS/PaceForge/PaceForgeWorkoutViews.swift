@@ -1,17 +1,24 @@
 import SwiftUI
 import StrandDesign
 
-/// One session as PaceForge shows it: a collapsed row that opens to the full detail
-/// (why, structure, steps, strength movements, versus-the-plan).
+/// One session as PaceForge shows it: a collapsed row that opens to the full plan detail
+/// (why, structure, steps, strength movements, versus-the-plan). A completed session with a matched
+/// Garmin activity opens its results instead.
 struct PFWorkoutRow: View {
     let workout: PFWorkout
+    let snapshot: PFSnapshot
     @State private var isOpen = false
+    @State private var showResults = false
 
     var body: some View {
         StrandCard(padding: 14) {
             VStack(alignment: .leading, spacing: 0) {
                 Button {
-                    withAnimation(.easeInOut(duration: 0.2)) { isOpen.toggle() }
+                    if workout.hasResults {
+                        showResults = true
+                    } else {
+                        withAnimation(.easeInOut(duration: 0.2)) { isOpen.toggle() }
+                    }
                 } label: {
                     header
                 }
@@ -26,6 +33,9 @@ struct PFWorkoutRow: View {
             }
         }
         .opacity(workout.status == "optional" ? 0.72 : 1)
+        .sheet(isPresented: $showResults) {
+            PFResultsSheet(workout: workout, snapshot: snapshot)
+        }
     }
 
     private var header: some View {
@@ -56,10 +66,10 @@ struct PFWorkoutRow: View {
             Spacer(minLength: 6)
             VStack(alignment: .trailing, spacing: 6) {
                 PFChip(text: workout.status, color: PFColor.status(workout.status))
-                Image(systemName: "chevron.down")
+                Image(systemName: workout.hasResults ? "chevron.right" : "chevron.down")
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(StrandPalette.textTertiary)
-                    .rotationEffect(.degrees(isOpen ? 180 : 0))
+                    .rotationEffect(.degrees(isOpen && !workout.hasResults ? 180 : 0))
             }
         }
         .contentShape(Rectangle())
@@ -106,14 +116,14 @@ struct PFWorkoutDetail: View {
                 if let t = b.warmup { PFLabeled(label: "Warm-up", text: t) }
             }
 
-            if let steps = workout.steps, !steps.isEmpty {
-                PFStepList(steps: steps, workout: workout)
+            if !workout.steps.isEmpty {
+                PFStepList(steps: workout.steps, workout: workout)
             }
 
-            if let exercises = workout.exercises, !exercises.isEmpty {
+            if !workout.exercises.isEmpty {
                 VStack(alignment: .leading, spacing: 10) {
                     Text("Strength movements").strandOverline()
-                    ForEach(Array(exercises.enumerated()), id: \.offset) { _, e in
+                    ForEach(Array(workout.exercises.enumerated()), id: \.offset) { _, e in
                         PFExerciseRow(exercise: e)
                     }
                 }
@@ -150,7 +160,8 @@ struct PFStepList: View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Session breakdown").strandOverline()
             ForEach(Array(steps.enumerated()), id: \.offset) { _, step in
-                if let reps = step.repeatCount, let inner = step.steps, !inner.isEmpty {
+                if let reps = step.repeatCount, !step.steps.isEmpty {
+                    let inner = step.steps
                     VStack(alignment: .leading, spacing: 6) {
                         HStack(spacing: 8) {
                             Text("\(reps) \u{00D7}")

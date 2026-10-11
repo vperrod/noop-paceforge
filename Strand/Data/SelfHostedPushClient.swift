@@ -67,6 +67,37 @@ enum SelfHostedPushClient {
             : ["Mini PC receiver reachable", "database seed required"]
     }
 
+    /// True when an HTTPS endpoint and a bearer token are saved, so the PaceForge screens can fetch live data.
+    static var paceForgeIsConfigured: Bool { (try? configuration()) != nil }
+
+    /// Read-only GET of a PaceForge page (`api/state`, `data/...`), relative to the PaceForge instance
+    /// root, which is the saved sync endpoint without its trailing `noop/push`. Uses the same token and
+    /// no-redirect session as the sync.
+    static func paceForgeGet(_ path: String) async throws -> Data {
+        let (endpoint, token) = try configuration()
+        let (data, response) = try await getData(paceForgeURL(from: endpoint, path: path), token: token)
+        guard let http = response as? HTTPURLResponse else {
+            throw Failure.receiver("PaceForge did not answer.")
+        }
+        guard http.statusCode == 200 else {
+            throw Failure.receiver("PaceForge answered HTTP \(http.statusCode) for \(path).")
+        }
+        return data
+    }
+
+    private static func paceForgeURL(from endpoint: URL, path: String) -> URL {
+        guard var components = URLComponents(url: endpoint, resolvingAgainstBaseURL: false) else { return endpoint }
+        var base = components.path
+        for suffix in ["/noop/push", "/push"] where base.hasSuffix(suffix) {
+            base = String(base.dropLast(suffix.count))
+            break
+        }
+        if !base.hasSuffix("/") { base += "/" }
+        components.path = base + path
+        components.query = nil
+        return components.url ?? endpoint
+    }
+
     @MainActor
     static func pushIfEnabled(repo: Repository) async {
         guard UserDefaults.standard.bool(forKey: enabledKey) else { return }

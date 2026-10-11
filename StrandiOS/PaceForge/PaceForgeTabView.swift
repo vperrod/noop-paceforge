@@ -18,10 +18,10 @@ enum PFSegment: String, CaseIterable, Identifiable {
     }
 }
 
-/// The PaceForge tab: a large title, a native segmented control and the selected screen.
-/// Data is a bundled preview snapshot until the server step lands.
+/// The PaceForge tab: a large title, a native segmented control and the selected screen,
+/// fed by the live PaceForge server (cached on the device for offline).
 struct PaceForgeTabView: View {
-    private static let snapshot = PFSnapshot.load()
+    @StateObject private var model = PFModel()
 
     @AppStorage("noop.paceforge.segment") private var segmentRaw = PFSegment.today.rawValue
 
@@ -33,23 +33,35 @@ struct PaceForgeTabView: View {
     }
 
     var body: some View {
-        ScreenScaffold(title: "PaceForge") {
-            Picker("PaceForge section", selection: segment) {
-                ForEach(PFSegment.allCases) { Text($0.title).tag($0) }
-            }
-            .pickerStyle(.segmented)
-            .accessibilityIdentifier("pf-segments")
+        ScreenScaffold(title: "PaceForge", onRefresh: { await model.refresh() }) {
+            switch model.phase {
+            case .loading:
+                PFLoadingView()
+            case .notSetUp:
+                PFNotSetUpView()
+            case .failed(let message):
+                PFFailedView(message: message, isRetrying: model.isRefreshing) {
+                    Task { await model.refresh() }
+                }
+            case .ready:
+                if let snapshot = model.snapshot {
+                    Picker("PaceForge section", selection: segment) {
+                        ForEach(PFSegment.allCases) { Text($0.title).tag($0) }
+                    }
+                    .pickerStyle(.segmented)
+                    .accessibilityIdentifier("pf-segments")
 
-            switch Self.snapshot {
-            case .success(let snapshot):
-                PFPreviewLabel(text: snapshot.label)
-                screen(for: segment.wrappedValue, snapshot: snapshot)
-            case .failure(let error):
-                PFCard("PaceForge preview unavailable", icon: "exclamationmark.triangle") {
-                    PFParagraph("The bundled preview data could not be read: \(error.localizedDescription)")
+                    if let note = model.offlineNote {
+                        PFOfflineBanner(text: note, isRetrying: model.isRefreshing) {
+                            Task { await model.refresh() }
+                        }
+                    }
+                    screen(for: segment.wrappedValue, snapshot: snapshot)
                 }
             }
         }
+        .environmentObject(model)
+        .task { await model.refreshIfStale() }
     }
 
     @ViewBuilder private func screen(for segment: PFSegment, snapshot: PFSnapshot) -> some View {

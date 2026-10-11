@@ -9,23 +9,23 @@ struct PFCoachView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            briefCard
-            takeCard
-            weeklyReviewCard
+            if let brief = coach.brief { briefCard(brief) }
+            if let take = coach.take { takeCard(take) }
+            if let review = coach.weeklyReview { weeklyReviewCard(review) }
             chatCard
         }
     }
 
     // MARK: Daily brief
 
-    private var briefCard: some View {
-        PFCard("Daily brief" + (coach.brief.date.map { " \u{00B7} \(PFFormat.shortDate($0))" } ?? ""), icon: "sparkles") {
+    private func briefCard(_ brief: PFBrief) -> some View {
+        PFCard("Daily brief" + (brief.date.map { " \u{00B7} \(PFFormat.shortDate($0))" } ?? ""), icon: "sparkles") {
             VStack(alignment: .leading, spacing: 10) {
-                Text(coach.brief.headline)
+                Text(brief.headline)
                     .font(StrandFont.body.weight(.semibold))
                     .foregroundStyle(StrandPalette.textPrimary)
                     .fixedSize(horizontal: false, vertical: true)
-                ForEach(Array((coach.brief.outlook ?? []).enumerated()), id: \.offset) { _, paragraph in
+                ForEach(Array((brief.outlook ?? []).enumerated()), id: \.offset) { _, paragraph in
                     PFParagraph(paragraph)
                 }
             }
@@ -34,15 +34,15 @@ struct PFCoachView: View {
 
     // MARK: Coach's Take
 
-    private var takeCard: some View {
-        PFCard(title: "Coach's Take", icon: "sparkles", trailing: { readinessChip }) {
+    private func takeCard(_ take: PFTake) -> some View {
+        PFCard(title: "Coach's Take", icon: "sparkles", trailing: { readinessChip(take) }) {
             VStack(alignment: .leading, spacing: 12) {
-                Text(coach.take.headline)
+                Text(take.headline)
                     .font(StrandFont.body.weight(.semibold))
                     .foregroundStyle(StrandPalette.textPrimary)
                     .fixedSize(horizontal: false, vertical: true)
 
-                let limiters = coach.take.limiters ?? []
+                let limiters = take.limiters ?? []
                 if !limiters.isEmpty {
                     Text("Your top limiters").strandOverline()
                     ForEach(Array(limiters.enumerated()), id: \.offset) { index, l in
@@ -50,7 +50,7 @@ struct PFCoachView: View {
                     }
                 }
 
-                let actions = coach.take.weekActions ?? []
+                let actions = take.weekActions ?? []
                 if !actions.isEmpty {
                     Text("This week's actions").strandOverline()
                     ForEach(Array(actions.enumerated()), id: \.offset) { _, a in
@@ -67,9 +67,9 @@ struct PFCoachView: View {
         }
     }
 
-    @ViewBuilder private var readinessChip: some View {
-        if let score = coach.take.readinessScore {
-            let band = coach.take.readinessBand ?? ""
+    @ViewBuilder private func readinessChip(_ take: PFTake) -> some View {
+        if let score = take.readinessScore {
+            let band = take.readinessBand ?? ""
             PFChip(text: "Readiness \(Int(score.rounded())) \u{00B7} \(band)",
                    color: band == "low" ? PFColor.critical : band == "moderate" ? PFColor.warning : PFColor.positive)
         }
@@ -77,9 +77,8 @@ struct PFCoachView: View {
 
     // MARK: Weekly review
 
-    private var weeklyReviewCard: some View {
-        let review = coach.weeklyReview
-        return PFCard(title: "Week review", icon: "calendar", trailing: {
+    private func weeklyReviewCard(_ review: PFWeeklyReview) -> some View {
+        PFCard(title: "Week review", icon: "calendar", trailing: {
             Text(PFFormat.span(review.period.start, review.period.end))
                 .font(StrandFont.caption)
                 .foregroundStyle(StrandPalette.textTertiary)
@@ -150,7 +149,7 @@ struct PFCoachView: View {
                 .opacity(0.55)
                 .accessibilityIdentifier("pf-chat-input")
 
-                Text("Live chat arrives with the server step")
+                Text("Read-only here. Reply to your coach in PaceForge.")
                     .font(StrandFont.caption)
                     .foregroundStyle(StrandPalette.textTertiary)
             }

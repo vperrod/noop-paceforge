@@ -4,14 +4,21 @@ import StrandDesign
 /// PaceForge "This week": Monday to Sunday, every session expandable to its full detail.
 struct PFWeekView: View {
     let snapshot: PFSnapshot
-    @State private var weekIndex = 0
+    @State private var chosenWeek: Int?
 
-    private var week: PFWeek { snapshot.weeks[min(weekIndex, snapshot.weeks.count - 1)] }
+    private var weekIndex: Binding<Int> {
+        Binding(
+            get: { min(chosenWeek ?? snapshot.currentWeekIndex, snapshot.weeks.count - 1) },
+            set: { chosenWeek = $0 }
+        )
+    }
+
+    private var week: PFWeek { snapshot.weeks[weekIndex.wrappedValue] }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             if snapshot.weeks.count > 1 {
-                Picker("Week", selection: $weekIndex) {
+                Picker("Week", selection: weekIndex) {
                     ForEach(Array(snapshot.weeks.enumerated()), id: \.offset) { index, w in
                         Text(PFFormat.span(w.start, w.end)).tag(index)
                     }
@@ -21,7 +28,7 @@ struct PFWeekView: View {
             }
             summaryCard
             ForEach(week.days) { day in
-                PFDaySection(day: day)
+                PFDaySection(day: day, snapshot: snapshot)
             }
         }
     }
@@ -66,20 +73,21 @@ struct PFWeekView: View {
 
 private struct PFDaySection: View {
     let day: PFDay
+    let snapshot: PFSnapshot
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(PFFormat.dayTitle(day.date))
                 .font(StrandFont.title2)
                 .foregroundStyle(StrandPalette.textPrimary)
-            let workouts = day.workouts ?? []
+            let workouts = day.workouts
             if workouts.isEmpty {
                 Text("Nothing scheduled")
                     .font(StrandFont.subhead)
                     .foregroundStyle(StrandPalette.textTertiary)
                     .padding(.vertical, 2)
             } else {
-                ForEach(workouts) { PFWorkoutRow(workout: $0) }
+                ForEach(workouts) { PFWorkoutRow(workout: $0, snapshot: snapshot) }
             }
         }
         .accessibilityElement(children: .contain)

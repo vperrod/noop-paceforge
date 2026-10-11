@@ -1,4 +1,5 @@
 import SwiftUI
+import MarkdownUI
 import StrandDesign
 
 // Shared formatting and small building blocks for the PaceForge tab.
@@ -28,6 +29,54 @@ enum PFFormat {
     }
     static func dayTitle(_ iso: String) -> String { dayName.string(from: date(iso)) }
     static func shortDate(_ iso: String) -> String { shortDay.string(from: date(iso)) }
+
+    private static let gregorian: Calendar = {
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = TimeZone.current
+        return cal
+    }()
+
+    static func isoString(_ date: Date) -> String { isoDay.string(from: date) }
+
+    static func addDays(_ iso: String, _ days: Int) -> String {
+        let shifted = gregorian.date(byAdding: .day, value: days, to: date(iso)) ?? date(iso)
+        return isoString(shifted)
+    }
+
+    static func daysBetween(_ from: String, _ to: String) -> Int {
+        gregorian.dateComponents([.day], from: date(from), to: date(to)).day ?? 0
+    }
+
+    /// The Monday of the week containing `iso`.
+    static func monday(of iso: String) -> String {
+        let weekday = gregorian.component(.weekday, from: date(iso))   // 1 = Sunday
+        return addDays(iso, -((weekday + 5) % 7))
+    }
+
+    /// ISO week key as PaceForge writes it, e.g. "2026-W41".
+    static func isoWeekKey(_ iso: String) -> String {
+        let cal = Calendar(identifier: .iso8601)
+        let parts = cal.dateComponents([.yearForWeekOfYear, .weekOfYear], from: date(iso))
+        return String(format: "%04d-W%02d", parts.yearForWeekOfYear ?? 0, parts.weekOfYear ?? 0)
+    }
+
+    /// "5 min ago" for an ISO-8601 timestamp; the raw text when it cannot be parsed.
+    static func relative(_ timestamp: String?) -> String? {
+        guard let timestamp else { return nil }
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let plain = ISO8601DateFormatter()
+        guard let when = formatter.date(from: timestamp) ?? plain.date(from: timestamp)
+                ?? isoLocalSeconds.date(from: timestamp) else { return timestamp }
+        return RelativeDateTimeFormatter().localizedString(for: when, relativeTo: Date())
+    }
+
+    private static let isoLocalSeconds: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.dateFormat = "yyyy-MM-dd'T'HH:mm:ss"
+        return f
+    }()
 
     /// "5–11 Oct" for a Monday-to-Sunday span inside one month, otherwise "28 Sep – 4 Oct".
     static func span(_ start: String, _ end: String) -> String {
@@ -181,22 +230,6 @@ struct PFLabeled: View {
     }
 }
 
-/// The "Preview . data from 11 Oct" caption every screen carries.
-struct PFPreviewLabel: View {
-    let text: String
-
-    var body: some View {
-        HStack(spacing: 6) {
-            Image(systemName: "eye")
-                .font(.system(size: 11, weight: .semibold))
-            Text(text)
-                .font(StrandFont.footnote)
-        }
-        .foregroundStyle(StrandPalette.textTertiary)
-        .accessibilityIdentifier("pf-preview-label")
-    }
-}
-
 /// A key figure with a caption underneath.
 struct PFFigure: View {
     let value: String
@@ -223,5 +256,102 @@ struct PFFigure: View {
                 .lineLimit(1)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+// MARK: Load states
+
+struct PFLoadingView: View {
+    var body: some View {
+        HStack(spacing: 10) {
+            ProgressView()
+            Text("Loading PaceForge")
+                .font(StrandFont.subhead)
+                .foregroundStyle(StrandPalette.textSecondary)
+        }
+        .frame(maxWidth: .infinity, minHeight: 160)
+        .accessibilityIdentifier("pf-loading")
+    }
+}
+
+struct PFNotSetUpView: View {
+    var body: some View {
+        PFCard("PaceForge sync not set up", icon: "link.badge.plus") {
+            VStack(alignment: .leading, spacing: 10) {
+                PFParagraph("Add your PaceForge endpoint and bearer token in More \u{203A} PaceForge sync, then come back here. NOOP reads your plan, briefing, body scale and session results straight from your PaceForge server.")
+            }
+        }
+        .accessibilityIdentifier("pf-not-set-up")
+    }
+}
+
+struct PFFailedView: View {
+    let message: String
+    let isRetrying: Bool
+    let retry: () -> Void
+
+    var body: some View {
+        PFCard(message, icon: "wifi.exclamationmark") {
+            VStack(alignment: .leading, spacing: 12) {
+                PFParagraph("Check that you are online and that your PaceForge server is running, then try again.")
+                Button(action: retry) {
+                    Text(isRetrying ? "Trying" : "Retry")
+                        .font(StrandFont.subhead.weight(.semibold))
+                        .frame(maxWidth: .infinity, minHeight: 44)
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(StrandPalette.accent)
+                .disabled(isRetrying)
+                .accessibilityIdentifier("pf-retry")
+            }
+        }
+        .accessibilityIdentifier("pf-failed")
+    }
+}
+
+/// Shown above a screen that is displaying saved data because the last refresh failed.
+struct PFOfflineBanner: View {
+    let text: String
+    let isRetrying: Bool
+    let retry: () -> Void
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 10) {
+            Image(systemName: "wifi.exclamationmark")
+                .foregroundStyle(PFColor.warning)
+            Text(text)
+                .font(StrandFont.caption)
+                .foregroundStyle(StrandPalette.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 6)
+            Button(isRetrying ? "Trying" : "Retry", action: retry)
+                .font(StrandFont.caption.weight(.semibold))
+                .disabled(isRetrying)
+        }
+        .padding(12)
+        .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(PFColor.warning.opacity(0.12)))
+        .accessibilityIdentifier("pf-offline-banner")
+    }
+}
+
+/// A small dimmed label above content that is not from today.
+struct PFStaleLabel: View {
+    let text: String
+
+    var body: some View {
+        Text(text)
+            .font(StrandFont.caption)
+            .foregroundStyle(StrandPalette.textTertiary)
+    }
+}
+
+/// Renders markdown text (the coach's analysis, the briefing sections) in the app's look.
+struct PFMarkdown: View {
+    let text: String
+
+    var body: some View {
+        Markdown(text)
+            .markdownTheme(.strand)
+            .frame(maxWidth: .infinity, alignment: .leading)
     }
 }

@@ -1,7 +1,7 @@
 import SwiftUI
 import StrandDesign
 
-/// PaceForge "Today": its own recovery / strain / sleep, the push-today verdict, the day's sessions.
+/// PaceForge "Today": the daily coach briefing, PaceForge's own recovery / strain / sleep and the day's sessions.
 struct PFTodayView: View {
     let snapshot: PFSnapshot
 
@@ -9,10 +9,11 @@ struct PFTodayView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            scoresCard
-            verdictCard
+            if let brief = today.brief {
+                PFBriefCard(brief: brief, todayISO: snapshot.todayISO)
+            }
+            if today.recovery != nil || today.strain != nil || today.sleep != nil { scoresCard }
             sessionsSection
-            briefCard
             if let race = today.nextRace { raceCard(race) }
         }
     }
@@ -21,99 +22,43 @@ struct PFTodayView: View {
 
     private var scoresCard: some View {
         PFCard("Today", icon: "heart.fill") {
-            VStack(alignment: .leading, spacing: 14) {
-                HStack(alignment: .top, spacing: 8) {
-                    PFRing(value: today.recovery.score, maxValue: 100, color: StrandPalette.chargeColor,
-                           display: String(Int(today.recovery.score.rounded())),
-                           title: "Recovery", caption: today.recovery.confidence)
-                    PFRing(value: today.strain.value, maxValue: 21, color: StrandPalette.effortColor,
-                           display: PFFormat.oneDecimal(today.strain.value),
-                           title: "Strain", caption: strainTarget)
-                    PFRing(value: today.sleep.score, maxValue: 100, color: StrandPalette.restColor,
-                           display: String(Int(today.sleep.score.rounded())),
-                           title: "Sleep", caption: sleepNeed)
+            HStack(alignment: .top, spacing: 8) {
+                if let recovery = today.recovery {
+                    PFRing(value: recovery.score, maxValue: 100, color: StrandPalette.chargeColor,
+                           display: String(Int(recovery.score.rounded())),
+                           title: "Recovery", caption: recovery.confidence)
                 }
-                if let summary {
-                    Divider().overlay(StrandPalette.hairline)
-                    Text(summary)
-                        .font(StrandFont.subhead)
-                        .foregroundStyle(StrandPalette.textSecondary)
+                if let strain = today.strain {
+                    PFRing(value: strain.value, maxValue: 21, color: StrandPalette.effortColor,
+                           display: PFFormat.oneDecimal(strain.value),
+                           title: "Strain", caption: strainTarget(strain))
+                }
+                if let sleep = today.sleep {
+                    PFRing(value: sleep.score, maxValue: 100, color: StrandPalette.restColor,
+                           display: String(Int(sleep.score.rounded())),
+                           title: "Sleep", caption: sleepNeed(sleep))
                 }
             }
         }
     }
 
-    private var strainTarget: String? {
-        guard let lo = today.strain.targetLow, let hi = today.strain.targetHigh else { return nil }
+    private func strainTarget(_ strain: PFStrain) -> String? {
+        guard let lo = strain.targetLow, let hi = strain.targetHigh else { return nil }
         return "target \(Int(lo))\u{2013}\(Int(hi))"
     }
 
-    private var sleepNeed: String? {
-        guard let hours = today.sleep.hoursText, let need = today.sleep.needText else { return nil }
+    private func sleepNeed(_ sleep: PFSleep) -> String? {
+        guard let hours = sleep.hoursText, let need = sleep.needText else { return nil }
         return "\(hours) of \(need)"
-    }
-
-    private var summary: String? {
-        let word = PFFormat.capitalized(today.verdict.word)
-        guard let pct = today.sleep.sufficiencyPct else { return word }
-        return "\(word) \u{00B7} " + (pct < 100 ? "sleep was short" : "sleep met your need")
-    }
-
-    // MARK: Verdict
-
-    private var verdictCard: some View {
-        PFCard("Should you push today?") {
-            VStack(alignment: .leading, spacing: 10) {
-                HStack(spacing: 8) {
-                    Text(verdictGlyph)
-                        .font(StrandFont.rounded(18))
-                    Text(PFFormat.capitalized(today.verdict.word))
-                        .font(StrandFont.title2)
-                }
-                .foregroundStyle(verdictColor)
-                if let advice = today.verdict.advice { PFParagraph(advice) }
-
-                ForEach(Array((today.verdict.signals ?? []).enumerated()), id: \.offset) { _, s in
-                    Divider().overlay(StrandPalette.hairline)
-                    PFSignalRow(signal: s)
-                }
-                if let g = today.verdict.garmin, g.hold == true {
-                    HStack(alignment: .top, spacing: 8) {
-                        Text("\u{25C7}").foregroundStyle(PFColor.warning)
-                        Text("Garmin says \(g.reason ?? "hold")")
-                            .font(StrandFont.subhead)
-                            .foregroundStyle(PFColor.warning)
-                    }
-                }
-            }
-        }
-    }
-
-    private var verdictGlyph: String {
-        switch today.verdict.word {
-        case "primed": return "\u{25B2}"
-        case "strained": return "\u{25BC}"
-        case "rundown": return "\u{25BC}\u{25BC}"
-        default: return "\u{25C6}"
-        }
-    }
-
-    private var verdictColor: Color {
-        switch today.verdict.word {
-        case "primed": return PFColor.positive
-        case "strained": return PFColor.warning
-        case "rundown": return PFColor.critical
-        default: return StrandPalette.accent
-        }
     }
 
     // MARK: Sessions
 
     @ViewBuilder private var sessionsSection: some View {
-        let sessions = today.sessions ?? []
+        let sessions = today.sessions
         VStack(alignment: .leading, spacing: 10) {
             HStack {
-                Label("Today's training", systemImage: "calendar")
+                Label("Today's sessions", systemImage: "calendar")
                     .font(StrandFont.headline)
                     .foregroundStyle(StrandPalette.textPrimary)
                 Spacer()
@@ -129,23 +74,12 @@ struct PFTodayView: View {
                     PFParagraph("Enjoy the rest day \u{2014} recovery is training.")
                 }
             } else {
-                ForEach(sessions) { PFWorkoutRow(workout: $0) }
+                ForEach(sessions) { PFWorkoutRow(workout: $0, snapshot: snapshot) }
             }
         }
     }
 
-    // MARK: Brief + race
-
-    @ViewBuilder private var briefCard: some View {
-        if let headline = today.briefHeadline {
-            PFCard("Coach's morning read", icon: "sparkles") {
-                Text(headline)
-                    .font(StrandFont.body.weight(.semibold))
-                    .foregroundStyle(StrandPalette.textPrimary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-        }
-    }
+    // MARK: Race
 
     private func raceCard(_ race: PFNextRace) -> some View {
         PFCard("Next race", icon: "flag.checkered") {
@@ -170,6 +104,96 @@ struct PFTodayView: View {
                 Spacer(minLength: 0)
             }
         }
+    }
+}
+
+// MARK: Daily briefing
+
+/// The coach's daily briefing with every field the PaceForge web Today card renders. Dimmed and
+/// labelled when it was written on an earlier day.
+private struct PFBriefCard: View {
+    let brief: PFDailyBrief
+    let todayISO: String
+
+    private var isToday: Bool { brief.date == todayISO }
+
+    var body: some View {
+        PFCard(title: "Daily briefing", icon: "sparkles", trailing: {
+            if !isToday, let date = brief.date {
+                PFChip(text: "from \(PFFormat.shortDate(date))", color: StrandPalette.textTertiary)
+            }
+        }) {
+            VStack(alignment: .leading, spacing: 12) {
+                Text(brief.headline)
+                    .font(StrandFont.body.weight(.semibold))
+                    .foregroundStyle(StrandPalette.textPrimary)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                ForEach(Array(brief.notes.enumerated()), id: \.offset) { _, note in
+                    PFCallout(text: note, color: PFColor.warning, label: nil)
+                }
+                ForEach(Array(brief.outlook.enumerated()), id: \.offset) { _, paragraph in
+                    PFParagraph(paragraph)
+                }
+                section("Your body today", brief.bodyState)
+                section("Today's training", brief.training)
+                section("The last few days", brief.recent)
+
+                if !brief.focus.isEmpty {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Focus").strandOverline()
+                        ForEach(Array(brief.focus.enumerated()), id: \.offset) { _, item in
+                            HStack(alignment: .top, spacing: 8) {
+                                Text("\u{2022}").foregroundStyle(StrandPalette.accent)
+                                Text(item)
+                                    .font(StrandFont.subhead)
+                                    .foregroundStyle(StrandPalette.textSecondary)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                        }
+                    }
+                }
+                ForEach(Array(brief.pulses.enumerated()), id: \.offset) { _, pulse in
+                    PFCallout(text: pulse.text, color: PFColor.sky,
+                              label: "Day pulse" + (PFFormat.relative(pulse.at).map { " \u{00B7} \($0)" } ?? ""))
+                }
+            }
+        }
+        .opacity(isToday ? 1 : 0.7)
+        .accessibilityIdentifier("pf-brief-card")
+    }
+
+    @ViewBuilder private func section(_ title: String, _ markdown: String?) -> some View {
+        if let markdown {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title).strandOverline()
+                PFMarkdown(text: markdown)
+            }
+        }
+    }
+}
+
+private struct PFCallout: View {
+    let text: String
+    let color: Color
+    let label: String?
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 10) {
+            RoundedRectangle(cornerRadius: 2, style: .continuous)
+                .fill(color)
+                .frame(width: 3)
+            VStack(alignment: .leading, spacing: 4) {
+                if let label { Text(label).strandOverline() }
+                Text(text)
+                    .font(StrandFont.subhead)
+                    .foregroundStyle(StrandPalette.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(10)
+        .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(StrandPalette.surfaceInset))
     }
 }
 
@@ -209,54 +233,5 @@ private struct PFRing: View {
         .frame(maxWidth: .infinity)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(title) \(display)")
-    }
-}
-
-private struct PFSignalRow: View {
-    let signal: PFSignal
-
-    var body: some View {
-        HStack(alignment: .top, spacing: 10) {
-            Text(glyph)
-                .font(StrandFont.rounded(13))
-                .foregroundStyle(color)
-                .frame(width: 16)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(signal.label)
-                    .font(StrandFont.subhead.weight(.semibold))
-                    .foregroundStyle(StrandPalette.textPrimary)
-                if let evidence = signal.evidence {
-                    Text(evidence)
-                        .font(StrandFont.caption)
-                        .foregroundStyle(StrandPalette.textTertiary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                if let detail = signal.detail {
-                    Text(detail)
-                        .font(StrandFont.caption)
-                        .foregroundStyle(StrandPalette.textSecondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-            }
-            Spacer(minLength: 0)
-        }
-    }
-
-    private var glyph: String {
-        switch signal.flag {
-        case "good": return "\u{25B2}"
-        case "watch": return "\u{25C7}"
-        case "bad": return "\u{25BC}"
-        default: return "\u{25C6}"
-        }
-    }
-
-    private var color: Color {
-        switch signal.flag {
-        case "good": return PFColor.positive
-        case "watch": return PFColor.warning
-        case "bad": return PFColor.critical
-        default: return StrandPalette.textTertiary
-        }
     }
 }
