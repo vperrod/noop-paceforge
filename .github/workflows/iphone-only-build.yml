@@ -54,7 +54,7 @@ jobs:
           VERSION=$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' "$INFO")
           BUILD=$(/usr/libexec/PlistBuddy -c 'Print CFBundleVersion' "$INFO")
           test "$BUNDLE" = "com.paceforge.noop" || { echo "Unexpected bundle id: $BUNDLE"; exit 1; }
-          test "$DISPLAY" = "NOOP" || { echo "Unexpected app name: $DISPLAY"; exit 1; }
+          test "$DISPLAY" = "NOOP PaceForge" || { echo "Unexpected app name: $DISPLAY"; exit 1; }
           NAME=$(/usr/libexec/PlistBuddy -c 'Print CFBundleName' "$INFO")
           test "$NAME" = "NOOP" || { echo "Unexpected bundle name: $NAME"; exit 1; }
 
