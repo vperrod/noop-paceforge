@@ -4,6 +4,7 @@ import WhoopStore
 import WhoopProtocol
 import StrandAnalytics
 import StrandDesign   // TrendPoint , the shared chart point type the Deep Timeline series uses
+import StrandImport
 
 /// Per-day sleep figures the WHOOP export carried verbatim (metricSeries rows written by
 /// WhoopImporter under the imported deviceId). SleepView prefers these over its on-device
@@ -3092,9 +3093,14 @@ final class Repository: ObservableObject {
     /// install collapses to one in both branches — so every existing number is unchanged.
     nonisolated static func workoutHrDeviceIds(source: String, activeStrapId: String,
                                                importedIds: [String]) -> [String] {
-        // Imported Garmin workouts use only Garmin activity HR. Mixing the nearby WHOOP trace
-        // would attribute another device's readings to this workout and corrupt Effort/HRR.
-        if WorkoutSource.classify(source) == .paceforge { return ["paceforge-garmin"] }
+        // Imported activity streams stay source-pure. Mixing nearby WHOOP samples into a Garmin or
+        // activity-file workout would attribute another device's readings to this activity and
+        // corrupt its chart, zones, Effort and recovery.
+        switch WorkoutSource.classify(source) {
+        case .paceforge: return ["paceforge-garmin"]
+        case .activityFile: return [ActivityFileImporter.sourceId]
+        default: break
+        }
         guard WorkoutSource.classify(source) == .detected else { return importedIds }
         return [source.hasSuffix("-noop") ? String(source.dropLast(5)) : source]
     }
@@ -3502,17 +3508,20 @@ final class Repository: ObservableObject {
                                   source: String = "") async -> HeartRateRecovery.Result? {
         guard to > from, maxHR > 0 else { return nil }
         let readFrom = max(from, to - HeartRateRecovery.eligibilityLookbackSeconds)
-        let readTo = to + 5 * 60 + HeartRateRecovery.measurementToleranceSeconds
+        // The Garmin branch accepts readings within 30 seconds of each recovery point. The store
+        // query must cover that same upper edge or it silently drops a valid late five-minute sample.
+        let isPaceForge = WorkoutSource.classify(source) == .paceforge
+        let measurementTolerance = isPaceForge ? 30 : HeartRateRecovery.measurementToleranceSeconds
+        let readTo = to + 5 * 60 + measurementTolerance
         let ids = Self.workoutHrDeviceIds(source: source, activeStrapId: deviceId,
                                           importedIds: importedReadIds)
         let samples = await hrSamples(deviceIds: ids, from: readFrom, to: readTo, limit: 2_000)
         // Garmin's post-workout stream is sampled sparsely. Keep the same sustained-intensity and
         // cessation checks, but accept one nearest measurement within 30 seconds for each recovery point.
-        let isPaceForge = WorkoutSource.classify(source) == .paceforge
         return HeartRateRecovery.calculate(samples: samples, workoutStart: from, workoutEnd: to,
                                            maxHR: maxHR,
                                            minimumSamplesPerReading: isPaceForge ? 1 : HeartRateRecovery.minimumSamplesPerReading,
-                                           measurementToleranceSeconds: isPaceForge ? 30 : HeartRateRecovery.measurementToleranceSeconds,
+                                           measurementToleranceSeconds: measurementTolerance,
                                            minimumCessationSamples: isPaceForge ? 1 : HeartRateRecovery.minimumSamplesPerReading)
     }
 

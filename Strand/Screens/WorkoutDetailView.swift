@@ -192,11 +192,11 @@ struct WorkoutDetailView: View {
                     }
                 }
             }
-        } else if WorkoutSource.classify(row.source) == .paceforge {
+        } else if loaded {
             NoopCard(tint: StrandPalette.metricRose) {
                 VStack(alignment: .leading, spacing: 6) {
-                    SectionHeader("Heart Rate Recovery", overline: "Garmin activity")
-                    Text("Unavailable: there are not enough timestamped Garmin heart-rate samples around this workout to calculate recovery.")
+                    SectionHeader("Heart Rate Recovery", overline: "After high-intensity effort")
+                    Text("Unavailable: this workout did not meet the sustained-intensity check, or its heart-rate source did not record enough samples around the end of the workout and recovery period.")
                         .font(StrandFont.footnote)
                         .foregroundStyle(StrandPalette.textTertiary)
                         .fixedSize(horizontal: false, vertical: true)

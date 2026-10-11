@@ -39,17 +39,31 @@ final class WorkoutHrDeviceKeyTests: XCTestCase {
             ["whoop-aabbcc"])
     }
 
-    /// Imported rows (Apple / activity file / lifting / WHOOP CSV) reconcile against the active strap — the
-    /// worn-strap fill (#77) is unchanged. Includes the legacy `apple_health` spelling and the CSV `my-whoop`
-    /// source (contains "whoop" but not "-noop", so it classifies non-detected and is NOT stripped).
+    /// Imported rows without their own stored HR stream (Apple / lifting / WHOOP CSV) reconcile against the
+    /// active strap — the worn-strap fill (#77) is unchanged. Includes legacy `apple_health` spelling and
+    /// CSV `my-whoop` (contains "whoop" but not "-noop", so it is NOT stripped).
     func testImportedReadsActiveStrap() {
-        for src in ["apple-health", "apple_health", "activity-file", "lifting", "my-whoop", "Health Connect"] {
+        for src in ["apple-health", "apple_health", "lifting", "my-whoop", "Health Connect"] {
             XCTAssertEqual(
                 Repository.workoutHrDeviceIds(source: src, activeStrapId: "whoop-aabbcc",
                                               importedIds: ["whoop-aabbcc"]),
                 ["whoop-aabbcc"],
                 "imported source \(src) should reconcile against the active strap")
         }
+    }
+
+    func testActivityFileReadsItsOwnImportedHeartRateTrace() {
+        XCTAssertEqual(
+            Repository.workoutHrDeviceIds(source: "activity-file", activeStrapId: "whoop-aabbcc",
+                                          importedIds: ["whoop-aabbcc", "my-whoop"]),
+            ["activity-file"])
+    }
+
+    func testPaceForgeReadsItsGarminActivityTrace() {
+        XCTAssertEqual(
+            Repository.workoutHrDeviceIds(source: "paceforge", activeStrapId: "whoop-aabbcc",
+                                          importedIds: ["whoop-aabbcc", "my-whoop"]),
+            ["paceforge-garmin"])
     }
 
     /// #856: an imported row on a MULTI-namespace install gets the whole #814 union, not just the
