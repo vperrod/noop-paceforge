@@ -28,6 +28,10 @@ struct PFToday {
     var brief: PFDailyBrief?
     var nextRace: PFNextRace?
     var sessions: [PFWorkout] = []
+    var hrv: Double?
+    var restingHr: Double?
+    /// Acute : chronic load ratio.
+    var acwr: Double?
 }
 
 struct PFRecovery { var score: Double; var band: String?; var confidence: String? }

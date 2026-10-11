@@ -3,11 +3,12 @@ import XCTest
 /// Simulator checks for the native PaceForge tab. There is no server in CI, so the fixture tests launch
 /// with `-PaceForgeFixture` and serve the synthetic PaceForgeFixture.json (made-up values only).
 final class PaceForgeNativeTabUITests: XCTestCase {
-    private func launch(fixture: Bool) throws -> XCUIApplication {
+    private func launch(fixture: Bool, widgetGallery: Bool = false) throws -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments.append("--demo-seed")
         if fixture {
             app.launchArguments.append("-PaceForgeFixture")
+            if widgetGallery { app.launchArguments.append("-PaceForgeWidgetGallery") }
             let url = try XCTUnwrap(Bundle(for: Self.self).url(forResource: "PaceForgeFixture", withExtension: "json"),
                                     "The synthetic fixture should be bundled with the UI tests.")
             app.launchEnvironment["PF_FIXTURE_JSON"] = String(decoding: try Data(contentsOf: url), as: UTF8.self)
@@ -121,5 +122,18 @@ final class PaceForgeNativeTabUITests: XCTestCase {
         XCTAssertTrue(label(app, "Session breakdown").waitForExistence(timeout: 5),
                       "Opening a planned session should show its step breakdown.")
         attach(app, "07 Planned session expanded")
+    }
+
+    func testWidgetGalleryIsCaptured() throws {
+        let app = try launch(fixture: true, widgetGallery: true)
+        let tab = app.tabBars.buttons["PaceForge"]
+        XCTAssertTrue(tab.waitForExistence(timeout: 20))
+        tab.tap()
+        XCTAssertTrue(label(app, "Widget gallery").waitForExistence(timeout: 15), "The widget gallery should draw from the fixture.")
+        attach(app, "08 Widgets large")
+        for index in 1...4 {
+            app.swipeUp()
+            attach(app, "08 Widgets scrolled \(index)")
+        }
     }
 }

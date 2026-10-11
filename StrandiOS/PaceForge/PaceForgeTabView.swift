@@ -44,7 +44,9 @@ struct PaceForgeTabView: View {
                     Task { await model.refresh() }
                 }
             case .ready:
-                if let snapshot = model.snapshot {
+                if let snapshot = model.snapshot, PFAPI.showsWidgetGallery {
+                    PFWidgetGallery(snapshot: snapshot)
+                } else if let snapshot = model.snapshot {
                     Picker("PaceForge section", selection: segment) {
                         ForEach(PFSegment.allCases) { Text($0.title).tag($0) }
                     }

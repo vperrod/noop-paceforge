@@ -18,6 +18,15 @@ enum PFAPI {
 
     static var isFixture: Bool { fixture != nil }
 
+    /// DEBUG UI-test switch that shows the widget gallery in place of the PaceForge screens.
+    static var showsWidgetGallery: Bool {
+        #if DEBUG
+        return isFixture && ProcessInfo.processInfo.arguments.contains("-PaceForgeWidgetGallery")
+        #else
+        return false
+        #endif
+    }
+
     /// The phone's today, or the fixed day a UI-test fixture is written for.
     static var todayISO: String {
         #if DEBUG
@@ -162,6 +171,7 @@ final class PFModel: ObservableObject {
                 throw CocoaError(.fileReadCorruptFile)
             }
             snapshot = built
+            PFSummaryWriter.publish(built)
             savedAt = Date()
             lastSuccess = Date()
             offlineNote = nil

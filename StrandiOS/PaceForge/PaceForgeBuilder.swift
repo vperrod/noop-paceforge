@@ -40,6 +40,9 @@ enum PFBuilder {
                                        sufficiencyPct: daily["sleep"]["sufficiency_pct"].double,
                                        debtHours: daily["sleep"]["debt_hours"].double)
         }
+        todayBlock.hrv = raw.fitness["load"]["hrv"]["last_night_ms"].double
+        todayBlock.restingHr = raw.fitness["load"]["resting_hr_trend"]["latest"].double
+        todayBlock.acwr = raw.fitness["load"]["acwr"]["acwr"].double
         todayBlock.brief = dailyBrief(state["daily_brief"])
         todayBlock.nextRace = nextRace(events: state["events"], today: today)
         todayBlock.sessions = allWorkouts
