@@ -98,15 +98,15 @@ public struct PFSummary: Codable, Equatable {
         now.timeIntervalSince(updated) > 24 * 3600 || date != Self.dayString(now)
     }
 
-    /// Days to the race counted from today rather than from when the file was written.
+    /// Days to the race counted from today: the days stored at write time, less the days since then.
     public var raceDaysNow: Int? {
         guard let race else { return nil }
         let f = DateFormatter()
         f.locale = Locale(identifier: "en_US_POSIX")
         f.dateFormat = "yyyy-MM-dd"
-        guard let target = f.date(from: race.date) else { return race.days }
-        let days = Calendar.current.dateComponents([.day], from: Calendar.current.startOfDay(for: Date()), to: target).day
-        return days ?? race.days
+        guard let written = f.date(from: date) else { return race.days }
+        let elapsed = Calendar.current.dateComponents([.day], from: written, to: Date()).day ?? 0
+        return race.days - max(0, elapsed)
     }
 }
 
