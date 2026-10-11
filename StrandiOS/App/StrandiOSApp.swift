@@ -84,6 +84,8 @@ struct StrandiOSApp: App {
         let router = NavRouter()
         _router = StateObject(wrappedValue: router)
         NotificationPresenter.shared.onCoachBriefTapped = { [weak router] in router?.openCoach() }
+        NotificationPresenter.shared.onPaceForgeBriefTapped = { Task { @MainActor in PFDeepLink.openToday() } }
+        PaceForgeBackground.register()
         let model = AppModel()
         _model = StateObject(wrappedValue: model)
         CoachBriefScheduler.register(generateBrief: { [weak coach = model.coach] in
@@ -328,6 +330,8 @@ struct StrandiOSApp: App {
                 .onOpenURL { url in
                     if url.host == "import-health" {
                         model.handleHealthImportURL(url)
+                    } else if url.host == "paceforge" {
+                        PFDeepLink.openToday()
                     }
                 }
                 .alert("Import Apple Health data?", isPresented: healthImportAlertPresented) {
@@ -359,6 +363,8 @@ struct StrandiOSApp: App {
                     await SelfHostedPushClient.pushIfEnabled(repo: model.repo)
                 }
                 CoachBriefScheduler.activateIfEnabled { await model.coach.generateBrief() }
+                PFDeepLink.openIfControlRequested()
+                PaceForgeBackground.schedule()
                 model.drainPendingIntents(router: router)
                 // iOS starts a Lift Log banner only for an app on screen, so a banner lost while NOOP was in
                 // the background comes back now, whether or not the strap is sending anything.

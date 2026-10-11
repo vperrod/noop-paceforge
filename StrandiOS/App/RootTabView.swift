@@ -90,6 +90,11 @@ struct RootTabView: View {
         )
     }
 
+    private func openPaceForgeToday() {
+        PFDeepLink.pending = false
+        withAnimation(.timingCurve(0.22, 1, 0.36, 1, duration: 0.24)) { selectedTab = 3 }
+    }
+
     private func reselectTab(_ tag: Int) {
         Task { await repo.refresh() }
         if !tabPaths[tag].isEmpty {
@@ -178,6 +183,9 @@ struct RootTabView: View {
         .sheet(item: $quickAction) { action in
             quickActionDestination(action)
         }
+        // Widgets, the PaceForge brief notification and the Control Center control land on PaceForge > Today.
+        .onReceive(NotificationCenter.default.publisher(for: .pfOpenToday)) { _ in openPaceForgeToday() }
+        .onAppear { if PFDeepLink.pending { openPaceForgeToday() } }
         // Live's "Manage devices" affordance (and any future cross-screen link to Devices) routes here:
         // present the Devices manager in its own nav stack, the same way the quick-action screens do.
         .sheet(isPresented: $showDevices) {

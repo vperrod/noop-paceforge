@@ -289,6 +289,7 @@ targets:
         BGTaskSchedulerPermittedIdentifiers:
           - $(PRODUCT_BUNDLE_IDENTIFIER).debugexport
           - $(PRODUCT_BUNDLE_IDENTIFIER).coachbrief
+          - $(PRODUCT_BUNDLE_IDENTIFIER).paceforge
           # Best-effort fallback that writes already-banked WHOOP data to HealthKit when iOS grants
           # background time. Fresh offloads also write immediately from their completion hook.
           - $(PRODUCT_BUNDLE_IDENTIFIER).healthwriteback

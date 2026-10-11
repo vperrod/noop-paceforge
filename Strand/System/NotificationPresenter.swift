@@ -23,6 +23,9 @@ final class NotificationPresenter: NSObject, UNUserNotificationCenterDelegate {
     /// root has wired it.
     var onCoachBriefTapped: (() -> Void)?
 
+    /// Wired on iOS to open PaceForge > Today when the PaceForge daily-brief notification is tapped.
+    var onPaceForgeBriefTapped: (() -> Void)?
+
     func userNotificationCenter(
         _ center: UNUserNotificationCenter,
         willPresent notification: UNNotification,
@@ -41,6 +44,8 @@ final class NotificationPresenter: NSObject, UNUserNotificationCenterDelegate {
     ) {
         if response.notification.request.content.categoryIdentifier == CoachBriefScheduler.notificationCategoryId {
             onCoachBriefTapped?()
+        } else if response.notification.request.content.categoryIdentifier == "paceforge.brief" {
+            onPaceForgeBriefTapped?()
         }
         completionHandler()
     }

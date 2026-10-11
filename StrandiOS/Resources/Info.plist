@@ -8,6 +8,7 @@
 	<array>
 		<string>$(PRODUCT_BUNDLE_IDENTIFIER).debugexport</string>
 		<string>$(PRODUCT_BUNDLE_IDENTIFIER).coachbrief</string>
+		<string>$(PRODUCT_BUNDLE_IDENTIFIER).paceforge</string>
 		<string>$(PRODUCT_BUNDLE_IDENTIFIER).healthwriteback</string>
 		<string>$(PRODUCT_BUNDLE_IDENTIFIER).rescore</string>
 	</array>

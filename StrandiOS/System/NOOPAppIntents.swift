@@ -153,6 +153,20 @@ struct NOOPShortcuts: AppShortcutsProvider {
                     ],
                     shortTitle: "Ask Coach",
                     systemImageName: "sparkles")
+        AppShortcut(intent: TodaysPaceForgeSessionIntent(),
+                    phrases: [
+                        "What is my PaceForge session in \(.applicationName)",
+                        "Today's PaceForge session in \(.applicationName)",
+                    ],
+                    shortTitle: "Today's PaceForge session",
+                    systemImageName: "figure.run")
+        AppShortcut(intent: DaysToNextRaceIntent(),
+                    phrases: [
+                        "Days to my next race in \(.applicationName)",
+                        "How long until my race in \(.applicationName)",
+                    ],
+                    shortTitle: "Days to my next race",
+                    systemImageName: "flag.checkered")
     }
 }
 #endif

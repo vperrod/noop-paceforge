@@ -63,7 +63,10 @@ struct PaceForgeTabView: View {
             }
         }
         .environmentObject(model)
-        .task { await model.refreshIfStale() }
+        .task {
+            await model.refreshIfStale()
+            if model.phase == .ready { PaceForgeBackground.requestNotificationPermissionOnce() }
+        }
     }
 
     @ViewBuilder private func screen(for segment: PFSegment, snapshot: PFSnapshot) -> some View {
