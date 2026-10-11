@@ -15,13 +15,6 @@ struct NOOPWidgetBundle: WidgetBundle {
         StressWidget()
         LiftLiveActivity()
         SyncLiveActivity()
-        PaceForgeWidgetBundle()
-    }
-}
-
-/// The PaceForge widgets and control, nested so the main bundle stays within the builder's child limit.
-struct PaceForgeWidgetBundle: WidgetBundle {
-    var body: some Widget {
         PaceForgeTodayWidget()
         PaceForgeSessionWidget()
         PaceForgeRaceWidget()
