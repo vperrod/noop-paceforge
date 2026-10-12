@@ -331,7 +331,11 @@ struct ScoringGuideView: View {
 
 #if DEBUG
 #Preview("Scoring guide") {
-    ScoringGuideView(initialSection: .effort, onClose: {})
+    // The guide's "Ask Coach" button reads the coach and the router from the environment.
+    let repo = Repository(deviceId: "preview")
+    return ScoringGuideView(initialSection: .effort, onClose: {})
+        .environmentObject(AICoachEngine(repo: repo))
+        .environmentObject(NavRouter())
         .preferredColorScheme(.dark)
 }
 #endif
