@@ -10,6 +10,7 @@ struct PFTodayView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             PFTodaySoFarCard(snapshot: snapshot)
+            if let week = snapshot.raceWeek { PFRaceWeekCard(week: week, todayISO: snapshot.todayISO) }
             if let brief = today.brief {
                 PFBriefCard(brief: brief, todayISO: snapshot.todayISO)
             }
@@ -19,7 +20,8 @@ struct PFTodayView: View {
             if let changes = snapshot.whatChanged { PFWhatChangedCard(changes: changes) }
             if let readiness = snapshot.readiness { PFReadinessCard(readiness: readiness) }
             sessionsSection
-            if let race = today.nextRace { raceCard(race) }
+            // In race week the race-week card above carries the countdown.
+            if let race = today.nextRace, snapshot.raceWeek == nil { raceCard(race) }
         }
     }
 
