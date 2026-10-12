@@ -55,10 +55,17 @@ struct PFWidgetGallery: View {
             caption("My Day, no recent file")
             card(height: 110) { MyDayWidgetFace(summary: nil, stale: true) }
 
+            caption("Effort target, small: in progress and stale")
+            HStack(spacing: 12) {
+                card(height: 160) { EffortTargetWidgetFace(snapshot: .effortTargetSample, stale: false, family: .systemSmall) }
+                    .accessibilityIdentifier("effort-target-widget-gallery")
+                card(height: 160) { EffortTargetWidgetFace(snapshot: nil, stale: true, family: .systemSmall) }
+            }
+
             caption("Stale or missing file")
             card(height: 110) { PFTodayWidgetFace(summary: s, stale: true, family: .systemMedium) }
 
-            caption("Lock Screen: inline, rectangular, recovery, strain, race, load, heart recovery")
+            caption("Lock Screen: inline, rectangular, recovery, strain, race, load, heart recovery, effort target")
             VStack(alignment: .leading, spacing: 12) {
                 PFSessionWidgetFace(summary: s, stale: false, family: .accessoryInline)
                     .font(.footnote)
@@ -70,6 +77,8 @@ struct PFWidgetGallery: View {
                     PFRaceWidgetFace(summary: s, stale: false, family: .accessoryCircular).frame(width: 64, height: 64)
                     PFLoadWidgetFace(summary: s, stale: false, family: .accessoryCircular).frame(width: 64, height: 64)
                     PFHeartRecoveryWidgetFace(summary: s, family: .accessoryCircular).frame(width: 64, height: 64)
+                    EffortTargetWidgetFace(snapshot: .effortTargetSample, stale: false, family: .accessoryCircular)
+                        .frame(width: 64, height: 64)
                 }
             }
             .padding(16)

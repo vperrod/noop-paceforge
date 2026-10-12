@@ -181,6 +181,9 @@ struct EffortTargetCard: View {
     }
 
     @MainActor private func refresh() {
+        #if DEBUG
+        if let fixture = PlannerFixture.effortReading { reading = fixture; return }
+        #endif
         let scale = UnitPrefs.resolveEffortScale(effortScaleRaw)
         reading = EffortTargetReading.make(days: repo.days, effortScale: scale)
     }
@@ -212,6 +215,9 @@ struct EffortTargetInline: View {
     }
 
     @MainActor private func refresh() {
+        #if DEBUG
+        if let fixture = PlannerFixture.effortReading { reading = fixture; return }
+        #endif
         let scale = UnitPrefs.resolveEffortScale(effortScaleRaw)
         reading = EffortTargetReading.make(days: repo.days, effortScale: scale)
     }

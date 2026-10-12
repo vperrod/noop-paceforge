@@ -90,6 +90,9 @@ enum SleepPlannerLoader {
     /// - Parameter alarmMinutes: the strap alarm's time when it is on, else nil.
     static func load(repo: Repository, alarmMinutes: Int?, now: Date = Date(),
                      calendar: Calendar = .current) async -> SleepPlannerData {
+        #if DEBUG
+        if let fixture = PlannerFixture.sleepData { return fixture }
+        #endif
         let key = "\(repo.refreshSeq)|\(alarmMinutes ?? -1)|\(WindDownNudge.isEnabled)|\(WindDownNudge.wakeMinutes)|"
             + "\(WindDownNudge.perDayWakeOverrides.sorted { $0.key < $1.key })|\(Int(now.timeIntervalSince1970 / 1800))"
         if let memo, memo.key == key { return memo.data }
