@@ -108,10 +108,15 @@ struct PFEasyModeCard: View {
 struct PFEasyModeChip: View {
     let mode: PFEasyMode.Mode
 
+    private var text: String {
+        var text = "Easy mode \u{00B7} level \(mode.level)"
+        if let day = mode.dayText { text += " \u{00B7} " + day.lowercased() }
+        return text
+    }
+
     var body: some View {
         HStack {
-            PFChip(text: "Easy mode \u{00B7} level \(mode.level)" + (mode.dayText.map { " \u{00B7} \($0.lowercased())" } ?? ""),
-                   color: StrandPalette.accent)
+            PFChip(text: text, color: StrandPalette.accent)
                 .accessibilityIdentifier("pf-easy-chip")
             Spacer(minLength: 0)
         }

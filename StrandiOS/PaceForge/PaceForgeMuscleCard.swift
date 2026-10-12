@@ -147,9 +147,7 @@ struct PFMuscleCheckCard: View {
         VStack(alignment: .leading, spacing: 4) {
             Text("Strength").strandOverline()
             if let measure = strength.measure {
-                Text(PFFormat.capitalized(PFFormat.words(measure))
-                     + (strength.pct.map { " \(PFNumber.signed($0)) %" } ?? "")
-                     + (strength.direction.map { " \u{00B7} \(PFFormat.words($0))" } ?? ""))
+                Text(strengthTitle(measure, strength))
                     .font(StrandFont.subhead.weight(.semibold))
                     .foregroundStyle(StrandPalette.textPrimary)
             }
@@ -166,6 +164,13 @@ struct PFMuscleCheckCard: View {
             }
         }
         .accessibilityIdentifier("pf-muscle-strength")
+    }
+
+    private func strengthTitle(_ measure: String, _ strength: PFMuscleCheck.Strength) -> String {
+        var text = PFFormat.capitalized(PFFormat.words(measure))
+        if let pct = strength.pct { text += " " + PFNumber.signed(pct) + " %" }
+        if let direction = strength.direction { text += " \u{00B7} " + PFFormat.words(direction) }
+        return text
     }
 
     private func tapeLine(_ cm: Double) -> some View {

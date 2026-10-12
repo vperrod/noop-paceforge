@@ -513,6 +513,16 @@ private struct PFSegmentalCard: View {
 
     private func segment(_ key: String) -> PFBodySegment? { doc.segments.first { $0.key == key } }
 
+    private func estimateNote(_ meta: PFSegmentalMeta) -> String {
+        var text = "Left and right are our estimate."
+        if let note = meta.note {
+            text += " " + note
+        } else if let method = meta.method {
+            text += " Method: " + method + "."
+        }
+        return text
+    }
+
     /// The four limbs are left or right; the server says whether that split is an estimate. No label when
     /// it says it is not, or says nothing.
     private func isEstimate(_ key: String) -> Bool {
@@ -544,7 +554,7 @@ private struct PFSegmentalCard: View {
                     .foregroundStyle(StrandPalette.textTertiary)
                     .fixedSize(horizontal: false, vertical: true)
                 if let meta = doc.segmentalMeta, meta.estimate {
-                    Text("Left and right are our estimate." + (meta.note.map { " \($0)" } ?? meta.method.map { " Method: \($0)." } ?? ""))
+                    Text(estimateNote(meta))
                         .font(StrandFont.caption)
                         .foregroundStyle(StrandPalette.textTertiary)
                         .fixedSize(horizontal: false, vertical: true)

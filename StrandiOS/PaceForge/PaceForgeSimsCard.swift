@@ -93,16 +93,22 @@ struct PFSimulationsCard: View {
     }
 
     private func freshRunLine(_ fresh: PFHyroxSims.FreshRun) -> some View {
-        let pace = fresh.display ?? fresh.paceSec.map { PFFormat.pace($0) }
-        return Group {
-            if let pace {
-                Text("Fresh run pace \(pace)/km" + (fresh.nRuns.map { " from \($0) run\($0 == 1 ? "" : "s")" } ?? "")
-                     + (fresh.basis.map { ". \($0)" } ?? ""))
+        Group {
+            if let text = freshRunText(fresh) {
+                Text(text)
                     .font(StrandFont.caption)
                     .foregroundStyle(StrandPalette.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
+    }
+
+    private func freshRunText(_ fresh: PFHyroxSims.FreshRun) -> String? {
+        guard let pace = fresh.display ?? fresh.paceSec.map({ PFFormat.pace($0) }) else { return nil }
+        var text = "Fresh run pace \(pace)/km"
+        if let runs = fresh.nRuns { text += " from \(runs) run" + (runs == 1 ? "" : "s") }
+        if let basis = fresh.basis { text += ". \(basis)" }
+        return text
     }
 
     // MARK: Run fade, compromised runs, pacing
@@ -125,8 +131,7 @@ struct PFSimulationsCard: View {
             if !latest.compromisedRuns.isEmpty {
                 VStack(alignment: .leading, spacing: 3) {
                     ForEach(latest.compromisedRuns) { run in
-                        Text("Run \(run.run)" + (run.seconds.map { " \u{00B7} \(PFSimFormat.clock($0))" } ?? "")
-                             + (run.pctSlower.map { " \u{00B7} \(PFSimFormat.signedPct($0)) slower" } ?? ""))
+                        Text(compromisedText(run))
                             .font(StrandFont.caption)
                             .foregroundStyle(StrandPalette.textSecondary)
                     }
@@ -149,6 +154,13 @@ struct PFSimulationsCard: View {
                 PFParagraph(note)
             }
         }
+    }
+
+    private func compromisedText(_ run: PFHyroxSims.CompromisedRun) -> String {
+        var text = "Run \(run.run)"
+        if let seconds = run.seconds { text += " \u{00B7} " + PFSimFormat.clock(seconds) }
+        if let pct = run.pctSlower { text += " \u{00B7} " + PFSimFormat.signedPct(pct) + " slower" }
+        return text
     }
 
     // MARK: Splits

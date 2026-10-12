@@ -46,13 +46,15 @@ struct PFRaceWeek: Equatable {
         /// "8\u{2013}10 g/kg a day, about 640 g at 80 kg", from whichever figures the server sent.
         var line: String? {
             var parts: [String] = []
-            if let low = perKgLow, let high = perKgHigh {
-                parts.append(PFNumber.trimmed(low) + (high != low ? "\u{2013}" + PFNumber.trimmed(high) : "") + " g/kg a day")
-            } else if let low = perKgLow ?? perKgHigh {
-                parts.append(PFNumber.trimmed(low) + " g/kg a day")
+            if let low = perKgLow, let high = perKgHigh, high != low {
+                parts.append(PFNumber.trimmed(low) + "\u{2013}" + PFNumber.trimmed(high) + " g/kg a day")
+            } else if let single = perKgLow ?? perKgHigh {
+                parts.append(PFNumber.trimmed(single) + " g/kg a day")
             }
             if let grams = gramsPerDay {
-                parts.append("about \(Int(grams.rounded())) g a day" + (weightKg.map { " at \(PFNumber.trimmed($0)) kg" } ?? ""))
+                var text = "about \(Int(grams.rounded())) g a day"
+                if let weightKg { text += " at " + PFNumber.trimmed(weightKg) + " kg" }
+                parts.append(text)
             }
             return parts.isEmpty ? nil : parts.joined(separator: ", ")
         }
@@ -442,7 +444,8 @@ struct PFHeat: Equatable {
         }
         if let level, !level.isEmpty { parts.append(level.replacingOccurrences(of: "_", with: " ")) }
         if let cost = paceCostPct, abs(cost) >= 0.05 {
-            parts.append("pace " + (cost < 0 ? "\u{2212}" : "+") + PFNumber.trimmed(abs(cost)) + " %")
+            let sign = cost < 0 ? "\u{2212}" : "+"
+            parts.append("pace " + sign + PFNumber.trimmed(abs(cost)) + " %")
         }
         return parts.joined(separator: " \u{00B7} ")
     }
