@@ -51,6 +51,8 @@ enum PFAPI {
         ("-PaceForgeStandingNotApplicable", "data/standing.json", "data/standing.na.json"),
         // No ride-metrics.json at all (rides hidden), and a ride whose stream file is missing (no chart).
         ("-PaceForgeRideNone", "data/ride-metrics.json", "data/ride-metrics.missing.json"),
+        // A card hidden in PaceForge itself (dismissed.json), united with the ones hidden on the phone.
+        ("-PaceForgeServerDismissed", "data/dismissed.json", "data/dismissed.server.json"),
         ("-PaceForgeRideNoStream", "data/bike/streams/2030-03-13.json", "data/bike/streams/2030-03-13.missing.json"),
     ]
     #endif
@@ -146,6 +148,7 @@ enum PFAPI {
         async let tape = fetchOptional("data/tape.json")
         async let standing = fetchOptional("data/standing.json")
         async let rideMetrics = fetchOptional("data/ride-metrics.json")
+        async let dismissed = fetchOptional("data/dismissed.json")
         // Not part of the bundle's view models: fetched so My Day finds it saved on the phone (PFStore).
         async let workoutMatches = fetchOptional("data/workout-matches.json")
         async let state = fetch("api/state")
@@ -174,6 +177,7 @@ enum PFAPI {
         raw.tape = PFJ(data: await tape)
         raw.standing = PFJ(data: await standing)
         raw.rideMetrics = PFJ(data: await rideMetrics)
+        raw.dismissed = PFJ(data: await dismissed)
         _ = await workoutMatches
         return raw
     }
@@ -234,6 +238,7 @@ enum PFStore {
         raw.tape = PFJ(data: read(path: "data/tape.json"))
         raw.standing = PFJ(data: read(path: "data/standing.json"))
         raw.rideMetrics = PFJ(data: read(path: "data/ride-metrics.json"))
+        raw.dismissed = PFJ(data: read(path: "data/dismissed.json"))
         return raw
     }
 }

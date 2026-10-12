@@ -40,6 +40,8 @@ struct PFSnapshot {
     var standing: PFStanding?
     /// Bike rides from `ride-metrics.json`, newest first; empty when the server does not serve it.
     var rides: [PFRide] = []
+    /// The server's `dismissed.json` (cards hidden in PaceForge); united with the ones hidden on this iPhone.
+    var dismissed: [PFDismissal] = []
     /// `state.settings.privacy.hide_body_on_lock_screen` as the server sent it; nil when it sent nothing.
     var serverHidesBody: Bool?
 

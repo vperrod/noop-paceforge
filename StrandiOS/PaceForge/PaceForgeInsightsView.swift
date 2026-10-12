@@ -11,10 +11,18 @@ struct PFInsightsView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            if let standing = snapshot.standing, standing.hasContent { PFStandingInsightsCard(standing: standing) }
+            if let standing = snapshot.standing, standing.hasContent {
+                PFDismissable(.standing, text: PFCardText.standing(standing), snapshot: snapshot) {
+                    PFStandingInsightsCard(standing: standing)
+                }
+            }
             chartCard
             warningsCard
-            if let impact = snapshot.behaviour { PFBehaviourCard(impact: impact) }
+            if let impact = snapshot.behaviour {
+                PFDismissable(.behaviour, text: PFCardText.behaviour(impact), snapshot: snapshot) {
+                    PFBehaviourCard(impact: impact)
+                }
+            }
             racesSection
             prognosisCard
             if let sims = snapshot.simulations { PFSimulationsCard(sims: sims) }
