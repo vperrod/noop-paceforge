@@ -1,4 +1,5 @@
 import Foundation
+import SwiftUI
 import StrandAnalytics
 
 /// The iPhone's contribution to My Day: the PaceForge plan for the shown day, the activities it was matched
@@ -12,6 +13,7 @@ enum PFMyDay {
     static func install() {
         MyDayExternalSource.provider = { dayStart in await inputs(for: dayStart) }
         MyDayWidgetBridge.publisher = { timeline in MyDaySummaryWriter.publish(timeline) }
+        MyDayRideScreen.make = { rideId in AnyView(PFRideHost(rideId: rideId)) }
     }
 
     // MARK: Inputs
@@ -23,10 +25,13 @@ enum PFMyDay {
 
         // day-events.json and the intraday file are optional: an older server serves neither and My Day then
         // shows the plan and the scale as before.
-        async let eventsRequest = dayEvents(for: dayISO)
+        async let eventsRequest = cachedOrFetched("data/day-events.json")
         async let intradayRequest = intraday(for: dayISO)
-        let events = await eventsRequest
+        let eventsDocument = PFJ(data: await eventsRequest)
+        let events = PFWave3Parse.dayEvents(eventsDocument).filter { $0.date == dayISO }
         let slots = PFDayMerge.planned(events, day: dayISO)
+        out.rides = rides(events: PFRideParse.dayRideEvents(eventsDocument).filter { $0.date == dayISO },
+                          snapshot: snapshot, dayISO: dayISO)
 
         let sessions = snapshot.weeks.flatMap(\.days).filter { $0.date == dayISO }.flatMap(\.workouts)
         let known = Set(sessions.map(\.id))
@@ -103,10 +108,32 @@ enum PFMyDay {
 
     // MARK: Day events and intraday
 
-    /// The shown day's rows of day-events.json: from the server when it answers, else the copy saved on the phone.
-    private static func dayEvents(for dayISO: String) async -> [PFDayEvent] {
-        guard let data = await cachedOrFetched("data/day-events.json") else { return [] }
-        return PFWave3Parse.dayEvents(PFJ(data: data)).filter { $0.date == dayISO }
+    /// The shown day's bike rides: the ride rows of day-events.json (from the server when it answers, else the
+    /// copy saved on the phone), then any ride in ride-metrics.json that day-events did not list.
+    private static func rides(events: [PFRideEvent], snapshot: PFSnapshot, dayISO: String) -> [DayTimeline.Input.Ride] {
+        var out: [DayTimeline.Input.Ride] = []
+        var seen = Set<String>()
+        for event in events where seen.insert(event.rideId).inserted {
+            let known = snapshot.rides.first { $0.id == event.rideId }
+            var figures = PFRide(id: event.rideId, dateKey: event.date)
+            figures.avgPower = event.avgPower ?? known?.avgPower
+            figures.np = event.np ?? known?.np
+            figures.tss = event.tss ?? known?.tss
+            figures.avgHr = event.avgHr ?? known?.avgHr
+            let seconds: Double? = event.durationMin.map { $0 * 60 } ?? known?.durationS
+            figures.durationS = seconds
+            out.append(DayTimeline.Input.Ride(
+                id: event.rideId, title: event.title ?? known?.title ?? "Ride",
+                detail: figures.rowLine.isEmpty ? nil : figures.rowLine,
+                startTs: event.startTs, endTs: event.endTs, durationSec: seconds.map { Int($0) },
+                avgHr: figures.avgHr.map { Int($0.rounded()) }))
+        }
+        for ride in snapshot.rides(on: dayISO) where seen.insert(ride.id).inserted {
+            out.append(DayTimeline.Input.Ride(
+                id: ride.id, title: ride.title, detail: ride.rowLine.isEmpty ? nil : ride.rowLine,
+                durationSec: ride.durationS.map { Int($0) }, avgHr: ride.avgHr.map { Int($0.rounded()) }))
+        }
+        return out
     }
 
     /// Garmin's Body Battery and stress for the shown day: `intraday-today.json` for today, else that day's own

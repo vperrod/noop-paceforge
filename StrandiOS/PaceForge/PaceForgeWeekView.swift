@@ -81,13 +81,15 @@ private struct PFDaySection: View {
                 .font(StrandFont.title2)
                 .foregroundStyle(StrandPalette.textPrimary)
             let workouts = day.workouts
-            if workouts.isEmpty {
+            let rides = snapshot.rides(on: day.date)
+            if workouts.isEmpty && rides.isEmpty {
                 Text("Nothing scheduled")
                     .font(StrandFont.subhead)
                     .foregroundStyle(StrandPalette.textTertiary)
                     .padding(.vertical, 2)
             } else {
                 ForEach(workouts) { PFWorkoutRow(workout: $0, snapshot: snapshot) }
+                ForEach(rides) { PFRideRow(ride: $0, snapshot: snapshot) }
             }
         }
         .accessibilityElement(children: .contain)

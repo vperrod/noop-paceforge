@@ -90,6 +90,7 @@ struct PFTodayView: View {
 
     @ViewBuilder private var sessionsSection: some View {
         let sessions = today.sessions
+        let rides = snapshot.rides(on: snapshot.todayISO)
         VStack(alignment: .leading, spacing: 10) {
             HStack {
                 Label("Today's sessions", systemImage: "calendar")
@@ -103,12 +104,13 @@ struct PFTodayView: View {
                         .foregroundStyle(StrandPalette.textTertiary)
                 }
             }
-            if sessions.isEmpty {
+            if sessions.isEmpty && rides.isEmpty {
                 PFCard("Nothing scheduled") {
                     PFParagraph("Enjoy the rest day \u{2014} recovery is training.")
                 }
             } else {
                 ForEach(sessions) { PFWorkoutRow(workout: $0, snapshot: snapshot) }
+                ForEach(rides) { PFRideRow(ride: $0, snapshot: snapshot) }
             }
         }
     }
