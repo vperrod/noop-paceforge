@@ -32,9 +32,13 @@ enum SelfHostedPushClient {
         case configuration(String)
         case receiver(String)
         case oversizedSnapshot(String)
+        case httpStatus(Int, path: String)
+        case loginPage
         var errorDescription: String? {
             switch self {
             case .configuration(let message), .receiver(let message), .oversizedSnapshot(let message): message
+            case .httpStatus(let code, let path): "PaceForge answered HTTP \(code) for \(path)."
+            case .loginPage: "PaceForge answered with its login page: token not accepted."
             }
         }
     }
@@ -80,10 +84,17 @@ enum SelfHostedPushClient {
             throw Failure.receiver("PaceForge did not answer.")
         }
         guard http.statusCode == 200 else {
-            throw Failure.receiver("PaceForge answered HTTP \(http.statusCode) for \(path).")
+            throw Failure.httpStatus(http.statusCode, path: path)
+        }
+        // Without a valid token the server answers 200 with its HTML login page instead of the JSON.
+        if !path.hasSuffix(".md"), data.first(where: { !$0.isWhitespaceByte }) == UInt8(ascii: "<") {
+            throw Failure.loginPage
         }
         return data
     }
+
+    /// Host of the configured PaceForge endpoint, for error captions; never the token or path.
+    static var paceForgeHost: String? { (try? configuration())?.0.host }
 
     private static func paceForgeURL(from endpoint: URL, path: String) -> URL {
         guard var components = URLComponents(url: endpoint, resolvingAgainstBaseURL: false) else { return endpoint }
@@ -855,4 +866,8 @@ private enum SelfHostedPushRegistry {
         formatter.locale = Locale(identifier: "en_US_POSIX")
         return formatter.string(from: date)
     }
+}
+
+private extension UInt8 {
+    var isWhitespaceByte: Bool { self == 0x20 || self == 0x0A || self == 0x0D || self == 0x09 }
 }

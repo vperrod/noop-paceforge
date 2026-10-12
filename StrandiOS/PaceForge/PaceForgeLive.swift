@@ -53,6 +53,26 @@ enum PFAPI {
         try? await fetch(path)
     }
 
+    /// One line for the error card: the server host and why the request failed. No token, no path.
+    static func failureDetail(_ error: Error) -> String {
+        let host = SelfHostedPushClient.paceForgeHost ?? "no endpoint"
+        let reason: String
+        switch error {
+        case let failure as SelfHostedPushClient.Failure:
+            switch failure {
+            case .httpStatus(let code, _): reason = "HTTP \(code)"
+            default: reason = failure.localizedDescription
+            }
+        case let urlError as URLError:
+            reason = "\(urlError.code.rawValue) \(urlError.localizedDescription)"
+        case is CocoaError:
+            reason = "unreadable data"
+        default:
+            reason = error.localizedDescription
+        }
+        return "\(host): \(reason)"
+    }
+
     static func fetchBundle() async throws -> PFRawBundle {
         async let projection = fetchOptional("data/projection.json")
         async let body = fetchOptional("data/body.json")
@@ -139,6 +159,8 @@ final class PFModel: ObservableObject {
     @Published private(set) var isRefreshing = false
     /// Set while saved data is on screen because the last refresh failed.
     @Published private(set) var offlineNote: String?
+    /// Host and reason of the last failed refresh, shown as a caption under the generic message.
+    @Published private(set) var failureDetail: String?
     @Published private(set) var savedAt: Date?
 
     private var lastSuccess: Date?
@@ -175,8 +197,10 @@ final class PFModel: ObservableObject {
             savedAt = Date()
             lastSuccess = Date()
             offlineNote = nil
+            failureDetail = nil
             phase = .ready
         } catch {
+            failureDetail = PFAPI.failureDetail(error)
             if snapshot != nil {
                 offlineNote = "Can't reach PaceForge. Showing the data last saved on this iPhone."
             } else {

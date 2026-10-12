@@ -40,7 +40,7 @@ struct PaceForgeTabView: View {
             case .notSetUp:
                 PFNotSetUpView()
             case .failed(let message):
-                PFFailedView(message: message, isRetrying: model.isRefreshing) {
+                PFFailedView(message: message, detail: model.failureDetail, isRetrying: model.isRefreshing) {
                     Task { await model.refresh() }
                 }
             case .ready:
@@ -54,7 +54,7 @@ struct PaceForgeTabView: View {
                     .accessibilityIdentifier("pf-segments")
 
                     if let note = model.offlineNote {
-                        PFOfflineBanner(text: note, isRetrying: model.isRefreshing) {
+                        PFOfflineBanner(text: note, detail: model.failureDetail, isRetrying: model.isRefreshing) {
                             Task { await model.refresh() }
                         }
                     }

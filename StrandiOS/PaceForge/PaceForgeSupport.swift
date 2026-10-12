@@ -287,6 +287,7 @@ struct PFNotSetUpView: View {
 
 struct PFFailedView: View {
     let message: String
+    let detail: String?
     let isRetrying: Bool
     let retry: () -> Void
 
@@ -294,6 +295,13 @@ struct PFFailedView: View {
         PFCard(message, icon: "wifi.exclamationmark") {
             VStack(alignment: .leading, spacing: 12) {
                 PFParagraph("Check that you are online and that your PaceForge server is running, then try again.")
+                if let detail {
+                    Text(detail)
+                        .font(StrandFont.caption)
+                        .foregroundStyle(StrandPalette.textTertiary)
+                        .textSelection(.enabled)
+                        .accessibilityIdentifier("pf-failed-detail")
+                }
                 Button(action: retry) {
                     Text(isRetrying ? "Trying" : "Retry")
                         .font(StrandFont.subhead.weight(.semibold))
@@ -312,6 +320,7 @@ struct PFFailedView: View {
 /// Shown above a screen that is displaying saved data because the last refresh failed.
 struct PFOfflineBanner: View {
     let text: String
+    let detail: String?
     let isRetrying: Bool
     let retry: () -> Void
 
@@ -319,10 +328,19 @@ struct PFOfflineBanner: View {
         HStack(alignment: .center, spacing: 10) {
             Image(systemName: "wifi.exclamationmark")
                 .foregroundStyle(PFColor.warning)
-            Text(text)
-                .font(StrandFont.caption)
-                .foregroundStyle(StrandPalette.textSecondary)
-                .fixedSize(horizontal: false, vertical: true)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(text)
+                    .font(StrandFont.caption)
+                    .foregroundStyle(StrandPalette.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                if let detail {
+                    Text(detail)
+                        .font(StrandFont.caption)
+                        .foregroundStyle(StrandPalette.textTertiary)
+                        .textSelection(.enabled)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
             Spacer(minLength: 6)
             Button(isRetrying ? "Trying" : "Retry", action: retry)
                 .font(StrandFont.caption.weight(.semibold))
