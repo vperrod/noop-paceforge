@@ -9,6 +9,7 @@ struct PFTodayView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
+            PFTodaySoFarCard(snapshot: snapshot)
             if let brief = today.brief {
                 PFBriefCard(brief: brief, todayISO: snapshot.todayISO)
             }
