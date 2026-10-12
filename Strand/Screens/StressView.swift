@@ -410,8 +410,9 @@ struct StressView: View {
     private func heroCard(_ model: StressModel) -> some View {
         NoopCard(tint: StressRamp.calm) {
             VStack(alignment: .leading, spacing: NoopMetrics.cardInnerSpacing) {
-                HStack {
+                HStack(spacing: 0) {
                     Text("Stress monitor").strandOverline()
+                    MetricInfoButton(topic: .stress)
                     Spacer()
                     StatePill("\(model.band.title)", tone: model.band.tone, showsDot: true)
                 }

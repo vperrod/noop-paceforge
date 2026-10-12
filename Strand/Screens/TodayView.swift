@@ -3990,7 +3990,8 @@ struct TodayView: View {
                 caption: hrv.caption,
                 accent: hrv.value == "—" ? StrandPalette.textPrimary : StrandPalette.metricPurple,
                 sparkline: sparks["hrv"],
-                sparkColor: StrandPalette.metricPurple
+                sparkColor: StrandPalette.metricPurple,
+                accessory: { MetricInfoButton(topic: .hrv) }
             )
         case .restingHr:
             let rhr = carriedVital(unit: "bpm", today: d?.restingHr.map(Double.init),
