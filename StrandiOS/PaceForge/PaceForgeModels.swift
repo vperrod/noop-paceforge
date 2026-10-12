@@ -38,8 +38,13 @@ struct PFSnapshot {
     var tape: PFTape?
     /// `standing.json` ("Where you stand"); nil when the server does not serve it.
     var standing: PFStanding?
+    /// Bike rides from `ride-metrics.json`, newest first; empty when the server does not serve it.
+    var rides: [PFRide] = []
     /// `state.settings.privacy.hide_body_on_lock_screen` as the server sent it; nil when it sent nothing.
     var serverHidesBody: Bool?
+
+    /// The rides of one day.
+    func rides(on date: String) -> [PFRide] { rides.filter { $0.date == date } }
 
     /// The explainer with this id, if the server has one.
     func explainer(_ id: String) -> PFExplainer? { explainers.first { $0.id == id } }

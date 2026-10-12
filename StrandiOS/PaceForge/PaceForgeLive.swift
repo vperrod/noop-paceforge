@@ -49,6 +49,9 @@ enum PFAPI {
         ("-PaceForgeMuscleCalibrating", "data/muscle-check.json", "data/muscle-check.calibrating.json"),
         // "Where you stand" with sex and age missing: the not-applicable state.
         ("-PaceForgeStandingNotApplicable", "data/standing.json", "data/standing.na.json"),
+        // No ride-metrics.json at all (rides hidden), and a ride whose stream file is missing (no chart).
+        ("-PaceForgeRideNone", "data/ride-metrics.json", "data/ride-metrics.missing.json"),
+        ("-PaceForgeRideNoStream", "data/bike/streams/2030-03-13.json", "data/bike/streams/2030-03-13.missing.json"),
     ]
     #endif
 
@@ -142,6 +145,7 @@ enum PFAPI {
         async let muscle = fetchOptional("data/muscle-check.json")
         async let tape = fetchOptional("data/tape.json")
         async let standing = fetchOptional("data/standing.json")
+        async let rideMetrics = fetchOptional("data/ride-metrics.json")
         // Not part of the bundle's view models: fetched so My Day finds it saved on the phone (PFStore).
         async let workoutMatches = fetchOptional("data/workout-matches.json")
         async let state = fetch("api/state")
@@ -169,6 +173,7 @@ enum PFAPI {
         raw.muscle = PFJ(data: await muscle)
         raw.tape = PFJ(data: await tape)
         raw.standing = PFJ(data: await standing)
+        raw.rideMetrics = PFJ(data: await rideMetrics)
         _ = await workoutMatches
         return raw
     }
@@ -228,6 +233,7 @@ enum PFStore {
         raw.muscle = PFJ(data: read(path: "data/muscle-check.json"))
         raw.tape = PFJ(data: read(path: "data/tape.json"))
         raw.standing = PFJ(data: read(path: "data/standing.json"))
+        raw.rideMetrics = PFJ(data: read(path: "data/ride-metrics.json"))
         return raw
     }
 }

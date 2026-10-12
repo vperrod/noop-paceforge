@@ -188,6 +188,8 @@ targets:
       - StrandiOS/PaceForge/PaceForgeDayMerge.swift
       # "Where you stand": standing.json parsing, band bars, the summary strip and the Telegram phrase.
       - StrandiOS/PaceForge/PaceForgeStanding.swift
+      # Bike rides: ride-metrics.json, the stream file, 600-point downsampling and the ride formats.
+      - StrandiOS/PaceForge/PaceForgeRide.swift
     # Same wrapper as the app target, so the OURA_CLOUD_IMPORT-gated Oura tests compile exactly
     # when the app's Oura lane does (flag + creds both come from the untracked OuraSecrets.xcconfig).
     configFiles:

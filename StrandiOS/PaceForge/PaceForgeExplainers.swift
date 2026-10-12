@@ -60,6 +60,7 @@ enum PFExplainerID {
     static let tape = PFLocalExplainers.tape
     static let standing = PFLocalExplainers.standing
     static let standingBands = PFLocalExplainers.standingBands
+    static let ride = PFLocalExplainers.ride
     static let heat = PFLocalExplainers.heat
 
     /// The "what changed" row ids -> explainer ids.
