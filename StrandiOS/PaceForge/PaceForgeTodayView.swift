@@ -10,16 +10,19 @@ struct PFTodayView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             PFTodaySoFarCard(snapshot: snapshot)
+            if let mode = snapshot.easyMode?.mode { PFEasyModeChip(mode: mode) }
             if let week = snapshot.raceWeek { PFRaceWeekCard(week: week, todayISO: snapshot.todayISO) }
             if let brief = today.brief {
                 PFBriefCard(brief: brief, todayISO: snapshot.todayISO)
             }
+            if let easy = snapshot.easyMode, !easy.isIdle { PFEasyModeCard(easy: easy) }
             if let feel = snapshot.feel { PFFeelCard(feel: feel, todayISO: snapshot.todayISO) }
             if !snapshot.alerts.isEmpty { PFAlertsCard(alerts: snapshot.alerts) }
             if showsScores { scoresCard }
             if let changes = snapshot.whatChanged { PFWhatChangedCard(changes: changes) }
             if let readiness = snapshot.readiness { PFReadinessCard(readiness: readiness) }
             sessionsSection
+            if let easy = snapshot.easyMode, easy.isIdle { PFEasyModeHint() }
             // In race week the race-week card above carries the countdown.
             if let race = today.nextRace, snapshot.raceWeek == nil { raceCard(race) }
         }
