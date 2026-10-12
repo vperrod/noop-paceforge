@@ -297,4 +297,14 @@ final class PaceForgeNativeTabUITests: XCTestCase {
                       "With no qualifying question the card should say 'Insufficient data yet'.")
         attach(app, "17b Behaviour impact insufficient")
     }
+
+    func testLargeWidgetShowsTheTwoAnswers() throws {
+        let app = try launch(fixture: true, widgetGallery: true)
+        let tab = app.tabBars.buttons["PaceForge"]
+        XCTAssertTrue(tab.waitForExistence(timeout: 20))
+        tab.tap()
+        XCTAssertTrue(label(app, "Train: yes \u{00B7} Hard: careful").waitForExistence(timeout: 15),
+                      "The large Today widget should show the two answers on one line.")
+        attach(app, "18 Widget large with answers")
+    }
 }
