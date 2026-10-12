@@ -13,6 +13,12 @@ import WhoopStore
 // All composing rules (one workout from three sources, plan done or missed, gaps) live in the pure
 // `DayTimeline` builder; this view only draws and routes.
 
+/// Set once at launch by the iPhone app: the screen a PaceForge bike ride opens, from its ride id. Nil on a
+/// platform with no ride screen, where the ride row simply does not open.
+enum MyDayRideScreen {
+    @MainActor static var make: ((String) -> AnyView)?
+}
+
 struct MyDayView: View {
     @EnvironmentObject private var repo: Repository
     @EnvironmentObject private var intelligence: IntelligenceEngine
@@ -37,6 +43,7 @@ struct MyDayView: View {
         case addNap(bedTs: Int, wakeTs: Int)
         case workoutDetail(WorkoutRow)
         case sleep
+        case ride(String)
 
         var id: String {
             switch self {
@@ -44,6 +51,7 @@ struct MyDayView: View {
             case .addNap: return "addNap"
             case .workoutDetail(let row): return "detail-\(row.startTs)-\(row.endTs)-\(row.sport)-\(row.source)"
             case .sleep: return "sleep"
+            case .ride(let id): return "ride-\(id)"
             }
         }
     }
@@ -396,6 +404,7 @@ struct MyDayView: View {
         case .none: return false
         case .workout(let key): return loaded?.workoutRows[key] != nil
         case .sleep: return true
+        case .ride: return MyDayRideScreen.make != nil
         }
     }
 
@@ -406,6 +415,8 @@ struct MyDayView: View {
             if let row = loaded?.workoutRows[key] { sheet = .workoutDetail(row) }
         case .sleep:
             sheet = .sleep
+        case .ride(let id):
+            if MyDayRideScreen.make != nil { sheet = .ride(id) }
         }
     }
 
@@ -504,6 +515,8 @@ struct MyDayView: View {
             #else
             .frame(width: 620, height: 720)
             #endif
+        case .ride(let id):
+            if let make = MyDayRideScreen.make { make(id) }
         }
     }
 }

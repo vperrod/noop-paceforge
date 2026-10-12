@@ -71,7 +71,9 @@ enum MyDayStyle {
         switch event.kind {
         case .sleep: return "bed.double.fill"
         case .nap: return "moon.zzz.fill"
-        case .workout: return sportSymbol(event.title)
+        case .workout:
+            if case .ride = event.route { return "bicycle" }
+            return sportSymbol(event.title)
         case .detected: return "waveform.path.ecg"
         case .planned:
             switch event.status {

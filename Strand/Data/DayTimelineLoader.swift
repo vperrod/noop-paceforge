@@ -13,6 +13,8 @@ import WhoopStore
 /// matches; macOS adds nothing and the day is built from the store alone.
 struct MyDayExternalInputs {
     var planned: [DayTimeline.Input.Planned] = []
+    /// Bike rides PaceForge logged without a Garmin activity; each opens the ride screen.
+    var rides: [DayTimeline.Input.Ride] = []
     var planActivities: [DayTimeline.Input.PlanActivity] = []
     /// PaceForge's workout-matches.json `canonical_of`: "noop:<device>:<startTs>:<sport>" -> Garmin activity id.
     var canonicalOf: [String: String] = [:]
@@ -110,6 +112,7 @@ enum DayTimelineLoader {
 
         // The plan, if the platform brought one.
         input.planned = external.planned
+        input.rides = external.rides
         input.planActivities = external.planActivities
         input.weighIns = external.weighIns
         input.notes = external.notes

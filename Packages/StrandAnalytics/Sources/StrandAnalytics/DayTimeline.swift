@@ -69,6 +69,8 @@ public struct DayTimeline: Equatable, Sendable {
         case none
         case workout(key: String)
         case sleep(startTs: Int)
+        /// A bike ride PaceForge logged with a ride id ("bike:<date>"); the iPhone app opens its ride screen.
+        case ride(id: String)
     }
 
     public struct Metrics: Equatable, Sendable {

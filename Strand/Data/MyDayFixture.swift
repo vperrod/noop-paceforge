@@ -7,7 +7,7 @@ import WhoopStore
 //
 // A made-up Wednesday, 2030-03-13 (the day PaceForgeFixture.json is written for), built through the real
 // `DayTimeline` builder so the screen under test runs the same rules as the shipped one. Launch with
-// `-MyDayFixture full | gap | empty`; nothing is read from or written to the store. Every number below is
+// `-MyDayFixture full | gap | empty | ride`; nothing is read from or written to the store. Every number below is
 // invented: no personal data lives here.
 
 enum MyDayFixture {
@@ -19,6 +19,8 @@ enum MyDayFixture {
         case gap
         /// Nothing recorded at all; the plan and a sync hint remain.
         case empty
+        /// The full day plus a PaceForge bike ride (a day-events row with a ride id), which opens the ride screen.
+        case ride
     }
 
     static let variant: Variant? = {
@@ -76,6 +78,11 @@ enum MyDayFixture {
             rows["garmin"] = WorkoutRow(startTs: ts(7, 10), endTs: ts(7, 48), sport: "Running", source: "paceforge",
                                         durationS: 2280, energyKcal: 402, avgHr: 149, maxHr: 174, strain: nil,
                                         distanceM: 6100, zonesJSON: nil, notes: nil, steps: nil)
+            if variant == .ride {
+                input.rides = [.init(id: "bike:2030-03-13", title: "Synthetic 12 min sweet spot",
+                                     detail: "12 min \u{00B7} avg 168 W \u{00B7} NP 187 W \u{00B7} TSS 11 \u{00B7} avg HR 131 bpm",
+                                     startTs: ts(11, 30), endTs: ts(11, 42), durationSec: 720, avgHr: 131)]
+            }
             input.detected = [.init(startTs: ts(12, 20), endTs: ts(12, 50), avgBpm: 128, peakBpm: 141)]
             input.weighIns = [.init(ts: nil, kg: 90.8, source: .apple), .init(ts: ts(6, 45), kg: 78.7, source: .paceforge)]
             input.notes = [.init(id: "n1", ts: ts(9, 10), title: "Niggle",
@@ -120,7 +127,7 @@ enum MyDayFixture {
     /// Stretches with no heart rate, as (from, to) seconds.
     private static func holes(for variant: Variant, ts: (Int, Int) -> Int) -> [(Int, Int)] {
         switch variant {
-        case .full: return [(ts(10, 20), ts(11, 5))]
+        case .full, .ride: return [(ts(10, 20), ts(11, 5))]
         case .gap: return [(ts(2, 10), ts(3, 0)), (ts(10, 20), ts(11, 5)), (ts(14, 0), ts(15, 30))]
         case .empty: return []
         }

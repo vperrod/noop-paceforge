@@ -58,6 +58,24 @@ extension DayTimeline {
                 self.distanceM = distanceM; self.externalId = externalId
             }
         }
+        /// A bike ride from PaceForge (a day-events row with a ride id and no Garmin activity).
+        public struct Ride: Sendable {
+            /// The server's ride id, "bike:<date>"; the route hands it back so the app can open the ride.
+            public let id: String
+            public let title: String
+            /// "60 min \u{00B7} NP 188 W \u{00B7} TSS 62".
+            public let detail: String?
+            /// nil when the ride has no clock time: it is then listed under "All day".
+            public let startTs: Int?
+            public let endTs: Int?
+            public let durationSec: Int?
+            public let avgHr: Int?
+            public init(id: String, title: String, detail: String? = nil, startTs: Int? = nil, endTs: Int? = nil,
+                        durationSec: Int? = nil, avgHr: Int? = nil) {
+                self.id = id; self.title = title; self.detail = detail; self.startTs = startTs; self.endTs = endTs
+                self.durationSec = durationSec; self.avgHr = avgHr
+            }
+        }
         /// Two workout keys an outside matcher (PaceForge's workout-matches.json) says are one workout.
         public struct WorkoutPair: Sendable {
             public let a: String
@@ -148,6 +166,7 @@ extension DayTimeline {
         public var stepsSource: Source = .apple
         public var sleeps: [Sleep] = []
         public var workouts: [Workout] = []
+        public var rides: [Ride] = []
         public var sameWorkoutPairs: [WorkoutPair] = []
         public var detected: [Detected] = []
         public var planned: [Planned] = []
@@ -223,6 +242,18 @@ extension DayTimeline {
         }
         for cluster in clusters {
             events.append(workoutEvent(cluster))
+        }
+
+        // Rides from PaceForge: one row each, timed when the ride has a clock time inside the day.
+        var seenRides = Set<String>()
+        for ride in input.rides where seenRides.insert(ride.id).inserted {
+            let timed = ride.startTs.map { $0 >= dayStartTs && $0 < dayEndTs } ?? false
+            let startTs = timed ? (ride.startTs ?? dayStartTs) : dayStartTs
+            let endTs: Int? = timed ? (ride.endTs ?? ride.durationSec.map { startTs + $0 }) : nil
+            events.append(Event(
+                id: "ride-\(ride.id)", kind: .workout, start: date(startTs), end: endTs.map { date($0) },
+                isUntimed: !timed, title: ride.title, subtitle: ride.detail ?? "", sources: [.paceforge],
+                route: .ride(id: ride.id), metrics: Metrics(durationSec: ride.durationSec, avgHr: ride.avgHr)))
         }
 
         // Detected, unsaved suggestions that no saved workout or sleep already explains.
