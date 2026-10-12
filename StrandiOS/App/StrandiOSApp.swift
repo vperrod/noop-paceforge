@@ -86,6 +86,7 @@ struct StrandiOSApp: App {
         NotificationPresenter.shared.onCoachBriefTapped = { [weak router] in router?.openCoach() }
         NotificationPresenter.shared.onPaceForgeBriefTapped = { Task { @MainActor in PFDeepLink.openToday() } }
         PaceForgeBackground.register()
+        PFMyDay.install()
         let model = AppModel()
         _model = StateObject(wrappedValue: model)
         CoachBriefScheduler.register(generateBrief: { [weak coach = model.coach] in
@@ -332,6 +333,8 @@ struct StrandiOSApp: App {
                         model.handleHealthImportURL(url)
                     } else if url.host == "paceforge" {
                         PFDeepLink.open(url: url)
+                    } else if url.host == "myday" {
+                        MyDayDeepLink.open()
                     }
                 }
                 .alert("Import Apple Health data?", isPresented: healthImportAlertPresented) {

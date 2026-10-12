@@ -92,6 +92,8 @@ enum PFAPI {
         async let bodyProgress = fetchOptional("data/body-progress.json")
         async let alerts = fetchOptional("data/alerts.json")
         async let readiness = fetchOptional("data/readiness-explained.json")
+        // Not part of the bundle's view models: fetched so My Day finds it saved on the phone (PFStore).
+        async let workoutMatches = fetchOptional("data/workout-matches.json")
         async let state = fetch("api/state")
         async let fitness = fetch("data/fitness.json")
         let (stateData, fitnessData) = try await (state, fitness)
@@ -106,6 +108,7 @@ enum PFAPI {
         raw.bodyProgress = PFJ(data: await bodyProgress)
         raw.alerts = PFJ(data: await alerts)
         raw.readiness = PFJ(data: await readiness)
+        _ = await workoutMatches
         return raw
     }
 }

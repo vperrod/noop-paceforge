@@ -1945,6 +1945,7 @@ struct TodayView: View {
         switch section {
         case .hero:
             classicHeroSection
+            if selectedDayOffset == 0 { MyDayEntryCard() }
         case .liveSession:
             if liveSessionsBeta { liveSessionStartSection }
         case .synthesis:
