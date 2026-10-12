@@ -601,21 +601,39 @@ public enum StrainScorer {
     }
     private static let strainCache = AnalyticsMemoCache<StrainKey, Double?>(capacity: 48)
 
+    /// The `strain` gate spelled out: a dense stream (>= minReadings) OR a sparse-but-sustained one
+    /// spanning >= minSpanSeconds with a sample floor (#482 — the 5/MG's ~30 s HR cadence). Shared with
+    /// `breakdown` so the explanation and the score can never disagree about whether there was enough.
+    static func hasEnoughData(_ hr: [HRSample]) -> Bool {
+        if hr.count >= minReadings { return true }
+        guard hr.count >= minSparseReadings else { return false }
+        let tss = hr.map { $0.ts }
+        return ((tss.max() ?? 0) - (tss.min() ?? 0)) >= minSpanSeconds
+    }
+
+    /// The TRIMP for a method. Shared by `strain` and `breakdown`.
+    static func trimpFor(_ hr: [HRSample], restingHR: Double, hrReserve: Double, durations: [Double],
+                      method: Method, sex: String) -> Double {
+        switch method {
+        case .banister:
+            let b = sex.lowercased().hasPrefix("f") ? banisterBWomen : banisterBMen
+            // Excess over the sedentary baseline for the SAME span, floored at zero. Without this a desk
+            // day scores ~45 on a 0-100 axis whose bottom is supposed to be no exertion (#1624).
+            return banisterTRIMP(hr, restingHR: restingHR, hrReserve: hrReserve,
+                                 durations: durations, b: b,
+                                 floorRatePerMinute: banisterBaselineRatePerMinute(b: b))
+        case .edwards:
+            return edwardsTRIMP(hr, restingHR: restingHR, hrReserve: hrReserve, durations: durations)
+        }
+    }
+
     private static func strainUncached(_ hr: [HRSample], maxHR: Double?, restingHR: Double,
                                        method: Method, sex: String, denominator: Double,
                                        diag: ((String) -> Void)? = nil, day: String = "") -> Double? {
         let effMax = maxHR ?? Double(defaultMaxHR())
         // Enough data to trust the score: a dense stream (≥ minReadings) OR a sparse-but-sustained
         // one spanning ≥ minSpanSeconds with a sample floor (#482 — the 5/MG's ~30 s HR cadence).
-        let enoughData: Bool
-        if hr.count >= minReadings {
-            enoughData = true
-        } else if hr.count >= minSparseReadings {
-            let tss = hr.map { $0.ts }
-            enoughData = ((tss.max() ?? 0) - (tss.min() ?? 0)) >= minSpanSeconds
-        } else {
-            enoughData = false
-        }
+        let enoughData = hasEnoughData(hr)
         if !enoughData || effMax <= restingHR {
             // The refusal is the half a bare number cannot show: nil here and 0.0 on a calm day look
             // identical on the ring, and only one of them is a measurement.
@@ -628,19 +646,8 @@ public enum StrainScorer {
         let durations = sampleDurationsMinutes(hr)
         let hrReserve = effMax - restingHR
 
-        let trimp: Double
-        switch method {
-        case .banister:
-            let b = sex.lowercased().hasPrefix("f") ? banisterBWomen : banisterBMen
-            // Excess over the sedentary baseline for the SAME span, floored at zero. Without this a desk
-            // day scores ~45 on a 0-100 axis whose bottom is supposed to be no exertion (#1624).
-            trimp = banisterTRIMP(hr, restingHR: restingHR, hrReserve: hrReserve,
-                                  durations: durations, b: b,
-                                  floorRatePerMinute: banisterBaselineRatePerMinute(b: b))
-        case .edwards:
-            trimp = edwardsTRIMP(hr, restingHR: restingHR, hrReserve: hrReserve,
-                                 durations: durations)
-        }
+        let trimp = trimpFor(hr, restingHR: restingHR, hrReserve: hrReserve, durations: durations,
+                             method: method, sex: sex)
         let scored = trimpToStrain(trimp, denominator: denominator)
         // Walked only when a sink is attached. It is a second O(n) pass over the day's samples, and
         // `analyzeRecent`'s prep is already the expensive half of a scoring run, so a normal pass must

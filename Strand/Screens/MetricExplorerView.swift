@@ -965,6 +965,7 @@ struct MetricDetailView: View {
         let fellBack = effRange != range
         return ScrollView {
             VStack(alignment: .leading, spacing: NoopMetrics.sectionGap) {
+                if metric.key == HeroRingMetric.effort { EffortBreakdownLink() }
                 if loaded && win.isEmpty {
                     // No data in the entire history — keep the range bar for context, then the
                     // honest empty state (no scenic hero floating over nothing). Deliberately
