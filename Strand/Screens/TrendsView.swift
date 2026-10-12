@@ -579,6 +579,7 @@ struct TrendsView: View {
                     showingReport = true
                 }
                 .fixedSize()
+                .accessibilityIdentifier("trends-export-report")
             }
         }
         .accessibilityElement(children: .contain)

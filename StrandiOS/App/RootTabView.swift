@@ -197,6 +197,10 @@ struct RootTabView: View {
         // `noop://myday` and PaceForge's "Open My Day" button land on the Today tab's My Day.
         .onReceive(NotificationCenter.default.publisher(for: .myDayOpen)) { _ in openMyDay() }
         .onAppear { if MyDayDeepLink.pending { openMyDay() } }
+        #if DEBUG
+        // `-CoachFixture` (UI tests): open the connected, made-up Coach straight away.
+        .onAppear { if CoachUITestFixture.isActive { router.openCoach() } }
+        #endif
         // Live's "Manage devices" affordance (and any future cross-screen link to Devices) routes here:
         // present the Devices manager in its own nav stack, the same way the quick-action screens do.
         .sheet(isPresented: $showDevices) {

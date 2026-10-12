@@ -411,6 +411,9 @@ final class AICoachEngine: ObservableObject {
         self.customConnected = UserDefaults.standard.bool(forKey: Self.customConnectedKey)
         self.includeOnDeviceSignals = UserDefaults.standard.bool(forKey: Self.onDeviceSignalsKey)
         self.multimodalChartEnabled = UserDefaults.standard.bool(forKey: Self.multimodalChartKey)
+        #if DEBUG
+        if CoachUITestFixture.isActive { applyUITestFixture() }
+        #endif
     }
 
     // MARK: Key management
@@ -1420,3 +1423,38 @@ final class AICoachEngine: ObservableObject {
         return f.string(from: Date(timeIntervalSince1970: TimeInterval(ts)))
     }
 }
+
+#if DEBUG
+// MARK: - UI-test fixture (DEBUG only)
+
+/// `-CoachFixture`: Coach starts connected (a local server that nothing listens on), with a made-up conversation,
+/// two made-up past conversations and no feedback, so the history, thumbs and settings can be captured with no
+/// key and no network. Nothing here is real; a question sent in this mode simply fails to connect.
+enum CoachUITestFixture {
+    static let isActive = CommandLine.arguments.contains("-CoachFixture")
+}
+
+extension AICoachEngine {
+    fileprivate func applyUITestFixture() {
+        provider = .custom
+        customBaseURL = "http://127.0.0.1:9/v1"
+        customConnected = true
+        messages = [
+            ChatMessage(id: UUID(uuidString: "00000000-0000-0000-0000-0000000000A1")!, role: .user,
+                        text: "How is my charge trending?"),
+            ChatMessage(id: UUID(uuidString: "00000000-0000-0000-0000-0000000000A2")!, role: .assistant,
+                        text: "Synthetic reply: your charge has been steady this week. This text is made up for layout checks."),
+        ]
+        feedback = []
+        let now = Date()
+        history = [
+            CoachConversationRecord(id: "fixture-1", title: "Why am I run down?", archivedAt: now.addingTimeInterval(-86_400),
+                                    messages: [CoachStoredMessage(role: "user", text: "Why am I run down?"),
+                                               CoachStoredMessage(role: "assistant", text: "Synthetic reply: a short night and a hard day.")]),
+            CoachConversationRecord(id: "fixture-2", title: "Analyse my sleep", archivedAt: now.addingTimeInterval(-3 * 86_400),
+                                    messages: [CoachStoredMessage(role: "user", text: "Analyse my sleep"),
+                                               CoachStoredMessage(role: "assistant", text: "Synthetic reply: sleep was steady.")]),
+        ]
+    }
+}
+#endif

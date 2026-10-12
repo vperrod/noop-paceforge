@@ -624,6 +624,7 @@ struct LiquidTodayView: View {
                     }
                     .nativeLiquidGlassPhotoFinish()
                     .accessibilityLabel("Profile and settings")
+                    .accessibilityIdentifier("today-settings")
                     LiquidAddButton()
                     LiquidBatteryButton()
                     // One entry point for section order/visibility and both nested card editors.

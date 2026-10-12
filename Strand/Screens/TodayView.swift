@@ -1384,6 +1384,7 @@ struct TodayView: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Menu and settings")
+                .accessibilityIdentifier("today-settings")
             }
         }
         .frame(height: 46)
