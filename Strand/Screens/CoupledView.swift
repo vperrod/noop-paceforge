@@ -296,49 +296,53 @@ struct CoupledView: View {
     private var strainCard: some View {
         card {
             VStack(alignment: .leading, spacing: 14) {
-                SectionHeader("Day Strain", overline: "Effort", trailing: strainBandWord)
-                HStack(alignment: .center, spacing: 16) {
-                    // Left: the liquid vessel filled to the 0–21 Day-Strain fraction (Effort world), with the
-                    // strain value counting up over the fluid — the coupled read on the classic 0–21 axis.
-                    ZStack {
-                        LiquidVessel(value: dayStrain21.map { max(0, min(1, $0 / 21)) },
-                                     tint: StrandPalette.effortColor, animated: dayStrain21 != nil)
-                            .frame(width: 148, height: 148)
-                        Group {
-                            if let s = dayStrain21 {
-                                CountUpText(value: s,
-                                            format: { String(format: "%.1f", $0) },
-                                            font: StrandFont.number(34),
-                                            color: .white)
-                            } else {
-                                Text("—").font(StrandFont.number(34)).foregroundStyle(.white)
+                // Only the gauge and stats read as one element; the effort-target line below keeps its own
+                // accessibility identity (a combined parent swallows its children's identifiers).
+                VStack(alignment: .leading, spacing: 14) {
+                    SectionHeader("Day Strain", overline: "Effort", trailing: strainBandWord)
+                    HStack(alignment: .center, spacing: 16) {
+                        // Left: the liquid vessel filled to the 0–21 Day-Strain fraction (Effort world), with the
+                        // strain value counting up over the fluid — the coupled read on the classic 0–21 axis.
+                        ZStack {
+                            LiquidVessel(value: dayStrain21.map { max(0, min(1, $0 / 21)) },
+                                         tint: StrandPalette.effortColor, animated: dayStrain21 != nil)
+                                .frame(width: 148, height: 148)
+                            Group {
+                                if let s = dayStrain21 {
+                                    CountUpText(value: s,
+                                                format: { String(format: "%.1f", $0) },
+                                                font: StrandFont.number(34),
+                                                color: .white)
+                                } else {
+                                    Text("—").font(StrandFont.number(34)).foregroundStyle(.white)
+                                }
                             }
+                            .shadow(color: .black.opacity(0.5), radius: 6, y: 1)
+                            .lineLimit(1).minimumScaleFactor(0.5)
+                            .allowsHitTesting(false)
                         }
-                        .shadow(color: .black.opacity(0.5), radius: 6, y: 1)
-                        .lineLimit(1).minimumScaleFactor(0.5)
-                        .allowsHitTesting(false)
-                    }
-                    .frame(width: 148, height: 148)
+                        .frame(width: 148, height: 148)
 
-                    // Right: the coupled stat stack, OPTIMAL range (with a liquid tube band), calories, workouts.
-                    VStack(alignment: .leading, spacing: 14) {
-                        optimalStat
-                        // heroStat renders `Text(title.uppercased())`, so `title` is a plain String and
-                        // a bare literal would NOT localize — pass the resolved localized value (the
-                        // catalog already carries Calories/Workouts) so German shows KALORIEN, not CALORIES.
-                        heroStat(String(localized: "Calories"),
-                                 caloriesText,
-                                 tint: StrandPalette.metricAmber)
-                        heroStat(String(localized: "Workouts"),
-                                 "\(workoutsToday)",
-                                 tint: StrandPalette.textPrimary)
+                        // Right: the coupled stat stack, OPTIMAL range (with a liquid tube band), calories, workouts.
+                        VStack(alignment: .leading, spacing: 14) {
+                            optimalStat
+                            // heroStat renders `Text(title.uppercased())`, so `title` is a plain String and
+                            // a bare literal would NOT localize — pass the resolved localized value (the
+                            // catalog already carries Calories/Workouts) so German shows KALORIEN, not CALORIES.
+                            heroStat(String(localized: "Calories"),
+                                     caloriesText,
+                                     tint: StrandPalette.metricAmber)
+                            heroStat(String(localized: "Workouts"),
+                                     "\(workoutsToday)",
+                                     tint: StrandPalette.textPrimary)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
+                .accessibilityElement(children: .combine)
                 EffortTargetInline()
             }
         }
-        .accessibilityElement(children: .combine)
     }
 
     /// The band word (LIGHT / MODERATE / STRENUOUS / HIGH) the classic StrainGauge drew from the fill
