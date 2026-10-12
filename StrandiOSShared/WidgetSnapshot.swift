@@ -40,12 +40,31 @@ public struct WidgetSnapshot: Codable, Equatable {
     /// so the widget cannot show yesterday's afternoon under today's date while waiting for the first
     /// scorable hour after midnight.
     public var stressDay: Int?
+    // Effort target (the "Effort target" widget). All pre-formatted at publish time on the user's Effort
+    // scale, like `effortDisplay`, because the extension has no access to the app's scale preference or to
+    // the repository. Optional so a snapshot from an older build still decodes. `effort...` on the stored
+    // 0-100 axis are for the gauge fill; the texts are what is printed.
+    /// TODAY's Effort on the stored 0-100 axis. Not `effort`, which follows the carried-over anchor day.
+    public var effortTargetEffort: Int?
+    public var effortTargetEffortText: String?
+    public var effortBandLow: Int?
+    public var effortBandHigh: Int?
+    /// "55-70" (en dash), on the user's scale.
+    public var effortBandText: String?
+    /// "13-28 to go", "In your range", "Above range by 5" or "Not scored yet".
+    public var effortToGo: String?
+    /// The logical day (yyyy-MM-dd) the target was built for, and when.
+    public var effortTargetDay: String?
+    public var effortTargetAt: Date?
 
     public init(recovery: Int?, bpm: Int?, batteryPct: Int?, bonded: Bool, updated: Date,
                 effort: Int? = nil, rest: Int? = nil, hrv: Int? = nil, restingHr: Int? = nil,
                 effortDisplay: String? = nil, effortWhoop: Bool? = nil,
                 hrSeries: [HrPoint]? = nil, stressSeries: [StressPoint]? = nil,
-                stressDay: Int? = nil) {
+                stressDay: Int? = nil,
+                effortTargetEffort: Int? = nil, effortTargetEffortText: String? = nil,
+                effortBandLow: Int? = nil, effortBandHigh: Int? = nil, effortBandText: String? = nil,
+                effortToGo: String? = nil, effortTargetDay: String? = nil, effortTargetAt: Date? = nil) {
         self.recovery = recovery
         self.bpm = bpm
         self.batteryPct = batteryPct
@@ -60,6 +79,40 @@ public struct WidgetSnapshot: Codable, Equatable {
         self.hrSeries = hrSeries
         self.stressSeries = stressSeries
         self.stressDay = stressDay
+        self.effortTargetEffort = effortTargetEffort
+        self.effortTargetEffortText = effortTargetEffortText
+        self.effortBandLow = effortBandLow
+        self.effortBandHigh = effortBandHigh
+        self.effortBandText = effortBandText
+        self.effortToGo = effortToGo
+        self.effortTargetDay = effortTargetDay
+        self.effortTargetAt = effortTargetAt
+    }
+
+    /// How old the Effort target may be before the widget stops showing it.
+    public static let effortTargetMaxAge: TimeInterval = 6 * 60 * 60
+    /// The hour the logical day rolls over (04:00 local), the same boundary as `Repository.logicalDayKey`.
+    public static let logicalDayRolloverHour = 4
+
+    /// yyyy-MM-dd of the logical day for `date`: the calendar date of `date` minus the rollover hours.
+    /// The extension cannot reach `Repository`, so the boundary is mirrored here.
+    public static func logicalDayKey(_ date: Date, calendar: Calendar = .current,
+                                     rolloverHour: Int = logicalDayRolloverHour) -> String {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.timeZone = calendar.timeZone
+        f.dateFormat = "yyyy-MM-dd"
+        return f.string(from: date.addingTimeInterval(-Double(rolloverHour) * 3_600))
+    }
+
+    /// Whether the Effort target describes today and was written recently enough to show. Resolved on read,
+    /// like `stressCurve`: nothing runs at midnight to clear the App Group, so a yesterday's band is dropped
+    /// where it would be drawn, and a file the app stopped refreshing goes stale after `effortTargetMaxAge`.
+    public func effortTargetIsFresh(now: Date = Date(), calendar: Calendar = .current) -> Bool {
+        guard let day = effortTargetDay, let at = effortTargetAt else { return false }
+        return day == WidgetSnapshot.logicalDayKey(now, calendar: calendar)
+            && now.timeIntervalSince(at) >= 0
+            && now.timeIntervalSince(at) <= WidgetSnapshot.effortTargetMaxAge
     }
 
     /// The curve to DRAW: what was published, unless it belongs to a day that is over.
@@ -229,6 +282,21 @@ public struct WidgetSnapshot: Codable, Equatable {
             // midnight still reaches WidgetKit even when the new day has no scored hour yet.
             || previous.stressSeries != next.stressSeries
             || previous.stressDay != next.stressDay
+            // The Effort target: its figures and day, plus the hour it was written in. The stamp is the
+            // widget's freshness check, so an otherwise-identical publish must still refresh it, but only
+            // once an hour rather than on every publish.
+            || previous.effortTargetEffort != next.effortTargetEffort
+            || previous.effortTargetEffortText != next.effortTargetEffortText
+            || previous.effortBandLow != next.effortBandLow
+            || previous.effortBandHigh != next.effortBandHigh
+            || previous.effortBandText != next.effortBandText
+            || previous.effortToGo != next.effortToGo
+            || previous.effortTargetDay != next.effortTargetDay
+            || effortTargetHour(previous.effortTargetAt) != effortTargetHour(next.effortTargetAt)
+    }
+
+    private static func effortTargetHour(_ date: Date?) -> Int? {
+        date.map { Int($0.timeIntervalSince1970 / 3_600) }
     }
 
     /// A live-only update may reuse score fields only within the same local calendar day. At rollover,

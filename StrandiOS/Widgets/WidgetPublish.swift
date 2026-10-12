@@ -98,6 +98,8 @@ extension WidgetSnapshot {
         // would decode the App Group blob twice on any publish that could not score, and this file
         // already went to the trouble of removing one such decode from the live path.
         let storedStress: WidgetSnapshot? = stress == nil ? load() : nil
+        // The Effort target widget: today's Effort against the OPTIMAL band, pre-formatted on the user's scale.
+        let target = EffortTargetReading.make(days: days, now: now, effortScale: effortScale).progress
         let snap = WidgetSnapshot(
             recovery: day?.recovery.map { Int($0.rounded()) },
             bpm: model.bpm ?? model.live.heartRate,
@@ -114,7 +116,15 @@ extension WidgetSnapshot {
             // nil when the curve could not be scored at all, which must not blank a widget that already
             // has one: carry the stored values forward instead of publishing an absence.
             stressSeries: stressPoints ?? storedStress?.stressSeries,
-            stressDay: stress?.day ?? storedStress?.stressDay
+            stressDay: stress?.day ?? storedStress?.stressDay,
+            effortTargetEffort: target.effortFraction.map { Int(($0 * 100).rounded()) },
+            effortTargetEffortText: target.effortText,
+            effortBandLow: target.lowFraction.map { Int(($0 * 100).rounded()) },
+            effortBandHigh: target.highFraction.map { Int(($0 * 100).rounded()) },
+            effortBandText: target.rangeText,
+            effortToGo: target.status == .noTarget ? nil : target.detail,
+            effortTargetDay: WidgetSnapshot.logicalDayKey(now),
+            effortTargetAt: now
         )
         saveAndReloadIfChanged(snap)
         // The My Day widget's file rides the same publish, throttled inside the writer.

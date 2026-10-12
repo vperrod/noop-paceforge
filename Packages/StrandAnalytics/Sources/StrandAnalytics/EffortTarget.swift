@@ -64,6 +64,10 @@ public enum EffortTarget {
         public let lowFraction: Double?
         public let highFraction: Double?
 
+        public var effortText: String? {
+            effort.map { EffortTarget.format($0, decimals: decimals) }
+        }
+
         public var rangeText: String? {
             guard let low, let high else { return nil }
             return "\(EffortTarget.format(low, decimals: decimals))\u{2013}\(EffortTarget.format(high, decimals: decimals))"

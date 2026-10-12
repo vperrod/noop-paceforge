@@ -58,6 +58,12 @@ final class EffortTargetTests: XCTestCase {
         XCTAssertEqual(p.text, "Effort 10.5 of 14.0\u{2013}18.0: 3.5\u{2013}7.5 to go")
     }
 
+    func testTheEffortAloneIsPrintedOnTheDisplayScale() {
+        XCTAssertEqual(EffortTarget.progress(effort: 42, band: band).effortText, "42")
+        XCTAssertEqual(EffortTarget.progress(effort: 50, band: band, displayFactor: 21.0 / 100.0).effortText, "10.5")
+        XCTAssertNil(EffortTarget.progress(effort: nil, band: band).effortText)
+    }
+
     func testFractionsStayOnTheStoredAxisWhateverTheDisplayScale() {
         let p = EffortTarget.progress(effort: 50, band: band, displayFactor: 21.0 / 100.0)
         XCTAssertEqual(p.effortFraction, 0.5)
