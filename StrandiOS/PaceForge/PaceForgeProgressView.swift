@@ -89,8 +89,10 @@ struct PFProgressCard: View {
             }
         }
         if let hydration = progress.hydration, let flag = hydration.flag {
+            let note = [hydration.reason, hydration.ownNormal.map { PFFormat.capitalized($0) }]
+                .compactMap { $0 }.joined(separator: " ")
             out.append(Row(title: "Hydration", value: PFFormat.capitalized(PFFormat.words(flag)),
-                           note: hydration.reason, flagged: flag != "ok" && flag != "normal"))
+                           note: note.isEmpty ? nil : note, flagged: flag != "ok" && flag != "normal"))
         }
         if let visceral = progress.visceral, let value = visceral.value {
             let band = visceral.band.map { " \u{00B7} \(PFFormat.capitalized($0))" } ?? ""

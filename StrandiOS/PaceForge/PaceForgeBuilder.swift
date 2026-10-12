@@ -268,6 +268,15 @@ enum PFBuilder {
         return nil
     }
 
+    /// Your own usual hydration: `{total_body_water_pct, ecw_icw_ratio}`, either of them possibly null.
+    private static func ownNormal(_ j: PFJ) -> String? {
+        var parts: [String] = []
+        if let pct = j["total_body_water_pct"].double { parts.append(PFFormat.oneDecimal(pct) + "%") }
+        if let ratio = j["ecw_icw_ratio"].double { parts.append("ECW/ICW " + String(format: "%.2f", ratio)) }
+        if !parts.isEmpty { return "your normal " + parts.joined(separator: ", ") }
+        return scalarText(j)
+    }
+
     static func hrr1(_ j: PFJ) -> PFHRR1? {
         guard let bpm = j["bpm"].int else { return nil }
         return PFHRR1(bpm: bpm, kind: j["kind"].string ?? "post", peakBpm: j["peak_bpm"].int,
@@ -306,7 +315,7 @@ enum PFBuilder {
         if water.exists {
             out.hydration = PFHydration(waterPct: water["water_pct"].double, ecwIcwRatio: water["ecw_icw_ratio"].double,
                                         flag: water["flag"].text, reason: water["reason"].text,
-                                        ownNormal: scalarText(water["own_normal"]))
+                                        ownNormal: ownNormal(water["own_normal"]))
         }
         let balance = b["balance"]
         if balance.exists {
