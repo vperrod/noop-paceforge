@@ -73,6 +73,16 @@ enum PFAPI {
         return "\(host): \(reason)"
     }
 
+    static func isCancelled(_ error: Error) -> Bool {
+        (error as? URLError)?.code == .cancelled || error is CancellationError
+    }
+
+    /// One more attempt when the first was cancelled client-side (URLError.cancelled, code -999).
+    static func fetchBundleRetryingCancel() async throws -> PFRawBundle {
+        do { return try await fetchBundle() }
+        catch where isCancelled(error) { return try await fetchBundle() }
+    }
+
     static func fetchBundle() async throws -> PFRawBundle {
         async let projection = fetchOptional("data/projection.json")
         async let body = fetchOptional("data/body.json")
@@ -164,6 +174,9 @@ final class PFModel: ObservableObject {
     @Published private(set) var savedAt: Date?
 
     private var lastSuccess: Date?
+    /// The one load in flight. It runs in its own task so SwiftUI cancelling a caller (`.task` re-run,
+    /// `.refreshable` ending, a tab switch) cannot cancel the network requests with URLError.cancelled.
+    private var inFlight: Task<Void, Never>?
 
     /// Called when the tab opens; skips the network when the data is only seconds old.
     func refreshIfStale() async {
@@ -171,8 +184,21 @@ final class PFModel: ObservableObject {
         await refresh()
     }
 
+    /// Overlapping callers share the load already running instead of starting or skipping their own.
     func refresh() async {
-        if isRefreshing { return }
+        if let inFlight {
+            await inFlight.value
+            return
+        }
+        let task = Task { [self] in
+            await load()
+            inFlight = nil
+        }
+        inFlight = task
+        await task.value
+    }
+
+    private func load() async {
         isRefreshing = true
         defer { isRefreshing = false }
 
@@ -188,7 +214,7 @@ final class PFModel: ObservableObject {
             phase = .ready
         }
         do {
-            let raw = try await PFAPI.fetchBundle()
+            let raw = try await PFAPI.fetchBundleRetryingCancel()
             guard let built = PFBuilder.snapshot(from: raw, today: PFAPI.todayISO) else {
                 throw CocoaError(.fileReadCorruptFile)
             }
@@ -200,6 +226,9 @@ final class PFModel: ObservableObject {
             failureDetail = nil
             phase = .ready
         } catch {
+            // A request that was cancelled even after a retry says nothing about the server, so it must
+            // not replace what is on screen with an "offline" note.
+            if PFAPI.isCancelled(error), snapshot != nil { return }
             failureDetail = PFAPI.failureDetail(error)
             if snapshot != nil {
                 offlineNote = "Can't reach PaceForge. Showing the data last saved on this iPhone."
