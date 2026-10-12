@@ -96,10 +96,10 @@ enum SelfHostedPushClient {
     /// Host of the configured PaceForge endpoint, for error captions; never the token or path.
     static var paceForgeHost: String? { (try? configuration())?.0.host }
 
-    private static func paceForgeURL(from endpoint: URL, path: String) -> URL {
+    static func paceForgeURL(from endpoint: URL, path: String) -> URL {
         guard var components = URLComponents(url: endpoint, resolvingAgainstBaseURL: false) else { return endpoint }
         var base = components.path
-        for suffix in ["/noop/push", "/push"] where base.hasSuffix(suffix) {
+        for suffix in ["/api/noop/push", "/noop/push", "/api/push", "/push"] where base.hasSuffix(suffix) {
             base = String(base.dropLast(suffix.count))
             break
         }
