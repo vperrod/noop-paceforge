@@ -95,7 +95,9 @@ public struct WidgetSnapshot: Codable, Equatable {
     public static let logicalDayRolloverHour = 4
 
     /// yyyy-MM-dd of the logical day for `date`: the calendar date of `date` minus the rollover hours.
-    /// The extension cannot reach `Repository`, so the boundary is mirrored here.
+    /// The extension cannot reach `Repository`, so the boundary is mirrored here, in the device's own zone
+    /// (`Calendar.current`'s, which `Repository.localDayKey` also follows); a caller passes a calendar only
+    /// to pin the zone in tests.
     public static func logicalDayKey(_ date: Date, calendar: Calendar = .current,
                                      rolloverHour: Int = logicalDayRolloverHour) -> String {
         let f = DateFormatter()

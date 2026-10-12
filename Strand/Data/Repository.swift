@@ -732,7 +732,11 @@ final class Repository: ObservableObject {
     // `nonisolated` so pure callers off the main actor (e.g. the extracted `SleepModel.build`) can key a
     // day the SAME way `DailyMetric.day` is stored. Pure date→string; no actor state is touched.
     private nonisolated static let dayKeyFormatter: DateFormatter = {
-        let f = DateFormatter(); f.dateFormat = "yyyy-MM-dd"; f.locale = Locale(identifier: "en_US_POSIX"); return f
+        let f = DateFormatter(); f.dateFormat = "yyyy-MM-dd"; f.locale = Locale(identifier: "en_US_POSIX")
+        // Follows the device zone as it changes (travel), the same zone `WidgetSnapshot.logicalDayKey` reads
+        // from `Calendar.current`, so the app and the widget extension key the same logical day.
+        f.timeZone = .autoupdatingCurrent
+        return f
     }()
     nonisolated static func localDayKey(_ date: Date) -> String { dayKeyFormatter.string(from: date) }
 
