@@ -43,7 +43,7 @@ struct PFRaceWeek: Equatable {
         var label: String?
         var note: String?
 
-        /// "8\u{2013}10 g/kg a day, about 640 g at 80 kg", from whichever figures the server sent.
+        /// "8\u{2013}10 g/kg a day, about 640 g a day at 80 kg", from whichever figures the server sent.
         var line: String? {
             var parts: [String] = []
             if let low = perKgLow, let high = perKgHigh, high != low {
@@ -86,7 +86,7 @@ struct PFRaceWeek: Equatable {
         var suggestion: String?
     }
 
-    /// The day the document was built for, which keys the local checklist ticks.
+    /// The day the document was built for.
     var date: String?
     var event: Event
     var daysTo: Int?
@@ -100,6 +100,9 @@ struct PFRaceWeek: Equatable {
     var raceMorning: [MorningStep] = []
     var suppressesAlerts = false
     var recovery: Recovery?
+
+    /// Keys the local checklist ticks: one list per race, so the ticks survive the days of race week.
+    var checklistKey: String { event.name + "|" + (event.date ?? "") }
 
     /// Only the daily brief's short summary was served: no checklist, timeline or carb line.
     var isSummaryOnly: Bool { checklist.isEmpty && raceMorning.isEmpty && carbLoad == nil && recovery == nil }
@@ -134,20 +137,21 @@ struct PFRaceWeek: Equatable {
     }
 }
 
-/// The local ticks on the race-week checklist, per day, in UserDefaults. Nothing is sent anywhere.
+/// The local ticks on the race-week checklist, per race (`PFRaceWeek.checklistKey`), in UserDefaults.
+/// Nothing is sent anywhere.
 enum PFRaceWeekChecklist {
-    static func key(date: String) -> String { "noop.paceforge.raceweek.ticks.\(date)" }
+    static func storageKey(_ race: String) -> String { "noop.paceforge.raceweek.ticks.\(race)" }
 
-    static func checked(date: String, defaults: UserDefaults = .standard) -> Set<String> {
-        Set(defaults.stringArray(forKey: key(date: date)) ?? [])
+    static func checked(race: String, defaults: UserDefaults = .standard) -> Set<String> {
+        Set(defaults.stringArray(forKey: storageKey(race)) ?? [])
     }
 
     /// Flips one item and returns the new set.
     @discardableResult
-    static func toggle(_ id: String, date: String, defaults: UserDefaults = .standard) -> Set<String> {
-        var ticks = checked(date: date, defaults: defaults)
+    static func toggle(_ id: String, race: String, defaults: UserDefaults = .standard) -> Set<String> {
+        var ticks = checked(race: race, defaults: defaults)
         if ticks.contains(id) { ticks.remove(id) } else { ticks.insert(id) }
-        defaults.set(ticks.sorted(), forKey: key(date: date))
+        defaults.set(ticks.sorted(), forKey: storageKey(race))
         return ticks
     }
 }

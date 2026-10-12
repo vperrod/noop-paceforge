@@ -12,10 +12,8 @@ struct PFRaceWeekCard: View {
     init(week: PFRaceWeek, todayISO: String) {
         self.week = week
         self.todayISO = todayISO
-        _ticked = State(initialValue: PFRaceWeekChecklist.checked(date: week.date ?? todayISO))
+        _ticked = State(initialValue: PFRaceWeekChecklist.checked(race: week.checklistKey))
     }
-
-    private var tickDate: String { week.date ?? todayISO }
 
     var body: some View {
         PFCard(title: "Race week", icon: "flag.checkered", info: PFExplainerID.raceWeek, trailing: {
@@ -32,6 +30,7 @@ struct PFRaceWeekCard: View {
             }
         }
         .accessibilityIdentifier("pf-race-week-card")
+        .onChangeCompat(of: week.checklistKey) { key in ticked = PFRaceWeekChecklist.checked(race: key) }
     }
 
     // MARK: Header
@@ -133,7 +132,7 @@ struct PFRaceWeekCard: View {
             }
             .padding(.bottom, 4)
             ForEach(week.checklist) { item in
-                Button { ticked = PFRaceWeekChecklist.toggle(item.id, date: tickDate) } label: { checkRow(item) }
+                Button { ticked = PFRaceWeekChecklist.toggle(item.id, race: week.checklistKey) } label: { checkRow(item) }
                     .buttonStyle(.plain)
                     .accessibilityIdentifier("pf-race-check-\(item.id)")
                     .accessibilityValue(ticked.contains(item.id) ? "Ticked" : "Not ticked")

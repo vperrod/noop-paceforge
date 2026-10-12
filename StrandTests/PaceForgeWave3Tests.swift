@@ -53,19 +53,28 @@ final class PaceForgeWave3Tests: XCTestCase {
         XCTAssertNil(week.daysText)
     }
 
-    func testChecklistTicksAreKeptPerDay() {
+    func testChecklistTicksAreKeptPerRace() {
         let defaults = UserDefaults(suiteName: "pf-wave3-ticks")!
         defaults.removePersistentDomain(forName: "pf-wave3-ticks")
-        PFRaceWeekChecklist.toggle("shoes", date: "2030-03-13", defaults: defaults)
-        XCTAssertEqual(PFRaceWeekChecklist.checked(date: "2030-03-14", defaults: defaults), [])
+        PFRaceWeekChecklist.toggle("shoes", race: "Demo 10K|2030-03-20", defaults: defaults)
+        XCTAssertEqual(PFRaceWeekChecklist.checked(race: "Other 10K|2030-04-20", defaults: defaults), [])
+    }
+
+    func testChecklistTicksSurviveTheNextDayOfTheSameRace() {
+        let defaults = UserDefaults(suiteName: "pf-wave3-ticks-days")!
+        defaults.removePersistentDomain(forName: "pf-wave3-ticks-days")
+        let monday = PFRaceWeek(date: "2030-03-18", event: PFRaceWeek.Event(name: "Demo 10K", date: "2030-03-20"), daysTo: 2, phase: "taper")
+        let tuesday = PFRaceWeek(date: "2030-03-19", event: PFRaceWeek.Event(name: "Demo 10K", date: "2030-03-20"), daysTo: 1, phase: "race_eve")
+        PFRaceWeekChecklist.toggle("shoes", race: monday.checklistKey, defaults: defaults)
+        XCTAssertEqual(PFRaceWeekChecklist.checked(race: tuesday.checklistKey, defaults: defaults), ["shoes"])
     }
 
     func testTickingTwiceUnticks() {
         let defaults = UserDefaults(suiteName: "pf-wave3-untick")!
         defaults.removePersistentDomain(forName: "pf-wave3-untick")
-        PFRaceWeekChecklist.toggle("shoes", date: "2030-03-13", defaults: defaults)
-        PFRaceWeekChecklist.toggle("shoes", date: "2030-03-13", defaults: defaults)
-        XCTAssertEqual(PFRaceWeekChecklist.checked(date: "2030-03-13", defaults: defaults), [])
+        PFRaceWeekChecklist.toggle("shoes", race: "Demo 10K|2030-03-20", defaults: defaults)
+        PFRaceWeekChecklist.toggle("shoes", race: "Demo 10K|2030-03-20", defaults: defaults)
+        XCTAssertEqual(PFRaceWeekChecklist.checked(race: "Demo 10K|2030-03-20", defaults: defaults), [])
     }
 
     // MARK: Race simulations

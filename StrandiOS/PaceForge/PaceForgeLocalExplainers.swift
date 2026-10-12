@@ -18,7 +18,7 @@ enum PFLocalExplainers {
             id: raceWeek, title: "Race week",
             plain: "When a race is close, PaceForge switches to a race-week plan. This card replaces the normal race countdown until the race has passed.",
             how: "The phase (taper, race eve, race day or recovery), the volume target, the carb-load figure, the checklist and the race-morning timeline all come from your PaceForge server. Nothing here is calculated on the phone.",
-            caveat: "Ticks on the checklist are kept only on this iPhone, one list per day. The app does not send them anywhere."),
+            caveat: "Ticks on the checklist are kept only on this iPhone, one list per race. The app does not send them anywhere."),
         PFExplainer(
             id: raceSims, title: "Race simulations",
             plain: "Your logged race simulations against your goal time. Each run and station is shown against the goal split and against your previous simulation.",
