@@ -55,7 +55,7 @@ struct PFWorkoutRow: View {
                         .font(StrandFont.caption)
                         .foregroundStyle(StrandPalette.textSecondary)
                 }
-                PFWorkoutBadges(workout: workout, snapshot: snapshot)
+                if PFWorkoutBadges.hasAny(workout, snapshot) { PFWorkoutBadges(workout: workout, snapshot: snapshot) }
                 if !isOpen, let why = purposeLine {
                     Text(why)
                         .font(StrandFont.caption)

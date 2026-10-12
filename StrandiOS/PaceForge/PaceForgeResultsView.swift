@@ -134,8 +134,27 @@ private struct PFResultsHeader: View {
                         .font(StrandFont.caption)
                         .foregroundStyle(StrandPalette.textTertiary)
                 }
+                if let heat = activity?.heat { heatRow(heat) }
             }
         }
+    }
+
+    /// How warm it was and what it cost the pace, from the server's heat rating.
+    private func heatRow(_ heat: PFHeat) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: heat.isHot ? "thermometer.sun" : "thermometer.medium")
+                .font(.system(size: 13))
+                .foregroundStyle(heat.isHot ? PFColor.warning : PFColor.sky)
+            PFChip(text: heat.chipText, color: heat.isHot ? PFColor.warning : PFColor.sky)
+                .accessibilityIdentifier("pf-heat-chip")
+            if let humidity = heat.humidity {
+                Text("humidity \(Int(humidity.rounded())) %")
+                    .font(StrandFont.caption)
+                    .foregroundStyle(StrandPalette.textTertiary)
+            }
+            PFInfoButton(id: PFExplainerID.heat)
+        }
+        .padding(.top, 4)
     }
 
     private var whenLine: String {

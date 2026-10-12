@@ -130,21 +130,41 @@ struct PFEasyModeHint: View {
     }
 }
 
-/// Small badges on a session row: marked by the active easy mode, and (later) a hot day.
+/// Small badges on a session row: marked by the active easy mode, and a thermometer on a hot day.
 struct PFWorkoutBadges: View {
     let workout: PFWorkout
     let snapshot: PFSnapshot
+
+    static func hasAny(_ workout: PFWorkout, _ snapshot: PFSnapshot) -> Bool {
+        let badges = PFWorkoutBadges(workout: workout, snapshot: snapshot)
+        return badges.changedByEasyMode || badges.hotHeat != nil
+    }
 
     private var changedByEasyMode: Bool {
         snapshot.easyMode?.mode?.changedSessionIds.contains(workout.id) == true
     }
 
+    /// The heat of the activity this session was done as, when it was a hot one.
+    private var hotHeat: PFHeat? {
+        guard let heat = workout.activityId.flatMap({ snapshot.activities[$0]?.heat }), heat.isHot else { return nil }
+        return heat
+    }
+
     var body: some View {
-        if changedByEasyMode {
-            Label("Changed by easy mode", systemImage: "leaf")
-                .font(StrandFont.caption)
-                .foregroundStyle(StrandPalette.accent)
-                .accessibilityIdentifier("pf-easy-changed-\(workout.id)")
+        HStack(spacing: 10) {
+            if changedByEasyMode {
+                Label("Changed by easy mode", systemImage: "leaf")
+                    .font(StrandFont.caption)
+                    .foregroundStyle(StrandPalette.accent)
+                    .accessibilityIdentifier("pf-easy-changed-\(workout.id)")
+            }
+            if let heat = hotHeat {
+                Label(heat.tempC.map { "\(Int($0.rounded()))\u{00B0}" } ?? "Hot", systemImage: "thermometer.sun")
+                    .font(StrandFont.caption)
+                    .foregroundStyle(PFColor.warning)
+                    .accessibilityLabel("Hot day")
+                    .accessibilityIdentifier("pf-heat-glyph-\(workout.id)")
+            }
         }
     }
 }
