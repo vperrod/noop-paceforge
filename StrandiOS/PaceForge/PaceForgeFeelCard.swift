@@ -375,7 +375,8 @@ struct PFAnswersView: View {
     }
 }
 
-/// "Low confidence: the watch recorded only 40% of the night". Draws nothing for a reading that is fine.
+/// A chip reading "Low confidence: the watch recorded only 40% of the night" (wrapping, not truncated).
+/// Draws nothing for a reading that is fine.
 struct PFTrustNote: View {
     let trust: PFTrust?
 
@@ -390,6 +391,10 @@ struct PFTrustNote: View {
                     .foregroundStyle(StrandPalette.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 5)
+            .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(PFNeutral.other.opacity(0.12)))
+            .frame(maxWidth: .infinity, alignment: .leading)
             .accessibilityElement(children: .combine)
             .accessibilityIdentifier("pf-trust-note")
         }
