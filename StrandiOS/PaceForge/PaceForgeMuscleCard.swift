@@ -67,8 +67,9 @@ struct PFMuscleCheckCard: View {
                       alignment: .leading, spacing: 14) {
                 if let now = lean.currentTrendKg { PFFigure(value: PFNumber.trimmedOne(now), unit: "kg", label: "Lean trend") }
                 if let week = lean.perWeekKg {
-                    PFFigure(value: PFNumber.signed(week), unit: "kg/week" + (lean.perWeekPct.map { " (\(PFNumber.signed($0)) %)" } ?? ""),
-                             label: "Weekly change")
+                    let pctText: String = lean.perWeekPct.map { " (\(PFNumber.signed($0)) %)" } ?? ""
+                    let unit: String = "kg/week" + pctText
+                    PFFigure(value: PFNumber.signed(week), unit: unit, label: "Weekly change")
                 }
                 if let noise = lean.noiseKg { PFFigure(value: "\u{00B1}" + PFNumber.trimmedOne(noise), unit: "kg", label: "Noise band") }
                 if let readings = lean.readings { PFFigure(value: "\(readings)", unit: nil, label: "Readings") }

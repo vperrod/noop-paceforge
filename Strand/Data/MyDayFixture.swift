@@ -82,12 +82,15 @@ enum MyDayFixture {
                                  subtitle: "Left calf \u{00B7} severity 2 \u{00B7} running")]
             // Garmin's Body Battery climbs through the night and drains through the day; its stress is a read of
             // its own. Two curves from outside, kept apart from NOOP's stress above.
-            input.energy = stride(from: 0, through: 15 * 60, by: 30).map { minute in
-                let level = minute < 410 ? 30 + Double(minute) / 410 * 55 : max(15, 85 - Double(minute - 410) * 0.07)
+            input.energy = stride(from: 0, through: 15 * 60, by: 30).map { (minute: Int) -> DayTimeline.SeriesPoint in
+                let charging: Double = 30 + Double(minute) / 410 * 55
+                let draining: Double = max(15, 85 - Double(minute - 410) * 0.07)
+                let level: Double = minute < 410 ? charging : draining
                 return DayTimeline.SeriesPoint(ts: start + minute * 60, value: level)
             }
-            input.garminStress = stride(from: 7 * 60, to: 15 * 60 + 30, by: 30).map { minute in
-                DayTimeline.SeriesPoint(ts: start + minute * 60, value: 28 + 14 * sin(Double(minute) / 60))
+            input.garminStress = stride(from: 7 * 60, to: 15 * 60 + 30, by: 30).map { (minute: Int) -> DayTimeline.SeriesPoint in
+                let wave: Double = 28 + 14 * sin(Double(minute) / 60)
+                return DayTimeline.SeriesPoint(ts: start + minute * 60, value: wave)
             }
             input.recharge = DayTimeline.Recharge(startTs: ts(0) - 40 * 60, endTs: ts(6, 50), from: 30, to: 85, minutes: 470)
             input.caffeine = [.init(ts: ts(8, 5), mg: 95), .init(ts: ts(13, 50), mg: nil)]
