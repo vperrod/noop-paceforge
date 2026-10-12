@@ -102,6 +102,9 @@ struct MyDayStrip: View {
     let timeline: DayTimeline
     var showStress: Bool
     var showSteps: Bool
+    /// Garmin's Body Battery and stress, from PaceForge. Each is its own curve with its own switch.
+    var showEnergy = false
+    var showGarminStress = false
     /// The time the finger is on, or nil. Owned by the screen, which scrolls its list to it.
     @Binding var scrubDate: Date?
 
@@ -172,6 +175,10 @@ struct MyDayStrip: View {
         }
 
         if showSteps { drawSteps(&context, plot: plot, geometry: geometry) }
+        if showEnergy { drawOutside(&context, timeline.energy, color: StrandPalette.chargeColor, dash: [], plot: plot, geometry: geometry) }
+        if showGarminStress {
+            drawOutside(&context, timeline.garminStress, color: StrandPalette.metricAmber, dash: [2, 3], plot: plot, geometry: geometry)
+        }
         if showStress { drawStress(&context, plot: plot, geometry: geometry) }
         drawHeartRate(&context, plot: plot, geometry: geometry)
 
@@ -264,6 +271,23 @@ struct MyDayStrip: View {
         }
         context.stroke(path, with: .color(StrandPalette.stressColor),
                        style: StrokeStyle(lineWidth: 1.8, lineCap: .round, lineJoin: .round, dash: [5, 3]))
+    }
+
+    /// A 0-100 curve from outside (Garmin Body Battery or stress) on the strip's own height. A reading more than
+    /// an hour after the one before it breaks the line rather than being joined across the hole.
+    private func drawOutside(_ context: inout GraphicsContext, _ points: [DayTimeline.SeriesPoint], color: Color,
+                             dash: [CGFloat], plot: CGRect, geometry: MyDayStripGeometry) {
+        guard !points.isEmpty else { return }
+        func y(_ value: Double) -> CGFloat { plot.maxY - CGFloat(min(max(value / 100, 0), 1)) * (plot.height - 8) - 4 }
+        var path = Path()
+        var previous: Int?
+        for p in points {
+            let point = CGPoint(x: geometry.x(forTs: p.ts), y: y(p.value))
+            if let previous, p.ts - previous <= 3600 { path.addLine(to: point) } else { path.move(to: point) }
+            previous = p.ts
+        }
+        context.stroke(path, with: .color(color),
+                       style: StrokeStyle(lineWidth: 1.8, lineCap: .round, lineJoin: .round, dash: dash))
     }
 
     private func drawSteps(_ context: inout GraphicsContext, plot: CGRect, geometry: MyDayStripGeometry) {

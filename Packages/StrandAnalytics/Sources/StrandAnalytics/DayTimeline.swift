@@ -147,6 +147,45 @@ public struct DayTimeline: Equatable, Sendable {
         public init(ts: Int, cumulative: Int) { self.ts = ts; self.cumulative = cumulative }
     }
 
+    /// One reading of a 0-100 curve that comes from an outside source (Garmin Body Battery, Garmin stress).
+    /// Kept apart from NOOP's own series: the two are never merged into one curve.
+    public struct SeriesPoint: Equatable, Sendable {
+        public let ts: Int
+        public let value: Double
+        public init(ts: Int, value: Double) { self.ts = ts; self.value = value }
+    }
+
+    /// The last stretch where the outside energy curve climbed, for a "last recharge" line. The times may
+    /// fall before this day's start: a night's recharge begins the evening before.
+    public struct Recharge: Equatable, Sendable {
+        public let startTs: Int?
+        public let endTs: Int?
+        public let from: Double?
+        public let to: Double?
+        public let minutes: Int?
+        public init(startTs: Int?, endTs: Int?, from: Double?, to: Double?, minutes: Int?) {
+            self.startTs = startTs; self.endTs = endTs; self.from = from; self.to = to; self.minutes = minutes
+        }
+
+        /// "Last recharge 22:10\u{2013}06:05 \u{00B7} 22 \u{2192} 71 \u{00B7} 8h 00m", or nil when nothing is known.
+        /// The screen owns clock formatting, so it passes the clock in.
+        public func text(clock: (Int) -> String) -> String? {
+            var parts: [String] = []
+            if let startTs, let endTs {
+                parts.append("\(clock(startTs))\u{2013}\(clock(endTs))")
+            } else if let endTs {
+                parts.append("ended \(clock(endTs))")
+            }
+            if let from, let to {
+                parts.append("\(Int(from.rounded())) \u{2192} \(Int(to.rounded()))")
+            } else if let to {
+                parts.append("to \(Int(to.rounded()))")
+            }
+            if let minutes, minutes > 0 { parts.append(DayTimeline.durationText(minutes * 60)) }
+            return parts.isEmpty ? nil : "Last recharge " + parts.joined(separator: " \u{00B7} ")
+        }
+    }
+
     // MARK: Constants
 
     /// No heart rate for this long makes a no-data event.
@@ -168,6 +207,11 @@ public struct DayTimeline: Equatable, Sendable {
     public let hr: [HRPoint]
     public let stress: [StressPoint]
     public let stepsCumulative: [StepPoint]
+    /// Garmin Body Battery (0-100) and Garmin stress (0-100), when the platform brought them. Empty on a
+    /// device without PaceForge; a separate curve each, never mixed with `stress` above.
+    public let energy: [SeriesPoint]
+    public let garminStress: [SeriesPoint]
+    public let recharge: Recharge?
 
     public var dayLengthSec: Int { Int(dayEnd.timeIntervalSince(dayStart)) }
     public var isDayOver: Bool { now >= dayEnd }

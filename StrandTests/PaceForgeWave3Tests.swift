@@ -324,3 +324,62 @@ final class PaceForgeLocalExplainerTests: XCTestCase {
         XCTAssertEqual(PFLocalExplainers.fallback.count, 6)
     }
 }
+
+/// How day-events.json refines My Day.
+final class PaceForgeDayMergeTests: XCTestCase {
+    private func event(_ kind: String, date: String = "2030-03-13", start: Int? = nil, session: String? = nil,
+                       kg: Double? = nil) -> PFDayEvent {
+        var e = PFDayEvent(kind: kind, date: date)
+        e.startTs = start
+        e.sessionId = session
+        e.weightKg = kg
+        return e
+    }
+
+    func testPlannedSessionsAreKeyedBySessionIdForTheShownDayOnly() {
+        let planned = PFDayMerge.planned([event("planned", session: "a"), event("planned", date: "2030-03-14", session: "b")],
+                                         day: "2030-03-13")
+        XCTAssertEqual(Array(planned.keys), ["a"])
+    }
+
+    func testAMatchingWeighInGivesTheScaleReadingItsTime() {
+        let merged = PFDayMerge.mergeWeighIns(existing: [.init(ts: nil, kg: 78.7)], events: [.init(ts: 1_899_600_000, kg: 78.72)])
+        XCTAssertEqual(merged, [.init(ts: 1_899_600_000, kg: 78.7)])
+    }
+
+    func testAWeighInThatMatchesNothingIsAdded() {
+        let merged = PFDayMerge.mergeWeighIns(existing: [.init(ts: nil, kg: 78.7)], events: [.init(ts: 5, kg: 80.0)])
+        XCTAssertEqual(merged.count, 2)
+    }
+
+    func testAReadingThatAlreadyHasATimeKeepsIt() {
+        let merged = PFDayMerge.mergeWeighIns(existing: [.init(ts: 10, kg: 78.7)], events: [.init(ts: 99, kg: 78.7)])
+        XCTAssertEqual(merged.first?.ts, 10)
+    }
+
+    func testDayEventWeighInsOfOtherDaysAreLeftOut() {
+        XCTAssertEqual(PFDayMerge.weighIns([event("weighIn", date: "2030-03-12", kg: 79)], day: "2030-03-13"), [])
+    }
+
+    func testANiggleBecomesANoteNamingSideSiteAndSeverity() {
+        var niggle = event("note")
+        niggle.niggleId = "n1"
+        niggle.niggleSide = "left"
+        niggle.niggleSite = "calf"
+        niggle.niggleSeverity = 2
+        niggle.niggleMovements = ["running"]
+        XCTAssertEqual(PFDayMerge.notes([niggle], day: "2030-03-13").first?.subtitle, "Left calf \u{00B7} severity 2 \u{00B7} running")
+    }
+
+    func testAResolvedNiggleSaysSo() {
+        var niggle = event("note")
+        niggle.niggleId = "n1"
+        niggle.niggleSite = "calf"
+        niggle.niggleResolved = true
+        XCTAssertEqual(PFDayMerge.notes([niggle], day: "2030-03-13").first?.subtitle, "Calf \u{00B7} resolved")
+    }
+
+    func testANoteWithNothingToSayIsLeftOut() {
+        XCTAssertEqual(PFDayMerge.notes([event("note")], day: "2030-03-13"), [])
+    }
+}

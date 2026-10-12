@@ -118,6 +118,18 @@ extension DayTimeline {
             public let yes: Bool
             public init(label: String, yes: Bool) { self.label = label; self.yes = yes }
         }
+        /// A timed or day-level note from outside, such as a niggle PaceForge logged.
+        public struct Note: Sendable {
+            public let id: String
+            /// nil for a note with no clock time: it is listed under "All day".
+            public let ts: Int?
+            public let title: String
+            public let subtitle: String
+            public let source: Source
+            public init(id: String, ts: Int?, title: String, subtitle: String = "", source: Source = .paceforge) {
+                self.id = id; self.ts = ts; self.title = title; self.subtitle = subtitle; self.source = source
+            }
+        }
         public struct Battery: Sendable {
             public let ts: Int
             public let soc: Double?
@@ -145,6 +157,11 @@ extension DayTimeline {
         public var water: [Water] = []
         public var journal: [JournalAnswer] = []
         public var battery: [Battery] = []
+        public var notes: [Note] = []
+        /// Garmin Body Battery and stress, from outside. Each stays its own curve.
+        public var energy: [SeriesPoint] = []
+        public var garminStress: [SeriesPoint] = []
+        public var recharge: Recharge?
         /// True when the strap has not been synced and the day is still running, so a gap at its tail is
         /// most likely data still on the strap.
         public var syncPending = false
@@ -264,6 +281,14 @@ extension DayTimeline {
                 metrics: Metrics(durationSec: burst.end - burst.start, steps: burst.steps)))
         }
 
+        // Notes from outside (a niggle): timed when the source stamped a time, else listed under "All day".
+        for note in input.notes {
+            let timed = note.ts.map { $0 >= dayStartTs && $0 < dayEndTs } ?? false
+            events.append(Event(
+                id: "note-\(note.id)", kind: .dayNote, start: date(timed ? (note.ts ?? dayStartTs) : dayStartTs),
+                isUntimed: !timed, title: note.title, subtitle: note.subtitle, sources: [note.source]))
+        }
+
         // Journal: one untimed note.
         if !input.journal.isEmpty {
             let yes = input.journal.filter(\.yes).map(\.label)
@@ -282,9 +307,17 @@ extension DayTimeline {
             .sorted { $0.ts < $1.ts }
             .map { StressPoint(ts: $0.ts, level: $0.level, maskedForActivity: $0.maskedForActivity) }
 
+        // The outside curves: inside the day, in time order, nothing past now (the rest of today has not happened).
+        func inDay(_ points: [SeriesPoint]) -> [SeriesPoint] {
+            points.filter { $0.ts >= dayStartTs && $0.ts < horizon }
+                .sorted { $0.ts < $1.ts }
+        }
+
         return DayTimeline(dayStart: input.dayStart, dayEnd: input.dayEnd, now: input.now,
                            events: ordered(events, dayStartTs: dayStartTs),
-                           hr: curve, stress: stress, stepsCumulative: stepsCurve)
+                           hr: curve, stress: stress, stepsCumulative: stepsCurve,
+                           energy: inDay(input.energy), garminStress: inDay(input.garminStress),
+                           recharge: input.recharge)
     }
 
     // MARK: Ordering

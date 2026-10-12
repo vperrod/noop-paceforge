@@ -17,6 +17,12 @@ struct MyDayExternalInputs {
     /// PaceForge's workout-matches.json `canonical_of`: "noop:<device>:<startTs>:<sport>" -> Garmin activity id.
     var canonicalOf: [String: String] = [:]
     var weighIns: [DayTimeline.Input.WeighIn] = []
+    /// Notes from outside (a niggle PaceForge logged) and Garmin's Body Battery and stress, which the strip
+    /// draws as curves of their own.
+    var notes: [DayTimeline.Input.Note] = []
+    var energy: [DayTimeline.SeriesPoint] = []
+    var garminStress: [DayTimeline.SeriesPoint] = []
+    var recharge: DayTimeline.Recharge?
 }
 
 enum MyDayExternalSource {
@@ -106,6 +112,10 @@ enum DayTimelineLoader {
         input.planned = external.planned
         input.planActivities = external.planActivities
         input.weighIns = external.weighIns
+        input.notes = external.notes
+        input.energy = external.energy
+        input.garminStress = external.garminStress
+        input.recharge = external.recharge
 
         // Day-level and on-device logs.
         if let weight = await repo.appleDailyRows(days: daysBack).first(where: { $0.day == dayKey })?.weightKg {

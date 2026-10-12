@@ -503,6 +503,7 @@ struct PFIntraday: Equatable {
 }
 
 struct PFDayEvent: Equatable {
+    var id: String?
     /// workout, planned, weighIn or note.
     var kind: String
     var date: String
@@ -521,6 +522,7 @@ struct PFDayEvent: Equatable {
     var niggleSite: String?
     var niggleSide: String?
     var niggleSeverity: Double?
+    var niggleMovements: [String] = []
     var niggleResolved = false
 }
 
@@ -891,6 +893,7 @@ enum PFWave3Parse {
             // An all-day entry may still carry a time-of-day in `start`; it is not a slot.
             let timed = !(e["all_day"].bool ?? false)
             var out = PFDayEvent(kind: kind, date: date)
+            out.id = e["id"].idString
             out.startTs = timed ? start.map { Int($0.timeIntervalSince1970) } : nil
             out.endTs = timed ? end.map { Int($0.timeIntervalSince1970) } : nil
             out.title = e["title"].text
@@ -906,6 +909,7 @@ enum PFWave3Parse {
                 out.niggleSite = niggle["site"].text
                 out.niggleSide = niggle["side"].text
                 out.niggleSeverity = niggle["severity"].double
+                out.niggleMovements = niggle["movements"].array.compactMap { $0.text }
                 out.niggleResolved = niggle["resolved"].bool ?? false
             }
             return out

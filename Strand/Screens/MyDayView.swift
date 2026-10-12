@@ -20,6 +20,8 @@ struct MyDayView: View {
 
     @AppStorage("noop.myday.showStress") private var showStress = false
     @AppStorage("noop.myday.showSteps") private var showSteps = false
+    @AppStorage("noop.myday.showEnergy") private var showEnergy = false
+    @AppStorage("noop.myday.showGarminStress") private var showGarminStress = false
     @AppStorage(HydrationStore.enabledKey) private var hydrationEnabled = false
     @AppStorage(UnitPrefs.systemKey) private var unitSystemRaw = UnitSystem.metric.rawValue
     @AppStorage(UnitPrefs.distanceSystemKey) private var distanceSystemRaw = ""
@@ -192,17 +194,69 @@ struct MyDayView: View {
                             .buttonStyle(.plain)
                     }
                 }
-                MyDayStrip(timeline: timeline, showStress: showStress, showSteps: showSteps, scrubDate: $scrubDate)
+                MyDayStrip(timeline: timeline, showStress: showStress, showSteps: showSteps, showEnergy: showEnergy,
+                           showGarminStress: showGarminStress, scrubDate: $scrubDate)
                     .accessibilityIdentifier("myday-strip")
-                HStack(spacing: NoopMetrics.space2) {
-                    MyDayChip(title: "Stress", systemImage: "bolt.heart", isOn: showStress,
-                              identifier: "myday-chip-stress") { showStress.toggle() }
-                    MyDayChip(title: "Steps", systemImage: "figure.walk", isOn: showSteps,
-                              identifier: "myday-chip-steps") { showSteps.toggle() }
-                    Spacer(minLength: 0)
+                ViewThatFits(in: .horizontal) {
+                    chips(timeline)
+                    ScrollView(.horizontal, showsIndicators: false) { chips(timeline) }
                 }
+                outsideNotes(timeline)
             }
         }
+    }
+
+    /// The overlay switches. Garmin's curves appear only on a day that has them, and each is named for its
+    /// source: NOOP's stress and Garmin's stress are never one curve.
+    private func chips(_ timeline: DayTimeline) -> some View {
+        HStack(spacing: NoopMetrics.space2) {
+            MyDayChip(title: timeline.garminStress.isEmpty ? "Stress" : "Stress \u{00B7} NOOP", systemImage: "bolt.heart",
+                      isOn: showStress, identifier: "myday-chip-stress") { showStress.toggle() }
+            if !timeline.garminStress.isEmpty {
+                MyDayChip(title: "Stress \u{00B7} Garmin", systemImage: "bolt.heart", isOn: showGarminStress,
+                          identifier: "myday-chip-garmin-stress") { showGarminStress.toggle() }
+            }
+            MyDayChip(title: "Steps", systemImage: "figure.walk", isOn: showSteps,
+                      identifier: "myday-chip-steps") { showSteps.toggle() }
+            if !timeline.energy.isEmpty {
+                MyDayChip(title: "Energy", systemImage: "battery.75percent", isOn: showEnergy,
+                          identifier: "myday-chip-energy") { showEnergy.toggle() }
+            }
+            Spacer(minLength: 0)
+        }
+    }
+
+    /// One line under the switches for each outside curve that is on: what it is and where it came from, and
+    /// Garmin's last recharge under the energy curve.
+    @ViewBuilder
+    private func outsideNotes(_ timeline: DayTimeline) -> some View {
+        if showEnergy, !timeline.energy.isEmpty {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Energy is Garmin's Body Battery, 0 to 100.")
+                    .accessibilityIdentifier("myday-energy-note")
+                if let line = timeline.recharge?.text(clock: clockText) {
+                    Text(line).accessibilityIdentifier("myday-recharge")
+                }
+            }
+            .font(StrandFont.caption)
+            .foregroundStyle(StrandPalette.textTertiary)
+        }
+        if showGarminStress, !timeline.garminStress.isEmpty {
+            Text("Stress \u{00B7} Garmin is Garmin's own 0 to 100 read, a separate curve from NOOP's.")
+                .font(StrandFont.caption)
+                .foregroundStyle(StrandPalette.textTertiary)
+                .accessibilityIdentifier("myday-garmin-stress-note")
+        }
+        if showStress, timeline.stress.isEmpty, !timeline.garminStress.isEmpty {
+            Text("NOOP has no stress read for this day. Garmin's is available under Stress \u{00B7} Garmin.")
+                .font(StrandFont.caption)
+                .foregroundStyle(StrandPalette.textTertiary)
+                .accessibilityIdentifier("myday-stress-fallback")
+        }
+    }
+
+    private func clockText(_ ts: Int) -> String {
+        AppClock.hourMinuteFormatter().string(from: Date(timeIntervalSince1970: TimeInterval(ts)))
     }
 
     /// "14:32 · 142 bpm · Run" under the finger, or the day's heart-rate range at rest.
@@ -217,8 +271,19 @@ struct MyDayView: View {
         if let p = MyDayStripGeometry.nearest(to: Int(scrubDate.timeIntervalSince1970), in: timeline.hr) {
             parts.append("\(Int(p.bpm.rounded())) bpm")
         }
+        let ts = Int(scrubDate.timeIntervalSince1970)
+        if showEnergy, let point = Self.nearest(to: ts, in: timeline.energy) { parts.append("Energy \(Int(point.value.rounded()))") }
+        if showGarminStress, let point = Self.nearest(to: ts, in: timeline.garminStress) {
+            parts.append("Garmin stress \(Int(point.value.rounded()))")
+        }
         if let e = Self.event(at: scrubDate, in: timeline) { parts.append(e.title) }
         return parts.joined(separator: " \u{00B7} ")
+    }
+
+    /// The outside reading nearest `ts`, if one lies within half an hour.
+    private static func nearest(to ts: Int, in points: [DayTimeline.SeriesPoint], limit: Int = 1800) -> DayTimeline.SeriesPoint? {
+        guard let best = points.min(by: { abs($0.ts - ts) < abs($1.ts - ts) }), abs(best.ts - ts) <= limit else { return nil }
+        return best
     }
 
     /// The event a time falls inside, else the timed event that started most recently before it. When several
