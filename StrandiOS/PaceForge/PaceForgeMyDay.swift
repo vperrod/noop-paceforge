@@ -2,8 +2,10 @@ import Foundation
 import StrandAnalytics
 
 /// The iPhone's contribution to My Day: the PaceForge plan for the shown day, the activities it was matched
-/// to, PaceForge's workout matches and its scale readings. Read from the copy PaceForge last saved on the
-/// phone; My Day never goes to the network for this (the PaceForge tab refreshes it).
+/// to, PaceForge's workout matches, its scale readings, its day notes and Garmin's Body Battery and stress.
+/// The plan, matches and scale readings come from the copy PaceForge last saved on the phone. The day-events
+/// and intraday files are asked of the server (a few seconds at most, a failure remembered for a minute) and
+/// fall back to the saved copy, so My Day opens without waiting out a slow or absent server.
 @MainActor
 enum PFMyDay {
     /// Wires the shared My Day screen to this file and to the widget summary writer. Called once at launch.
@@ -67,7 +69,8 @@ enum PFMyDay {
         // A session PaceForge marks done with no activity attached still happened; the placeholder id only
         // tells the builder it is done.
         let done = w.status == "done" || w.status == "partial"
-        let matched = w.activityId.map { [$0] } ?? slot?.matchedActivityId.map { [$0] } ?? (done ? ["pf-done"] : [])
+        let attachedId = w.activityId ?? slot?.matchedActivityId
+        let matched: [String] = attachedId.map { [$0] } ?? (done ? ["pf-done"] : [])
         let minutes = w.durationMin ?? slot?.durationMin
         return DayTimeline.Input.Planned(id: w.id, title: w.name ?? "Workout", detail: PFSummaryWriter.detail(w),
                                          startTs: slot?.startTs, durationMin: minutes.map { Int($0.rounded()) },
@@ -126,7 +129,22 @@ enum PFMyDay {
     private static func cachedOrFetched(_ path: String, within seconds: Double = 4) async -> Data? {
         // The screen reloads on every toggle and refresh; a file asked for a few seconds ago is reused.
         if let hit = recent[path], Date().timeIntervalSince(hit.at) < 30 { return hit.data }
-        let fresh: Data? = await withTaskGroup(of: Data?.self) { group in
+        // A server that just failed to answer is not asked again for a minute, so a hung one costs one wait.
+        let recentlyFailed = failed[path].map { Date().timeIntervalSince($0) < 60 } ?? false
+        let fresh: Data?
+        if recentlyFailed { fresh = nil } else { fresh = await fetchOptional(path, within: seconds) }
+        if let fresh {
+            recent[path] = (Date(), fresh)
+            failed[path] = nil
+            return fresh
+        }
+        if !recentlyFailed { failed[path] = Date() }
+        return PFAPI.isFixture ? nil : PFStore.read(path: path)
+    }
+
+    /// The server's answer, or nil when it has none or has not answered within `seconds`.
+    private static func fetchOptional(_ path: String, within seconds: Double) async -> Data? {
+        await withTaskGroup(of: Data?.self) { group in
             group.addTask { await PFAPI.fetchOptional(path) }
             group.addTask {
                 try? await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
@@ -136,14 +154,10 @@ enum PFMyDay {
             group.cancelAll()
             return first
         }
-        if let fresh {
-            recent[path] = (Date(), fresh)
-            return fresh
-        }
-        return PFAPI.isFixture ? nil : PFStore.read(path: path)
     }
 
     private static var recent: [String: (at: Date, data: Data)] = [:]
+    private static var failed: [String: Date] = [:]
 
     // MARK: Snapshot
 
