@@ -175,7 +175,7 @@ struct EffortTargetCard: View {
             }
         }
         .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("effort-target-card")
+        .containerIdentifier("effort-target-card")
         .onAppear { refresh() }
         .onChangeCompat(of: key) { _ in refresh() }
     }

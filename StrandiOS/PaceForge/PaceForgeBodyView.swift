@@ -43,7 +43,7 @@ struct PFBodyView: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
-        .accessibilityIdentifier("pf-body-composition")
+        .containerIdentifier("pf-body-composition")
     }
 
     // MARK: Mass breakdown
@@ -70,7 +70,7 @@ struct PFBodyView: View {
                 }
             }
         }
-        .accessibilityIdentifier("pf-body-breakdown")
+        .containerIdentifier("pf-body-breakdown")
     }
 
     // MARK: Goals
@@ -111,7 +111,7 @@ struct PFBodyView: View {
                     }
                 }
             }
-            .accessibilityIdentifier("pf-body-readings")
+            .containerIdentifier("pf-body-readings")
         }
     }
 
@@ -223,7 +223,7 @@ private struct PFTrendCard: View {
                 deltaRow
             }
         }
-        .accessibilityIdentifier("pf-body-trend")
+        .containerIdentifier("pf-body-trend")
     }
 
     private var currentText: String {
@@ -365,7 +365,7 @@ private struct PFScoreCard: View {
                 }
             }
         }
-        .accessibilityIdentifier("pf-body-score")
+        .containerIdentifier("pf-body-score")
     }
 
     private var gauge: some View {
@@ -562,7 +562,7 @@ private struct PFSegmentalCard: View {
                 }
             }
         }
-        .accessibilityIdentifier("pf-body-segmental")
+        .containerIdentifier("pf-body-segmental")
     }
 
     @ViewBuilder private func card(_ key: String) -> some View {

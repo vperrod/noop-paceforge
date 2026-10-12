@@ -89,7 +89,7 @@ struct SleepPlannerAlarmCard: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
-        .accessibilityIdentifier("sleep-planner-alarm")
+        .containerIdentifier("sleep-planner-alarm")
         .onAppear { storeRevision += 1 }
     }
 

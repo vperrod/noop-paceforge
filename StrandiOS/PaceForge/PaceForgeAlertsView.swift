@@ -26,7 +26,7 @@ struct PFAlertsCard: View {
                 }
             }
         }
-        .pfCardID("pf-alerts-card")
+        .containerIdentifier("pf-alerts-card")
     }
 }
 
@@ -98,7 +98,7 @@ struct PFReadinessCard: View {
                 if let note = readiness.coachNote { PFParagraph(note) }
             }
         }
-        .pfCardID("pf-readiness-card")
+        .containerIdentifier("pf-readiness-card")
     }
 
     private static func agreementText(_ value: String) -> String {
@@ -208,7 +208,7 @@ struct PFHRR1Card: View {
                 }
             }
         }
-        .accessibilityIdentifier("pf-hrr1")
+        .containerIdentifier("pf-hrr1")
     }
 
     private var explainer: String {

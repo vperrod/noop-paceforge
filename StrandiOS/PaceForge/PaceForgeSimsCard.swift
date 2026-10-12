@@ -32,7 +32,7 @@ struct PFSimulationsCard: View {
                 if sims.unmappedCount > 0 { unmappedNote }
             }
         }
-        .pfCardID("pf-sims-card")
+        .containerIdentifier("pf-sims-card")
     }
 
     // MARK: Empty state
@@ -136,7 +136,7 @@ struct PFSimulationsCard: View {
                             .foregroundStyle(StrandPalette.textSecondary)
                     }
                 }
-                .accessibilityIdentifier("pf-sims-compromised-runs")
+                .containerIdentifier("pf-sims-compromised-runs")
             }
             if let within = latest.withinBand {
                 HStack(alignment: .top, spacing: 8) {
@@ -194,11 +194,11 @@ struct PFSimulationsCard: View {
                 }
                 .padding(.vertical, 5)
                 .accessibilityElement(children: .combine)
-                .accessibilityIdentifier("pf-sims-row-\(segment.index)")
+                .containerIdentifier("pf-sims-row-\(segment.index)")
                 if segment.id != sims.segments.last?.id { Divider().overlay(StrandPalette.hairline) }
             }
         }
-        .accessibilityIdentifier("pf-sims-table")
+        .containerIdentifier("pf-sims-table")
     }
 
     private func cell(_ text: String, width: CGFloat, strong: Bool = false) -> some View {
@@ -245,7 +245,7 @@ struct PFSimulationsCard: View {
                 .padding(10)
                 .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(StrandPalette.surfaceInset))
                 .accessibilityElement(children: .combine)
-                .accessibilityIdentifier("pf-sims-weak-\(item.id)")
+                .containerIdentifier("pf-sims-weak-\(item.id)")
             }
         }
     }

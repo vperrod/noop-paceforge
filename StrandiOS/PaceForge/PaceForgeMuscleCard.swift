@@ -35,7 +35,7 @@ struct PFMuscleCheckCard: View {
                 }
             }
         }
-        .pfCardID("pf-muscle-card")
+        .containerIdentifier("pf-muscle-card")
     }
 
     // MARK: Flag
@@ -55,7 +55,7 @@ struct PFMuscleCheckCard: View {
                 Text(check.isCalibrating ? "Calibrating" : "Why it is flagged").strandOverline()
                 PFParagraph(rule)
             }
-            .accessibilityIdentifier("pf-muscle-flag")
+            .containerIdentifier("pf-muscle-flag")
         }
     }
 
@@ -76,7 +76,7 @@ struct PFMuscleCheckCard: View {
                 if let d14 = lean.change14dKg { PFFigure(value: PFNumber.signed(d14), unit: "kg", label: "14 days") }
                 if let d28 = lean.change28dKg { PFFigure(value: PFNumber.signed(d28), unit: "kg", label: "28 days") }
             }
-            .accessibilityIdentifier("pf-muscle-lean")
+            .containerIdentifier("pf-muscle-lean")
             if let basis = lean.noiseBasis {
                 Text(basis)
                     .font(StrandFont.caption)
@@ -128,7 +128,7 @@ struct PFMuscleCheckCard: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(StrandPalette.surfaceInset))
                 .accessibilityElement(children: .combine)
-                .accessibilityIdentifier("pf-muscle-split-\(split.window)")
+                .containerIdentifier("pf-muscle-split-\(split.window)")
             }
         }
     }
@@ -164,7 +164,7 @@ struct PFMuscleCheckCard: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
-        .accessibilityIdentifier("pf-muscle-strength")
+        .containerIdentifier("pf-muscle-strength")
     }
 
     private func strengthTitle(_ measure: String, _ strength: PFMuscleCheck.Strength) -> String {
@@ -195,7 +195,7 @@ struct PFMuscleCheckCard: View {
                 }
             }
         }
-        .accessibilityIdentifier("pf-muscle-advice")
+        .containerIdentifier("pf-muscle-advice")
     }
 }
 
@@ -215,7 +215,7 @@ struct PFTapeCard: View {
                             if site.id != tape.sites.last?.id { Divider().overlay(StrandPalette.hairline) }
                         }
                     }
-                    .accessibilityIdentifier("pf-tape-sites")
+                    .containerIdentifier("pf-tape-sites")
                     if let ratio = tape.waistToHip { waistToHipLine(ratio) }
                 }
                 if let note = tape.note {
@@ -230,7 +230,7 @@ struct PFTapeCard: View {
                     .accessibilityIdentifier("pf-tape-hint")
             }
         }
-        .pfCardID("pf-tape-card")
+        .containerIdentifier("pf-tape-card")
     }
 
     private func row(_ site: PFTape.Site) -> some View {
@@ -257,7 +257,7 @@ struct PFTapeCard: View {
         }
         .padding(.vertical, 8)
         .accessibilityElement(children: .combine)
-        .accessibilityIdentifier("pf-tape-\(site.key)")
+        .containerIdentifier("pf-tape-\(site.key)")
     }
 
     private func changeText(_ site: PFTape.Site) -> String {
@@ -278,6 +278,6 @@ struct PFTapeCard: View {
                 .font(StrandFont.subhead.weight(.semibold))
                 .foregroundStyle(StrandPalette.textPrimary)
         }
-        .accessibilityIdentifier("pf-tape-waist-hip")
+        .containerIdentifier("pf-tape-waist-hip")
     }
 }

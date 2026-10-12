@@ -47,9 +47,12 @@ final class PaceForgeNativeTabUITests: XCTestCase {
     /// Scrolls down until the element can be tapped.
     @discardableResult
     private func reveal(_ element: XCUIElement, in app: XCUIApplication, maxSwipes: Int = 10) -> Bool {
-        for _ in 0..<maxSwipes {
+        for _ in 0..<(maxSwipes * 3) {
             if element.exists && element.isHittable { return true }
-            app.swipeUp()
+        let from = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.62))
+        let to = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.32))
+        // A short, slow drag: a full swipe can carry a small element past the hittable band between two checks.
+        from.press(forDuration: 0.05, thenDragTo: to, withVelocity: .slow, thenHoldForDuration: 0.1)
         }
         if element.exists && element.isHittable { return true }
         // Keep the accessibility tree so a failure shows what the screen really exposed.
@@ -261,7 +264,7 @@ final class PaceForgeNativeTabUITests: XCTestCase {
         let app = try launch(fixture: true)
         let segments = try openPaceForge(app)
         segments.buttons["Today"].tap()
-        let info = app.buttons["pf-info-recovery"]
+        let info = app.buttons["pf-info-recovery"].firstMatch
         XCTAssertTrue(reveal(info, in: app), "The recovery ring should carry an info button.")
         info.tap()
         XCTAssertTrue(element(app, "pf-explainer-sheet").waitForExistence(timeout: 5), "The explainer sheet should open.")

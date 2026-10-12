@@ -24,7 +24,7 @@ struct PFEasyModeCard: View {
                     .accessibilityIdentifier("pf-easy-telegram")
             }
         }
-        .pfCardID("pf-easy-card")
+        .containerIdentifier("pf-easy-card")
     }
 
     // MARK: Active mode
@@ -53,7 +53,7 @@ struct PFEasyModeCard: View {
                         .foregroundStyle(StrandPalette.textSecondary)
                 }
             }
-            .accessibilityIdentifier("pf-easy-days")
+            .containerIdentifier("pf-easy-days")
             HStack(spacing: 8) {
                 if let changed = mode.changedCount, changed > 0 {
                     Text(changed == 1 ? "1 session changed" : "\(changed) sessions changed")
@@ -90,7 +90,7 @@ struct PFEasyModeCard: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(StrandPalette.surfaceInset))
                 .accessibilityElement(children: .combine)
-                .accessibilityIdentifier("pf-easy-pending-\(proposal.proposalId)")
+                .containerIdentifier("pf-easy-pending-\(proposal.proposalId)")
             }
         }
     }

@@ -47,9 +47,12 @@ final class PaceForgeWave3UITests: XCTestCase {
     /// Scrolls down until the element can be tapped.
     @discardableResult
     private func reveal(_ element: XCUIElement, in app: XCUIApplication, maxSwipes: Int = 14) -> Bool {
-        for _ in 0..<maxSwipes {
+        for _ in 0..<(maxSwipes * 3) {
             if element.exists && element.isHittable { return true }
-            app.swipeUp()
+        let from = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.62))
+        let to = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.32))
+        // A short, slow drag: a full swipe can carry a small element past the hittable band between two checks.
+        from.press(forDuration: 0.05, thenDragTo: to, withVelocity: .slow, thenHoldForDuration: 0.1)
         }
         return element.exists && element.isHittable
     }

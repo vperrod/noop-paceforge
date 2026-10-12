@@ -33,7 +33,7 @@ struct PFProgressCard: View {
                 detailRows
             }
         }
-        .accessibilityIdentifier("pf-body-progress")
+        .containerIdentifier("pf-body-progress")
     }
 
     private func analysisBlock(_ analysis: PFProgressAnalysis) -> some View {

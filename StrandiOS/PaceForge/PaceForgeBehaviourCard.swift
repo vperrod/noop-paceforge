@@ -27,7 +27,7 @@ struct PFBehaviourCard: View {
                 if !impact.insufficient.isEmpty { waiting }
             }
         }
-        .pfCardID("pf-behaviour-card")
+        .containerIdentifier("pf-behaviour-card")
     }
 
     private var footnote: String {
@@ -61,7 +61,7 @@ struct PFBehaviourCard: View {
                 }
             }
         }
-        .accessibilityIdentifier("pf-behaviour-waiting")
+        .containerIdentifier("pf-behaviour-waiting")
     }
 }
 
@@ -91,7 +91,7 @@ private struct PFBehaviourRow: View {
         .padding(10)
         .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(StrandPalette.surfaceInset))
         .accessibilityElement(children: .combine)
-        .accessibilityIdentifier("pf-behaviour-\(item.id)")
+        .containerIdentifier("pf-behaviour-\(item.id)")
     }
 
     private func effectRow(_ effect: PFBehaviourEffect) -> some View {

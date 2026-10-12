@@ -102,7 +102,7 @@ struct PFResultsSheet: View {
             PFCard("Coach analysis", icon: "sparkles") {
                 PFMarkdown(text: markdown)
             }
-            .accessibilityIdentifier("pf-coach-analysis")
+            .containerIdentifier("pf-coach-analysis")
         } else if let headline = analysis?.headline {
             PFCard("Coach analysis", icon: "sparkles") {
                 Text(headline)
@@ -253,7 +253,7 @@ private struct PFStatTiles: View {
                     }
                 }
             }
-            .accessibilityIdentifier("pf-results-summary")
+            .containerIdentifier("pf-results-summary")
         }
     }
 }
@@ -460,7 +460,7 @@ private struct PFZonesCard: View {
                     }
                 }
             }
-            .accessibilityIdentifier("pf-zones")
+            .containerIdentifier("pf-zones")
         }
     }
 
@@ -515,7 +515,7 @@ private struct PFEffortCard: View {
                 if let recovery { PFParagraph(PFFormat.capitalized(recovery) + ".") }
             }
         }
-        .accessibilityIdentifier("pf-effort")
+        .containerIdentifier("pf-effort")
     }
 }
 
@@ -559,7 +559,7 @@ private struct PFPlanVersusActual: View {
                     }
                 }
             }
-            .accessibilityIdentifier("pf-plan-vs-actual")
+            .containerIdentifier("pf-plan-vs-actual")
         }
     }
 
@@ -601,7 +601,7 @@ private struct PFSplitsCard: View {
                     }
                 }
             }
-            .accessibilityIdentifier("pf-splits")
+            .containerIdentifier("pf-splits")
         }
     }
 

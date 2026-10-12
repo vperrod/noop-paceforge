@@ -75,7 +75,7 @@ struct PFFeelCard: View {
                 if feel.days.contains(where: { $0.feel != nil }) { PFFeelStrip(days: feel.days) }
             }
         }
-        .pfCardID("pf-feel-card")
+        .containerIdentifier("pf-feel-card")
     }
 
     private var buttons: some View {
@@ -140,7 +140,7 @@ private struct PFFeelStrip: View {
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(summary)
-        .accessibilityIdentifier("pf-feel-strip")
+        .containerIdentifier("pf-feel-strip")
     }
 
     @ViewBuilder private func dot(_ day: PFFeelDay) -> some View {
@@ -202,7 +202,7 @@ struct PFWhatChangedCard: View {
                 }
             }
         }
-        .pfCardID("pf-changes-card")
+        .containerIdentifier("pf-changes-card")
     }
 
     private func row(_ metric: PFChangeMetric) -> some View {
@@ -293,7 +293,7 @@ struct PFWhatChangedCard: View {
             if let calibration = metric.calibration, !calibration.ready { PFCalibrationBar(calibration: calibration) }
         }
         .padding(.top, 2)
-        .accessibilityIdentifier("pf-change-detail-\(metric.id)")
+        .containerIdentifier("pf-change-detail-\(metric.id)")
     }
 
     // MARK: Formatting
@@ -348,7 +348,7 @@ struct PFAnswersView: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
-        .accessibilityIdentifier("pf-answers")
+        .containerIdentifier("pf-answers")
     }
 
     private func column(_ title: String, _ answer: PFAnswer, id: String) -> some View {
@@ -396,7 +396,7 @@ struct PFTrustNote: View {
             .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(PFNeutral.other.opacity(0.12)))
             .frame(maxWidth: .infinity, alignment: .leading)
             .accessibilityElement(children: .combine)
-            .accessibilityIdentifier("pf-trust-note")
+            .containerIdentifier("pf-trust-note")
         }
     }
 }

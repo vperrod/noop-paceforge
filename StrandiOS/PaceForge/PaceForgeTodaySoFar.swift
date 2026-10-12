@@ -95,7 +95,7 @@ struct PFTodaySoFarCard: View {
             }
         }
         .accessibilityElement(children: .contain)
-        .pfCardID("pf-sofar-card")
+        .containerIdentifier("pf-sofar-card")
     }
 
     /// "1 of 2 sessions done", or "Nothing planned today".

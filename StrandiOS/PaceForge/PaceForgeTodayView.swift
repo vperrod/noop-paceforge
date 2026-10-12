@@ -212,7 +212,7 @@ private struct PFBriefCard: View {
             }
         }
         .opacity(isToday ? 1 : 0.7)
-        .pfCardID("pf-brief-card")
+        .containerIdentifier("pf-brief-card")
     }
 
     @ViewBuilder private func section(_ title: String, _ markdown: String?) -> some View {

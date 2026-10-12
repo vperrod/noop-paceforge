@@ -29,7 +29,7 @@ struct PFRaceWeekCard: View {
                 if let recovery = week.recovery, let suggestion = recovery.suggestion { recoveryBlock(recovery, suggestion) }
             }
         }
-        .pfCardID("pf-race-week-card")
+        .containerIdentifier("pf-race-week-card")
         .onChangeCompat(of: week.checklistKey) { key in ticked = PFRaceWeekChecklist.checked(race: key) }
     }
 
@@ -47,7 +47,7 @@ struct PFRaceWeekCard: View {
                         .foregroundStyle(StrandPalette.textTertiary)
                 }
                 .accessibilityElement(children: .combine)
-                .accessibilityIdentifier("pf-race-week-days")
+                .containerIdentifier("pf-race-week-days")
             }
             VStack(alignment: .leading, spacing: 3) {
                 Text(week.event.name)
@@ -90,7 +90,7 @@ struct PFRaceWeekCard: View {
         VStack(alignment: .leading, spacing: 6) {
             ForEach(Array(week.notes.enumerated()), id: \.offset) { _, note in bullet(note) }
         }
-        .accessibilityIdentifier("pf-race-week-notes")
+        .containerIdentifier("pf-race-week-notes")
     }
 
     private func carbBlock(_ carb: PFRaceWeek.CarbLoad) -> some View {
@@ -105,7 +105,7 @@ struct PFRaceWeekCard: View {
             if let note = carb.note { PFParagraph(note) }
             ForEach(Array(carb.tips.enumerated()), id: \.offset) { _, tip in bullet(tip) }
         }
-        .accessibilityIdentifier("pf-race-carb")
+        .containerIdentifier("pf-race-carb")
     }
 
     private func bullet(_ text: String) -> some View {
@@ -139,7 +139,7 @@ struct PFRaceWeekCard: View {
                 if item.id != week.checklist.last?.id { Divider().overlay(StrandPalette.hairline) }
             }
         }
-        .accessibilityIdentifier("pf-race-checklist")
+        .containerIdentifier("pf-race-checklist")
     }
 
     private func checkRow(_ item: PFRaceWeek.CheckItem) -> some View {
@@ -185,7 +185,7 @@ struct PFRaceWeekCard: View {
                 }
             }
         }
-        .accessibilityIdentifier("pf-race-morning")
+        .containerIdentifier("pf-race-morning")
     }
 
     private func recoveryBlock(_ recovery: PFRaceWeek.Recovery, _ suggestion: String) -> some View {
@@ -195,6 +195,6 @@ struct PFRaceWeekCard: View {
             Text(title).strandOverline()
             PFParagraph(suggestion)
         }
-        .accessibilityIdentifier("pf-race-recovery")
+        .containerIdentifier("pf-race-recovery")
     }
 }
