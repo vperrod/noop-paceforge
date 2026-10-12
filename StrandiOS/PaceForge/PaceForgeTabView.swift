@@ -91,12 +91,15 @@ struct PaceForgeTabView: View {
     }
 
     @ViewBuilder private func screen(for segment: PFSegment, snapshot: PFSnapshot) -> some View {
-        switch segment {
-        case .today: PFTodayView(snapshot: snapshot)
-        case .coach: PFCoachView(snapshot: snapshot)
-        case .week: PFWeekView(snapshot: snapshot)
-        case .insights: PFInsightsView(snapshot: snapshot)
-        case .body: PFBodyView(snapshot: snapshot)
+        Group {
+            switch segment {
+            case .today: PFTodayView(snapshot: snapshot)
+            case .coach: PFCoachView(snapshot: snapshot)
+            case .week: PFWeekView(snapshot: snapshot)
+            case .insights: PFInsightsView(snapshot: snapshot)
+            case .body: PFBodyView(snapshot: snapshot)
+            }
         }
+        .environment(\.pfExplainers, snapshot.explainerMap)
     }
 }

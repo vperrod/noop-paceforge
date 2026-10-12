@@ -109,6 +109,7 @@ struct PFProgressCard: View {
 
 private struct PFProgressGoalRow: View {
     let goal: PFProgressGoal
+    @Environment(\.pfExplainers) private var explainers
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -159,10 +160,23 @@ private struct PFProgressGoalRow: View {
         let actual = goal.actualPerWeek.map { "now \(signed($0))/week" }
         let pace = [needed, actual].compactMap { $0 }.joined(separator: " \u{00B7} ")
         guard goal.actualPerWeek != nil else {
-            return (pace.isEmpty ? "" : pace + " \u{00B7} ") + "needs more readings for a pace"
+            // The explainer says how far along the metric is ("Day 2 of 5") when that is known.
+            return (pace.isEmpty ? "" : pace + " \u{00B7} ") + (calibrationLine ?? "needs more readings for a pace")
         }
         let eta = goal.eta.map { " \u{00B7} on pace for \(PFFormat.shortDate($0))" } ?? ""
         return pace + eta
+    }
+
+    /// Body fat has its own trend calibration, weight its noise band; other goals have none.
+    private var calibrationLine: String? {
+        let id: String
+        switch goal.metric {
+        case "body_fat_pct": id = PFExplainerID.bodyFatTrend
+        case "weight_kg": id = PFExplainerID.bodyNoiseBand
+        default: return nil
+        }
+        guard let calibration = explainers[id]?.calibration, !calibration.ready else { return nil }
+        return calibration.line
     }
 
     private func signed(_ v: Double) -> String {

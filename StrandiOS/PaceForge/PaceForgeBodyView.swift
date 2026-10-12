@@ -180,7 +180,8 @@ private struct PFTrendCard: View {
     var body: some View {
         let info = doc.metrics[metric]
         let goal = doc.goals.first { $0.metric == metric }
-        PFCard(title: "Trend", icon: "chart.line.uptrend.xyaxis", trailing: {
+        PFCard(title: "Trend", icon: "chart.line.uptrend.xyaxis",
+               info: metric == "body_fat_pct" ? PFExplainerID.bodyFatTrend : PFExplainerID.bodyWeightTrend, trailing: {
             Text("Synced \(PFFormat.shortDate(doc.date))")
                 .font(StrandFont.caption)
                 .foregroundStyle(StrandPalette.textTertiary)
@@ -216,6 +217,7 @@ private struct PFTrendCard: View {
                     }
                 }
                 chart(goal: goal)
+                noiseLegend
                 deltaRow
             }
         }
@@ -304,6 +306,19 @@ private struct PFTrendCard: View {
                 .font(StrandFont.subhead)
                 .foregroundStyle(StrandPalette.textSecondary)
                 .frame(maxWidth: .infinity, minHeight: 80)
+        }
+    }
+
+    /// Names the shaded band, with its "how it works" button.
+    @ViewBuilder private var noiseLegend: some View {
+        if noiseBand != nil, points.count >= 2 {
+            HStack(spacing: 4) {
+                Text("Shaded band = the scale's usual morning-to-morning noise")
+                    .font(StrandFont.caption)
+                    .foregroundStyle(StrandPalette.textTertiary)
+                PFInfoButton(id: PFExplainerID.bodyNoiseBand)
+                Spacer(minLength: 0)
+            }
         }
     }
 
@@ -497,7 +512,7 @@ private struct PFSegmentalCard: View {
     private func segment(_ key: String) -> PFBodySegment? { doc.segments.first { $0.key == key } }
 
     var body: some View {
-        PFCard("Segmental analysis", icon: "figure.arms.open") {
+        PFCard("Segmental analysis", icon: "figure.arms.open", info: PFExplainerID.bodyEstimates) {
             VStack(alignment: .leading, spacing: 14) {
                 HStack(alignment: .center, spacing: 10) {
                     VStack(spacing: 12) {

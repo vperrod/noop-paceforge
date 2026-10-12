@@ -176,6 +176,8 @@ enum PFColor {
 struct PFCard<Content: View, Trailing: View>: View {
     let title: String
     var icon: String? = nil
+    /// A metric-explainer id: the card then shows an (i) that opens "how it works" when the server has one.
+    var info: String? = nil
     @ViewBuilder var trailing: () -> Trailing
     @ViewBuilder var content: () -> Content
 
@@ -193,6 +195,7 @@ struct PFCard<Content: View, Trailing: View>: View {
                         .foregroundStyle(StrandPalette.textPrimary)
                     Spacer(minLength: 8)
                     trailing()
+                    if let info { PFInfoButton(id: info) }
                 }
                 content()
             }
@@ -201,8 +204,8 @@ struct PFCard<Content: View, Trailing: View>: View {
 }
 
 extension PFCard where Trailing == EmptyView {
-    init(_ title: String, icon: String? = nil, @ViewBuilder content: @escaping () -> Content) {
-        self.init(title: title, icon: icon, trailing: { EmptyView() }, content: content)
+    init(_ title: String, icon: String? = nil, info: String? = nil, @ViewBuilder content: @escaping () -> Content) {
+        self.init(title: title, icon: icon, info: info, trailing: { EmptyView() }, content: content)
     }
 }
 
