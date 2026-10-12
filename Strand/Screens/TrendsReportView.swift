@@ -546,6 +546,9 @@ struct TrendsReportSheet: View {
                 Text("Tip: the share sheet can save the PDF to Files, AirDrop it, or send it on.")
                     .font(StrandFont.footnote)
                     .foregroundStyle(StrandPalette.textTertiary)
+
+                Divider().overlay(StrandPalette.hairline)
+                HealthReportCard(days: days)
             }
             .screenPadding()
             .padding(.vertical, NoopMetrics.space6)
