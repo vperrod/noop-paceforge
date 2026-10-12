@@ -87,6 +87,8 @@ struct StrandiOSApp: App {
         NotificationPresenter.shared.onPaceForgeBriefTapped = { Task { @MainActor in PFDeepLink.openToday() } }
         PaceForgeBackground.register()
         PFMyDay.install()
+        // A summary written before the privacy choice existed gets its body flag now, not at the next fetch.
+        PFSummaryWriter.applyPrivacy()
         let model = AppModel()
         _model = StateObject(wrappedValue: model)
         CoachBriefScheduler.register(generateBrief: { [weak coach = model.coach] in

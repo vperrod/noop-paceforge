@@ -417,7 +417,9 @@ struct PFBodyWidgetFace: View {
     let stale: Bool
 
     var body: some View {
-        if summary?.hideBody == true, !stale {
+        // A file from an older build has no hideBody; body numbers stay hidden until a build that knows the
+        // privacy choice has written one.
+        if let s = summary, !stale, s.hideBody ?? true {
             hidden
         } else if let s = summary, !stale {
             VStack(alignment: .leading, spacing: 5) {
