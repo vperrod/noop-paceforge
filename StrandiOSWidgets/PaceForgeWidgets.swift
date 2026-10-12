@@ -142,6 +142,67 @@ struct PaceForgeStrainGaugeWidget: Widget {
     }
 }
 
+struct PaceForgeWeekWidget: Widget {
+    var body: some WidgetConfiguration {
+        StaticConfiguration(kind: PFWidgetKind.week, provider: PFProvider()) { entry in
+            PFWeekWidgetFace(summary: entry.summary, stale: entry.stale)
+                .widgetURL(URL(string: "noop://paceforge/week"))
+                .containerBackground(StrandPalette.surfaceBase, for: .widget)
+        }
+        .configurationDisplayName("PaceForge week")
+        .description("Your planned and done sessions this week, and the week's load against its target.")
+        .supportedFamilies([.systemMedium])
+    }
+}
+
+struct PaceForgeSleepHrvWidget: Widget {
+    var body: some WidgetConfiguration {
+        StaticConfiguration(kind: PFWidgetKind.sleepHrv, provider: PFProvider()) { entry in
+            PFSleepHrvWidgetFace(summary: entry.summary, stale: entry.stale)
+                .widgetURL(paceForgeURL)
+                .containerBackground(StrandPalette.surfaceBase, for: .widget)
+        }
+        .configurationDisplayName("PaceForge sleep and HRV")
+        .description("Seven nights of sleep and your HRV against its baseline.")
+        .supportedFamilies([.systemMedium])
+    }
+}
+
+private struct PFLoadEntryView: View {
+    @Environment(\.widgetFamily) private var family
+    let entry: PFEntry
+
+    var body: some View {
+        PFLoadWidgetFace(summary: entry.summary, stale: entry.stale, family: family)
+    }
+}
+
+struct PaceForgeLoadWidget: Widget {
+    var body: some WidgetConfiguration {
+        StaticConfiguration(kind: PFWidgetKind.load, provider: PFProvider()) { entry in
+            PFLoadEntryView(entry: entry)
+                .widgetURL(URL(string: "noop://paceforge/insights"))
+                .containerBackground(StrandPalette.surfaceBase, for: .widget)
+        }
+        .configurationDisplayName("PaceForge training load")
+        .description("Acute to chronic load ratio against its safe zone. Also on the Lock Screen.")
+        .supportedFamilies([.systemSmall, .accessoryCircular])
+    }
+}
+
+struct PaceForgeBodyWidget: Widget {
+    var body: some WidgetConfiguration {
+        StaticConfiguration(kind: PFWidgetKind.body, provider: PFProvider()) { entry in
+            PFBodyWidgetFace(summary: entry.summary, stale: entry.stale)
+                .widgetURL(URL(string: "noop://paceforge/body"))
+                .containerBackground(StrandPalette.surfaceBase, for: .widget)
+        }
+        .configurationDisplayName("PaceForge body")
+        .description("Your Hume body score, weight and body fat since the last reading.")
+        .supportedFamilies([.systemSmall])
+    }
+}
+
 /// iOS 18 control: sits in Control Center or on the Lock Screen and opens PaceForge > Today.
 @available(iOS 18.0, *)
 struct PaceForgeTodayControl: ControlWidget {

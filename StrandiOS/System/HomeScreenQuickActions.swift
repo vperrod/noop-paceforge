@@ -13,6 +13,19 @@ enum HomeScreenQuickAction: String, CaseIterable {
     case startWorkout = "com.noop.quick-action.start-workout"
     case logJournal = "com.noop.quick-action.log-journal"
     case breathe = "com.noop.quick-action.breathe"
+    case paceForgeToday = "com.noop.quick-action.paceforge-today"
+    case paceForgeWeek = "com.noop.quick-action.paceforge-week"
+    case paceForgeCoach = "com.noop.quick-action.paceforge-coach"
+
+    /// The PaceForge screen an action opens, nil for the others.
+    var paceForgeSegment: PFSegment? {
+        switch self {
+        case .paceForgeToday: .today
+        case .paceForgeWeek: .week
+        case .paceForgeCoach: .coach
+        default: nil
+        }
+    }
 
     init?(shortcutItem: UIApplicationShortcutItem) {
         self.init(rawValue: shortcutItem.type)
@@ -24,6 +37,9 @@ enum HomeScreenQuickAction: String, CaseIterable {
         case .startWorkout: String(localized: "Start workout")
         case .logJournal: String(localized: "Log journal")
         case .breathe: String(localized: "Breathe")
+        case .paceForgeToday: String(localized: "PaceForge Today")
+        case .paceForgeWeek: String(localized: "PaceForge week")
+        case .paceForgeCoach: String(localized: "PaceForge coach")
         }
     }
 
@@ -33,6 +49,9 @@ enum HomeScreenQuickAction: String, CaseIterable {
         case .startWorkout: "figure.run"
         case .logJournal: "square.and.pencil"
         case .breathe: "wind"
+        case .paceForgeToday: "figure.run"
+        case .paceForgeWeek: "calendar"
+        case .paceForgeCoach: "sparkles"
         }
     }
 
@@ -46,9 +65,14 @@ enum HomeScreenQuickAction: String, CaseIterable {
         )
     }
 
+    /// iOS shows at most four. With PaceForge set up its three screens come first, then Live HR; without
+    /// it the menu is the original four.
     @MainActor
     static func install(in application: UIApplication) {
-        application.shortcutItems = allCases.map(\.shortcutItem)
+        let paceForge: [HomeScreenQuickAction] = [.paceForgeToday, .paceForgeWeek, .paceForgeCoach]
+        let original: [HomeScreenQuickAction] = [.liveHeartRate, .startWorkout, .logJournal, .breathe]
+        let ordered = PFAPI.isConfigured && !PFAPI.isFixture ? paceForge + original : original
+        application.shortcutItems = ordered.map(\.shortcutItem)
     }
 }
 

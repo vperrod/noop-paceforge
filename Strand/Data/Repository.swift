@@ -3506,7 +3506,18 @@ final class Repository: ObservableObject {
     /// minutes later — so a detected bout reads its own strap here too rather than the day union.
     func workoutHeartRateRecovery(from: Int, to: Int, maxHR: Double,
                                   source: String = "") async -> HeartRateRecovery.Result? {
-        guard to > from, maxHR > 0 else { return nil }
+        if case .measured(let result) = await workoutHeartRateRecoveryOutcome(
+            from: from, to: to, maxHR: maxHR, source: source) {
+            return result
+        }
+        return nil
+    }
+
+    /// `workoutHeartRateRecovery` with the reason attached when there is no figure, for the detail card.
+    func workoutHeartRateRecoveryOutcome(from: Int, to: Int, maxHR: Double,
+                                         source: String = "") async -> HeartRateRecovery.Outcome {
+        guard maxHR > 0 else { return .unavailable(.missingMaxHR) }
+        guard to > from else { return .unavailable(.invalidWorkout) }
         let readFrom = max(from, to - HeartRateRecovery.eligibilityLookbackSeconds)
         // The Garmin branch accepts readings within 30 seconds of each recovery point. The store
         // query must cover that same upper edge or it silently drops a valid late five-minute sample.
@@ -3518,11 +3529,14 @@ final class Repository: ObservableObject {
         let samples = await hrSamples(deviceIds: ids, from: readFrom, to: readTo, limit: 2_000)
         // Garmin's post-workout stream is sampled sparsely. Keep the same sustained-intensity and
         // cessation checks, but accept one nearest measurement within 30 seconds for each recovery point.
-        return HeartRateRecovery.calculate(samples: samples, workoutStart: from, workoutEnd: to,
-                                           maxHR: maxHR,
-                                           minimumSamplesPerReading: isPaceForge ? 1 : HeartRateRecovery.minimumSamplesPerReading,
-                                           measurementToleranceSeconds: measurementTolerance,
-                                           minimumCessationSamples: isPaceForge ? 1 : HeartRateRecovery.minimumSamplesPerReading)
+        // A watch that records every 5 to 30 s never has two readings within the strap's 10 s of each other,
+        // so the strap's continuity gap would make every Garmin workout "not hard enough".
+        return HeartRateRecovery.evaluate(samples: samples, workoutStart: from, workoutEnd: to,
+                                          maxHR: maxHR,
+                                          minimumSamplesPerReading: isPaceForge ? 1 : HeartRateRecovery.minimumSamplesPerReading,
+                                          measurementToleranceSeconds: measurementTolerance,
+                                          minimumCessationSamples: isPaceForge ? 1 : HeartRateRecovery.minimumSamplesPerReading,
+                                          maximumContinuousGapSeconds: isPaceForge ? 30 : HeartRateRecovery.maximumContinuousGapSeconds)
     }
 
     /// Apple Health daily aggregates (steps/energy/vo2/hr).

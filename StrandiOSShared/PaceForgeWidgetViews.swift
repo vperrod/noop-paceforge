@@ -89,12 +89,20 @@ private struct PFSessionRow: View {
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(StrandPalette.textPrimary)
                     .lineLimit(1)
-                let line = [session.detail, session.target].compactMap { $0 }.joined(separator: " \u{00B7} ")
-                if !line.isEmpty {
-                    Text(line)
+                // Distance and time on one line and the pace target on the next: joined, a target such
+                // as "4:10-4:20/km" was the part cut off in a medium widget.
+                if let detail = session.detail {
+                    Text(detail)
                         .font(.system(size: 12))
                         .foregroundStyle(StrandPalette.textSecondary)
                         .lineLimit(1)
+                }
+                if let target = session.target {
+                    Text(target)
+                        .font(.system(size: 12))
+                        .foregroundStyle(StrandPalette.textSecondary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
                 }
                 if showMainSet, let main = session.mainSet {
                     Text(main)
@@ -186,7 +194,7 @@ struct PFTodayWidgetFace: View {
     }
 
     private func large(_ s: PFSummary) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 14) {
             VStack(alignment: .leading, spacing: 3) {
                 Text("PACEFORGE \u{00B7} " + PFWidgetFormat.dayLine(s.date).uppercased())
                     .font(.system(size: 10, weight: .semibold))
@@ -200,7 +208,7 @@ struct PFTodayWidgetFace: View {
             }
             HStack {
                 Spacer()
-                rings(s, diameter: 62, lineWidth: 7)
+                rings(s, diameter: 70, lineWidth: 8)
                 Spacer()
             }
             metrics(s)
@@ -214,8 +222,10 @@ struct PFTodayWidgetFace: View {
                     ForEach(Array(s.sessions.prefix(2))) { PFSessionRow(session: $0) }
                 }
             }
-            Spacer(minLength: 0)
+            // The race line follows the sessions directly. A spacer between them pinned it to the bottom
+            // and left an empty band under the workout; any slack sits below it instead.
             PFRaceFooter(summary: s)
+            Spacer(minLength: 0)
         }
     }
 
@@ -328,7 +338,8 @@ struct PFSessionWidgetFace: View {
                 let rec = s.recovery.map { " \u{00B7} Rec \(PFWidgetFormat.whole($0))" } ?? ""
                 if let first = s.sessions.first(where: { !$0.done }) ?? s.sessions.first {
                     let key = first.detail?.components(separatedBy: " \u{00B7} ").first ?? ""
-                    Text(("\(first.name) \(key)").trimmingCharacters(in: .whitespaces) + rec)
+                    let head = key.isEmpty ? first.name : "\(first.name) \u{00B7} \(key)"
+                    Text(head + rec)
                 } else {
                     Text("Rest day" + rec)
                 }

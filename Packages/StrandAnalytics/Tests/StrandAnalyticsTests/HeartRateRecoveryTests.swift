@@ -130,4 +130,54 @@ final class HeartRateRecoveryTests: XCTestCase {
                                                  workoutEnd: end, maxHR: 200)
         XCTAssertEqual(result?.after1Minute, -5)
     }
+
+    // MARK: - Sparse (watch) streams and the reason for "unavailable"
+
+    /// A watch that records every 30 s: five minutes of effort, then readings at 1 and 2 minutes.
+    private func sparseSamples() -> [HRSample] {
+        let effort = stride(from: end - 300, through: end, by: 30).map { HRSample(ts: $0, bpm: $0 >= end - 30 ? 170 : 145) }
+        return effort + [HRSample(ts: end + 60, bpm: 150), HRSample(ts: end + 120, bpm: 135)]
+    }
+
+    func testSparseStreamIsNotHardEnoughUnderTheStrapGap() {
+        XCTAssertEqual(
+            HeartRateRecovery.evaluate(samples: sparseSamples(), workoutStart: end - 300, workoutEnd: end,
+                                       maxHR: 200, minimumSamplesPerReading: 1, minimumCessationSamples: 1),
+            .unavailable(.notHardEnough))
+    }
+
+    func testSparseStreamMeasuresWithAWiderContinuityGap() {
+        let result = HeartRateRecovery.calculate(samples: sparseSamples(), workoutStart: end - 300,
+                                                 workoutEnd: end, maxHR: 200,
+                                                 minimumSamplesPerReading: 1, minimumCessationSamples: 1,
+                                                 maximumContinuousGapSeconds: 30)
+        XCTAssertEqual(result, .init(endHR: 170, after1Minute: 20, after2Minutes: 35, after5Minutes: nil))
+    }
+
+    func testNoReadingsAfterTheEndIsReportedAsSuch() {
+        XCTAssertEqual(
+            HeartRateRecovery.evaluate(samples: denseEligible(), workoutStart: end - 300, workoutEnd: end, maxHR: 200),
+            .unavailable(.noReadingsAfterEnd))
+    }
+
+    func testAGentleWorkoutIsNotHardEnough() {
+        let gentle = (end - 300...end).map { HRSample(ts: $0, bpm: 110) }
+        XCTAssertEqual(
+            HeartRateRecovery.evaluate(samples: gentle + window(minutes: 1, values: [100, 100, 100]),
+                                       workoutStart: end - 300, workoutEnd: end, maxHR: 200),
+            .unavailable(.notHardEnough))
+    }
+
+    func testNoReadingsAtTheEndIsReportedAsSuch() {
+        XCTAssertEqual(
+            HeartRateRecovery.evaluate(samples: window(minutes: 1, values: [140, 140, 140]),
+                                       workoutStart: end - 300, workoutEnd: end, maxHR: 200),
+            .unavailable(.tooFewReadingsAtEnd))
+    }
+
+    func testMissingMaxHeartRateIsReportedAsSuch() {
+        XCTAssertEqual(
+            HeartRateRecovery.evaluate(samples: denseEligible(), workoutStart: end - 300, workoutEnd: end, maxHR: 0),
+            .unavailable(.missingMaxHR))
+    }
 }

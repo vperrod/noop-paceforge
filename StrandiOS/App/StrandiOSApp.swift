@@ -331,7 +331,7 @@ struct StrandiOSApp: App {
                     if url.host == "import-health" {
                         model.handleHealthImportURL(url)
                     } else if url.host == "paceforge" {
-                        PFDeepLink.openToday()
+                        PFDeepLink.open(url: url)
                     }
                 }
                 .alert("Import Apple Health data?", isPresented: healthImportAlertPresented) {

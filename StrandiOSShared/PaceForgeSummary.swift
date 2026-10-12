@@ -34,6 +34,62 @@ public struct PFSummary: Codable, Equatable {
         }
     }
 
+    /// One day of the current week for the week-strip widget.
+    public struct WeekDay: Codable, Equatable, Identifiable {
+        public var date: String
+        /// Single-letter weekday, "M".
+        public var label: String
+        public var planned: Int
+        public var done: Int
+        public var isToday: Bool
+        public var id: String { date }
+
+        public init(date: String, label: String, planned: Int, done: Int, isToday: Bool) {
+            self.date = date; self.label = label; self.planned = planned; self.done = done; self.isToday = isToday
+        }
+    }
+
+    /// One night for the sleep and HRV trend. Either value can be missing.
+    public struct Night: Codable, Equatable, Identifiable {
+        public var date: String
+        public var sleepMinutes: Double?
+        public var hrv: Double?
+        public var id: String { date }
+
+        public init(date: String, sleepMinutes: Double? = nil, hrv: Double? = nil) {
+            self.date = date; self.sleepMinutes = sleepMinutes; self.hrv = hrv
+        }
+    }
+
+    /// The latest Hume reading and its change since the reading before it.
+    public struct BodyReading: Codable, Equatable {
+        public var date: String?
+        public var score: Double?
+        public var band: String?
+        public var weightKg: Double?
+        public var weightDelta: Double?
+        public var fatPct: Double?
+        public var fatPctDelta: Double?
+
+        public init(date: String? = nil, score: Double? = nil, band: String? = nil, weightKg: Double? = nil,
+                    weightDelta: Double? = nil, fatPct: Double? = nil, fatPctDelta: Double? = nil) {
+            self.date = date; self.score = score; self.band = band; self.weightKg = weightKg
+            self.weightDelta = weightDelta; self.fatPct = fatPct; self.fatPctDelta = fatPctDelta
+        }
+    }
+
+    /// Heart-rate recovery of the latest workout that had a measurement, for Siri.
+    public struct HeartRecovery: Codable, Equatable {
+        public var sport: String
+        public var date: String
+        public var after1Minute: Int?
+        public var after2Minutes: Int?
+
+        public init(sport: String, date: String, after1Minute: Int?, after2Minutes: Int?) {
+            self.sport = sport; self.date = date; self.after1Minute = after1Minute; self.after2Minutes = after2Minutes
+        }
+    }
+
     /// When the app wrote this file.
     public var updated: Date
     /// The local day (`yyyy-MM-dd`) the sessions and scores describe.
@@ -56,6 +112,24 @@ public struct PFSummary: Codable, Equatable {
     public var briefHeadline: String?
     public var briefDate: String?
     public var race: Race?
+
+    // Added after the first widgets shipped. Optional on purpose: a file written by an older build has
+    // none of these keys, and the synthesized decoder only tolerates a missing key for an Optional.
+    public var weekDays: [WeekDay]?
+    public var weekDoneMinutes: Double?
+    public var weekTargetMinutes: Double?
+    public var nights: [Night]?
+    public var sleepNeedMinutes: Double?
+    public var hrvBaseline: Double?
+    public var hrvLow: Double?
+    public var hrvHigh: Double?
+    public var ctl: Double?
+    public var atl: Double?
+    public var body: BodyReading?
+    public var heartRecovery: HeartRecovery?
+    /// The next session still to do after today's, and its day.
+    public var nextSession: Session?
+    public var nextSessionDate: String?
 
     public init(updated: Date, date: String) {
         self.updated = updated
@@ -116,7 +190,25 @@ public enum PFWidgetKind {
     public static let race = "PaceForgeRaceWidget"
     public static let recoveryGauge = "PaceForgeRecoveryGaugeWidget"
     public static let strainGauge = "PaceForgeStrainGaugeWidget"
-    public static let all = [today, session, race, recoveryGauge, strainGauge]
+    public static let week = "PaceForgeWeekWidget"
+    public static let sleepHrv = "PaceForgeSleepHrvWidget"
+    public static let load = "PaceForgeLoadWidget"
+    public static let body = "PaceForgeBodyWidget"
+    public static let all = [today, session, race, recoveryGauge, strainGauge, week, sleepHrv, load, body]
+}
+
+/// The acute:chronic workload ratio band that is treated as safe, used by the load widgets.
+public enum PFLoadZone {
+    public static let safeLow = 0.8
+    public static let safeHigh = 1.3
+    /// Top of the ratio scale the widgets draw.
+    public static let scaleMax = 2.0
+
+    public enum State { case low, safe, high }
+
+    public static func state(_ ratio: Double) -> State {
+        ratio < safeLow ? .low : (ratio > safeHigh ? .high : .safe)
+    }
 }
 
 /// Set by the Control Center / lock-screen control; the app opens PaceForge > Today when it next

@@ -22,6 +22,11 @@ enum PFSegment: String, CaseIterable, Identifiable {
 /// fed by the live PaceForge server (cached on the device for offline).
 struct PaceForgeTabView: View {
     @StateObject private var model = PFModel()
+    @ObservedObject private var lock = PFLock.shared
+    @EnvironmentObject private var repo: Repository
+    @EnvironmentObject private var profile: ProfileStore
+    @Environment(\.scenePhase) private var scenePhase
+    @AppStorage(PFPrefs.lockKey) private var lockEnabled = false
 
     @AppStorage("noop.paceforge.segment") private var segmentRaw = PFSegment.today.rawValue
 
@@ -33,6 +38,21 @@ struct PaceForgeTabView: View {
     }
 
     var body: some View {
+        Group {
+            if lockEnabled && !lock.isUnlocked {
+                PFLockedView(lock: lock)
+            } else {
+                content
+            }
+        }
+        // Locks again as soon as the app leaves the foreground (not on `inactive`, which the Face ID
+        // prompt itself causes).
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .background { lock.lock() }
+        }
+    }
+
+    private var content: some View {
         ScreenScaffold(title: "PaceForge", onRefresh: { await model.refresh() }) {
             switch model.phase {
             case .loading:
@@ -66,6 +86,7 @@ struct PaceForgeTabView: View {
         .task {
             await model.refreshIfStale()
             if model.phase == .ready { PaceForgeBackground.requestNotificationPermissionOnce() }
+            await PFHeartRecovery.updateSummary(repo: repo, hrMax: profile.hrMax)
         }
     }
 

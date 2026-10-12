@@ -41,6 +41,9 @@ enum PFBuilder {
                                        debtHours: daily["sleep"]["debt_hours"].double)
         }
         todayBlock.hrv = raw.fitness["load"]["hrv"]["last_night_ms"].double
+        todayBlock.hrvBaselineMs = raw.fitness["load"]["hrv"]["baseline7_ms"].double
+        todayBlock.hrvLowMs = raw.fitness["load"]["hrv"]["normal_range_ms"][0].double
+        todayBlock.hrvHighMs = raw.fitness["load"]["hrv"]["normal_range_ms"][1].double
         todayBlock.restingHr = raw.fitness["load"]["resting_hr_trend"]["latest"].double
         todayBlock.acwr = raw.fitness["load"]["acwr"]["acwr"].double
         todayBlock.brief = dailyBrief(state["daily_brief"])
@@ -59,6 +62,14 @@ enum PFBuilder {
             insights: insights(fitness: raw.fitness, projection: raw.projection, hyrox: raw.hyrox, today: today)
         )
         snapshot.body = body(raw.body)
+        snapshot.sleepNights = raw.fitness["load"]["sleep"]["stages_14d"].array.compactMap { night in
+            guard let date = night["date"].string else { return nil }
+            let deep = night["deep_min"].double ?? 0
+            let rem = night["rem_min"].double ?? 0
+            let light = night["light_min"].double ?? 0
+            let minutes = deep + rem + light
+            return minutes > 0 ? PFSleepNight(date: date, minutes: minutes) : nil
+        }
         for item in raw.activities.array {
             if let activity = activity(item) { snapshot.activities[activity.id] = activity }
         }

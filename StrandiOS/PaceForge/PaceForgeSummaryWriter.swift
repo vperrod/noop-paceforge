@@ -5,11 +5,15 @@ import WidgetKit
 /// read, writes it, and asks WidgetKit to reload the PaceForge widgets.
 enum PFSummaryWriter {
     static func publish(_ snapshot: PFSnapshot) {
-        make(from: snapshot).save()
+        make(from: snapshot, previous: PFSummary.load()).save()
         for kind in PFWidgetKind.all { WidgetCenter.shared.reloadTimelines(ofKind: kind) }
+        Task { @MainActor in await PFReminders.update(for: snapshot) }
     }
 
-    static func make(from s: PFSnapshot, now: Date = Date()) -> PFSummary {
+    /// `previous` is the file this one replaces. The server serves no per-night HRV history, so the
+    /// trend widget keeps the nights it has seen, and a heart-recovery reading the app computed from the
+    /// phone's own workouts is carried over rather than lost on every fetch.
+    static func make(from s: PFSnapshot, previous: PFSummary? = nil, now: Date = Date()) -> PFSummary {
         var out = PFSummary(updated: now, date: s.todayISO)
         let t = s.today
         let sessions = t.sessions.map { w in
@@ -35,10 +39,98 @@ enum PFSummaryWriter {
         out.briefHeadline = t.brief?.headline
         out.briefDate = t.brief?.date
         if let race = t.nextRace { out.race = PFSummary.Race(name: race.name, date: race.date, days: race.daysOut) }
+        out.ctl = s.insights.ctl
+        out.atl = s.insights.atl
+        addWeek(to: &out, from: s)
+        addNights(to: &out, from: s, previous: previous)
+        out.body = bodyReading(s.body)
+        out.heartRecovery = previous?.heartRecovery
+        if let next = nextSession(in: s) {
+            out.nextSession = next.session
+            out.nextSessionDate = next.date
+        }
         return out
     }
 
-    private static func detail(_ w: PFWorkout) -> String? {
+    private static func addWeek(to out: inout PFSummary, from s: PFSnapshot) {
+        guard s.weeks.indices.contains(s.currentWeekIndex) else { return }
+        let week = s.weeks[s.currentWeekIndex]
+        var doneMinutes = 0.0
+        var plannedMinutes = 0.0
+        out.weekDays = week.days.map { day in
+            let planned = day.workouts.filter { $0.status != "optional" }
+            let done = planned.filter { $0.status == "done" || $0.status == "partial" }
+            for w in planned {
+                let isDone = w.status == "done" || w.status == "partial"
+                plannedMinutes += w.durationMin ?? 0
+                if isDone { doneMinutes += w.compliance?.actualMin ?? w.durationMin ?? 0 }
+            }
+            return PFSummary.WeekDay(date: day.date, label: String(day.dow.prefix(1)).uppercased(),
+                                     planned: planned.count, done: done.count, isToday: day.date == s.todayISO)
+        }
+        out.weekDoneMinutes = doneMinutes
+        // The week's own target when the plan states one, else what its sessions add up to.
+        let hours = week.targetHours ?? week.plannedHours
+        out.weekTargetMinutes = hours.map { $0 * 60 } ?? (plannedMinutes > 0 ? plannedMinutes : nil)
+    }
+
+    private static func addNights(to out: inout PFSummary, from s: PFSnapshot, previous: PFSummary?) {
+        let t = s.today
+        var hrvByDate: [String: Double] = [:]
+        for night in previous?.nights ?? [] {
+            if let hrv = night.hrv { hrvByDate[night.date] = hrv }
+        }
+        if let hrv = t.hrv { hrvByDate[s.todayISO] = hrv }
+        let sleepByDate = Dictionary(s.sleepNights.map { ($0.date, $0.minutes) }, uniquingKeysWith: { _, last in last })
+        let oldest = PFFormat.addDays(s.todayISO, -14)
+        let dates = Set(sleepByDate.keys).union(hrvByDate.keys)
+            .filter { $0 <= s.todayISO && $0 > oldest }
+            .sorted()
+            .suffix(7)
+        out.nights = dates.map { PFSummary.Night(date: $0, sleepMinutes: sleepByDate[$0], hrv: hrvByDate[$0]) }
+        out.sleepNeedMinutes = t.sleep?.needText.flatMap(minutes(fromHoursText:))
+        out.hrvBaseline = t.hrvBaselineMs
+        out.hrvLow = t.hrvLowMs
+        out.hrvHigh = t.hrvHighMs
+    }
+
+    /// "8h00" or "7h20" as minutes.
+    private static func minutes(fromHoursText text: String) -> Double? {
+        let parts = text.lowercased().split(separator: "h", omittingEmptySubsequences: false)
+        guard parts.count == 2, let hours = Double(parts[0].trimmingCharacters(in: .whitespaces)) else { return nil }
+        let rest = Double(parts[1].filter(\.isNumber)) ?? 0
+        return hours * 60 + rest
+    }
+
+    private static func bodyReading(_ body: PFBodyDoc?) -> PFSummary.BodyReading? {
+        guard let body else { return nil }
+        let last = body.series.last?.values ?? [:]
+        let before = body.series.dropLast().last?.values ?? [:]
+        func change(_ key: String) -> Double? {
+            guard let a = last[key], let b = before[key] else { return nil }
+            return a - b
+        }
+        return PFSummary.BodyReading(date: body.date, score: body.score, band: body.band,
+                                     weightKg: body.latest["weight_kg"], weightDelta: change("weight_kg"),
+                                     fatPct: body.latest["body_fat_pct"], fatPctDelta: change("body_fat_pct"))
+    }
+
+    /// The first session still to do after today, with its day.
+    private static func nextSession(in s: PFSnapshot) -> (session: PFSummary.Session, date: String)? {
+        let upcoming = s.weeks.flatMap(\.days)
+            .filter { $0.date > s.todayISO }
+            .sorted { $0.date < $1.date }
+        for day in upcoming {
+            if let w = day.workouts.first(where: { $0.status != "optional" && $0.status != "done" && $0.status != "partial" }) {
+                let session = PFSummary.Session(name: w.name ?? "Workout", sport: w.sport ?? w.kind, detail: detail(w),
+                                                target: primaryTarget(w), mainSet: mainSet(w), done: false)
+                return (session, day.date)
+            }
+        }
+        return nil
+    }
+
+    static func detail(_ w: PFWorkout) -> String? {
         var bits: [String] = []
         if let km = w.distanceKm { bits.append("\(PFFormat.oneDecimal(km)) km") }
         if let min = w.durationMin { bits.append("\(Int(min.rounded())) min") }
@@ -58,7 +150,7 @@ enum PFSummaryWriter {
         return nil
     }
 
-    private static func primaryTarget(_ w: PFWorkout) -> String? {
+    static func primaryTarget(_ w: PFWorkout) -> String? {
         workStep(w).flatMap { target($0.step) }
     }
 

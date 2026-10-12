@@ -17,7 +17,11 @@ struct PFSnapshot {
     var analyses: [String: PFAnalysisRow] = [:]
     var trimp: [String: Double] = [:]
     var rpe: [String: Double] = [:]
+    /// Recent nights of sleep (minutes asleep), oldest first, for the sleep and HRV trend widget.
+    var sleepNights: [PFSleepNight] = []
 }
+
+struct PFSleepNight { var date: String; var minutes: Double }
 
 // MARK: Today
 
@@ -29,6 +33,10 @@ struct PFToday {
     var nextRace: PFNextRace?
     var sessions: [PFWorkout] = []
     var hrv: Double?
+    /// The 7-night HRV baseline and the normal band around it, in ms.
+    var hrvBaselineMs: Double?
+    var hrvLowMs: Double?
+    var hrvHighMs: Double?
     var restingHr: Double?
     /// Acute : chronic load ratio.
     var acwr: Double?

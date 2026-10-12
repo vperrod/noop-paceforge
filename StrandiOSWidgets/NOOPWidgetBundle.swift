@@ -20,6 +20,10 @@ struct NOOPWidgetBundle: WidgetBundle {
         PaceForgeRaceWidget()
         PaceForgeRecoveryGaugeWidget()
         PaceForgeStrainGaugeWidget()
+        PaceForgeWeekWidget()
+        PaceForgeSleepHrvWidget()
+        PaceForgeLoadWidget()
+        PaceForgeBodyWidget()
         if #available(iOS 18.0, *) {
             PaceForgeTodayControl()
         }

@@ -9,6 +9,9 @@ struct SelfHostedPushSettingsView: View {
     @AppStorage(SelfHostedPushClient.endpointKey) private var endpoint = ""
     @AppStorage(SelfHostedPushClient.lastSuccessKey) private var lastSuccess = 0.0
     @AppStorage(SelfHostedPushClient.replicaConflictCountKey) private var conflictCount = 0
+    @AppStorage(PFPrefs.morningKey) private var remindMorning = true
+    @AppStorage(PFPrefs.eveningKey) private var remindEvening = true
+    @AppStorage(PFPrefs.lockKey) private var lockPaceForge = false
     @State private var token = ""
     @State private var status = "Off. Nothing syncs until you enable this."
     @State private var busy = false
@@ -86,6 +89,42 @@ struct SelfHostedPushSettingsView: View {
                             .foregroundStyle(StrandPalette.statusWarning)
                     }
                 }
+            }
+            StrandCard(padding: 20) {
+                VStack(alignment: .leading, spacing: 14) {
+                    Text("PaceForge reminders and privacy")
+                        .font(StrandFont.headline)
+                        .foregroundStyle(StrandPalette.textPrimary)
+                    Toggle(isOn: $remindMorning) {
+                        Text("Morning check at 09:00")
+                            .font(StrandFont.subhead)
+                            .foregroundStyle(StrandPalette.textPrimary)
+                    }
+                    .tint(StrandPalette.accent)
+                    Text("Only when today's brief is not in yet or PaceForge has not refreshed.")
+                        .font(StrandFont.caption)
+                        .foregroundStyle(StrandPalette.textTertiary)
+                    Toggle(isOn: $remindEvening) {
+                        Text("Evening preview at 20:00")
+                            .font(StrandFont.subhead)
+                            .foregroundStyle(StrandPalette.textPrimary)
+                    }
+                    .tint(StrandPalette.accent)
+                    Text("Tomorrow's session and its target.")
+                        .font(StrandFont.caption)
+                        .foregroundStyle(StrandPalette.textTertiary)
+                    Toggle(isOn: $lockPaceForge) {
+                        Text("Lock the PaceForge tab with Face ID")
+                            .font(StrandFont.subhead)
+                            .foregroundStyle(StrandPalette.textPrimary)
+                    }
+                    .tint(StrandPalette.accent)
+                    Text("Asks again after the app has been in the background. Widgets and notifications are not covered.")
+                        .font(StrandFont.caption)
+                        .foregroundStyle(StrandPalette.textTertiary)
+                }
+                .onChange(of: remindMorning) { _, _ in PFReminders.removePending() }
+                .onChange(of: remindEvening) { _, _ in PFReminders.removePending() }
             }
             StrandCard(padding: 20) {
                 VStack(alignment: .leading, spacing: 12) {

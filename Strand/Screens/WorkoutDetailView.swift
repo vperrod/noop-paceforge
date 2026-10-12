@@ -56,6 +56,8 @@ struct WorkoutDetailView: View {
     /// #516: computed from the recorded workout-end + post-workout HR window. nil when the workout was
     /// not intense enough or the strap did not record enough post-workout coverage.
     @State private var heartRateRecovery: HeartRateRecovery.Result?
+    /// Why `heartRateRecovery` is nil, so the card can say so instead of guessing.
+    @State private var heartRateRecoveryReason: HeartRateRecovery.Unavailable?
 
     /// The GPS route captured for this session on-device (#524), if any. Decoded from `RouteStore` by the
     /// row's natural key. nil = no route was recorded (honest — the map only shows when points exist).
@@ -138,8 +140,14 @@ struct WorkoutDetailView: View {
                                                     source: row.source)
         }
 
-        let hrr = await repo.workoutHeartRateRecovery(
+        let hrrOutcome = await repo.workoutHeartRateRecoveryOutcome(
             from: row.startTs, to: row.endTs, maxHR: Double(profile.hrMax), source: row.source)
+        var hrr: HeartRateRecovery.Result?
+        var hrrReason: HeartRateRecovery.Unavailable?
+        switch hrrOutcome {
+        case .measured(let result): hrr = result
+        case .unavailable(let reason): hrrReason = reason
+        }
 
         // Steps for an on-foot session (#398), computed at display time over the exact window so it
         // "fills in after sync": prefer the strap's own counter (MG/5.0) once it has offloaded the window,
@@ -165,6 +173,7 @@ struct WorkoutDetailView: View {
             self.zoneMinutes = minutes
             self.zonesFromImport = fromImport
             self.heartRateRecovery = hrr
+            self.heartRateRecoveryReason = hrrReason
             self.steps = stepReadout
             self.loaded = true
         }
@@ -196,12 +205,29 @@ struct WorkoutDetailView: View {
             NoopCard(tint: StrandPalette.metricRose) {
                 VStack(alignment: .leading, spacing: 6) {
                     SectionHeader("Heart Rate Recovery", overline: "After high-intensity effort")
-                    Text("Unavailable: this workout did not meet the sustained-intensity check, or its heart-rate source did not record enough samples around the end of the workout and recovery period.")
+                    Text(heartRateRecoveryUnavailableText)
                         .font(StrandFont.footnote)
                         .foregroundStyle(StrandPalette.textTertiary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
+        }
+    }
+
+    private var heartRateRecoveryUnavailableText: String {
+        switch heartRateRecoveryReason {
+        case .notHardEnough:
+            return String(localized: "Unavailable: this workout was not hard enough. Recovery needs at least 2 minutes at 70% of your max heart rate or more in the last 5 minutes.")
+        case .noReadingsAfterEnd:
+            return String(localized: "Unavailable: no heart-rate readings were recorded after the workout ended, so there is nothing to compare the end of exercise with.")
+        case .tooFewReadingsAtEnd:
+            return String(localized: "Unavailable: too few heart-rate readings in the last 30 seconds of the workout to set the starting heart rate.")
+        case .missingMaxHR:
+            return String(localized: "Unavailable: your max heart rate is not set. Add your date of birth or max heart rate in your profile.")
+        case .invalidWorkout:
+            return String(localized: "Unavailable: this workout has no valid start and end time.")
+        case nil:
+            return String(localized: "Unavailable: not enough heart-rate data around the end of this workout.")
         }
     }
 

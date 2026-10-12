@@ -293,11 +293,17 @@ struct RootTabView: View {
         guard homeScreenQuickActionsEnabled,
               let action = homeScreenQuickActions.pendingAction else { return }
 
+        if let segment = action.paceForgeSegment {
+            homeScreenQuickActions.consume(action)
+            PFDeepLink.open(segment)
+            return
+        }
         let destination: QuickAction = switch action {
         case .liveHeartRate: .live
         case .startWorkout: .workout
         case .logJournal: .journal
         case .breathe: .breathe
+        case .paceForgeToday, .paceForgeWeek, .paceForgeCoach: .live // handled above
         }
         homeScreenQuickActions.consume(action)
         withAnimation(Self.sheetEase) {

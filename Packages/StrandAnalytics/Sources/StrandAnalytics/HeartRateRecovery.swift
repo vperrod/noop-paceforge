@@ -41,29 +41,75 @@ public enum HeartRateRecovery {
     public static let minimumSamplesPerReading = 3
     public static let maximumContinuousGapSeconds = 10
 
+    /// Why a workout has no recovery figure, in the order the checks run.
+    public enum Unavailable: Equatable, Sendable {
+        /// No usable maximum heart rate to measure intensity against.
+        case missingMaxHR
+        /// The workout has no valid start/end window.
+        case invalidWorkout
+        /// Not enough readings at the very end of the workout to set the starting heart rate.
+        case tooFewReadingsAtEnd
+        /// Under `minimumHighIntensitySeconds` at or above 70% of max heart rate near the end.
+        case notHardEnough
+        /// The end heart rate is known but no recovery point (1, 2 or 5 min) has enough readings.
+        case noReadingsAfterEnd
+    }
+
+    public enum Outcome: Equatable, Sendable {
+        case measured(Result)
+        case unavailable(Unavailable)
+    }
+
     public static func calculate(samples: [HRSample], workoutStart: Int, workoutEnd: Int,
                                  maxHR: Double,
                                  minimumSamplesPerReading: Int = HeartRateRecovery.minimumSamplesPerReading,
                                  measurementToleranceSeconds: Int = HeartRateRecovery.measurementToleranceSeconds,
-                                 minimumCessationSamples: Int = HeartRateRecovery.minimumSamplesPerReading) -> Result? {
-        guard workoutStart > 0, workoutEnd > workoutStart, maxHR > 0 else { return nil }
+                                 minimumCessationSamples: Int = HeartRateRecovery.minimumSamplesPerReading,
+                                 maximumContinuousGapSeconds: Int = HeartRateRecovery.maximumContinuousGapSeconds) -> Result? {
+        if case .measured(let result) = evaluate(
+            samples: samples, workoutStart: workoutStart, workoutEnd: workoutEnd, maxHR: maxHR,
+            minimumSamplesPerReading: minimumSamplesPerReading,
+            measurementToleranceSeconds: measurementToleranceSeconds,
+            minimumCessationSamples: minimumCessationSamples,
+            maximumContinuousGapSeconds: maximumContinuousGapSeconds) {
+            return result
+        }
+        return nil
+    }
+
+    /// `calculate` with the reason attached when there is no figure. Same checks, same order.
+    ///
+    /// `maximumContinuousGapSeconds` is the longest hole between readings that still counts as
+    /// continuous effort. The 10 s default suits a 1 Hz strap; a watch that records every 5 to 30 s needs
+    /// a wider one or no run can ever reach `minimumHighIntensitySeconds`.
+    public static func evaluate(samples: [HRSample], workoutStart: Int, workoutEnd: Int,
+                                maxHR: Double,
+                                minimumSamplesPerReading: Int = HeartRateRecovery.minimumSamplesPerReading,
+                                measurementToleranceSeconds: Int = HeartRateRecovery.measurementToleranceSeconds,
+                                minimumCessationSamples: Int = HeartRateRecovery.minimumSamplesPerReading,
+                                maximumContinuousGapSeconds: Int = HeartRateRecovery.maximumContinuousGapSeconds) -> Outcome {
+        guard maxHR > 0 else { return .unavailable(.missingMaxHR) }
+        guard workoutStart > 0, workoutEnd > workoutStart else { return .unavailable(.invalidWorkout) }
         let lowerBound = max(workoutStart, workoutEnd - eligibilityLookbackSeconds)
         let upperBound = workoutEnd + 5 * 60 + max(0, measurementToleranceSeconds)
         let sorted = samples
             .filter { $0.ts >= lowerBound && $0.ts <= upperBound && (30...250).contains($0.bpm) }
             .sorted { lhs, rhs in lhs.ts == rhs.ts ? lhs.bpm < rhs.bpm : lhs.ts < rhs.ts }
-        guard sorted.count >= max(1, minimumSamplesPerReading) else { return nil }
 
         let beforeEnd = sorted.filter { $0.ts <= workoutEnd }
+        guard !beforeEnd.isEmpty else { return .unavailable(.tooFewReadingsAtEnd) }
         let threshold = maxHR * eligibilityFractionOfMaxHR
-        guard sustainedSeconds(atOrAbove: threshold, in: beforeEnd) >= minimumHighIntensitySeconds else {
-            return nil
+        guard sustainedSeconds(atOrAbove: threshold, in: beforeEnd,
+                               maximumGapSeconds: maximumContinuousGapSeconds) >= minimumHighIntensitySeconds else {
+            return .unavailable(.notHardEnough)
         }
 
         let cessation = beforeEnd
             .filter { $0.ts >= workoutEnd - cessationWindowSeconds }
             .map(\.bpm)
-        guard cessation.count >= max(1, minimumCessationSamples), let endHR = cessation.max() else { return nil }
+        guard cessation.count >= max(1, minimumCessationSamples), let endHR = cessation.max() else {
+            return .unavailable(.tooFewReadingsAtEnd)
+        }
 
         func recovery(at minutes: Int) -> Int? {
             let target = workoutEnd + minutes * 60
@@ -80,17 +126,18 @@ public enum HeartRateRecovery {
             after2Minutes: recovery(at: 2),
             after5Minutes: recovery(at: 5)
         )
-        return result.hasMeasurement ? result : nil
+        return result.hasMeasurement ? .measured(result) : .unavailable(.noReadingsAfterEnd)
     }
 
-    private static func sustainedSeconds(atOrAbove threshold: Double, in samples: [HRSample]) -> Int {
+    private static func sustainedSeconds(atOrAbove threshold: Double, in samples: [HRSample],
+                                         maximumGapSeconds: Int) -> Int {
         guard samples.count >= 2 else { return 0 }
         var currentSeconds = 0
         var longestSeconds = 0
         for i in 0..<(samples.count - 1) {
             let gap = samples[i + 1].ts - samples[i].ts
             guard gap > 0 else { continue }
-            guard gap <= maximumContinuousGapSeconds else {
+            guard gap <= maximumGapSeconds else {
                 currentSeconds = 0
                 continue
             }

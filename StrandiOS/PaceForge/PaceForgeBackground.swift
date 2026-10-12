@@ -12,10 +12,18 @@ enum PFDeepLink {
     /// Held until the tab shell exists, so a cold launch from a widget still lands on the right tab.
     static var pending = false
 
-    static func openToday() {
-        UserDefaults.standard.set(PFSegment.today.rawValue, forKey: "noop.paceforge.segment")
+    static func open(_ segment: PFSegment) {
+        UserDefaults.standard.set(segment.rawValue, forKey: "noop.paceforge.segment")
         pending = true
         NotificationCenter.default.post(name: .pfOpenToday, object: nil)
+    }
+
+    static func openToday() { open(.today) }
+
+    /// `noop://paceforge` opens Today; `noop://paceforge/week` (or coach, insights, body) opens that screen.
+    static func open(url: URL) {
+        let name = url.pathComponents.dropFirst().first ?? ""
+        open(PFSegment(rawValue: name) ?? .today)
     }
 
     /// Picks up the request a Control Center control left in the App Group.
