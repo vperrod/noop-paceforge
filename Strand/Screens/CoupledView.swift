@@ -335,6 +335,7 @@ struct CoupledView: View {
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
+                EffortTargetInline()
             }
         }
         .accessibilityElement(children: .combine)
