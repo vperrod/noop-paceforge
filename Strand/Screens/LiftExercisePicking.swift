@@ -14,12 +14,17 @@ enum LiftExerciseVocabulary {
     /// already in the box), most recently used first as the store orders them. Capped — this is a hint,
     /// not a browser.
     static func suggestions(_ vocabulary: [LiftExerciseRow], matching typed: String,
-                            limit: Int = 6) -> [LiftExerciseRow] {
+                            limit: Int = 6, filter: LiftExerciseFilter = LiftExerciseFilter(),
+                            equipmentOf: (String) -> LiftEquipment? = { LiftEquipmentStore.equipment(for: $0) }) -> [LiftExerciseRow] {
+        // The muscle group and equipment filters narrow the list first. With one set, the list is a browser
+        // for that group rather than a hint, so it is allowed to run longer.
+        let pool = filter.apply(vocabulary, primary: { $0.primaryMuscle }, name: { $0.name }, equipmentOf: equipmentOf)
+        let cap = filter.isActive ? max(limit, 12) : limit
         let query = typed.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        guard !query.isEmpty else { return Array(vocabulary.prefix(limit)) }
-        return Array(vocabulary
+        guard !query.isEmpty else { return Array(pool.prefix(cap)) }
+        return Array(pool
             .filter { $0.name.lowercased().contains(query) && $0.name.lowercased() != query }
-            .prefix(limit))
+            .prefix(cap))
     }
 
     /// Remember `name` with its muscles, so it is offered back next time. `upsertLiftExercises` is keyed
@@ -51,6 +56,8 @@ enum LiftExerciseVocabulary {
 /// One remembered exercise as a picker lists it: its name, and the muscles it is known by.
 struct LiftExerciseSuggestionLabel: View {
     let row: LiftExerciseRow
+    /// The equipment tag kept for this exercise, shown beside its muscles.
+    var equipment: LiftEquipment? = nil
 
     var body: some View {
         HStack(spacing: 8) {
@@ -61,7 +68,8 @@ struct LiftExerciseSuggestionLabel: View {
                 Text(row.name)
                     .font(StrandFont.body)
                     .foregroundStyle(StrandPalette.textPrimary)
-                Text(LiftMuscleSummary.line(primary: row.primaryMuscle, secondaries: row.secondaryMuscles))
+                Text(LiftMuscleSummary.line(primary: row.primaryMuscle, secondaries: row.secondaryMuscles)
+                     + (equipment.map { " \u{00B7} " + $0.displayName } ?? ""))
                     .font(StrandFont.caption)
                     .foregroundStyle(StrandPalette.textTertiary)
             }
@@ -159,5 +167,95 @@ struct LiftMusclePicker: View {
     private func select(primary muscle: LiftMuscle) {
         primary = muscle
         secondaries.remove(muscle)
+    }
+}
+
+// MARK: - Filters and the equipment tag
+
+/// Two rows of chips above the "Used before" list: a muscle group (push, pull, legs, trunk) and an equipment.
+/// Tapping the chip that is already chosen clears it.
+struct LiftExerciseFilterBar: View {
+    @Binding var filter: LiftExerciseFilter
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            chips(title: "Muscle group", options: LiftMuscle.Region.allCases.map { ($0.filterName, $0) },
+                  selection: $filter.region, identifier: "lift-filter-region")
+            chips(title: "Equipment", options: LiftEquipment.allCases.map { ($0.displayName, $0) },
+                  selection: $filter.equipment, identifier: "lift-filter-equipment")
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("lift-filter-bar")
+    }
+
+    private func chips<Value: Hashable>(title: String, options: [(String, Value)], selection: Binding<Value?>,
+                                        identifier: String) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(verbatim: title).strandOverline()
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 6) {
+                    ForEach(Array(options.enumerated()), id: \.offset) { _, option in
+                        let on = selection.wrappedValue == option.1
+                        Button {
+                            selection.wrappedValue = on ? nil : option.1
+                        } label: {
+                            Text(verbatim: option.0)
+                                .font(StrandFont.caption)
+                                .foregroundStyle(on ? StrandPalette.effortColor : StrandPalette.textSecondary)
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 6)
+                                .background(
+                                    Capsule(style: .continuous)
+                                        .fill(on ? StrandPalette.effortColor.opacity(0.14) : StrandPalette.surfaceRaised)
+                                )
+                                .contentShape(Capsule())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityAddTraits(on ? [.isSelected] : [])
+                        .accessibilityIdentifier("\(identifier)-\(option.0.lowercased())")
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// The equipment an exercise uses, picked once and remembered with its name. Leaving it unset is allowed.
+struct LiftEquipmentPicker: View {
+    @Binding var equipment: LiftEquipment?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: NoopMetrics.gap) {
+            SectionHeader("Equipment", overline: "Optional")
+            NoopCard {
+                VStack(alignment: .leading, spacing: 10) {
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 96), spacing: 8)], alignment: .leading, spacing: 8) {
+                        ForEach(LiftEquipment.allCases) { item in
+                            let on = equipment == item
+                            Button { equipment = on ? nil : item } label: {
+                                Text(verbatim: item.displayName)
+                                    .font(StrandFont.caption)
+                                    .foregroundStyle(on ? StrandPalette.effortColor : StrandPalette.textSecondary)
+                                    .padding(.horizontal, 10)
+                                    .padding(.vertical, 6)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                            .fill(on ? StrandPalette.effortColor.opacity(0.14) : StrandPalette.surfaceRaised)
+                                    )
+                                    .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityAddTraits(on ? [.isSelected] : [])
+                            .accessibilityIdentifier("lift-equipment-\(item.rawValue)")
+                        }
+                    }
+                    Text(verbatim: "Kept on this iPhone beside the exercise name. The pickers use it to narrow their list.")
+                        .font(StrandFont.footnote)
+                        .foregroundStyle(StrandPalette.textTertiary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+        }
     }
 }

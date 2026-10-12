@@ -26,6 +26,9 @@ struct LiftProgramItemSheet: View {
     @State private var exercise: String = ""
     @State private var primary: LiftMuscle?
     @State private var secondaries: Set<LiftMuscle> = []
+    /// The equipment tag kept beside the exercise name, and the muscle-group / equipment filters on the list.
+    @State private var equipment: LiftEquipment?
+    @State private var filter = LiftExerciseFilter()
 
     @State private var setsText: String = ""
     @State private var repsText: String = ""
@@ -66,7 +69,7 @@ struct LiftProgramItemSheet: View {
     private var canSave: Bool { !trimmedExercise.isEmpty && !maxRpeInvalid }
 
     private var suggestions: [LiftExerciseRow] {
-        LiftExerciseVocabulary.suggestions(vocabulary, matching: exercise)
+        LiftExerciseVocabulary.suggestions(vocabulary, matching: exercise, filter: filter)
     }
 
     var body: some View {
@@ -77,6 +80,7 @@ struct LiftProgramItemSheet: View {
             VStack(alignment: .leading, spacing: NoopMetrics.sectionGap) {
                 exerciseSection
                 LiftMusclePicker(primary: $primary, secondaries: $secondaries)
+                LiftEquipmentPicker(equipment: $equipment)
                 targetsSection
                 noteSection
                 footer
@@ -133,6 +137,7 @@ struct LiftProgramItemSheet: View {
                         .foregroundStyle(StrandPalette.textPrimary)
                         .focused($focused, equals: .exercise)
 
+                    if !vocabulary.isEmpty { LiftExerciseFilterBar(filter: $filter) }
                     if !suggestions.isEmpty {
                         VStack(alignment: .leading, spacing: 8) {
                             Text("Used before").strandOverline()
@@ -141,7 +146,7 @@ struct LiftProgramItemSheet: View {
                                     Button {
                                         adopt(row)
                                     } label: {
-                                        LiftExerciseSuggestionLabel(row: row)
+                                        LiftExerciseSuggestionLabel(row: row, equipment: LiftEquipmentStore.equipment(for: row.name))
                                     }
                                     .buttonStyle(.plain)
 
@@ -286,6 +291,7 @@ struct LiftProgramItemSheet: View {
         exercise = row.name
         primary = row.primaryMuscle
         secondaries = Set(row.secondaryMuscles)
+        equipment = LiftEquipmentStore.equipment(for: row.name)
         focused = nil
     }
 
@@ -311,6 +317,7 @@ struct LiftProgramItemSheet: View {
             primary = known.primaryMuscle
             secondaries = Set(known.secondaryMuscles)
         }
+        if let item { equipment = LiftEquipmentStore.equipment(for: item.exercise) }
     }
 
     private func save() async {
@@ -335,6 +342,7 @@ struct LiftProgramItemSheet: View {
             }
         }
 
+        LiftEquipmentStore.set(equipment, for: name)
         let trimmedNote = note.trimmingCharacters(in: .whitespacesAndNewlines)
         onSave(LiftProgramItemRow(
             id: item?.id ?? UUID().uuidString,
