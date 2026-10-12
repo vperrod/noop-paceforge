@@ -20,9 +20,15 @@ enum PFDeepLink {
 
     static func openToday() { open(.today) }
 
-    /// `noop://paceforge` opens Today; `noop://paceforge/week` (or coach, insights, body) opens that screen.
+    /// `noop://paceforge` opens Today; `noop://paceforge/week` (or coach, insights, body) opens that screen;
+    /// `noop://paceforge/standing` opens Insights with the "Where you stand" scorecard on top.
     static func open(url: URL) {
         let name = url.pathComponents.dropFirst().first ?? ""
+        if name == "standing" {
+            open(.insights)
+            PFStandingLink.open()
+            return
+        }
         open(PFSegment(rawValue: name) ?? .today)
     }
 

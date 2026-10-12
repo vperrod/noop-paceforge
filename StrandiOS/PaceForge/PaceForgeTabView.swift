@@ -29,6 +29,7 @@ struct PaceForgeTabView: View {
     @AppStorage(PFPrefs.lockKey) private var lockEnabled = false
 
     @AppStorage("noop.paceforge.segment") private var segmentRaw = PFSegment.today.rawValue
+    @State private var showStanding = false
 
     private var segment: Binding<PFSegment> {
         Binding(
@@ -83,10 +84,31 @@ struct PaceForgeTabView: View {
             }
         }
         .environmentObject(model)
+        .environment(\.pfOpenStanding, { openStanding() })
+        .sheet(isPresented: $showStanding) { standingSheet }
+        .onReceive(NotificationCenter.default.publisher(for: .pfOpenStanding)) { _ in
+            _ = PFStandingLink.consume()
+            openStanding()
+        }
         .task {
             await model.refreshIfStale()
             if model.phase == .ready { PaceForgeBackground.requestNotificationPermissionOnce() }
+            // A `noop://paceforge/standing` link that arrived before the tab existed.
+            if PFStandingLink.consume() { openStanding() }
             await PFHeartRecovery.updateSummary(repo: repo, hrMax: profile.hrMax)
+        }
+    }
+
+    /// Opens the scorecard when the server serves one; otherwise the request is dropped.
+    private func openStanding() {
+        if model.snapshot?.standing?.hasContent == true { showStanding = true }
+    }
+
+    @ViewBuilder private var standingSheet: some View {
+        if let snapshot = model.snapshot, let standing = snapshot.standing {
+            PFStandingView(standing: standing)
+                .environmentObject(model)
+                .environment(\.pfExplainers, snapshot.explainerMap)
         }
     }
 

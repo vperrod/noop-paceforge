@@ -21,6 +21,7 @@ struct PFTodayView: View {
             if showsScores { scoresCard }
             if let changes = snapshot.whatChanged { PFWhatChangedCard(changes: changes) }
             if let readiness = snapshot.readiness { PFReadinessCard(readiness: readiness) }
+            if let standing = snapshot.standing, standing.hasContent { PFStandingTodayCard(standing: standing) }
             sessionsSection
             if let easy = snapshot.easyMode, easy.isIdle { PFEasyModeHint() }
             // In race week the race-week card above carries the countdown.

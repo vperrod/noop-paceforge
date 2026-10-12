@@ -11,6 +11,7 @@ struct PFInsightsView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
+            if let standing = snapshot.standing, standing.hasContent { PFStandingInsightsCard(standing: standing) }
             chartCard
             warningsCard
             if let impact = snapshot.behaviour { PFBehaviourCard(impact: impact) }
