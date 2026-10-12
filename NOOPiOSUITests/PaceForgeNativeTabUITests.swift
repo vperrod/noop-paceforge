@@ -51,7 +51,13 @@ final class PaceForgeNativeTabUITests: XCTestCase {
             if element.exists && element.isHittable { return true }
             app.swipeUp()
         }
-        return element.exists && element.isHittable
+        if element.exists && element.isHittable { return true }
+        // Keep the accessibility tree so a failure shows what the screen really exposed.
+        let tree = XCTAttachment(string: app.debugDescription)
+        tree.name = "hierarchy after a failed reveal"
+        tree.lifetime = .keepAlways
+        add(tree)
+        return false
     }
 
     func testBottomBarShowsPaceForgeTab() throws {

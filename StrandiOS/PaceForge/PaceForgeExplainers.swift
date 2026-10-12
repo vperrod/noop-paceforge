@@ -223,7 +223,7 @@ struct PFHowScoresWorkCard: View {
                     }
                 }
             }
-            .accessibilityIdentifier("pf-how-scores-work")
+            .pfCardID("pf-how-scores-work")
             .sheet(item: $selected) { PFExplainerSheet(explainer: $0) }
         }
     }

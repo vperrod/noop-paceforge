@@ -24,7 +24,7 @@ struct PFEasyModeCard: View {
                     .accessibilityIdentifier("pf-easy-telegram")
             }
         }
-        .accessibilityIdentifier("pf-easy-card")
+        .pfCardID("pf-easy-card")
     }
 
     // MARK: Active mode

@@ -32,7 +32,7 @@ struct PFSimulationsCard: View {
                 if sims.unmappedCount > 0 { unmappedNote }
             }
         }
-        .accessibilityIdentifier("pf-sims-card")
+        .pfCardID("pf-sims-card")
     }
 
     // MARK: Empty state

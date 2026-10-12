@@ -75,7 +75,7 @@ struct PFFeelCard: View {
                 if feel.days.contains(where: { $0.feel != nil }) { PFFeelStrip(days: feel.days) }
             }
         }
-        .accessibilityIdentifier("pf-feel-card")
+        .pfCardID("pf-feel-card")
     }
 
     private var buttons: some View {
@@ -202,7 +202,7 @@ struct PFWhatChangedCard: View {
                 }
             }
         }
-        .accessibilityIdentifier("pf-changes-card")
+        .pfCardID("pf-changes-card")
     }
 
     private func row(_ metric: PFChangeMetric) -> some View {

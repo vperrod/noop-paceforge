@@ -35,7 +35,7 @@ struct PFMuscleCheckCard: View {
                 }
             }
         }
-        .accessibilityIdentifier("pf-muscle-card")
+        .pfCardID("pf-muscle-card")
     }
 
     // MARK: Flag
@@ -230,7 +230,7 @@ struct PFTapeCard: View {
                     .accessibilityIdentifier("pf-tape-hint")
             }
         }
-        .accessibilityIdentifier("pf-tape-card")
+        .pfCardID("pf-tape-card")
     }
 
     private func row(_ site: PFTape.Site) -> some View {

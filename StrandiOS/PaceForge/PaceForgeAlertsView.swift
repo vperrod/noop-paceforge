@@ -26,7 +26,7 @@ struct PFAlertsCard: View {
                 }
             }
         }
-        .accessibilityIdentifier("pf-alerts-card")
+        .pfCardID("pf-alerts-card")
     }
 }
 
@@ -98,7 +98,7 @@ struct PFReadinessCard: View {
                 if let note = readiness.coachNote { PFParagraph(note) }
             }
         }
-        .accessibilityIdentifier("pf-readiness-card")
+        .pfCardID("pf-readiness-card")
     }
 
     private static func agreementText(_ value: String) -> String {

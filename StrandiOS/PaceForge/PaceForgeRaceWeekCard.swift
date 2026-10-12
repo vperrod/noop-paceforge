@@ -29,7 +29,7 @@ struct PFRaceWeekCard: View {
                 if let recovery = week.recovery, let suggestion = recovery.suggestion { recoveryBlock(recovery, suggestion) }
             }
         }
-        .accessibilityIdentifier("pf-race-week-card")
+        .pfCardID("pf-race-week-card")
         .onChangeCompat(of: week.checklistKey) { key in ticked = PFRaceWeekChecklist.checked(race: key) }
     }
 

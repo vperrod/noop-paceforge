@@ -27,7 +27,7 @@ struct PFBehaviourCard: View {
                 if !impact.insufficient.isEmpty { waiting }
             }
         }
-        .accessibilityIdentifier("pf-behaviour-card")
+        .pfCardID("pf-behaviour-card")
     }
 
     private var footnote: String {

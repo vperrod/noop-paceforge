@@ -395,3 +395,17 @@ struct PFMarkdown: View {
             .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
+
+extension View {
+    /// Names a card for the UI tests without giving the name to the card's children. SwiftUI hands a
+    /// container's accessibility identifier to the controls inside it, which hid every button and strip
+    /// that carries an identifier of its own. The name sits on an empty element behind the card instead,
+    /// and only in debug builds, so the app's accessibility tree is untouched in release.
+    @ViewBuilder func pfCardID(_ id: String) -> some View {
+        #if DEBUG
+        background { Color.clear.accessibilityElement().accessibilityIdentifier(id) }
+        #else
+        self
+        #endif
+    }
+}
