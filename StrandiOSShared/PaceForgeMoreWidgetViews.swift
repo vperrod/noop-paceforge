@@ -486,7 +486,8 @@ struct PFHeartRecoveryWidgetFace: View {
     let summary: PFSummary?
     let family: WidgetFamily
 
-    private var hrr: PFSummary.HRR1? { summary?.hrr1 }
+    /// Only a scored "post" figure is shown; a file from an older build may still hold a "mid" one.
+    private var hrr: PFSummary.HRR1? { summary?.hrr1.flatMap { $0.kind == "post" ? $0 : nil } }
 
     var body: some View {
         if family == .accessoryCircular { circular } else { small }
@@ -518,7 +519,7 @@ struct PFHeartRecoveryWidgetFace: View {
                         .font(.system(size: 12, weight: .semibold))
                         .foregroundStyle(color(band))
                 }
-                Text(h.kind == "mid" ? "Drop in a recovery during" : "Drop in the first minute after")
+                Text("Drop in the first minute after")
                     .font(.system(size: 10))
                     .foregroundStyle(StrandPalette.textTertiary)
                     .lineLimit(1)
@@ -531,7 +532,7 @@ struct PFHeartRecoveryWidgetFace: View {
                 Text("\u{2013}")
                     .font(.system(size: 36, weight: .bold, design: .rounded))
                     .foregroundStyle(StrandPalette.textTertiary)
-                Text("Shows after a session with a heart-rate recovery.")
+                Text("Shows after a session with a measurable heart-rate recovery.")
                     .font(.system(size: 12))
                     .foregroundStyle(StrandPalette.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)

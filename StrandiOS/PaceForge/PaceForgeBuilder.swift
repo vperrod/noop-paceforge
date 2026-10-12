@@ -277,10 +277,22 @@ enum PFBuilder {
         return scalarText(j)
     }
 
+    /// Decodes the new `hrr1` object and the older `{bpm, kind: post|mid, …}` one. An older `mid` is an
+    /// estimated interval rebound. A figure that is missing its `bpm` is only kept when the server says
+    /// why (`not_measurable`, `walking`).
     static func hrr1(_ j: PFJ) -> PFHRR1? {
-        guard let bpm = j["bpm"].int else { return nil }
-        return PFHRR1(bpm: bpm, kind: j["kind"].string ?? "post", peakBpm: j["peak_bpm"].int,
-                      baselineBpm: j["baseline_bpm"].double, delta: j["delta"].double, band: j["band"].text)
+        let bpm = j["bpm"].int
+        var kind = j["kind"].text ?? PFHRR1.post
+        var isEstimated = false
+        if kind == "mid" { kind = PFHRR1.interval; isEstimated = true }
+        if bpm == nil {
+            guard j.exists, j["kind"].text != nil else { return nil }
+            if kind != PFHRR1.walking { kind = PFHRR1.notMeasurable }
+        }
+        return PFHRR1(bpm: bpm, kind: kind, bpm120: j["bpm120"].int, stopBpm: j["stop_bpm"].int,
+                      peakBpm: j["peak_bpm"].int, risingAfterStop: j["rising_after_stop"].bool ?? false,
+                      contextBand: j["context_band"].text, baselineBpm: j["baseline_bpm"].double,
+                      delta: j["delta"].double, band: j["band"].text, isEstimated: isEstimated)
     }
 
     static func bodyProgress(_ b: PFJ) -> PFBodyProgress? {

@@ -342,16 +342,40 @@ struct PFBodyMetric { var label: String; var unit: String; var dp: Int; var good
 
 // MARK: Heart-rate recovery
 
-/// First-minute heart-rate recovery of a session: how far the heart rate fell in the minute after the
-/// effort stopped (`post`), or during a recovery inside the session (`mid`).
+/// First-minute heart-rate recovery of a session. `kind` says what the figure is: `post` (the heart rate
+/// fell after the effort stopped), `interval` (a rebound between intervals, compared with the athlete's
+/// own intervals), `walking` (a walking cool-down, not scored) or `not_measurable` (too few readings).
+/// Older servers sent `post`/`mid` with fewer fields; `mid` decodes as `interval` with `isEstimated`.
 struct PFHRR1 {
-    var bpm: Int
+    /// Beats the heart rate fell in the first minute; nil when it is not measurable.
+    var bpm: Int?
     var kind: String
+    /// Beats fallen by two minutes.
+    var bpm120: Int?
+    /// Heart rate at the moment of stopping, and the highest in the last 30 seconds before it.
+    var stopBpm: Int?
     var peakBpm: Int?
+    /// Heart rate rose after the stop instead of falling.
+    var risingAfterStop = false
+    /// Population context for the one-minute drop: flag, low, typical or strong. Neutral caption only.
+    var contextBand: String?
     var baselineBpm: Double?
     var delta: Double?
-    /// good, normal, watch or flag.
+    /// The athlete's own band: good, normal, watch or flag.
     var band: String?
+    /// The figure came from an older server's `mid` estimate.
+    var isEstimated = false
+
+    static let post = "post"
+    static let interval = "interval"
+    static let walking = "walking"
+    static let notMeasurable = "not_measurable"
+
+    /// The first-minute drop is a real recovery figure only for these kinds.
+    var isScored: Bool { (kind == Self.post || kind == Self.interval) && bpm != nil }
+
+    /// The personal band, and only where it applies: a scored kind with a personal baseline.
+    var personalBand: String? { isScored && baselineBpm != nil ? band : nil }
 }
 
 // MARK: Body progress

@@ -75,7 +75,9 @@ enum PFHeartRecovery {
         for row in rows {
             let outcome = await repo.workoutHeartRateRecoveryOutcome(
                 from: row.startTs, to: row.endTs, maxHR: Double(hrMax), source: row.source)
-            if case .measured(let result) = outcome {
+            // Walking cool-downs and a heart rate that rose after the stop are not scored, so Siri never
+            // quotes them.
+            if case .measured(let result) = outcome, result.isScorable {
                 found = PFSummary.HeartRecovery(
                     sport: WorkoutSource.displaySport(row.sport),
                     date: PFSummary.dayString(Date(timeIntervalSince1970: TimeInterval(row.endTs))),

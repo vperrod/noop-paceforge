@@ -345,7 +345,7 @@ struct WorkoutsView: View {
             if Task.isCancelled { return }
             if let result = await repo.workoutHeartRateRecovery(
                 from: row.startTs, to: row.endTs, maxHR: Double(profile.hrMax),
-                source: row.source) {
+                source: row.source), result.isScorable {
                 built.append(WorkoutRecoveryTrendPoint(startTs: row.startTs, result: result))
             }
         }

@@ -141,7 +141,8 @@ struct WorkoutDetailView: View {
         }
 
         let hrrOutcome = await repo.workoutHeartRateRecoveryOutcome(
-            from: row.startTs, to: row.endTs, maxHR: Double(profile.hrMax), source: row.source)
+            from: row.startTs, to: row.endTs, maxHR: Double(profile.hrMax),
+            maxHRSource: profile.hrMaxOverride > 0 ? .override : .tanaka, source: row.source)
         var hrr: HeartRateRecovery.Result?
         var hrrReason: HeartRateRecovery.Unavailable?
         switch hrrOutcome {
@@ -185,7 +186,7 @@ struct WorkoutDetailView: View {
         if let recovery = heartRateRecovery {
             VStack(alignment: .leading, spacing: NoopMetrics.gap) {
                 SectionHeader("Heart Rate Recovery", overline: "After high-intensity effort",
-                              trailing: String(localized: "Peak \(recovery.endHR) bpm"))
+                              trailing: String(localized: "From \(recovery.endHR) bpm at the stop"))
                 NoopCard(tint: StrandPalette.metricRose) {
                     VStack(alignment: .leading, spacing: 14) {
                         HStack(spacing: 0) {
@@ -194,10 +195,19 @@ struct WorkoutDetailView: View {
                             recoveryStat(String(localized: "5 min"), value: recovery.after5Minutes)
                         }
                         Divider().overlay(StrandPalette.hairline)
-                        Text("The change from your heart rate at the end of exercise. Positive values mean your heart rate fell; a dash means the strap did not record enough data around that minute.")
-                            .font(StrandFont.footnote)
-                            .foregroundStyle(StrandPalette.textTertiary)
-                            .fixedSize(horizontal: false, vertical: true)
+                        if recovery.walking {
+                            recoveryNote(String(localized: "Walking cool-down — not scored. Your heart rate barely fell, so there was no clear stop to measure from."))
+                        }
+                        if recovery.risingAfterStop {
+                            recoveryNote(String(localized: "Heart rate rose after you stopped — not scored."))
+                        }
+                        if let band = recovery.contextBand {
+                            recoveryNote(recoveryContextText(band))
+                        }
+                        recoveryNote(String(localized: "The change from your heart rate at the moment you stopped (the median of the last 10 seconds; the highest in the last 30 seconds was \(recovery.peakHR) bpm). Positive values mean your heart rate fell; a dash means the strap did not record enough data around that minute."))
+                        if let maxHR = recovery.maxHR {
+                            recoveryNote(String(localized: "Intensity gate: 70% of your max heart rate, \(Int(maxHR.rounded())) bpm (\(recoveryMaxHRSourceText(recovery.maxHRSource)))."))
+                        }
                     }
                 }
             }
@@ -214,6 +224,32 @@ struct WorkoutDetailView: View {
         }
     }
 
+    private func recoveryNote(_ text: String) -> some View {
+        Text(text)
+            .font(StrandFont.footnote)
+            .foregroundStyle(StrandPalette.textTertiary)
+            .fixedSize(horizontal: false, vertical: true)
+    }
+
+    /// Neutral population context for the 1-minute drop (Cole 1999). Caption only, never a grade.
+    private func recoveryContextText(_ band: HeartRateRecovery.ContextBand) -> String {
+        switch band {
+        case .flag: return String(localized: "For context: a 1-minute drop of 12 bpm or less is below the usual range.")
+        case .low: return String(localized: "For context: a 1-minute drop of 13 to 18 bpm is on the low side of the usual range.")
+        case .typical: return String(localized: "For context: a 1-minute drop of 19 to 30 bpm is typical.")
+        case .strong: return String(localized: "For context: a 1-minute drop above 30 bpm is strong.")
+        }
+    }
+
+    private func recoveryMaxHRSourceText(_ source: HeartRateRecovery.MaxHRSource?) -> String {
+        switch source {
+        case .override: return String(localized: "your setting")
+        case .tanaka: return String(localized: "age formula")
+        case .measured: return String(localized: "measured")
+        case nil: return String(localized: "profile")
+        }
+    }
+
     private var heartRateRecoveryUnavailableText: String {
         switch heartRateRecoveryReason {
         case .notHardEnough:
@@ -221,7 +257,7 @@ struct WorkoutDetailView: View {
         case .noReadingsAfterEnd:
             return String(localized: "Unavailable: no heart-rate readings were recorded after the workout ended, so there is nothing to compare the end of exercise with.")
         case .tooFewReadingsAtEnd:
-            return String(localized: "Unavailable: too few heart-rate readings in the last 30 seconds of the workout to set the starting heart rate.")
+            return String(localized: "Unavailable: too few heart-rate readings in the last 30 seconds of the workout to set the heart rate at the stop.")
         case .missingMaxHR:
             return String(localized: "Unavailable: your max heart rate is not set. Add your date of birth or max heart rate in your profile.")
         case .invalidWorkout:
@@ -249,7 +285,7 @@ struct WorkoutDetailView: View {
             Text(value.map { "\($0)" } ?? "–")
                 .font(StrandFont.number(24))
                 .foregroundStyle(value.map { $0 >= 0 ? StrandPalette.statusPositive
-                                                     : StrandPalette.statusWarning }
+                                                     : StrandPalette.textPrimary }
                                  ?? StrandPalette.textTertiary)
             Text("bpm")
                 .font(StrandFont.footnote)

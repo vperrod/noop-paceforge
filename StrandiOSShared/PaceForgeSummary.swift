@@ -93,9 +93,9 @@ public struct PFSummary: Codable, Equatable {
     /// First-minute heart-rate recovery of the latest PaceForge session that has one.
     public struct HRR1: Codable, Equatable {
         public var bpm: Int
-        /// "post" (after stopping) or "mid" (a recovery inside the session).
+        /// Only "post" (after stopping) is written; files from older builds may still say "mid".
         public var kind: String
-        /// good, normal, watch or flag.
+        /// The athlete's own band (good, normal, watch or flag), present only with a personal baseline.
         public var band: String?
         public var sessionName: String?
         public var date: String?

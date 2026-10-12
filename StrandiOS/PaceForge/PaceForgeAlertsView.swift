@@ -157,30 +157,45 @@ private struct PFReadinessColumn: View {
 
 // MARK: Heart-rate recovery
 
-/// First-minute heart-rate recovery for a completed session.
+/// First-minute heart-rate recovery for a completed session. The population context band is a neutral
+/// caption; only the athlete's own band (scored kinds with a baseline) gets a coloured pill.
 struct PFHRR1Card: View {
     let hrr: PFHRR1
 
     var body: some View {
         PFCard(title: "Heart rate recovery", icon: "heart.text.square", trailing: {
-            if let band = hrr.band { PFChip(text: PFFormat.capitalized(band), color: Self.color(band)) }
+            if let band = hrr.personalBand { PFChip(text: PFFormat.capitalized(band), color: Self.color(band)) }
         }) {
             VStack(alignment: .leading, spacing: 10) {
-                HStack(alignment: .firstTextBaseline, spacing: 6) {
-                    Text("\(hrr.bpm)")
-                        .font(StrandFont.rounded(34))
-                        .foregroundStyle(StrandPalette.textPrimary)
-                    Text("bpm in the first minute")
-                        .font(StrandFont.caption)
-                        .foregroundStyle(StrandPalette.textTertiary)
+                if hrr.isScored, let bpm = hrr.bpm {
+                    HStack(alignment: .firstTextBaseline, spacing: 6) {
+                        Text("\(bpm)")
+                            .font(StrandFont.rounded(34))
+                            .foregroundStyle(StrandPalette.textPrimary)
+                        Text("bpm in the first minute")
+                            .font(StrandFont.caption)
+                            .foregroundStyle(StrandPalette.textTertiary)
+                    }
                 }
                 PFParagraph(explainer)
+                if hrr.risingAfterStop {
+                    PFParagraph("Heart rate rose after you stopped.")
+                }
                 HStack(alignment: .top, spacing: 18) {
+                    if let stop = hrr.stopBpm { PFFigure(value: "\(stop)", unit: "bpm", label: "At the stop") }
                     if let peak = hrr.peakBpm { PFFigure(value: "\(peak)", unit: "bpm", label: "Peak") }
-                    if let base = hrr.baselineBpm { PFFigure(value: PFFormat.trimmed(base), unit: "bpm", label: "Your usual") }
-                    if let delta = hrr.delta {
+                    if hrr.isScored, let two = hrr.bpm120 { PFFigure(value: "\(two)", unit: "bpm", label: "By 2 min") }
+                    if hrr.isScored, let base = hrr.baselineBpm { PFFigure(value: PFFormat.trimmed(base), unit: "bpm", label: "Your usual") }
+                    if hrr.isScored, hrr.baselineBpm != nil, let delta = hrr.delta {
                         PFFigure(value: (delta > 0 ? "+" : "") + PFFormat.oneDecimal(delta), unit: "bpm", label: "Versus usual")
                     }
+                }
+                if let context = contextCaption {
+                    Text(context)
+                        .font(StrandFont.footnote)
+                        .foregroundStyle(StrandPalette.textTertiary)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .accessibilityIdentifier("pf-hrr1-context")
                 }
             }
         }
@@ -188,9 +203,28 @@ struct PFHRR1Card: View {
     }
 
     private var explainer: String {
-        hrr.kind == "mid"
-            ? "Measured during a recovery inside the session, not after stopping, so it reads lower than a full stop would."
-            : "How far your heart rate fell in the first minute after you stopped. A bigger drop is better."
+        switch hrr.kind {
+        case PFHRR1.interval:
+            return "Interval rebound \u{2014} compared with your own intervals." + (hrr.isEstimated ? " Estimated." : "")
+        case PFHRR1.walking:
+            return "Walking cool-down \u{2014} not scored."
+        case PFHRR1.notMeasurable:
+            return "Not enough readings after the end."
+        default:
+            return "How far your heart rate fell in the first minute after you stopped."
+        }
+    }
+
+    /// Population context for a one-minute drop after stopping; never a grade, so it is never coloured.
+    private var contextCaption: String? {
+        guard hrr.kind == PFHRR1.post, let band = hrr.contextBand else { return nil }
+        switch band {
+        case "flag": return "For context: a drop of 12 bpm or less in the first minute is below the usual range."
+        case "low": return "For context: a drop of 13 to 18 bpm in the first minute is on the low side of the usual range."
+        case "typical": return "For context: a drop of 19 to 30 bpm in the first minute is typical."
+        case "strong": return "For context: a drop above 30 bpm in the first minute is strong."
+        default: return nil
+        }
     }
 
     static func color(_ band: String) -> Color {

@@ -61,13 +61,14 @@ enum PFSummaryWriter {
         return out
     }
 
-    /// The first-minute recovery of the newest session that has one.
+    /// The first-minute recovery of the newest session that has a scored `post` figure. Walking, interval
+    /// and not-measurable results never reach the widget.
     private static func latestHRR1(in s: PFSnapshot) -> PFSummary.HRR1? {
         let newest = s.activities.values
-            .filter { $0.hrr1 != nil }
+            .filter { $0.hrr1?.kind == PFHRR1.post && $0.hrr1?.bpm != nil }
             .max { ($0.startTime ?? "") < ($1.startTime ?? "") }
-        guard let activity = newest, let hrr = activity.hrr1 else { return nil }
-        return PFSummary.HRR1(bpm: hrr.bpm, kind: hrr.kind, band: hrr.band, sessionName: activity.name,
+        guard let activity = newest, let hrr = activity.hrr1, let bpm = hrr.bpm else { return nil }
+        return PFSummary.HRR1(bpm: bpm, kind: hrr.kind, band: hrr.personalBand, sessionName: activity.name,
                               date: activity.startTime.map { String($0.prefix(10)) })
     }
 

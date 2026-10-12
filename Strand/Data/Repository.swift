@@ -3505,9 +3505,10 @@ final class Repository: ObservableObject {
     /// extends PAST the bout, but the strap that recorded it is still the one on the wrist a few
     /// minutes later — so a detected bout reads its own strap here too rather than the day union.
     func workoutHeartRateRecovery(from: Int, to: Int, maxHR: Double,
+                                  maxHRSource: HeartRateRecovery.MaxHRSource? = nil,
                                   source: String = "") async -> HeartRateRecovery.Result? {
         if case .measured(let result) = await workoutHeartRateRecoveryOutcome(
-            from: from, to: to, maxHR: maxHR, source: source) {
+            from: from, to: to, maxHR: maxHR, maxHRSource: maxHRSource, source: source) {
             return result
         }
         return nil
@@ -3515,6 +3516,7 @@ final class Repository: ObservableObject {
 
     /// `workoutHeartRateRecovery` with the reason attached when there is no figure, for the detail card.
     func workoutHeartRateRecoveryOutcome(from: Int, to: Int, maxHR: Double,
+                                         maxHRSource: HeartRateRecovery.MaxHRSource? = nil,
                                          source: String = "") async -> HeartRateRecovery.Outcome {
         guard maxHR > 0 else { return .unavailable(.missingMaxHR) }
         guard to > from else { return .unavailable(.invalidWorkout) }
@@ -3532,7 +3534,7 @@ final class Repository: ObservableObject {
         // A watch that records every 5 to 30 s never has two readings within the strap's 10 s of each other,
         // so the strap's continuity gap would make every Garmin workout "not hard enough".
         return HeartRateRecovery.evaluate(samples: samples, workoutStart: from, workoutEnd: to,
-                                          maxHR: maxHR,
+                                          maxHR: maxHR, maxHRSource: maxHRSource,
                                           minimumSamplesPerReading: isPaceForge ? 1 : HeartRateRecovery.minimumSamplesPerReading,
                                           measurementToleranceSeconds: measurementTolerance,
                                           minimumCessationSamples: isPaceForge ? 1 : HeartRateRecovery.minimumSamplesPerReading,
