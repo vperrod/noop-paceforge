@@ -39,6 +39,11 @@ enum WindDownNudge {
         return min(max(v, 0), 120)
     }
 
+    /// The sleep span the reminder counts back over: the Sleep Planner's goal plus time to fall asleep when
+    /// the user chose to follow the plan (so the reminder lands `leadMinutes` before the planned bedtime),
+    /// else the sleep-need setting above.
+    static var sleepSpanMinutes: Int { SleepPlannerStore.reminderSpanMinutes ?? sleepNeedMinutes }
+
     static var wakeMinutes: Int {
         let v = UserDefaults.standard.object(forKey: K.wake) as? Int ?? 7 * 60   // 07:00
         return min(max(v, 0), 24 * 60 - 1)
@@ -90,7 +95,7 @@ enum WindDownNudge {
     /// The nudge minute-of-day for a given weekday — that day's wake (override or default) minus sleep need
     /// minus lead, wrapped into [0, 1440). Pure; mirrors `nudgeMinuteOfDay()` per-day. (PR#554)
     static func nudgeMinuteOfDay(forWeekday weekday: Int) -> Int {
-        let raw = wakeMinutes(forWeekday: weekday) - sleepNeedMinutes - leadMinutes
+        let raw = wakeMinutes(forWeekday: weekday) - sleepSpanMinutes - leadMinutes
         let day = 24 * 60
         return ((raw % day) + day) % day
     }
@@ -103,7 +108,7 @@ enum WindDownNudge {
     /// `raw` is always in [-780, 1139] given the clamped inputs (wake ≤ 1439, sleepNeed ≥ 300, lead ≤ 120),
     /// so the shift is always 0 or -1 — but the formula is general floor-division for safety.
     static func nudgeDayShift(forWeekday weekday: Int) -> Int {
-        let raw = wakeMinutes(forWeekday: weekday) - sleepNeedMinutes - leadMinutes
+        let raw = wakeMinutes(forWeekday: weekday) - sleepSpanMinutes - leadMinutes
         let day = 24 * 60
         // Floor division (Swift's `/` truncates toward zero, so adjust for negatives).
         return raw < 0 ? -(((-raw - 1) / day) + 1) : raw / day
@@ -182,9 +187,14 @@ enum WindDownNudge {
         if isEnabled { schedule() }
     }
 
+    /// Re-derive the pending reminder, for a caller that changed what it counts back over (the Sleep Planner).
+    static func refreshSchedule() {
+        if isEnabled { schedule() }
+    }
+
     /// The minute-of-day the nudge fires: wake − sleepNeed − lead, wrapped into [0, 1440).
     static func nudgeMinuteOfDay() -> Int {
-        let raw = wakeMinutes - sleepNeedMinutes - leadMinutes
+        let raw = wakeMinutes - sleepSpanMinutes - leadMinutes
         let day = 24 * 60
         return ((raw % day) + day) % day
     }

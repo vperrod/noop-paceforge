@@ -20,6 +20,8 @@ enum TabRoute: Hashable {
     case fullDayChart
     /// My Day: one day's events and 24 h strip (the Today entry card, the `noop://myday` link).
     case myDay
+    /// Sleep Planner: tonight's need, a goal and a bedtime (the Today and Sleep entry cards).
+    case sleepPlanner
     /// One metric's detail page by `MetricCatalog` key — the same tap-through Today's cards and
     /// Trends' small-multiples share. Each card opens ITS metric (2026-07-02: not the shared
     /// Health screen).
@@ -48,6 +50,7 @@ extension View {
             switch route {
             case .fullDayChart: FullDayChartView()
             case .myDay: MyDayView()
+            case .sleepPlanner: SleepPlannerView()
             case .metric(let key):
                 // Every caller passes a catalog key, so the fallback is theoretical; Health is the
                 // catch-all vitals surface. (Pre-#198 Trends fell back to the Explorer instead —

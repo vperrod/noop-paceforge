@@ -370,7 +370,7 @@ struct LiquidTodayView: View {
                         case .hero:
                             heroCard
                             if chargeLegacyRRGap { ChargeLegacyRRGapNote() }
-                            if selectedDayOffset == 0 { MyDayEntryCard(); EffortTargetCard() }
+                            if selectedDayOffset == 0 { MyDayEntryCard(); EffortTargetCard(); SleepPlannerEntryCard() }
                         case .liveSession: if liveSessionsBeta { liveSessionStartRow }
                         case .synthesis: synthesisSection
                         case .keyMetrics: keyMetricsSection
