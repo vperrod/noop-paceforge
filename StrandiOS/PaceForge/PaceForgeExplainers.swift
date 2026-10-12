@@ -52,6 +52,13 @@ enum PFExplainerID {
     static let bodyNoiseBand = "body_noise_band"
     static let bodyEstimates = "body_estimates"
     static let hrrContextBand = "hrr1_context_band"
+    // Wave 3 cards: the server's entry wins; PFLocalExplainers has short text for each until it has one.
+    static let raceWeek = PFLocalExplainers.raceWeek
+    static let raceSims = PFLocalExplainers.raceSims
+    static let easyMode = PFLocalExplainers.easyMode
+    static let muscleCheck = PFLocalExplainers.muscleCheck
+    static let tape = PFLocalExplainers.tape
+    static let heat = PFLocalExplainers.heat
 
     /// The "what changed" row ids -> explainer ids.
     static func forChange(_ metricId: String) -> String? {
@@ -99,7 +106,7 @@ struct PFInfoButton: View {
     @State private var isShowing = false
 
     var body: some View {
-        if let explainer = explainers[id] {
+        if let explainer = explainers[id] ?? PFLocalExplainers.fallback[id] {
             Button { isShowing = true } label: {
                 Image(systemName: "info.circle")
                     .font(.system(size: 15, weight: .regular))

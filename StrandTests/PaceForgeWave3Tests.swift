@@ -290,3 +290,16 @@ final class PaceForgeWave3Tests: XCTestCase {
         XCTAssertNil(PFStamp.parse("2030-03-13"))
     }
 }
+
+/// The bundled text behind the (i) buttons of the wave-3 cards.
+final class PaceForgeLocalExplainerTests: XCTestCase {
+    func testEveryWave3CardHasABundledExplainer() {
+        let ids = [PFLocalExplainers.raceWeek, PFLocalExplainers.raceSims, PFLocalExplainers.easyMode,
+                   PFLocalExplainers.muscleCheck, PFLocalExplainers.tape, PFLocalExplainers.heat]
+        XCTAssertEqual(ids.filter { PFLocalExplainers.fallback[$0]?.plain != nil }.count, ids.count)
+    }
+
+    func testTheExplainerIdsAreDistinct() {
+        XCTAssertEqual(PFLocalExplainers.fallback.count, 6)
+    }
+}
