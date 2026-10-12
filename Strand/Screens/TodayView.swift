@@ -1945,7 +1945,7 @@ struct TodayView: View {
         switch section {
         case .hero:
             classicHeroSection
-            if selectedDayOffset == 0 { MyDayEntryCard(); EffortTargetCard(); SleepPlannerEntryCard() }
+            if selectedDayOffset == 0 { MyDayEntryCard(); EffortTargetCard(); SleepPlannerEntryCard(); WeeklyGoalsCard() }
         case .liveSession:
             if liveSessionsBeta { liveSessionStartSection }
         case .synthesis:
