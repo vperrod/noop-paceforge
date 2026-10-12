@@ -94,6 +94,7 @@ struct PFTodaySoFarCard: View {
                 .accessibilityIdentifier("pf-open-myday")
             }
         }
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("pf-sofar-card")
     }
 

@@ -26,7 +26,6 @@ struct MyDayView: View {
 
     @State private var dayStart: Date
     @State private var loaded: DayTimelineLoader.Loaded?
-    @State private var isLoading = true
     @State private var scrubDate: Date?
     @State private var highlightedId: String?
     @State private var sheet: Sheet?
@@ -76,8 +75,8 @@ struct MyDayView: View {
                     }
                 }
                 .onChangeCompat(of: scrubDate) { newValue in
-                    guard let timeline, let newValue,
-                          let target = Self.event(at: newValue, in: timeline) else { return }
+                    guard let current = timeline, let newValue,
+                          let target = Self.event(at: newValue, in: current) else { return }
                     guard target.id != highlightedId else { return }
                     highlightedId = target.id
                     withAnimation(StrandMotion.interactive) { proxy.scrollTo(target.id, anchor: .center) }
@@ -98,7 +97,6 @@ struct MyDayView: View {
         #if DEBUG
         if let fixture = MyDayFixture.loaded() {
             loaded = fixture
-            isLoading = false
             return
         }
         #endif
@@ -106,7 +104,6 @@ struct MyDayView: View {
                                                   options: DayTimelineLoader.Options(includeStress: showStress))
         guard !Task.isCancelled else { return }
         loaded = result
-        isLoading = false
         // The widget reads the same day, so a fresh load of today refreshes its file.
         if isToday { MyDayWidgetBridge.publish(result.timeline) }
     }
@@ -151,7 +148,6 @@ struct MyDayView: View {
         withAnimation(StrandMotion.interactive) {
             dayStart = next
             loaded = nil
-            isLoading = true
             scrubDate = nil
             highlightedId = nil
         }
@@ -220,13 +216,26 @@ struct MyDayView: View {
         return parts.joined(separator: " \u{00B7} ")
     }
 
-    /// The event a time falls inside, else the timed event that started most recently before it.
+    /// The event a time falls inside, else the timed event that started most recently before it. When several
+    /// contain it, the most specific wins: a workout over the walking stretch it sits inside.
     static func event(at date: Date, in timeline: DayTimeline) -> DayTimeline.Event? {
+        func rank(_ kind: DayTimeline.Kind) -> Int {
+            switch kind {
+            case .workout: return 0
+            case .sleep, .nap: return 1
+            case .detected: return 2
+            case .planned: return 3
+            case .noData: return 4
+            case .stepsBurst: return 6
+            default: return 5
+            }
+        }
         let timed = timeline.events.filter { !$0.isUntimed }
-        if let inside = timed.first(where: { e in
+        let inside = timed.filter { e in
             guard let end = e.end else { return false }
             return e.start <= date && date <= end
-        }) { return inside }
+        }
+        if let best = inside.min(by: { rank($0.kind) < rank($1.kind) }) { return best }
         return timed.filter { $0.start <= date }.max(by: { $0.start < $1.start })
     }
 
@@ -267,6 +276,7 @@ struct MyDayView: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("myday-empty")
     }
 
@@ -292,6 +302,7 @@ struct MyDayView: View {
                     }
                 }
             }
+            .accessibilityElement(children: .contain)
             .accessibilityIdentifier("myday-list")
         }
     }
