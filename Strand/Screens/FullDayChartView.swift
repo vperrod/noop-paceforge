@@ -63,6 +63,10 @@ struct FullDayChartView: View {
     // window itself), keeping the zoom/pan re-read path untouched.
     @State private var sleepSpan: OverviewHRChart.SleepSpan? = nil
     @State private var workoutSpans: [OverviewHRChart.WorkoutSpan] = []
+    /// Daytime naps (the day's sleep blocks outside its main-night group), shaded lighter than the night.
+    /// Shown by default; the "Show naps" toggle hides them for a reader who wants the night alone.
+    @State private var napSpans: [OverviewHRChart.SleepSpan] = []
+    @AppStorage("noop.fullDay.showNaps") private var showNaps = true
     /// The visible window the chart's gestures mutate. nil → full day (the chart falls back to `dayBounds`).
     @State private var zoomDomain: ClosedRange<Date>? = nil
     @State private var loading = true
@@ -88,6 +92,7 @@ struct FullDayChartView: View {
             metricPills
             dayNav
             sourcePill
+            napToggle
             chartCard
             zoomHint
         }
@@ -154,6 +159,17 @@ struct FullDayChartView: View {
                 .fixedSize()
         }
         .padding(.horizontal, NoopMetrics.space1)
+    }
+
+    private var napToggle: some View {
+        Toggle(isOn: $showNaps) {
+            Text("Show naps")
+                .font(StrandFont.footnote)
+                .foregroundStyle(StrandPalette.textSecondary)
+        }
+        .tint(StrandPalette.accent)
+        .padding(.horizontal, NoopMetrics.space1)
+        .accessibilityIdentifier("fullday-show-naps")
     }
 
     /// Day stepper — move the whole timeline back/forward a day so a user can reach the days that actually
@@ -251,6 +267,7 @@ struct FullDayChartView: View {
             // against skin temp or HRV just as it does against HR); the glyph anchors at the shown
             // metric's peak inside the workout window, and the chart clamps both into the zoom window.
             sleep: sleepSpan,
+            naps: showNaps ? napSpans : [],
             workouts: workoutSpans,
             gradient: gradientFor(metric),
             valueRange: valueRange(displayPoints),
@@ -394,7 +411,8 @@ struct FullDayChartView: View {
     private func reloadAnnotations() async {
         let daysBack = max(0, Int(Date().timeIntervalSince(dayStart) / 86_400)) + 2
 
-        let sleepCandidates: [OverviewHRChart.SleepSpan] = await repo.allSleepSessions(days: daysBack)
+        let sessions = await repo.allSleepSessions(days: daysBack)
+        let sleepCandidates: [OverviewHRChart.SleepSpan] = sessions
             .map { s in
                 .init(start: Date(timeIntervalSince1970: TimeInterval(s.effectiveStartTs)),
                       end: Date(timeIntervalSince1970: TimeInterval(s.endTs)),
@@ -406,9 +424,22 @@ struct FullDayChartView: View {
                       end: Date(timeIntervalSince1970: TimeInterval(w.endTs)),
                       symbol: sportSymbol(w.sport))
             }
+        // Naps are the blocks outside each wake day's main-night group, the Sleep tab's own split (My Day
+        // uses the same helper). A block that IS the day's banded sleep is never drawn twice.
+        let habitual = await DayTimelineLoader.habitualMidsleep(repo)
+        let napKeys = DayTimelineLoader.napStarts(sessions, habitual: habitual, calendar: .current)
+        let napCandidates: [OverviewHRChart.SleepSpan] = sessions.filter { napKeys.contains($0.startTs) }
+            .map { s in
+                .init(start: Date(timeIntervalSince1970: TimeInterval(s.effectiveStartTs)),
+                      end: Date(timeIntervalSince1970: TimeInterval(s.endTs)))
+            }
         guard !Task.isCancelled else { return }
         // The pure, headless-tested selection (StrandDesignTests) — window = the shown DAY, not the zoom.
         sleepSpan = OverviewHRChart.mainSleep(sleepCandidates, overlapping: dayBounds)
+        napSpans = napCandidates.filter { nap in
+            nap.end > dayBounds.lowerBound && nap.start < dayBounds.upperBound
+                && !(nap.start == sleepSpan?.start && nap.end == sleepSpan?.end)
+        }
         workoutSpans = OverviewHRChart.workouts(workoutCandidates, overlapping: dayBounds)
     }
 

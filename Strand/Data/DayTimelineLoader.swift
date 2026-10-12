@@ -142,7 +142,7 @@ enum DayTimelineLoader {
     /// `habitualMidsleepSec` reads every sleep block, which the Sleep tab pays once per refresh; so do we.
     private static var habitualMemo: (seq: Int, value: Int?)?
 
-    private static func habitualMidsleep(_ repo: Repository) async -> Int? {
+    static func habitualMidsleep(_ repo: Repository) async -> Int? {
         if let memo = habitualMemo, memo.seq == repo.refreshSeq { return memo.value }
         let value = await repo.habitualMidsleepSec()
         habitualMemo = (repo.refreshSeq, value)

@@ -310,6 +310,7 @@ struct StressView: View {
                     // keeps reading `hours`: the totals bar's shares still have to sum to the day.
                     // Only the line and its ruler follow the finer read.
                     DaytimeLoadLine(hours: day.timeline)
+                    StressContextBands(hours: day.timeline)
 
                     // Hour ruler under the line (first / midday / last covered hour).
                     if let lo = day.timeline.first?.hour, let hi = day.timeline.last?.hour {
