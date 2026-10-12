@@ -445,8 +445,8 @@ enum PFRideParse {
         let start = p["start_s"].double ?? p["start"].double ?? p["from"].double
         var end = p["end_s"].double ?? p["end"].double ?? p["to"].double
         if end == nil, let start, let length = p["duration_s"].double ?? p["secs"].double { end = start + length }
-        guard let start, let end, end > start else { return nil }
-        return PFRidePause(start: start, end: end)
+        guard let from = start, let to = end, to > from else { return nil }
+        return PFRidePause(start: from, end: to)
     }
 
     // MARK: day-events.json

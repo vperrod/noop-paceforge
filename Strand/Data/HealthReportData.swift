@@ -145,16 +145,16 @@ enum HealthReportData {
     }
 
     private static func reading(_ kind: HealthReportVitalKind, _ night: HealthReportNight) -> Double? {
-        let value: Double?
+        let raw: Double?
         switch kind {
-        case .hrv: value = night.hrv
-        case .restingHr: value = night.restingHr
-        case .respRate: value = night.respRate
-        case .spo2: value = night.spo2
+        case .hrv: raw = night.hrv
+        case .restingHr: raw = night.restingHr
+        case .respRate: raw = night.respRate
+        case .spo2: raw = night.spo2
         case .skinTemp: return night.skinTempDev
         }
         // A zero or negative figure for these is a missing reading, not a measurement.
-        guard let value, value > 0 else { return nil }
+        guard let value = raw, value > 0 else { return nil }
         return value
     }
 
