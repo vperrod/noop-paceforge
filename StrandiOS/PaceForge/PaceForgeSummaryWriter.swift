@@ -54,6 +54,8 @@ enum PFSummaryWriter {
         out.heartRecovery = previous?.heartRecovery
         out.hrr1 = latestHRR1(in: s)
         out.openAlerts = s.alerts.count
+        out.answerTrain = s.readiness?.answers?.train?.level.word
+        out.answerHard = s.readiness?.answers?.trainHard?.level.word
         if let next = nextSession(in: s) {
             out.nextSession = next.session
             out.nextSessionDate = next.date

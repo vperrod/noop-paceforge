@@ -205,11 +205,25 @@ struct PFTodayWidgetFace: View {
                         .foregroundStyle(StrandPalette.textPrimary)
                         .lineLimit(2)
                 }
-                if let alerts = s.openAlerts, alerts > 0 {
-                    Label(alerts == 1 ? "1 open alert" : "\(alerts) open alerts",
-                          systemImage: "exclamationmark.triangle.fill")
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(StrandPalette.statusWarning)
+                // One line holds both so the card keeps its height: the answers, then the alert count.
+                if s.answersLine != nil || (s.openAlerts ?? 0) > 0 {
+                    HStack(spacing: 8) {
+                        if let line = s.answersLine {
+                            Text(line)
+                                .font(.system(size: 11, weight: .semibold))
+                                .foregroundStyle(StrandPalette.textSecondary)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.8)
+                        }
+                        Spacer(minLength: 0)
+                        if let alerts = s.openAlerts, alerts > 0 {
+                            Label(alerts == 1 ? "1 open alert" : "\(alerts) open alerts",
+                                  systemImage: "exclamationmark.triangle.fill")
+                                .font(.system(size: 11, weight: .semibold))
+                                .foregroundStyle(StrandPalette.statusWarning)
+                                .lineLimit(1)
+                        }
+                    }
                 }
             }
             HStack {

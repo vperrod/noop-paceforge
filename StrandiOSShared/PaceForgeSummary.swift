@@ -148,10 +148,21 @@ public struct PFSummary: Codable, Equatable {
     public var hrr1: HRR1?
     /// How many PaceForge alerts are open.
     public var openAlerts: Int?
+    /// The two plain answers, as the words the app shows: "yes", "careful" or "not today".
+    public var answerTrain: String?
+    public var answerHard: String?
 
     public init(updated: Date, date: String) {
         self.updated = updated
         self.date = date
+    }
+
+    /// "Train: yes · Hard: careful", or nil when the server gave no answers.
+    public var answersLine: String? {
+        var parts: [String] = []
+        if let answerTrain { parts.append("Train: " + answerTrain) }
+        if let answerHard { parts.append("Hard: " + answerHard) }
+        return parts.isEmpty ? nil : parts.joined(separator: " \u{00B7} ")
     }
 
     public static let fileName = "paceforge-summary.json"
@@ -303,6 +314,8 @@ extension PFSummary {
             out.hrr1 = HRR1(bpm: 24, kind: "post", band: "good", sessionName: "Example intervals", date: date)
         }
         out.openAlerts = out.openAlerts ?? 2
+        out.answerTrain = out.answerTrain ?? "yes"
+        out.answerHard = out.answerHard ?? "careful"
         return out
     }
 }

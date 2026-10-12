@@ -53,15 +53,28 @@ enum PFReminders {
             center.removePendingNotificationRequests(withIdentifiers: [morningId])
             return
         }
-        // The slot is today and today's brief is already here and complete: nothing to say.
+        // The slot is today and today's brief is already here and complete: nothing to say about the brief,
+        // so the reminder only asks the one question still open, how he feels.
         if PFFormat.isoString(fire) == s.todayISO, let brief = s.today.brief,
            brief.date == s.todayISO, !brief.partial {
-            center.removePendingNotificationRequests(withIdentifiers: [morningId])
+            if feelIsUnanswered(s) {
+                await schedule(id: morningId, at: fire, title: "Good morning",
+                               body: "Tell me how you feel. One tap, 1 to 5, on PaceForge Today.", center: center)
+            } else {
+                center.removePendingNotificationRequests(withIdentifiers: [morningId])
+            }
             return
         }
         await schedule(id: morningId, at: fire, title: "PaceForge needs a look",
                        body: "Today's brief is not in yet or still waiting on data, or PaceForge has not refreshed. Open NOOP to update.",
                        center: center)
+    }
+
+    /// Today's check-in is open: the server serves the feel summary and it has no answer for today yet.
+    /// A server without the file never gets the question.
+    private static func feelIsUnanswered(_ s: PFSnapshot) -> Bool {
+        guard let feel = s.feel else { return false }
+        return !(feel.answered && (feel.date ?? s.todayISO) == s.todayISO)
     }
 
     private static func planEvening(_ s: PFSnapshot, now: Date, center: UNUserNotificationCenter) async {
