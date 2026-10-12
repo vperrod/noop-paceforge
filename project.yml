@@ -186,6 +186,8 @@ targets:
       - StrandiOS/PaceForge/PaceForgeWave3.swift
       - StrandiOS/PaceForge/PaceForgeLocalExplainers.swift
       - StrandiOS/PaceForge/PaceForgeDayMerge.swift
+      # "Where you stand": standing.json parsing, band bars, the summary strip and the Telegram phrase.
+      - StrandiOS/PaceForge/PaceForgeStanding.swift
     # Same wrapper as the app target, so the OURA_CLOUD_IMPORT-gated Oura tests compile exactly
     # when the app's Oura lane does (flag + creds both come from the untracked OuraSecrets.xcconfig).
     configFiles:

@@ -10,6 +10,9 @@ enum PFLocalExplainers {
     static let muscleCheck = "muscle_check"
     static let tape = "tape"
     static let heat = "heat"
+    static let standing = "standing"
+    static let standingBands = "standing_bands"
+    static let ride = "ride_metrics"
 
     static let fallback: [String: PFExplainer] = Dictionary(uniqueKeysWithValues: all.map { ($0.id, $0) })
 
@@ -39,6 +42,21 @@ enum PFLocalExplainers {
             plain: "Your logged tape measurements by site, with the change over 28 days where there are enough readings.",
             how: "You log measurements in Telegram. Waist-to-hip is the waist divided by the hips on the same day.",
             caveat: "Tape measurements vary with how the tape is held, so a small change is not a trend."),
+        PFExplainer(
+            id: standing, title: "Where you stand",
+            plain: "Your measured numbers, one by one, placed on a five-band scale against published norms for your age and sex.",
+            how: "Your PaceForge server places each number in a band and sends the norms, the source and a plan for the areas to work on. Nothing here is calculated on the phone. Strongest and focus are the server's own picks.",
+            caveat: "A band is a place on a scale, not a grade. A number marked low confidence rests on a weaker norm or on few readings. Not rated means there is no norm for it yet."),
+        PFExplainer(
+            id: standingBands, title: "The five bands",
+            plain: "Poor, Average, Good, Very good and Elite are the five places a number can sit against its norm.",
+            how: "Each row of the table is the range of values that falls in that band. The row marked you is where your number sits.",
+            caveat: "Norms come from the sources named under each metric and differ by age and sex."),
+        PFExplainer(
+            id: ride, title: "Ride metrics",
+            plain: "The numbers behind a bike ride: power, heart rate and how they relate over the session.",
+            how: "Normalized power, intensity factor, TSS, variability index, efficiency factor and decoupling are worked out by your PaceForge server from the ride's power and heart rate. The chart is drawn from the ride's stream; a 240-point ride is a sample of the session rather than every second.",
+            caveat: "Decoupling is shown only when the ride was steady enough for it to mean something; otherwise it is marked not valid."),
         PFExplainer(
             id: heat, title: "Heat on a session",
             plain: "How warm it was for a session and what it cost your pace.",

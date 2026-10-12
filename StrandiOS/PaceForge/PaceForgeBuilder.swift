@@ -23,6 +23,7 @@ struct PFRawBundle {
     var easyMode = PFJ(nil)
     var muscle = PFJ(nil)
     var tape = PFJ(nil)
+    var standing = PFJ(nil)
 }
 
 /// Derives the screens' view models from the server's JSON, the way the PaceForge web app derives
@@ -90,6 +91,7 @@ enum PFBuilder {
         snapshot.easyMode = PFWave3Parse.easyMode(raw.easyMode, stateMode: activeMode)
         snapshot.muscle = PFWave3Parse.muscleCheck(raw.muscle)
         snapshot.tape = PFWave3Parse.tape(raw.tape)
+        snapshot.standing = PFStandingParse.standing(raw.standing)
         snapshot.serverHidesBody = PFWave3Parse.hidesBodyOnLockScreen(state)
         snapshot.sleepNights = raw.fitness["load"]["sleep"]["stages_14d"].array.compactMap { night in
             guard let date = night["date"].string else { return nil }

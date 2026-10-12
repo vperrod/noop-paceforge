@@ -58,6 +58,8 @@ enum PFExplainerID {
     static let easyMode = PFLocalExplainers.easyMode
     static let muscleCheck = PFLocalExplainers.muscleCheck
     static let tape = PFLocalExplainers.tape
+    static let standing = PFLocalExplainers.standing
+    static let standingBands = PFLocalExplainers.standingBands
     static let heat = PFLocalExplainers.heat
 
     /// The "what changed" row ids -> explainer ids.

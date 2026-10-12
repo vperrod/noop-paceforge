@@ -36,6 +36,8 @@ struct PFSnapshot {
     var easyMode: PFEasyMode?
     var muscle: PFMuscleCheck?
     var tape: PFTape?
+    /// `standing.json` ("Where you stand"); nil when the server does not serve it.
+    var standing: PFStanding?
     /// `state.settings.privacy.hide_body_on_lock_screen` as the server sent it; nil when it sent nothing.
     var serverHidesBody: Bool?
 

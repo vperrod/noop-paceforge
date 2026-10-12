@@ -47,6 +47,8 @@ enum PFAPI {
         ("-PaceForgeEasyPending", "data/easy-mode.json", "data/easy-mode.pending.json"),
         ("-PaceForgeEasyIdle", "data/easy-mode.json", "data/easy-mode.idle.json"),
         ("-PaceForgeMuscleCalibrating", "data/muscle-check.json", "data/muscle-check.calibrating.json"),
+        // "Where you stand" with sex and age missing: the not-applicable state.
+        ("-PaceForgeStandingNotApplicable", "data/standing.json", "data/standing.na.json"),
     ]
     #endif
 
@@ -139,6 +141,7 @@ enum PFAPI {
         async let easyMode = fetchOptional("data/easy-mode.json")
         async let muscle = fetchOptional("data/muscle-check.json")
         async let tape = fetchOptional("data/tape.json")
+        async let standing = fetchOptional("data/standing.json")
         // Not part of the bundle's view models: fetched so My Day finds it saved on the phone (PFStore).
         async let workoutMatches = fetchOptional("data/workout-matches.json")
         async let state = fetch("api/state")
@@ -165,6 +168,7 @@ enum PFAPI {
         raw.easyMode = PFJ(data: await easyMode)
         raw.muscle = PFJ(data: await muscle)
         raw.tape = PFJ(data: await tape)
+        raw.standing = PFJ(data: await standing)
         _ = await workoutMatches
         return raw
     }
@@ -223,6 +227,7 @@ enum PFStore {
         raw.easyMode = PFJ(data: read(path: "data/easy-mode.json"))
         raw.muscle = PFJ(data: read(path: "data/muscle-check.json"))
         raw.tape = PFJ(data: read(path: "data/tape.json"))
+        raw.standing = PFJ(data: read(path: "data/standing.json"))
         return raw
     }
 }
