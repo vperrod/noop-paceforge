@@ -228,15 +228,28 @@ final class PaceForgeWave3Tests: XCTestCase {
     // MARK: Privacy
 
     func testTheServerDefaultAppliesWhenThereIsNoOverride() {
-        XCTAssertFalse(PFPrivacy.hidesBody(server: false, override: nil))
+        XCTAssertFalse(PFPrivacy.hidesBody(server: false, choice: nil))
     }
 
     func testTheOverrideBeatsTheServer() {
-        XCTAssertTrue(PFPrivacy.hidesBody(server: false, override: true))
+        XCTAssertTrue(PFPrivacy.hidesBody(server: false, choice: true))
     }
 
     func testBodyIsHiddenWhenNeitherSaysAnything() {
-        XCTAssertTrue(PFPrivacy.hidesBody(server: nil, override: nil))
+        XCTAssertTrue(PFPrivacy.hidesBody(server: nil, choice: nil))
+    }
+
+    func testTheSavedChoiceIsAbsentUntilTheSwitchIsFlipped() {
+        let defaults = UserDefaults(suiteName: "pf-wave3-privacy")!
+        defaults.removePersistentDomain(forName: "pf-wave3-privacy")
+        XCTAssertNil(PFPrivacy.savedOverride(in: defaults))
+    }
+
+    func testTheSavedChoiceIsReadBack() {
+        let defaults = UserDefaults(suiteName: "pf-wave3-privacy-set")!
+        defaults.removePersistentDomain(forName: "pf-wave3-privacy-set")
+        defaults.set(false, forKey: PFPrivacy.overrideKey)
+        XCTAssertEqual(PFPrivacy.savedOverride(in: defaults), false)
     }
 
     func testPrivacyIsReadFromTheStatesSettings() {

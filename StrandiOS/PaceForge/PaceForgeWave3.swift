@@ -465,7 +465,7 @@ struct PFSegmentalMeta: Equatable {
 
 enum PFPrivacy {
     /// The athlete's own choice in More \u{203A} PaceForge, else the server's, else hidden: the safe default.
-    static func hidesBody(server: Bool?, override: Bool?) -> Bool { override ?? server ?? true }
+    static func hidesBody(server: Bool?, choice: Bool?) -> Bool { choice ?? server ?? true }
 
     /// The override lives in UserDefaults and is absent until the athlete flips the switch.
     static func savedOverride(in defaults: UserDefaults = .standard) -> Bool? {

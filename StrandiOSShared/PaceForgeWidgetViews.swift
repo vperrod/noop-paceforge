@@ -120,7 +120,24 @@ private struct PFRaceFooter: View {
     let summary: PFSummary
 
     var body: some View {
-        if let race = summary.race {
+        if let week = summary.raceWeek {
+            // In race week the countdown is replaced by the week's own line.
+            HStack(spacing: 6) {
+                Image(systemName: "flag.checkered")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(StrandPalette.accent)
+                Text("Race week")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(StrandPalette.textPrimary)
+                    .lineLimit(1)
+                Spacer(minLength: 4)
+                Text(week.line)
+                    .font(.system(size: 12, weight: .bold, design: .rounded))
+                    .foregroundStyle(StrandPalette.accent)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
+            }
+        } else if let race = summary.race {
             HStack(spacing: 6) {
                 Image(systemName: "flag.checkered")
                     .font(.system(size: 12, weight: .semibold))

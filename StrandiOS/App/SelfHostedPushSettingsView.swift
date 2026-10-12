@@ -132,6 +132,7 @@ struct SelfHostedPushSettingsView: View {
                     Text("Asks again after the app has been in the background. Widgets and notifications are not covered.")
                         .font(StrandFont.caption)
                         .foregroundStyle(StrandPalette.textTertiary)
+                    PFBodyPrivacyToggle()
                 }
                 .onChange(of: remindMorning) { _, _ in PFReminders.removePending() }
                 .onChange(of: remindEvening) { _, _ in PFReminders.removePending() }

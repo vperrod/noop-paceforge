@@ -417,7 +417,9 @@ struct PFBodyWidgetFace: View {
     let stale: Bool
 
     var body: some View {
-        if let s = summary, !stale {
+        if let s = summary, !stale, s.hideBody == true {
+            hidden
+        } else if let s = summary, !stale {
             VStack(alignment: .leading, spacing: 5) {
                 PFWidgetOverline(text: "BODY")
                 if let b = s.body, b.score != nil || b.weightKg != nil {
@@ -455,6 +457,25 @@ struct PFBodyWidgetFace: View {
         } else {
             PFWidgetStale()
         }
+    }
+
+    /// The Lock Screen and StandBy show widgets without unlocking, so the body figures stay out of them
+    /// while the privacy setting says to hide them.
+    private var hidden: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            PFWidgetOverline(text: "BODY")
+            Spacer(minLength: 0)
+            Image(systemName: "lock.fill")
+                .font(.system(size: 22))
+                .foregroundStyle(StrandPalette.textTertiary)
+            Text("Hidden \u{2014} open NOOP")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(StrandPalette.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 0)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityElement(children: .combine)
     }
 
     private func row(_ label: String, _ value: String?, _ delta: String?) -> some View {

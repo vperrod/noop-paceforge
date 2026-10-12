@@ -17,6 +17,15 @@ enum PFSummaryWriter {
         }
     }
 
+    /// Applies a changed privacy choice to the saved summary at once, so the body widget follows without
+    /// waiting for the next fetch.
+    static func applyPrivacy() {
+        guard var summary = PFSummary.load() else { return }
+        summary.hideBody = PFPrivacy.hidesBody(server: summary.serverHidesBody, choice: PFPrivacy.savedOverride())
+        summary.save()
+        WidgetCenter.shared.reloadTimelines(ofKind: PFWidgetKind.body)
+    }
+
     /// `previous` is the file this one replaces. The server serves no per-night HRV history, so the
     /// trend widget keeps the nights it has seen, and a heart-recovery reading the app computed from the
     /// phone's own workouts is carried over rather than lost on every fetch.
@@ -56,6 +65,9 @@ enum PFSummaryWriter {
         out.openAlerts = s.alerts.count
         out.answerTrain = s.readiness?.answers?.train?.level.word
         out.answerHard = s.readiness?.answers?.trainHard?.level.word
+        if let week = s.raceWeek { out.raceWeek = PFSummary.RaceWeek(title: week.event.name, line: week.summaryLine) }
+        out.serverHidesBody = s.serverHidesBody
+        out.hideBody = PFPrivacy.hidesBody(server: s.serverHidesBody, choice: PFPrivacy.savedOverride())
         if let next = nextSession(in: s) {
             out.nextSession = next.session
             out.nextSessionDate = next.date

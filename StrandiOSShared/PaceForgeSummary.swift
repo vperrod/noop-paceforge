@@ -105,6 +105,17 @@ public struct PFSummary: Codable, Equatable {
         }
     }
 
+    /// The race-week line the large Today widget shows in place of the plain race countdown.
+    public struct RaceWeek: Codable, Equatable {
+        public var title: String
+        /// "Taper \u{00B7} 5 days to go \u{00B7} volume 60 %", composed by the app.
+        public var line: String
+
+        public init(title: String, line: String) {
+            self.title = title; self.line = line
+        }
+    }
+
     /// When the app wrote this file.
     public var updated: Date
     /// The local day (`yyyy-MM-dd`) the sessions and scores describe.
@@ -151,6 +162,13 @@ public struct PFSummary: Codable, Equatable {
     /// The two plain answers, as the words the app shows: "yes", "careful" or "not today".
     public var answerTrain: String?
     public var answerHard: String?
+    /// Set only while the server reports race week.
+    public var raceWeek: RaceWeek?
+    /// True when body data must not show on the Lock Screen or in StandBy: the athlete's own choice, else the
+    /// server's, else hidden. The body widget then shows "Hidden \u{2014} open NOOP". Nil in a file from an older build.
+    public var hideBody: Bool?
+    /// The server's own value, kept so Settings can say what "use the server's setting" means.
+    public var serverHidesBody: Bool?
 
     public init(updated: Date, date: String) {
         self.updated = updated
