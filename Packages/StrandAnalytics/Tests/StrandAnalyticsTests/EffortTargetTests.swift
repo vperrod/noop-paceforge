@@ -177,4 +177,8 @@ final class EffortTargetTests: XCTestCase {
         XCTAssertEqual(EffortTarget.LoadCalibration.needsDays(1).note, "Needs 1 more day of Effort to read your load")
         XCTAssertEqual(EffortTarget.LoadCalibration.needsDays(4).note, "Needs 4 more days of Effort to read your load")
     }
+
+    func testTheCalibratingNoteNamesHowFarTheBaselineHasFilled() {
+        XCTAssertEqual(EffortTarget.LoadCalibration.calibrating(days: 20, of: 42).note, "Still calibrating: 20 of 42 days")
+    }
 }

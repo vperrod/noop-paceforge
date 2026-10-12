@@ -175,7 +175,7 @@ public enum EffortTarget {
         public var note: String? {
             switch self {
             case .needsDays(let n): return "Needs \(n) more day\(n == 1 ? "" : "s") of Effort to read your load"
-            case .calibrating(let d, let of): return "Still calibrating: \(d) of \(of) days"
+            case .calibrating(let days, let total): return "Still calibrating: \(days) of \(total) days"
             case .established: return nil
             }
         }
