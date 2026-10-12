@@ -653,7 +653,8 @@ enum PFWave3Parse {
     }
 
     private static func easyModeState(_ j: PFJ) -> PFEasyMode.Mode? {
-        guard j.exists, let level = j["level"].int else { return nil }
+        // Level 0 (or none) is how a server says easy mode is off: no mode, not a "Level 0" card.
+        guard j.exists, let level = j["level"].int, level > 0 else { return nil }
         var out = PFEasyMode.Mode(level: level, label: j["label"].text ?? "Level \(level)")
         out.summary = j["summary"].text
         out.started = j["started"].text

@@ -85,8 +85,9 @@ enum PFBuilder {
         snapshot.explainers = PFWave2Parse.explainers(raw.explainers)
         snapshot.raceWeek = PFWave3Parse.raceWeek(raw.raceWeek, brief: state["daily_brief"])
         snapshot.simulations = PFWave3Parse.hyroxSims(analysis: raw.hyroxSimAnalysis, sims: raw.hyroxSims)
-        snapshot.easyMode = PFWave3Parse.easyMode(raw.easyMode,
-                                                  stateMode: state["mode"].exists ? state["mode"] : state["daily_brief"]["mode"])
+        // A mode with level 0 or no level is "off"; it must not shadow the brief's mode.
+        let activeMode: PFJ = [state["mode"], state["daily_brief"]["mode"]].first { ($0["level"].int ?? 0) > 0 } ?? PFJ(nil)
+        snapshot.easyMode = PFWave3Parse.easyMode(raw.easyMode, stateMode: activeMode)
         snapshot.muscle = PFWave3Parse.muscleCheck(raw.muscle)
         snapshot.tape = PFWave3Parse.tape(raw.tape)
         snapshot.serverHidesBody = PFWave3Parse.hidesBodyOnLockScreen(state)
