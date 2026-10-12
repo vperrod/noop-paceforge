@@ -13,15 +13,17 @@ struct PFInsightsView: View {
         VStack(alignment: .leading, spacing: 16) {
             chartCard
             warningsCard
+            if let impact = snapshot.behaviour { PFBehaviourCard(impact: impact) }
             racesSection
             prognosisCard
+            PFHowScoresWorkCard(explainers: snapshot.explainers)
         }
     }
 
     // MARK: Load chart
 
     private var chartCard: some View {
-        PFCard("Fitness, fatigue and form", icon: "chart.xyaxis.line") {
+        PFCard("Fitness, fatigue and form", icon: "chart.xyaxis.line", info: PFExplainerID.load) {
             VStack(alignment: .leading, spacing: 12) {
                 HStack(spacing: 8) {
                     PFFigure(value: String(Int(insights.ctl.rounded())), unit: nil, label: "Fitness (CTL)")
