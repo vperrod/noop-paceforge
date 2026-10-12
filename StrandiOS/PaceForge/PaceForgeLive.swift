@@ -120,6 +120,12 @@ enum PFAPI {
         async let whatChanged = fetchOptional("data/what-changed.json")
         async let explainers = fetchOptional("data/metric-explainers.json")
         async let behaviour = fetchOptional("data/behaviour-impact.json")
+        async let raceWeek = fetchOptional("data/race-week.json")
+        async let hyroxSims = fetchOptional("data/hyrox-sims.json")
+        async let hyroxSimAnalysis = fetchOptional("data/hyrox-sim-analysis.json")
+        async let easyMode = fetchOptional("data/easy-mode.json")
+        async let muscle = fetchOptional("data/muscle-check.json")
+        async let tape = fetchOptional("data/tape.json")
         // Not part of the bundle's view models: fetched so My Day finds it saved on the phone (PFStore).
         async let workoutMatches = fetchOptional("data/workout-matches.json")
         async let state = fetch("api/state")
@@ -140,6 +146,12 @@ enum PFAPI {
         raw.whatChanged = PFJ(data: await whatChanged)
         raw.explainers = PFJ(data: await explainers)
         raw.behaviour = PFJ(data: await behaviour)
+        raw.raceWeek = PFJ(data: await raceWeek)
+        raw.hyroxSims = PFJ(data: await hyroxSims)
+        raw.hyroxSimAnalysis = PFJ(data: await hyroxSimAnalysis)
+        raw.easyMode = PFJ(data: await easyMode)
+        raw.muscle = PFJ(data: await muscle)
+        raw.tape = PFJ(data: await tape)
         _ = await workoutMatches
         return raw
     }
@@ -192,6 +204,12 @@ enum PFStore {
         raw.whatChanged = PFJ(data: read(path: "data/what-changed.json"))
         raw.explainers = PFJ(data: read(path: "data/metric-explainers.json"))
         raw.behaviour = PFJ(data: read(path: "data/behaviour-impact.json"))
+        raw.raceWeek = PFJ(data: read(path: "data/race-week.json"))
+        raw.hyroxSims = PFJ(data: read(path: "data/hyrox-sims.json"))
+        raw.hyroxSimAnalysis = PFJ(data: read(path: "data/hyrox-sim-analysis.json"))
+        raw.easyMode = PFJ(data: read(path: "data/easy-mode.json"))
+        raw.muscle = PFJ(data: read(path: "data/muscle-check.json"))
+        raw.tape = PFJ(data: read(path: "data/tape.json"))
         return raw
     }
 }

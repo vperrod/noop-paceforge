@@ -182,6 +182,8 @@ targets:
       # lenient JSON reader and the Foundation-only parsing, compiled into the test bundle for the same reason.
       - StrandiOS/PaceForge/PaceForgeJSON.swift
       - StrandiOS/PaceForge/PaceForgeWave2.swift
+      # Wave 3 (race week, race simulations, easy mode, muscle check, tape, heat, privacy, intraday, day events).
+      - StrandiOS/PaceForge/PaceForgeWave3.swift
     # Same wrapper as the app target, so the OURA_CLOUD_IMPORT-gated Oura tests compile exactly
     # when the app's Oura lane does (flag + creds both come from the untracked OuraSecrets.xcconfig).
     configFiles:

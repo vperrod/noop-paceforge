@@ -17,6 +17,12 @@ struct PFRawBundle {
     var whatChanged = PFJ(nil)
     var explainers = PFJ(nil)
     var behaviour = PFJ(nil)
+    var raceWeek = PFJ(nil)
+    var hyroxSims = PFJ(nil)
+    var hyroxSimAnalysis = PFJ(nil)
+    var easyMode = PFJ(nil)
+    var muscle = PFJ(nil)
+    var tape = PFJ(nil)
 }
 
 /// Derives the screens' view models from the server's JSON, the way the PaceForge web app derives
@@ -77,6 +83,13 @@ enum PFBuilder {
         snapshot.whatChanged = PFWave2Parse.whatChanged(raw.whatChanged)
         snapshot.behaviour = PFWave2Parse.behaviourImpact(raw.behaviour)
         snapshot.explainers = PFWave2Parse.explainers(raw.explainers)
+        snapshot.raceWeek = PFWave3Parse.raceWeek(raw.raceWeek, brief: state["daily_brief"])
+        snapshot.simulations = PFWave3Parse.hyroxSims(analysis: raw.hyroxSimAnalysis, sims: raw.hyroxSims)
+        snapshot.easyMode = PFWave3Parse.easyMode(raw.easyMode,
+                                                  stateMode: state["mode"].exists ? state["mode"] : state["daily_brief"]["mode"])
+        snapshot.muscle = PFWave3Parse.muscleCheck(raw.muscle)
+        snapshot.tape = PFWave3Parse.tape(raw.tape)
+        snapshot.serverHidesBody = PFWave3Parse.hidesBodyOnLockScreen(state)
         snapshot.sleepNights = raw.fitness["load"]["sleep"]["stages_14d"].array.compactMap { night in
             guard let date = night["date"].string else { return nil }
             let deep = night["deep_min"].double ?? 0
@@ -343,7 +356,8 @@ enum PFBuilder {
         if balance.exists {
             out.balance = PFBalance(armsPct: balance["arms_pct"].double, legsPct: balance["legs_pct"].double,
                                     maxPct: balance["max_pct"].double, flag: balance["flag"].text,
-                                    note: balance["note"].text)
+                                    note: balance["note"].text, estimate: balance["estimate"].bool,
+                                    method: balance["method"].text)
         }
         let visceral = b["visceral"]
         if visceral.exists {
@@ -569,6 +583,7 @@ enum PFBuilder {
             out.metrics[key] = PFBodyMetric(label: value["label"].string ?? key, unit: value["unit"].string ?? "",
                                             dp: value["dp"].int ?? 1, good: value["good"].string ?? "flat")
         }
+        out.segmentalMeta = PFWave3Parse.segmentalMeta(b["latest"]["segmental_meta"])
         return out
     }
 
@@ -594,6 +609,7 @@ enum PFBuilder {
         out.avgPower = a["avg_power"].double
         out.elevationM = a["elevation_gain"].double
         out.hrr1 = hrr1(a["hrr1"])
+        out.heat = PFWave3Parse.heat(a["heat"])
         return out
     }
 

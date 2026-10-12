@@ -30,6 +30,14 @@ struct PFSnapshot {
     var behaviour: PFBehaviourImpact?
     /// Every metric explainer, in the server's order.
     var explainers: [PFExplainer] = []
+    /// Wave 3 files. Each is nil when the server does not serve it; race week is also nil outside race week.
+    var raceWeek: PFRaceWeek?
+    var simulations: PFHyroxSims?
+    var easyMode: PFEasyMode?
+    var muscle: PFMuscleCheck?
+    var tape: PFTape?
+    /// `state.settings.privacy.hide_body_on_lock_screen` as the server sent it; nil when it sent nothing.
+    var serverHidesBody: Bool?
 
     /// The explainer with this id, if the server has one.
     func explainer(_ id: String) -> PFExplainer? { explainers.first { $0.id == id } }
@@ -164,6 +172,7 @@ struct PFActivity {
     var avgPower: Double?
     var elevationM: Double?
     var hrr1: PFHRR1?
+    var heat: PFHeat?
 
     var isRun: Bool { (type ?? "").lowercased().contains("run") }
     var isBike: Bool {
@@ -321,6 +330,8 @@ struct PFBodyDoc {
     var goals: [PFBodyGoal] = []
     var deltas: [String: PFBodyDelta] = [:]
     var metrics: [String: PFBodyMetric] = [:]
+    /// Whether the left/right segment figures are an estimate (nil on a server that does not say).
+    var segmentalMeta: PFSegmentalMeta?
 }
 struct PFBodyRange: Identifiable {
     var key: String; var label: String; var unit: String; var value: Double; var dp: Int
@@ -438,7 +449,12 @@ struct PFFuel {
     var proteinBasis: String?
 }
 struct PFHydration { var waterPct: Double?; var ecwIcwRatio: Double?; var flag: String?; var reason: String?; var ownNormal: String? }
-struct PFBalance { var armsPct: Double?; var legsPct: Double?; var maxPct: Double?; var flag: String?; var note: String? }
+struct PFBalance {
+    var armsPct: Double?; var legsPct: Double?; var maxPct: Double?; var flag: String?; var note: String?
+    /// The left/right split is our estimate rather than a measurement; nil or false shows no label.
+    var estimate: Bool?
+    var method: String?
+}
 struct PFVisceral { var value: Double?; var band: String?; var standardRange: String? }
 struct PFProgressAnalysis { var text: String; var generatedAt: String? }
 
