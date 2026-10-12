@@ -3,9 +3,10 @@ import XCTest
 /// Simulator checks for the native PaceForge tab. There is no server in CI, so the fixture tests launch
 /// with `-PaceForgeFixture` and serve the synthetic PaceForgeFixture.json (made-up values only).
 final class PaceForgeNativeTabUITests: XCTestCase {
-    private func launch(fixture: Bool, widgetGallery: Bool = false) throws -> XCUIApplication {
+    private func launch(fixture: Bool, widgetGallery: Bool = false, extraArguments: [String] = []) throws -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments.append("--demo-seed")
+        app.launchArguments.append(contentsOf: extraArguments)
         if fixture {
             app.launchArguments.append("-PaceForgeFixture")
             if widgetGallery { app.launchArguments.append("-PaceForgeWidgetGallery") }
@@ -36,6 +37,21 @@ final class PaceForgeNativeTabUITests: XCTestCase {
         let segments = app.segmentedControls["pf-segments"]
         XCTAssertTrue(segments.waitForExistence(timeout: 15), "The PaceForge segmented control should load from the fixture.")
         return segments
+    }
+
+    /// Any element with this accessibility identifier, whatever its type.
+    private func element(_ app: XCUIApplication, _ id: String) -> XCUIElement {
+        app.descendants(matching: .any).matching(identifier: id).firstMatch
+    }
+
+    /// Scrolls down until the element can be tapped.
+    @discardableResult
+    private func reveal(_ element: XCUIElement, in app: XCUIApplication, maxSwipes: Int = 10) -> Bool {
+        for _ in 0..<maxSwipes {
+            if element.exists && element.isHittable { return true }
+            app.swipeUp()
+        }
+        return element.exists && element.isHittable
     }
 
     func testBottomBarShowsPaceForgeTab() throws {
@@ -177,5 +193,108 @@ final class PaceForgeNativeTabUITests: XCTestCase {
             app.swipeUp()
             attach(app, "08 Widgets scrolled \(index)")
         }
+    }
+
+    // MARK: Wave 2 (feel, what changed, answers, explainers, behaviour)
+
+    func testFeelCardSavesAnAnswerAndShowsTheSentenceAndStrip() throws {
+        let app = try launch(fixture: true)
+        let segments = try openPaceForge(app)
+        segments.buttons["Today"].tap()
+        let four = app.buttons["pf-feel-4"]
+        XCTAssertTrue(reveal(four, in: app), "The feel card should offer five buttons on Today.")
+        XCTAssertTrue(element(app, "pf-feel-strip").exists, "The 14-day dot strip should be drawn.")
+        attach(app, "12 Feel card before")
+        four.tap()
+        XCTAssertTrue(element(app, "pf-feel-saved").waitForExistence(timeout: 5)
+                      || label(app, "Saved \u{00B7} 4 of 5").waitForExistence(timeout: 5),
+                      "The saved answer should show on the card.")
+        XCTAssertTrue(element(app, "pf-feel-sentence").exists, "The agreement sentence should show.")
+        attach(app, "12 Feel card saved")
+    }
+
+    func testFeelCardSaysSoWhenTheSaveFails() throws {
+        let app = try launch(fixture: true, extraArguments: ["-PaceForgeFeelFails"])
+        let segments = try openPaceForge(app)
+        segments.buttons["Today"].tap()
+        let three = app.buttons["pf-feel-3"]
+        XCTAssertTrue(reveal(three, in: app))
+        three.tap()
+        XCTAssertTrue(element(app, "pf-feel-error").waitForExistence(timeout: 5),
+                      "A failed save should say \"Couldn't save \u{2014} try again\".")
+        attach(app, "12b Feel card save failed")
+    }
+
+    func testWhatChangedCardShowsRowsAndTheCalibrationLine() throws {
+        let app = try launch(fixture: true)
+        let segments = try openPaceForge(app)
+        segments.buttons["Today"].tap()
+        let hrv = app.buttons["pf-change-hrv_7d"]
+        XCTAssertTrue(reveal(hrv, in: app), "The what-changed card should list the HRV row.")
+        XCTAssertTrue(label(app, "Day 12 of 21").exists, "A calibrating metric should show its Day N of M line.")
+        attach(app, "13 What changed")
+        hrv.tap()
+        XCTAssertTrue(label(app, "Usual 36\u{2013}44 (your normal band)").waitForExistence(timeout: 3),
+                      "Tapping a row should open its reason and typical range.")
+        attach(app, "13 What changed row open")
+    }
+
+    func testReadinessShowsTheTwoAnswersAndATrustNote() throws {
+        let app = try launch(fixture: true)
+        let segments = try openPaceForge(app)
+        segments.buttons["Today"].tap()
+        let train = element(app, "pf-answer-train")
+        XCTAssertTrue(reveal(train, in: app), "The readiness card should show 'OK to train'.")
+        XCTAssertTrue(element(app, "pf-answer-hard").exists, "And 'OK to train hard'.")
+        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS[c] %@", "Low confidence: the watch recorded only 52%")).firstMatch.exists,
+                      "A low-confidence source should say why.")
+        attach(app, "14 Readiness answers and trust")
+    }
+
+    func testExplainerSheetOpensFromTheRecoveryRing() throws {
+        let app = try launch(fixture: true)
+        let segments = try openPaceForge(app)
+        segments.buttons["Today"].tap()
+        let info = app.buttons["pf-info-recovery"]
+        XCTAssertTrue(reveal(info, in: app), "The recovery ring should carry an info button.")
+        info.tap()
+        XCTAssertTrue(element(app, "pf-explainer-sheet").waitForExistence(timeout: 5), "The explainer sheet should open.")
+        attach(app, "15 Explainer sheet")
+        app.buttons["pf-explainer-done"].tap()
+    }
+
+    func testExplainerSheetShowsCalibrationProgress() throws {
+        let app = try launch(fixture: true)
+        let segments = try openPaceForge(app)
+        segments.buttons["Insights"].tap()
+        let row = app.buttons["pf-how-hrv_status"]
+        XCTAssertTrue(reveal(row, in: app, maxSwipes: 20), "Insights should list 'How these scores work'.")
+        attach(app, "16 How these scores work")
+        row.tap()
+        XCTAssertTrue(app.progressIndicators["pf-calibration-bar"].waitForExistence(timeout: 5)
+                      || label(app, "Day 12 of 21").exists, "A calibrating metric's sheet should show its progress.")
+        attach(app, "16 Explainer calibration")
+        app.buttons["pf-explainer-done"].tap()
+    }
+
+    func testBehaviourImpactQualifyingState() throws {
+        let app = try launch(fixture: true)
+        let segments = try openPaceForge(app)
+        segments.buttons["Insights"].tap()
+        let card = element(app, "pf-behaviour-card")
+        XCTAssertTrue(reveal(card, in: app, maxSwipes: 6) || card.waitForExistence(timeout: 5),
+                      "Insights should show 'What affects your recovery'.")
+        XCTAssertTrue(element(app, "pf-behaviour-waiting").exists, "Questions still short of days should be listed.")
+        attach(app, "17 Behaviour impact")
+    }
+
+    func testBehaviourImpactInsufficientState() throws {
+        let app = try launch(fixture: true, extraArguments: ["-PaceForgeBehaviourInsufficient"])
+        let segments = try openPaceForge(app)
+        segments.buttons["Insights"].tap()
+        let message = element(app, "pf-behaviour-insufficient")
+        XCTAssertTrue(reveal(message, in: app, maxSwipes: 6) || message.waitForExistence(timeout: 5),
+                      "With no qualifying question the card should say 'Insufficient data yet'.")
+        attach(app, "17b Behaviour impact insufficient")
     }
 }
