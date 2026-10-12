@@ -53,12 +53,13 @@ public struct MyDaySummary: Codable, Equatable {
         return try? decoder.decode(MyDaySummary.self, from: data)
     }
 
-    public func save() {
-        guard let url = Self.fileURL else { return }
+    @discardableResult
+    public func save() -> Bool {
+        guard let url = Self.fileURL else { return false }
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
-        guard let data = try? encoder.encode(self) else { return }
-        try? data.write(to: url, options: .atomic)
+        guard let data = try? encoder.encode(self) else { return false }
+        return (try? data.write(to: url, options: .atomic)) != nil
     }
 
     /// Local `yyyy-MM-dd` for a date.

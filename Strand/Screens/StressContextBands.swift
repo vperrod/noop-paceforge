@@ -59,7 +59,8 @@ struct StressContextBands: View {
         guard let window else { events = []; return }
         let day = Date(timeIntervalSince1970: TimeInterval(window.lo))
         let loaded = await DayTimelineLoader.load(repo: repo, day: day,
-                                                  options: DayTimelineLoader.Options(includeHeartRate: false))
+                                                  options: DayTimelineLoader.Options(includeHeartRate: false,
+                                                                                         includeContext: false))
         guard !Task.isCancelled else { return }
         events = loaded.timeline.events
     }

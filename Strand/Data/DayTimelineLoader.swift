@@ -32,6 +32,8 @@ enum DayTimelineLoader {
         var includeHeartRate = true
         /// The hourly stress curve reads a day of R-R and motion, so it is opt-in.
         var includeStress = false
+        /// Detector suggestions, step buckets and battery. Off for a surface that only wants the events.
+        var includeContext = true
     }
 
     struct Loaded {
@@ -50,7 +52,7 @@ enum DayTimelineLoader {
         let nowTs = Int(now.timeIntervalSince1970)
         let horizon = min(nowTs, endTs)
         let dayKey = Repository.localDayKey(bounds.start)
-        let isToday = nowTs >= startTs && nowTs < endTs
+        let isToday = bounds.start == Repository.logicalDayStart(now, calendar: calendar)
         // The repo reads are relative to now; the +3 pads a night that straddles midnight.
         let daysBack = max(0, Int(now.timeIntervalSince(bounds.start) / 86_400)) + 3
 
@@ -92,7 +94,8 @@ enum DayTimelineLoader {
 
         // Opt-in detector suggestions.
         let saved = rows.map { SavedWorkoutSpan(startSec: $0.startTs, endSec: $0.endTs) }
-        let suggestions = await repo.autoDetectCandidates(from: startTs, to: horizon, savedSpans: saved)
+        let suggestions = options.includeContext
+            ? await repo.autoDetectCandidates(from: startTs, to: horizon, savedSpans: saved) : []
         input.detected = suggestions.map {
             DayTimeline.Input.Detected(startTs: $0.startSec, endTs: $0.endSec, avgBpm: $0.avgBpm, peakBpm: $0.peakBpm)
         }
@@ -120,7 +123,7 @@ enum DayTimelineLoader {
             .filter { $0.day == dayKey }
             .map { DayTimeline.Input.JournalAnswer(label: $0.question, yes: $0.answeredYes) }
 
-        if let store = await repo.storeHandle() {
+        if options.includeContext, let store = await repo.storeHandle() {
             let hours = (try? await store.appleStepHours(deviceId: Repository.appleHealthSource,
                                                          fromTs: startTs, toTs: endTs - 1)) ?? []
             input.steps = hours.map { DayTimeline.Input.StepBucket(ts: $0.ts, seconds: 3600, steps: $0.steps) }
@@ -151,7 +154,7 @@ enum DayTimelineLoader {
 
     /// The `startTs` of every block that is not part of its wake day's main-night group: the naps. The same
     /// split the Sleep tab's Naps card makes, so the two screens cannot disagree about what a nap is.
-    static func napStarts(_ sessions: [CachedSleepSession], habitual: Int?, calendar: Calendar) -> Set<Int> {
+    nonisolated static func napStarts(_ sessions: [CachedSleepSession], habitual: Int?, calendar: Calendar) -> Set<Int> {
         let byWakeDay = Dictionary(grouping: sessions) {
             calendar.startOfDay(for: Date(timeIntervalSince1970: TimeInterval($0.endTs)))
         }

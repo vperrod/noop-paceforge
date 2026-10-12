@@ -47,17 +47,22 @@ struct MyDayView: View {
     }
 
     init(day: Date? = nil) {
-        var start = day ?? Repository.logicalDayStart(Date())
-        #if DEBUG
-        if let fixtureDay = MyDayFixture.dayStart { start = fixtureDay }
-        #endif
-        _dayStart = State(initialValue: start)
+        _dayStart = State(initialValue: Self.initialDayStart(day))
     }
 
     private var unitSystem: UnitSystem { UnitSystem(rawValue: unitSystemRaw) ?? .metric }
     private var distanceSystem: UnitSystem { UnitPrefs.resolveDistance(system: unitSystem, override: distanceSystemRaw) }
     private var timeline: DayTimeline? { loaded?.timeline }
-    private var isToday: Bool { Calendar.current.isDateInToday(dayStart) }
+    /// The logical day (it rolls over at the user's rollover hour, not midnight), the same one the stepper
+    /// and the loader treat as the latest.
+    private var isToday: Bool { dayStart == Repository.logicalDayStart(Date()) }
+
+    private static func initialDayStart(_ day: Date?) -> Date {
+        #if DEBUG
+        if let fixtureDay = MyDayFixture.dayStart { return fixtureDay }
+        #endif
+        return day ?? Repository.logicalDayStart(Date())
+    }
 
     var body: some View {
         ScreenScaffold(title: "My Day", subtitle: "Everything your day recorded, in order.",

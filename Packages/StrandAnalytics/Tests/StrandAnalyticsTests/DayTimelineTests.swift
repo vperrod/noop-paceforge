@@ -330,6 +330,7 @@ final class DayTimelineTests: XCTestCase {
 
     func testAllDayRowsComeFirstThenTimedRowsNewestFirst() {
         var i = input()
+        i.detectsGaps = false
         i.planned = [.init(id: "p1", title: "Intervals")]
         i.sleeps = [.init(startTs: at(0), endTs: at(6), isNap: false)]
         i.workouts = [.init(key: "w", startTs: at(17), endTs: at(18), title: "Run", sources: [.strap])]

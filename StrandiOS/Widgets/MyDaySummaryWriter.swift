@@ -10,20 +10,24 @@ enum MyDaySummaryWriter {
     /// The last full refresh, so the day load (workouts, sleep, journal and the rest) is not repeated on
     /// every widget publish, which fires on each foreground and Health sync.
     private static var lastRefresh: Date?
+    private static var isRefreshing = false
     private static let minimumGap: TimeInterval = 5 * 60
 
     /// Loads today (and yesterday, in the first six hours of a day, so the six-hour line is whole) and
     /// publishes. Called from the widget publish path; throttled.
     static func refresh(repo: Repository, now: Date = Date()) async {
         if let last = lastRefresh, now.timeIntervalSince(last) < minimumGap { return }
-        lastRefresh = now
+        guard !isRefreshing else { return }
+        isRefreshing = true
+        defer { isRefreshing = false }
         let today = await DayTimelineLoader.load(repo: repo, day: now, now: now).timeline
         var earlier: DayTimeline?
         if now.timeIntervalSince(today.dayStart) < TimeInterval(MyDaySummary.windowSec) {
             let before = today.dayStart.addingTimeInterval(-3600)
             earlier = await DayTimelineLoader.load(repo: repo, day: before, now: now).timeline
         }
-        write(make(today: today, earlier: earlier, now: now))
+        // Throttle only after a good write, so a failed one is retried on the next publish.
+        if write(make(today: today, earlier: earlier, now: now)) { lastRefresh = now }
     }
 
     /// Publishes a timeline My Day has just loaded, when it alone covers the six hours.
@@ -87,15 +91,17 @@ enum MyDaySummaryWriter {
 
     // MARK: Write
 
-    private static func write(_ summary: MyDaySummary) {
+    @discardableResult
+    private static func write(_ summary: MyDaySummary) -> Bool {
         // The same content within ten minutes needs no rewrite and no widget reload.
         if let old = MyDaySummary.load(), old.date == summary.date,
            summary.updated.timeIntervalSince(old.updated) < 600 {
             var comparable = summary
             comparable.updated = old.updated
-            if comparable == old { return }
+            if comparable == old { return true }
         }
-        summary.save()
+        guard summary.save() else { return false }
         WidgetCenter.shared.reloadTimelines(ofKind: MyDaySummary.widgetKind)
+        return true
     }
 }
