@@ -93,6 +93,25 @@ enum SelfHostedPushClient {
         return data
     }
 
+    /// The one write the PaceForge screens make: a bearer POST of a small JSON object to `api/feel`
+    /// (today's 1-5 check-in). Same token and no-redirect session as the reads; any non-200 throws.
+    static func paceForgePost(_ path: String, body: [String: Any]) async throws -> Data {
+        let (endpoint, token) = try configuration()
+        var request = URLRequest(url: paceForgeURL(from: endpoint, path: path), timeoutInterval: 20)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        let session = noRedirectSession()
+        defer { session.finishTasksAndInvalidate() }
+        let (data, response) = try await session.data(for: request)
+        guard let http = response as? HTTPURLResponse else { throw Failure.receiver("PaceForge did not answer.") }
+        guard http.statusCode == 200 else { throw Failure.httpStatus(http.statusCode, path: path) }
+        if data.first(where: { !$0.isWhitespaceByte }) == UInt8(ascii: "<") { throw Failure.loginPage }
+        return data
+    }
+
     /// Host of the configured PaceForge endpoint, for error captions; never the token or path.
     static var paceForgeHost: String? { (try? configuration())?.0.host }
 

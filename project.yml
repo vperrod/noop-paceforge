@@ -178,6 +178,10 @@ targets:
       # And the widget cost counters, for the same reason again: pure, iOS-only, and the arithmetic is
       # exactly the part that has been wrong twice on the Android side.
       - StrandiOSShared/WidgetTelemetry.swift
+      # PaceForge's wave-2 documents (feel, what changed, answers, trust, explainers, behaviour): the
+      # lenient JSON reader and the Foundation-only parsing, compiled into the test bundle for the same reason.
+      - StrandiOS/PaceForge/PaceForgeJSON.swift
+      - StrandiOS/PaceForge/PaceForgeWave2.swift
     # Same wrapper as the app target, so the OURA_CLOUD_IMPORT-gated Oura tests compile exactly
     # when the app's Oura lane does (flag + creds both come from the untracked OuraSecrets.xcconfig).
     configFiles:

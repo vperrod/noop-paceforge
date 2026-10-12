@@ -35,11 +35,23 @@ enum PFAPI {
         return PFFormat.isoString(Date())
     }
 
+    /// UI-test switches that swap one fixture file for its alternative, so a screen's second state can be
+    /// captured: `-PaceForgeBehaviourInsufficient` serves a behaviour list with no qualifying question.
+    private static func fixtureKey(_ path: String) -> String {
+        #if DEBUG
+        if path == "data/behaviour-impact.json",
+           ProcessInfo.processInfo.arguments.contains("-PaceForgeBehaviourInsufficient") {
+            return "data/behaviour-impact.insufficient.json"
+        }
+        #endif
+        return path
+    }
+
     static var isConfigured: Bool { isFixture || SelfHostedPushClient.paceForgeIsConfigured }
 
     static func fetch(_ path: String) async throws -> Data {
         if let files = fixture {
-            guard let value = files[path] else { throw CocoaError(.fileNoSuchFile) }
+            guard let value = files[fixtureKey(path)] else { throw CocoaError(.fileNoSuchFile) }
             if let text = value as? String { return Data(text.utf8) }
             return try JSONSerialization.data(withJSONObject: value)
         }
@@ -51,6 +63,18 @@ enum PFAPI {
     /// The server answered, or it did not; a missing optional document just leaves its section out.
     static func fetchOptional(_ path: String) async -> Data? {
         try? await fetch(path)
+    }
+
+    /// The one write the app makes: today's 1-5 "how do you feel" answer. Returns the server's answer body.
+    /// In a UI-test fixture the `api/feel` entry stands in for the server, or the call fails when it has none.
+    static func postFeel(_ value: Int) async throws -> Data {
+        if let files = fixture {
+            // `-PaceForgeFeelFails` makes the save fail, to capture the "couldn't save" message.
+            if ProcessInfo.processInfo.arguments.contains("-PaceForgeFeelFails") { throw URLError(.notConnectedToInternet) }
+            guard let reply = files["api/feel"] else { throw CocoaError(.fileNoSuchFile) }
+            return try JSONSerialization.data(withJSONObject: reply)
+        }
+        return try await SelfHostedPushClient.paceForgePost("api/feel", body: ["feel": value])
     }
 
     /// One line for the error card: the server host and why the request failed. No token, no path.
@@ -92,6 +116,10 @@ enum PFAPI {
         async let bodyProgress = fetchOptional("data/body-progress.json")
         async let alerts = fetchOptional("data/alerts.json")
         async let readiness = fetchOptional("data/readiness-explained.json")
+        async let feelSummary = fetchOptional("data/feel-summary.json")
+        async let whatChanged = fetchOptional("data/what-changed.json")
+        async let explainers = fetchOptional("data/metric-explainers.json")
+        async let behaviour = fetchOptional("data/behaviour-impact.json")
         // Not part of the bundle's view models: fetched so My Day finds it saved on the phone (PFStore).
         async let workoutMatches = fetchOptional("data/workout-matches.json")
         async let state = fetch("api/state")
@@ -108,6 +136,10 @@ enum PFAPI {
         raw.bodyProgress = PFJ(data: await bodyProgress)
         raw.alerts = PFJ(data: await alerts)
         raw.readiness = PFJ(data: await readiness)
+        raw.feelSummary = PFJ(data: await feelSummary)
+        raw.whatChanged = PFJ(data: await whatChanged)
+        raw.explainers = PFJ(data: await explainers)
+        raw.behaviour = PFJ(data: await behaviour)
         _ = await workoutMatches
         return raw
     }
@@ -156,6 +188,10 @@ enum PFStore {
         raw.bodyProgress = PFJ(data: read(path: "data/body-progress.json"))
         raw.alerts = PFJ(data: read(path: "data/alerts.json"))
         raw.readiness = PFJ(data: read(path: "data/readiness-explained.json"))
+        raw.feelSummary = PFJ(data: read(path: "data/feel-summary.json"))
+        raw.whatChanged = PFJ(data: read(path: "data/what-changed.json"))
+        raw.explainers = PFJ(data: read(path: "data/metric-explainers.json"))
+        raw.behaviour = PFJ(data: read(path: "data/behaviour-impact.json"))
         return raw
     }
 }
@@ -247,6 +283,30 @@ final class PFModel: ObservableObject {
             } else {
                 phase = .failed("Can't reach PaceForge")
             }
+        }
+    }
+
+    /// Files today's feel answer. The card shows it at once; on a failure the previous summary comes back
+    /// and this returns false. The server's own summary (with the fresh agreement sentence) replaces the
+    /// optimistic one when it parses.
+    func submitFeel(_ value: Int) async -> Bool {
+        guard (1...5).contains(value), var current = snapshot, let before = current.feel else { return false }
+        current.feel = before.answering(value)
+        snapshot = current
+        do {
+            let data = try await PFAPI.postFeel(value)
+            if let saved = PFWave2Parse.feelSaved(PFJ(data: data)), var latest = snapshot {
+                latest.feel = saved.summary ?? latest.feel?.answering(saved.feel)
+                snapshot = latest
+            }
+            if let latest = snapshot { await PFReminders.update(for: latest) }
+            return true
+        } catch {
+            if var latest = snapshot {
+                latest.feel = before
+                snapshot = latest
+            }
+            return false
         }
     }
 

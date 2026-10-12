@@ -13,6 +13,10 @@ struct PFRawBundle {
     var bodyProgress = PFJ(nil)
     var alerts = PFJ(nil)
     var readiness = PFJ(nil)
+    var feelSummary = PFJ(nil)
+    var whatChanged = PFJ(nil)
+    var explainers = PFJ(nil)
+    var behaviour = PFJ(nil)
 }
 
 /// Derives the screens' view models from the server's JSON, the way the PaceForge web app derives
@@ -30,7 +34,8 @@ enum PFBuilder {
         let daily = raw.fitness["daily"]
         if let score = daily["recovery"]["score"].double {
             todayBlock.recovery = PFRecovery(score: score, band: daily["recovery"]["band"].string,
-                                             confidence: daily["recovery"]["confidence"]["tier"].string)
+                                             confidence: daily["recovery"]["confidence"]["tier"].string,
+                                             trust: PFWave2Parse.trust(daily["recovery"]["trust"]))
         }
         if let value = daily["strain"]["value"].double {
             todayBlock.strain = PFStrain(value: value, targetLow: daily["strain"]["target_low"].double,
@@ -68,6 +73,10 @@ enum PFBuilder {
         snapshot.bodyProgress = bodyProgress(raw.bodyProgress)
         snapshot.alerts = alerts(raw.alerts)
         snapshot.readiness = readiness(raw.readiness)
+        snapshot.feel = PFWave2Parse.feelSummary(raw.feelSummary)
+        snapshot.whatChanged = PFWave2Parse.whatChanged(raw.whatChanged)
+        snapshot.behaviour = PFWave2Parse.behaviourImpact(raw.behaviour)
+        snapshot.explainers = PFWave2Parse.explainers(raw.explainers)
         snapshot.sleepNights = raw.fitness["load"]["sleep"]["stages_14d"].array.compactMap { night in
             guard let date = night["date"].string else { return nil }
             let deep = night["deep_min"].double ?? 0
@@ -254,6 +263,7 @@ enum PFBuilder {
         }
         out.updatedAt = b["updated_at"].text
         out.updateCount = b["update_count"].int ?? 0
+        out.changes = b["changes"].text
         return out
     }
 
@@ -379,11 +389,12 @@ enum PFBuilder {
             return PFReadinessSource(source: name, score: s["score"].double, band: s["band"].text ?? s["level"].text,
                                      drivers: drivers, factors: factors, recoveryTimeH: s["recovery_time_h"].double,
                                      hrv: s["hrv"].double, rhr: s["rhr"].double,
-                                     sleepPerformance: s["sleep_performance"].double)
+                                     sleepPerformance: s["sleep_performance"].double,
+                                     trust: PFWave2Parse.trust(s["trust"]))
         }
         guard !sources.isEmpty else { return nil }
         return PFReadiness(date: j["date"].string, sources: sources, agreement: j["agreement"].text,
-                           coachNote: j["coach_note"].text)
+                           coachNote: j["coach_note"].text, answers: PFWave2Parse.answers(j["answers"]))
     }
 
     private static func nextRace(events: PFJ, today: String) -> PFNextRace? {

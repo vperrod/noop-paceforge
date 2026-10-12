@@ -24,6 +24,15 @@ struct PFSnapshot {
     /// Open alerts only, most urgent first.
     var alerts: [PFAlert] = []
     var readiness: PFReadiness?
+    /// Wave 2 files; each is nil or empty when the server does not serve it.
+    var feel: PFFeelSummary?
+    var whatChanged: PFWhatChanged?
+    var behaviour: PFBehaviourImpact?
+    /// Every metric explainer, in the server's order.
+    var explainers: [PFExplainer] = []
+
+    /// The explainer with this id, if the server has one.
+    func explainer(_ id: String) -> PFExplainer? { explainers.first { $0.id == id } }
 }
 
 struct PFSleepNight { var date: String; var minutes: Double }
@@ -47,7 +56,7 @@ struct PFToday {
     var acwr: Double?
 }
 
-struct PFRecovery { var score: Double; var band: String?; var confidence: String? }
+struct PFRecovery { var score: Double; var band: String?; var confidence: String?; var trust: PFTrust? }
 struct PFStrain { var value: Double; var targetLow: Double?; var targetHigh: Double?; var band: String? }
 struct PFSleep {
     var score: Double
@@ -76,6 +85,8 @@ struct PFDailyBrief {
     /// When the brief was last rewritten after new data arrived.
     var updatedAt: String?
     var updateCount = 0
+    /// One plain line on what moved since yesterday, written by the server.
+    var changes: String?
 }
 struct PFPulse { var at: String?; var text: String }
 
@@ -458,6 +469,8 @@ struct PFReadiness {
     /// agree, mixed or disagree.
     var agreement: String?
     var coachNote: String?
+    /// "Can I train? Can I train hard?", from the same numbers.
+    var answers: PFAnswers?
 }
 struct PFReadinessSource: Identifiable {
     var source: String
@@ -469,6 +482,7 @@ struct PFReadinessSource: Identifiable {
     var hrv: Double?
     var rhr: Double?
     var sleepPerformance: Double?
+    var trust: PFTrust?
     var id: String { source }
 }
 struct PFReadinessFactor: Identifiable {
