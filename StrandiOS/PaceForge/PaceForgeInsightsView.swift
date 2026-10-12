@@ -16,6 +16,7 @@ struct PFInsightsView: View {
             if let impact = snapshot.behaviour { PFBehaviourCard(impact: impact) }
             racesSection
             prognosisCard
+            if let sims = snapshot.simulations { PFSimulationsCard(sims: sims) }
             PFHowScoresWorkCard(explainers: snapshot.explainers)
         }
     }
