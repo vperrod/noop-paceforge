@@ -19,6 +19,11 @@ struct PFSnapshot {
     var rpe: [String: Double] = [:]
     /// Recent nights of sleep (minutes asleep), oldest first, for the sleep and HRV trend widget.
     var sleepNights: [PFSleepNight] = []
+    /// Every field below arrives from a file an older server may not serve; each is absent, not broken.
+    var bodyProgress: PFBodyProgress?
+    /// Open alerts only, most urgent first.
+    var alerts: [PFAlert] = []
+    var readiness: PFReadiness?
 }
 
 struct PFSleepNight { var date: String; var minutes: Double }
@@ -64,6 +69,13 @@ struct PFDailyBrief {
     var recent: String?
     var focus: [String] = []
     var pulses: [PFPulse] = []
+    /// True while the brief was written without everything it wants (last night's sleep, HRV, the scale).
+    var partial = false
+    /// What the brief is still waiting for, e.g. ["sleep", "HRV"].
+    var missing: [String] = []
+    /// When the brief was last rewritten after new data arrived.
+    var updatedAt: String?
+    var updateCount = 0
 }
 struct PFPulse { var at: String?; var text: String }
 
@@ -140,6 +152,7 @@ struct PFActivity {
     var groundContactMs: Double?
     var avgPower: Double?
     var elevationM: Double?
+    var hrr1: PFHRR1?
 
     var isRun: Bool { (type ?? "").lowercased().contains("run") }
     var isBike: Bool {
@@ -158,6 +171,7 @@ struct PFWeather { var tempC: Double?; var desc: String? }
 
 /// `/data/details/<id>.json`: the heart-rate and pace series, per-km splits and heart-rate zones.
 struct PFDetail {
+    var hrr1: PFHRR1?
     var samples: [PFSample] = []
     var splits: [PFSplit] = []
     var zones: [PFZone] = []
@@ -325,3 +339,117 @@ struct PFBodyGoal: Identifiable {
 }
 struct PFBodyDelta { var d7: Double?; var d30: Double?; var d90: Double? }
 struct PFBodyMetric { var label: String; var unit: String; var dp: Int; var good: String }
+
+// MARK: Heart-rate recovery
+
+/// First-minute heart-rate recovery of a session: how far the heart rate fell in the minute after the
+/// effort stopped (`post`), or during a recovery inside the session (`mid`).
+struct PFHRR1 {
+    var bpm: Int
+    var kind: String
+    var peakBpm: Int?
+    var baselineBpm: Double?
+    var delta: Double?
+    /// good, normal, watch or flag.
+    var band: String?
+}
+
+// MARK: Body progress
+
+/// `/data/body-progress.json`: the body goals against the scale's own noise, with fuel, hydration,
+/// balance and visceral notes.
+struct PFBodyProgress {
+    var date: String?
+    var latestReadingDate: String?
+    var digest: String?
+    var goals: [PFProgressGoal] = []
+    /// Half-width of the day-to-day scale noise, in the metric's unit.
+    var noiseWeightKg: Double?
+    var noiseBodyFatPct: Double?
+    var noiseBasis: String?
+    var dailyLine: String?
+    var fuel: PFFuel?
+    var hydration: PFHydration?
+    var balance: PFBalance?
+    var visceral: PFVisceral?
+    var analysis: PFProgressAnalysis?
+}
+
+struct PFProgressGoal: Identifiable {
+    var metric: String
+    var label: String
+    var unit: String
+    var target: Double?
+    var targetDate: String?
+    var startValue: Double?
+    var startDate: String?
+    var current7d: Double?
+    var lastReading: Double?
+    var neededPerWeek: Double?
+    var actualPerWeek: Double?
+    var eta: String?
+    /// on_track, ahead, behind or insufficient_data.
+    var status: String
+    var aggressive: Bool
+    var id: String { metric }
+}
+
+struct PFFuel {
+    var bmrKcal: Double?
+    var trainingDayKcal: Double?
+    var trainingDayBasis: String?
+    var proteinLow: Double?
+    var proteinHigh: Double?
+    var proteinBasis: String?
+}
+struct PFHydration { var waterPct: Double?; var ecwIcwRatio: Double?; var flag: String?; var reason: String?; var ownNormal: String? }
+struct PFBalance { var armsPct: Double?; var legsPct: Double?; var maxPct: Double?; var flag: String?; var note: String? }
+struct PFVisceral { var value: Double?; var band: String?; var standardRange: String? }
+struct PFProgressAnalysis { var text: String; var generatedAt: String? }
+
+// MARK: Alerts
+
+/// `/data/alerts.json`. The app is read-only: an alert's actions are shown, answered in Telegram.
+struct PFAlert: Identifiable {
+    var id: String
+    var kind: String?
+    /// info, watch or act.
+    var severity: String
+    var createdAt: String?
+    var title: String
+    var body: String?
+    var actions: [PFAlertAction] = []
+
+    var rank: Int { severity == "act" ? 0 : (severity == "watch" ? 1 : 2) }
+}
+struct PFAlertAction: Identifiable { var id: String; var label: String }
+
+// MARK: Readiness
+
+/// `/data/readiness-explained.json`: PaceForge's, Garmin's and NOOP's own readiness reads, side by side.
+/// They are different measures and are never merged into one number.
+struct PFReadiness {
+    var date: String?
+    var sources: [PFReadinessSource] = []
+    /// agree, mixed or disagree.
+    var agreement: String?
+    var coachNote: String?
+}
+struct PFReadinessSource: Identifiable {
+    var source: String
+    var score: Double?
+    var band: String?
+    var drivers: [String] = []
+    var factors: [PFReadinessFactor] = []
+    var recoveryTimeH: Double?
+    var hrv: Double?
+    var rhr: Double?
+    var sleepPerformance: Double?
+    var id: String { source }
+}
+struct PFReadinessFactor: Identifiable {
+    var name: String
+    var value: String?
+    var status: String?
+    var id: String { name }
+}

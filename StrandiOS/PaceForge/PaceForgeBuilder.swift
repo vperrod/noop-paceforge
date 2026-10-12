@@ -10,6 +10,9 @@ struct PFRawBundle {
     var hyrox = PFJ(nil)
     var activities = PFJ(nil)
     var analysesIndex = PFJ(nil)
+    var bodyProgress = PFJ(nil)
+    var alerts = PFJ(nil)
+    var readiness = PFJ(nil)
 }
 
 /// Derives the screens' view models from the server's JSON, the way the PaceForge web app derives
@@ -62,6 +65,9 @@ enum PFBuilder {
             insights: insights(fitness: raw.fitness, projection: raw.projection, hyrox: raw.hyrox, today: today)
         )
         snapshot.body = body(raw.body)
+        snapshot.bodyProgress = bodyProgress(raw.bodyProgress)
+        snapshot.alerts = alerts(raw.alerts)
+        snapshot.readiness = readiness(raw.readiness)
         snapshot.sleepNights = raw.fitness["load"]["sleep"]["stages_14d"].array.compactMap { night in
             guard let date = night["date"].string else { return nil }
             let deep = night["deep_min"].double ?? 0
@@ -238,7 +244,125 @@ enum PFBuilder {
             guard let text = p["text"].text else { return nil }
             return PFPulse(at: p["at"].string, text: text)
         }
+        out.partial = b["partial"].bool ?? false
+        out.missing = b["missing"].array.compactMap { $0.text }
+        if out.partial && out.missing.isEmpty {
+            // An older shape: only the per-input flags say what is missing. A null scale means it is not expected.
+            if b["inputs"]["sleep"].bool == false { out.missing.append("sleep") }
+            if b["inputs"]["hrv"].bool == false { out.missing.append("HRV") }
+            if b["inputs"]["scale"].bool == false { out.missing.append("scale") }
+        }
+        out.updatedAt = b["updated_at"].text
+        out.updateCount = b["update_count"].int ?? 0
         return out
+    }
+
+    // MARK: Newer files (every field optional)
+
+    /// The text of a JSON scalar or a short list of numbers, e.g. "10-13" for [10, 13].
+    private static func scalarText(_ j: PFJ) -> String? {
+        if let text = j.text { return text }
+        if let number = j.double { return PFFormat.trimmed(number) }
+        let numbers = j.array.compactMap { $0.double }
+        if numbers.count >= 2 { return numbers.map(PFFormat.trimmed).joined(separator: "\u{2013}") }
+        return nil
+    }
+
+    static func hrr1(_ j: PFJ) -> PFHRR1? {
+        guard let bpm = j["bpm"].int else { return nil }
+        return PFHRR1(bpm: bpm, kind: j["kind"].string ?? "post", peakBpm: j["peak_bpm"].int,
+                      baselineBpm: j["baseline_bpm"].double, delta: j["delta"].double, band: j["band"].text)
+    }
+
+    static func bodyProgress(_ b: PFJ) -> PFBodyProgress? {
+        guard b.exists, b["has_data"].bool != false else { return nil }
+        var out = PFBodyProgress()
+        out.date = b["date"].string
+        out.latestReadingDate = b["latest_reading_date"].string
+        out.digest = b["digest"].text
+        out.goals = b["goals"].array.compactMap { g in
+            guard let metric = g["metric"].string else { return nil }
+            return PFProgressGoal(
+                metric: metric, label: g["label"].string ?? metric, unit: g["unit"].string ?? "",
+                target: g["target"].double, targetDate: g["target_date"].string,
+                startValue: g["start_value"].double, startDate: g["start_date"].string,
+                current7d: g["current_7d"].double, lastReading: g["last_reading"].double,
+                neededPerWeek: g["needed_per_week"].double, actualPerWeek: g["actual_per_week"].double,
+                eta: g["eta"].text, status: g["status"].string ?? "insufficient_data",
+                aggressive: g["aggressive"].bool ?? false)
+        }
+        out.noiseWeightKg = b["noise_band"]["weight_kg"].double
+        out.noiseBodyFatPct = b["noise_band"]["body_fat_pct"].double
+        out.noiseBasis = b["noise_basis"].text
+        out.dailyLine = b["daily_line"].text
+        let fuel = b["fuel"]
+        if fuel.exists {
+            out.fuel = PFFuel(bmrKcal: fuel["bmr_kcal"].double, trainingDayKcal: fuel["training_day_kcal_estimate"].double,
+                              trainingDayBasis: fuel["training_day_basis"].text,
+                              proteinLow: fuel["protein_g"]["low"].double, proteinHigh: fuel["protein_g"]["high"].double,
+                              proteinBasis: fuel["protein_g"]["basis"].text)
+        }
+        let water = b["hydration"]
+        if water.exists {
+            out.hydration = PFHydration(waterPct: water["water_pct"].double, ecwIcwRatio: water["ecw_icw_ratio"].double,
+                                        flag: water["flag"].text, reason: water["reason"].text,
+                                        ownNormal: scalarText(water["own_normal"]))
+        }
+        let balance = b["balance"]
+        if balance.exists {
+            out.balance = PFBalance(armsPct: balance["arms_pct"].double, legsPct: balance["legs_pct"].double,
+                                    maxPct: balance["max_pct"].double, flag: balance["flag"].text,
+                                    note: balance["note"].text)
+        }
+        let visceral = b["visceral"]
+        if visceral.exists {
+            out.visceral = PFVisceral(value: visceral["value"].double, band: visceral["band"].text,
+                                      standardRange: scalarText(visceral["standard_range"]))
+        }
+        if let text = b["analysis"]["text"].text {
+            out.analysis = PFProgressAnalysis(text: text, generatedAt: b["analysis"]["generated_at"].string)
+        }
+        let hasContent = !out.goals.isEmpty || out.digest != nil || out.dailyLine != nil || out.fuel != nil
+            || out.hydration != nil || out.balance != nil || out.visceral != nil || out.analysis != nil
+        return hasContent ? out : nil
+    }
+
+    /// Open alerts, most urgent first, then newest first.
+    static func alerts(_ j: PFJ) -> [PFAlert] {
+        let open: [PFAlert] = j["alerts"].array.compactMap { a in
+            guard let id = a["id"].idString, let title = a["title"].text,
+                  (a["status"].string ?? "open") == "open" else { return nil }
+            let actions: [PFAlertAction] = a["actions"].array.compactMap { action in
+                guard let label = action["label"].text else { return nil }
+                return PFAlertAction(id: action["id"].string ?? label, label: label)
+            }
+            return PFAlert(id: id, kind: a["kind"].string, severity: a["severity"].string ?? "info",
+                           createdAt: a["created_at"].string, title: title, body: a["body"].text, actions: actions)
+        }
+        return open.sorted { lhs, rhs in
+            lhs.rank != rhs.rank ? lhs.rank < rhs.rank : (lhs.createdAt ?? "") > (rhs.createdAt ?? "")
+        }
+    }
+
+    static func readiness(_ j: PFJ) -> PFReadiness? {
+        guard j.exists else { return nil }
+        let sources: [PFReadinessSource] = j["sources"].array.compactMap { s in
+            guard let name = s["source"].string else { return nil }
+            let factors: [PFReadinessFactor] = s["factors"].array.compactMap { f in
+                guard let factor = f["name"].text else { return nil }
+                return PFReadinessFactor(name: factor, value: scalarText(f["value"]), status: f["status"].text)
+            }
+            let drivers: [String] = s["drivers"].array.compactMap { d in
+                d.text ?? d["name"].text ?? d["label"].text
+            }
+            return PFReadinessSource(source: name, score: s["score"].double, band: s["band"].text ?? s["level"].text,
+                                     drivers: drivers, factors: factors, recoveryTimeH: s["recovery_time_h"].double,
+                                     hrv: s["hrv"].double, rhr: s["rhr"].double,
+                                     sleepPerformance: s["sleep_performance"].double)
+        }
+        guard !sources.isEmpty else { return nil }
+        return PFReadiness(date: j["date"].string, sources: sources, agreement: j["agreement"].text,
+                           coachNote: j["coach_note"].text)
     }
 
     private static func nextRace(events: PFJ, today: String) -> PFNextRace? {
@@ -437,11 +561,13 @@ enum PFBuilder {
         out.groundContactMs = a["avg_ground_contact_time"].double
         out.avgPower = a["avg_power"].double
         out.elevationM = a["elevation_gain"].double
+        out.hrr1 = hrr1(a["hrr1"])
         return out
     }
 
     static func detail(_ d: PFJ) -> PFDetail {
         var out = PFDetail()
+        out.hrr1 = hrr1(d["hrr1"])
         out.samples = d["series"].array.compactMap { s in
             guard let t = s["t"].double else { return nil }
             return PFSample(t: t, hr: s["hr"].double, pace: s["pace"].double, cad: s["cad"].double)

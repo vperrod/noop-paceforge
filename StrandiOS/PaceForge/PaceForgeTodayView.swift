@@ -12,7 +12,9 @@ struct PFTodayView: View {
             if let brief = today.brief {
                 PFBriefCard(brief: brief, todayISO: snapshot.todayISO)
             }
+            if !snapshot.alerts.isEmpty { PFAlertsCard(alerts: snapshot.alerts) }
             if today.recovery != nil || today.strain != nil || today.sleep != nil { scoresCard }
+            if let readiness = snapshot.readiness { PFReadinessCard(readiness: readiness) }
             sessionsSection
             if let race = today.nextRace { raceCard(race) }
         }
@@ -128,6 +130,18 @@ private struct PFBriefCard: View {
                     .font(StrandFont.body.weight(.semibold))
                     .foregroundStyle(StrandPalette.textPrimary)
                     .fixedSize(horizontal: false, vertical: true)
+                if brief.partial && !brief.missing.isEmpty {
+                    Label("Waiting for: " + brief.missing.joined(separator: ", "), systemImage: "hourglass")
+                        .font(StrandFont.caption)
+                        .foregroundStyle(PFColor.warning)
+                        .accessibilityIdentifier("pf-brief-waiting")
+                }
+                if let updated = brief.updatedAt, let time = PFFormat.timeOfDay(updated) {
+                    Text("Updated \(time)")
+                        .font(StrandFont.caption)
+                        .foregroundStyle(StrandPalette.textTertiary)
+                        .accessibilityIdentifier("pf-brief-updated")
+                }
 
                 ForEach(Array(brief.notes.enumerated()), id: \.offset) { _, note in
                     PFCallout(text: note, color: PFColor.warning, label: nil)

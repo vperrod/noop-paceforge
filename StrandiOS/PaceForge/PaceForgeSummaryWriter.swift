@@ -7,7 +7,14 @@ enum PFSummaryWriter {
     static func publish(_ snapshot: PFSnapshot) {
         make(from: snapshot, previous: PFSummary.load()).save()
         for kind in PFWidgetKind.all { WidgetCenter.shared.reloadTimelines(ofKind: kind) }
-        Task { @MainActor in await PFReminders.update(for: snapshot) }
+        Task { @MainActor in
+            await PFReminders.update(for: snapshot)
+            // Heart recovery for Siri comes from the phone's own workouts; it has to be written after the
+            // summary above, which carries the previous value over rather than computing a new one.
+            if let model = AppModel.shared {
+                await PFHeartRecovery.updateSummary(repo: model.repo, hrMax: model.profile.hrMax)
+            }
+        }
     }
 
     /// `previous` is the file this one replaces. The server serves no per-night HRV history, so the
@@ -45,11 +52,23 @@ enum PFSummaryWriter {
         addNights(to: &out, from: s, previous: previous)
         out.body = bodyReading(s.body)
         out.heartRecovery = previous?.heartRecovery
+        out.hrr1 = latestHRR1(in: s)
+        out.openAlerts = s.alerts.count
         if let next = nextSession(in: s) {
             out.nextSession = next.session
             out.nextSessionDate = next.date
         }
         return out
+    }
+
+    /// The first-minute recovery of the newest session that has one.
+    private static func latestHRR1(in s: PFSnapshot) -> PFSummary.HRR1? {
+        let newest = s.activities.values
+            .filter { $0.hrr1 != nil }
+            .max { ($0.startTime ?? "") < ($1.startTime ?? "") }
+        guard let activity = newest, let hrr = activity.hrr1 else { return nil }
+        return PFSummary.HRR1(bpm: hrr.bpm, kind: hrr.kind, band: hrr.band, sessionName: activity.name,
+                              date: activity.startTime.map { String($0.prefix(10)) })
     }
 
     private static func addWeek(to out: inout PFSummary, from s: PFSnapshot) {

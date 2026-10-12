@@ -7,6 +7,7 @@ enum PFPrefs {
     static let morningKey = "noop.paceforge.remind.morning"
     static let eveningKey = "noop.paceforge.remind.evening"
     static let lockKey = "noop.paceforge.faceIDLock"
+    static let alertsKey = "noop.paceforge.notify.alerts"
 }
 
 /// Two local reminders, planned after every PaceForge fetch (foreground or the background refresh):
@@ -52,13 +53,14 @@ enum PFReminders {
             center.removePendingNotificationRequests(withIdentifiers: [morningId])
             return
         }
-        // The slot is today and today's brief is already here: nothing to say.
-        if PFFormat.isoString(fire) == s.todayISO, s.today.brief?.date == s.todayISO {
+        // The slot is today and today's brief is already here and complete: nothing to say.
+        if PFFormat.isoString(fire) == s.todayISO, let brief = s.today.brief,
+           brief.date == s.todayISO, !brief.partial {
             center.removePendingNotificationRequests(withIdentifiers: [morningId])
             return
         }
         await schedule(id: morningId, at: fire, title: "PaceForge needs a look",
-                       body: "Today's brief is not in yet, or PaceForge has not refreshed. Open NOOP to update.",
+                       body: "Today's brief is not in yet or still waiting on data, or PaceForge has not refreshed. Open NOOP to update.",
                        center: center)
     }
 

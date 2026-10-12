@@ -41,6 +41,8 @@ enum PaceForgeBackground {
     static let notificationCategory = "paceforge.brief"
     private static let lastBriefKey = "noop.paceforge.lastNotifiedBrief"
     private static let askedKey = "noop.paceforge.notificationsAsked"
+    private static let lastBriefUpdateKey = "noop.paceforge.lastNotifiedBriefUpdate"
+    private static let notifiedAlertsKey = "noop.paceforge.notifiedAlerts"
 
     /// Register before launch finishes; the identifier is listed in BGTaskSchedulerPermittedIdentifiers.
     static func register() {
@@ -70,7 +72,11 @@ enum PaceForgeBackground {
         guard let raw = try? await PFAPI.fetchBundle(),
               let snapshot = PFBuilder.snapshot(from: raw, today: PFFormat.isoString(Date())) else { return false }
         PFSummaryWriter.publish(snapshot)
-        if let brief = snapshot.today.brief { await notifyIfNew(brief, today: snapshot.todayISO) }
+        if let brief = snapshot.today.brief {
+            await notifyIfNew(brief, today: snapshot.todayISO)
+            await notifyIfUpdated(brief, today: snapshot.todayISO)
+        }
+        await notifyNewAlerts(snapshot.alerts)
         return true
     }
 
@@ -80,6 +86,61 @@ enum PaceForgeBackground {
         guard PFAPI.isConfigured, !PFAPI.isFixture, !defaults.bool(forKey: askedKey) else { return }
         defaults.set(true, forKey: askedKey)
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { _, _ in }
+    }
+
+    private static func canNotify() async -> Bool {
+        let settings = await UNUserNotificationCenter.current().notificationSettings()
+        return settings.authorizationStatus == .authorized || settings.authorizationStatus == .provisional
+    }
+
+    /// Once each time the server rewrites today's brief after new data arrived (its `updated_at` changes).
+    /// The first value seen is only recorded, so a brief that was already updated does not announce itself.
+    private static func notifyIfUpdated(_ brief: PFDailyBrief, today: String) async {
+        guard let updated = brief.updatedAt, brief.date == today else { return }
+        let defaults = UserDefaults.standard
+        let last = defaults.string(forKey: lastBriefUpdateKey)
+        guard last != updated else { return }
+        defaults.set(updated, forKey: lastBriefUpdateKey)
+        guard last != nil, await canNotify() else { return }
+        let content = UNMutableNotificationContent()
+        content.title = "Briefing updated"
+        content.body = brief.headline
+        content.sound = .default
+        content.categoryIdentifier = notificationCategory
+        let request = UNNotificationRequest(identifier: "paceforge.brief.update.\(updated)", content: content, trigger: nil)
+        try? await UNUserNotificationCenter.current().add(request)
+    }
+
+    /// One local notification for each open alert not seen before. Alerts older than two days are only
+    /// recorded, so turning this on does not replay the backlog. The toggle is in More > PaceForge sync.
+    private static func notifyNewAlerts(_ alerts: [PFAlert]) async {
+        let defaults = UserDefaults.standard
+        let seen = Set(defaults.stringArray(forKey: notifiedAlertsKey) ?? [])
+        let fresh = alerts.filter { !seen.contains($0.id) }
+        guard !fresh.isEmpty else { return }
+        defaults.set(Array((Array(seen) + fresh.map(\.id)).suffix(200)), forKey: notifiedAlertsKey)
+        guard defaults.object(forKey: PFPrefs.alertsKey) as? Bool ?? true, await canNotify() else { return }
+        for alert in fresh where isRecent(alert.createdAt) {
+            let content = UNMutableNotificationContent()
+            content.title = alert.title
+            if let body = alert.body { content.body = String(body.prefix(180)) }
+            content.sound = .default
+            content.categoryIdentifier = notificationCategory
+            let request = UNNotificationRequest(identifier: "paceforge.alert.\(alert.id)", content: content, trigger: nil)
+            try? await UNUserNotificationCenter.current().add(request)
+        }
+    }
+
+    private static func isRecent(_ createdAt: String?) -> Bool {
+        guard let createdAt else { return true }
+        let withFraction = ISO8601DateFormatter()
+        withFraction.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let local = DateFormatter()
+        local.locale = Locale(identifier: "en_US_POSIX")
+        local.dateFormat = "yyyy-MM-dd'T'HH:mm:ss"
+        guard let when = withFraction.date(from: createdAt) ?? ISO8601DateFormatter().date(from: createdAt)
+                ?? local.date(from: String(createdAt.prefix(19))) else { return true }
+        return Date().timeIntervalSince(when) < 2 * 86_400
     }
 
     private static func notifyIfNew(_ brief: PFDailyBrief, today: String) async {

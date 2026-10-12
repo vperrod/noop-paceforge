@@ -12,6 +12,7 @@ struct SelfHostedPushSettingsView: View {
     @AppStorage(PFPrefs.morningKey) private var remindMorning = true
     @AppStorage(PFPrefs.eveningKey) private var remindEvening = true
     @AppStorage(PFPrefs.lockKey) private var lockPaceForge = false
+    @AppStorage(PFPrefs.alertsKey) private var notifyAlerts = true
     @State private var token = ""
     @State private var status = "Off. Nothing syncs until you enable this."
     @State private var busy = false
@@ -111,6 +112,15 @@ struct SelfHostedPushSettingsView: View {
                     }
                     .tint(StrandPalette.accent)
                     Text("Tomorrow's session and its target.")
+                        .font(StrandFont.caption)
+                        .foregroundStyle(StrandPalette.textTertiary)
+                    Toggle(isOn: $notifyAlerts) {
+                        Text("Alerts")
+                            .font(StrandFont.subhead)
+                            .foregroundStyle(StrandPalette.textPrimary)
+                    }
+                    .tint(StrandPalette.accent)
+                    Text("A notification for each new open PaceForge alert, checked in the background refresh.")
                         .font(StrandFont.caption)
                         .foregroundStyle(StrandPalette.textTertiary)
                     Toggle(isOn: $lockPaceForge) {

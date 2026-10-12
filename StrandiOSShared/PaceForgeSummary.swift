@@ -90,6 +90,21 @@ public struct PFSummary: Codable, Equatable {
         }
     }
 
+    /// First-minute heart-rate recovery of the latest PaceForge session that has one.
+    public struct HRR1: Codable, Equatable {
+        public var bpm: Int
+        /// "post" (after stopping) or "mid" (a recovery inside the session).
+        public var kind: String
+        /// good, normal, watch or flag.
+        public var band: String?
+        public var sessionName: String?
+        public var date: String?
+
+        public init(bpm: Int, kind: String, band: String? = nil, sessionName: String? = nil, date: String? = nil) {
+            self.bpm = bpm; self.kind = kind; self.band = band; self.sessionName = sessionName; self.date = date
+        }
+    }
+
     /// When the app wrote this file.
     public var updated: Date
     /// The local day (`yyyy-MM-dd`) the sessions and scores describe.
@@ -130,6 +145,9 @@ public struct PFSummary: Codable, Equatable {
     /// The next session still to do after today's, and its day.
     public var nextSession: Session?
     public var nextSessionDate: String?
+    public var hrr1: HRR1?
+    /// How many PaceForge alerts are open.
+    public var openAlerts: Int?
 
     public init(updated: Date, date: String) {
         self.updated = updated
@@ -194,7 +212,8 @@ public enum PFWidgetKind {
     public static let sleepHrv = "PaceForgeSleepHrvWidget"
     public static let load = "PaceForgeLoadWidget"
     public static let body = "PaceForgeBodyWidget"
-    public static let all = [today, session, race, recoveryGauge, strainGauge, week, sleepHrv, load, body]
+    public static let hrr = "PaceForgeHeartRecoveryWidget"
+    public static let all = [today, session, race, recoveryGauge, strainGauge, week, sleepHrv, load, body, hrr]
 }
 
 /// The acute:chronic workload ratio band that is treated as safe, used by the load widgets.
@@ -238,5 +257,52 @@ public struct OpenPaceForgeTodayIntent: AppIntent {
     public func perform() async throws -> some IntentResult {
         PFOpenRequest.raise()
         return .result()
+    }
+}
+
+extension PFSummary {
+    /// Fills every field that is still nil with obviously synthetic numbers, so a widget preview (the
+    /// picker's face and the debug gallery) shows each face drawn rather than its "open NOOP" state.
+    /// Fields that already have a value are left alone.
+    public func fillingSampleGaps() -> PFSummary {
+        var out = self
+        let cal = Calendar(identifier: .iso8601)
+        let monday = cal.dateInterval(of: .weekOfYear, for: Date())?.start ?? Date()
+        if out.weekDays == nil {
+            let letters = ["M", "T", "W", "T", "F", "S", "S"]
+            let planned = [1, 1, 1, 0, 1, 1, 0]
+            let todayIndex = cal.dateComponents([.day], from: monday, to: Date()).day ?? 0
+            out.weekDays = (0..<7).map { i in
+                let day = cal.date(byAdding: .day, value: i, to: monday) ?? monday
+                return WeekDay(date: Self.dayString(day), label: letters[i], planned: planned[i],
+                               done: i < todayIndex ? planned[i] : 0, isToday: i == todayIndex)
+            }
+            out.weekDoneMinutes = 205
+            out.weekTargetMinutes = 420
+        }
+        if out.nights == nil || out.nights?.isEmpty == true {
+            let sleep: [Double] = [402, 431, 388, 455, 417, 360, 440]
+            let hrv: [Double] = [38, 41, 36, 43, 40, 37, 42]
+            out.nights = (0..<7).map { i in
+                let day = Date().addingTimeInterval(Double(i - 6) * 86_400)
+                return Night(date: Self.dayString(day), sleepMinutes: sleep[i], hrv: hrv[i])
+            }
+        }
+        out.sleepNeedMinutes = out.sleepNeedMinutes ?? 480
+        out.hrvBaseline = out.hrvBaseline ?? 39.5
+        out.hrvLow = out.hrvLow ?? 36
+        out.hrvHigh = out.hrvHigh ?? 43
+        out.acwr = out.acwr ?? 1.1
+        out.ctl = out.ctl ?? 56.8
+        out.atl = out.atl ?? 51
+        if out.body == nil {
+            out.body = BodyReading(date: date, score: 56, band: "Fair", weightKg: 90.8, weightDelta: -0.4,
+                                   fatPct: 24.0, fatPctDelta: -0.2)
+        }
+        if out.hrr1 == nil {
+            out.hrr1 = HRR1(bpm: 24, kind: "post", band: "good", sessionName: "Example intervals", date: date)
+        }
+        out.openAlerts = out.openAlerts ?? 2
+        return out
     }
 }

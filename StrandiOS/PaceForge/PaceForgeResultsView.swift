@@ -63,6 +63,7 @@ struct PFResultsSheet: View {
                 PFParagraph("Heart-rate detail for this session is not synced. PaceForge keeps it for recent sessions only.")
             }
         }
+        if let hrr = detail?.hrr1 ?? activity?.hrr1 { PFHRR1Card(hrr: hrr) }
         PFEffortCard(strain: analysis?.strain, band: analysis?.strainBand, trimp: trimp,
                      recovery: analysis?.recoveryReason)
         PFPlanVersusActual(workout: workout, analysis: analysis)

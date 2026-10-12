@@ -205,6 +205,12 @@ struct PFTodayWidgetFace: View {
                         .foregroundStyle(StrandPalette.textPrimary)
                         .lineLimit(2)
                 }
+                if let alerts = s.openAlerts, alerts > 0 {
+                    Label(alerts == 1 ? "1 open alert" : "\(alerts) open alerts",
+                          systemImage: "exclamationmark.triangle.fill")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(StrandPalette.statusWarning)
+                }
             }
             HStack {
                 Spacer()

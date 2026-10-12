@@ -111,6 +111,48 @@ final class PaceForgeNativeTabUITests: XCTestCase {
         app.buttons["Done"].tap()
     }
 
+    func testBodyProgressCardIsCaptured() throws {
+        let app = try launch(fixture: true)
+        let segments = try openPaceForge(app)
+        segments.buttons["Body"].tap()
+        XCTAssertTrue(label(app, "Progress").waitForExistence(timeout: 10), "Body should lead with the Progress card.")
+        XCTAssertTrue(label(app, "Needs readings").exists, "A goal without a pace should say it needs more readings.")
+        attach(app, "09 Body progress")
+        app.swipeUp()
+        attach(app, "09 Body progress scrolled")
+    }
+
+    func testTodayShowsPartialBriefAlertsAndReadiness() throws {
+        let app = try launch(fixture: true)
+        let segments = try openPaceForge(app)
+        segments.buttons["Today"].tap()
+        XCTAssertTrue(label(app, "Waiting for: scale").waitForExistence(timeout: 10),
+                      "A partial brief should say what it is waiting for.")
+        XCTAssertTrue(label(app, "Updated 08:12").exists, "An updated brief should show when.")
+        attach(app, "10 Today brief")
+        XCTAssertTrue(label(app, "Alerts").waitForExistence(timeout: 5), "Open alerts should be listed on Today.")
+        XCTAssertTrue(label(app, "Why my readiness is this").exists, "The three readiness reads should be on Today.")
+        app.swipeUp()
+        attach(app, "10 Today alerts and readiness")
+        app.swipeUp()
+        attach(app, "10 Today readiness")
+    }
+
+    func testSessionResultsShowHeartRateRecovery() throws {
+        let app = try launch(fixture: true)
+        let segments = try openPaceForge(app)
+        segments.buttons["This week"].tap()
+        let done = app.buttons["pf-workout-s-mon"]
+        XCTAssertTrue(done.waitForExistence(timeout: 10))
+        done.tap()
+        XCTAssertTrue(label(app, "Heart rate recovery").waitForExistence(timeout: 15),
+                      "A session with a first-minute recovery should show it in its results.")
+        attach(app, "11 Session heart rate recovery")
+        app.swipeUp()
+        attach(app, "11 Session heart rate recovery scrolled")
+        app.buttons["Done"].tap()
+    }
+
     func testPlannedSessionStillExpandsToPlanDetail() throws {
         let app = try launch(fixture: true)
         let segments = try openPaceForge(app)

@@ -71,6 +71,25 @@ enum PFFormat {
         return RelativeDateTimeFormatter().localizedString(for: when, relativeTo: Date())
     }
 
+    /// "08:12" for an ISO-8601 timestamp, in the phone's time zone; a timestamp with no zone is read as
+    /// local. nil when it cannot be parsed.
+    static func timeOfDay(_ timestamp: String?) -> String? {
+        guard let timestamp else { return nil }
+        let withFraction = ISO8601DateFormatter()
+        withFraction.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let plain = ISO8601DateFormatter()
+        guard let when = withFraction.date(from: timestamp) ?? plain.date(from: timestamp)
+                ?? isoLocalSeconds.date(from: timestamp) else { return nil }
+        return clockMinutes.string(from: when)
+    }
+
+    private static let clockMinutes: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_GB")
+        f.dateFormat = "HH:mm"
+        return f
+    }()
+
     private static let isoLocalSeconds: DateFormatter = {
         let f = DateFormatter()
         f.locale = Locale(identifier: "en_US_POSIX")

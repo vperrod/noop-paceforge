@@ -13,7 +13,8 @@ struct PFBodyView: View {
     var body: some View {
         if let doc = snapshot.body {
             VStack(alignment: .leading, spacing: 16) {
-                PFTrendCard(doc: doc, metric: $metric, range: $range)
+                if let progress = snapshot.bodyProgress { PFProgressCard(progress: progress) }
+                PFTrendCard(doc: doc, progress: snapshot.bodyProgress, metric: $metric, range: $range)
                 PFScoreCard(doc: doc)
                 if !doc.assessment.isEmpty { compositionCard(doc) }
                 massCard(doc)
@@ -141,6 +142,7 @@ enum PFTrendRange: String, CaseIterable, Identifiable {
 
 private struct PFTrendCard: View {
     let doc: PFBodyDoc
+    let progress: PFBodyProgress?
     @Binding var metric: String
     @Binding var range: PFTrendRange
 
@@ -227,13 +229,44 @@ private struct PFTrendCard: View {
         return PFBodyFormat.value(metric, v, doc)
     }
 
+    /// The scale's day-to-day noise around the current value, for the metrics the server measures it for.
+    private var noiseBand: (low: Double, high: Double)? {
+        guard let progress else { return nil }
+        let half: Double?
+        switch metric {
+        case "weight_kg": half = progress.noiseWeightKg
+        case "body_fat_pct": half = progress.noiseBodyFatPct
+        default: half = nil
+        }
+        let goalCurrent = progress.goals.first(where: { $0.metric == metric })?.current7d
+        guard let half, let centre = goalCurrent ?? doc.series.last(where: { $0.values[metric] != nil })?.values[metric] else {
+            return nil
+        }
+        return (centre - half, centre + half)
+    }
+
+    /// Everything the chart must keep in view: the readings, the goal line and the noise band.
+    private func yValues(_ pts: [(date: Date, key: String, value: Double)], goal: PFBodyGoal?,
+                         noise: (low: Double, high: Double)?) -> [Double] {
+        var values = pts.map { $0.value }
+        if let goal { values.append(goal.target) }
+        if let noise { values += [noise.low, noise.high] }
+        return values
+    }
+
     @ViewBuilder private func chart(goal: PFBodyGoal?) -> some View {
         let pts = points
         if pts.count >= 2 {
-            let values = pts.map { $0.value } + (goal.map { [$0.target] } ?? [])
+            let noise = noiseBand
+            let values = yValues(pts, goal: goal, noise: noise)
             let lo = values.min() ?? 0, hi = values.max() ?? 1
             let pad = max((hi - lo) * 0.15, 0.5)
             Chart {
+                if let noise, let first = pts.first?.date, let last = pts.last?.date {
+                    RectangleMark(xStart: .value("From", first), xEnd: .value("To", last),
+                                  yStart: .value("Noise low", noise.low), yEnd: .value("Noise high", noise.high))
+                        .foregroundStyle(StrandPalette.textTertiary.opacity(0.16))
+                }
                 ForEach(Array(pts.enumerated()), id: \.offset) { _, p in
                     AreaMark(x: .value("Date", p.date), yStart: .value("Base", lo - pad), yEnd: .value("Value", p.value))
                         .foregroundStyle(StrandPalette.accent.opacity(0.14))

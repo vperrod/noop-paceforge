@@ -89,6 +89,9 @@ enum PFAPI {
         async let hyrox = fetchOptional("data/hyrox_analysis.json")
         async let activities = fetchOptional("data/activities.json")
         async let analyses = fetchOptional("data/analyses/index.json")
+        async let bodyProgress = fetchOptional("data/body-progress.json")
+        async let alerts = fetchOptional("data/alerts.json")
+        async let readiness = fetchOptional("data/readiness-explained.json")
         async let state = fetch("api/state")
         async let fitness = fetch("data/fitness.json")
         let (stateData, fitnessData) = try await (state, fitness)
@@ -100,6 +103,9 @@ enum PFAPI {
         raw.hyrox = PFJ(data: await hyrox)
         raw.activities = PFJ(data: await activities)
         raw.analysesIndex = PFJ(data: await analyses)
+        raw.bodyProgress = PFJ(data: await bodyProgress)
+        raw.alerts = PFJ(data: await alerts)
+        raw.readiness = PFJ(data: await readiness)
         return raw
     }
 }
@@ -144,6 +150,9 @@ enum PFStore {
         raw.hyrox = PFJ(data: read(path: "data/hyrox_analysis.json"))
         raw.activities = PFJ(data: read(path: "data/activities.json"))
         raw.analysesIndex = PFJ(data: read(path: "data/analyses/index.json"))
+        raw.bodyProgress = PFJ(data: read(path: "data/body-progress.json"))
+        raw.alerts = PFJ(data: read(path: "data/alerts.json"))
+        raw.readiness = PFJ(data: read(path: "data/readiness-explained.json"))
         return raw
     }
 }

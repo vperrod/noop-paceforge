@@ -35,7 +35,8 @@ struct PFProvider: TimelineProvider {
 }
 
 extension PFSummary {
-    /// Obvious sample data for the widget gallery only.
+    /// Obvious sample data for the widget picker and gallery only. Every newer field is filled too, so no
+    /// preview falls back to its "open NOOP" face.
     static var sample: PFSummary {
         var s = PFSummary(updated: Date(), date: PFSummary.dayString())
         s.sessions = [PFSummary.Session(name: "Intervals", sport: "run", detail: "8.0 km \u{00B7} 55 min",
@@ -44,7 +45,7 @@ extension PFSummary {
         s.sleepHours = "7h20"; s.sleepNeed = "8h00"; s.hrv = 39; s.restingHr = 51; s.acwr = 1.1
         s.briefHeadline = "A green recovery morning, so the planned intervals are on."
         s.race = PFSummary.Race(name: "Example 10K", date: PFSummary.dayString(Date().addingTimeInterval(21 * 86400)), days: 21)
-        return s
+        return s.fillingSampleGaps()
     }
 }
 
@@ -186,6 +187,28 @@ struct PaceForgeLoadWidget: Widget {
         }
         .configurationDisplayName("PaceForge training load")
         .description("Acute to chronic load ratio against its safe zone. Also on the Lock Screen.")
+        .supportedFamilies([.systemSmall, .accessoryCircular])
+    }
+}
+
+private struct PFHeartRecoveryEntryView: View {
+    @Environment(\.widgetFamily) private var family
+    let entry: PFEntry
+
+    var body: some View {
+        PFHeartRecoveryWidgetFace(summary: entry.summary, family: family)
+    }
+}
+
+struct PaceForgeHeartRecoveryWidget: Widget {
+    var body: some WidgetConfiguration {
+        StaticConfiguration(kind: PFWidgetKind.hrr, provider: PFProvider()) { entry in
+            PFHeartRecoveryEntryView(entry: entry)
+                .widgetURL(URL(string: "noop://paceforge/week"))
+                .containerBackground(StrandPalette.surfaceBase, for: .widget)
+        }
+        .configurationDisplayName("PaceForge heart recovery")
+        .description("How far your heart rate fell in the first minute after your latest session. Also on the Lock Screen.")
         .supportedFamilies([.systemSmall, .accessoryCircular])
     }
 }

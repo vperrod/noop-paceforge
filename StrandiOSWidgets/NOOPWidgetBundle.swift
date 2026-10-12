@@ -24,6 +24,7 @@ struct NOOPWidgetBundle: WidgetBundle {
         PaceForgeSleepHrvWidget()
         PaceForgeLoadWidget()
         PaceForgeBodyWidget()
+        PaceForgeHeartRecoveryWidget()
         if #available(iOS 18.0, *) {
             PaceForgeTodayControl()
         }

@@ -477,3 +477,83 @@ struct PFBodyWidgetFace: View {
         }
     }
 }
+
+// MARK: Heart recovery (small and circular lock-screen)
+
+/// First-minute heart-rate recovery of the latest PaceForge session that has one. It describes a past
+/// session, so unlike the day faces it is not hidden when the summary is a day old.
+struct PFHeartRecoveryWidgetFace: View {
+    let summary: PFSummary?
+    let family: WidgetFamily
+
+    private var hrr: PFSummary.HRR1? { summary?.hrr1 }
+
+    var body: some View {
+        if family == .accessoryCircular { circular } else { small }
+    }
+
+    private func color(_ band: String?) -> Color {
+        switch band {
+        case "good": return StrandPalette.statusPositive
+        case "watch": return StrandPalette.statusWarning
+        case "flag": return StrandPalette.statusCritical
+        default: return StrandPalette.effortColor
+        }
+    }
+
+    private var small: some View {
+        VStack(alignment: .leading, spacing: 5) {
+            PFWidgetOverline(text: "HEART RECOVERY")
+            if let h = hrr {
+                HStack(alignment: .firstTextBaseline, spacing: 4) {
+                    Text("\(h.bpm)")
+                        .font(.system(size: 36, weight: .bold, design: .rounded))
+                        .foregroundStyle(color(h.band))
+                    Text("bpm")
+                        .font(.system(size: 12))
+                        .foregroundStyle(StrandPalette.textSecondary)
+                }
+                if let band = h.band {
+                    Text(band.prefix(1).uppercased() + band.dropFirst())
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(color(band))
+                }
+                Text(h.kind == "mid" ? "Drop in a recovery during" : "Drop in the first minute after")
+                    .font(.system(size: 10))
+                    .foregroundStyle(StrandPalette.textTertiary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+                Text([h.sessionName, h.date.map(PFWidgetFormat.dayLine)].compactMap { $0 }.joined(separator: " \u{00B7} "))
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(StrandPalette.textSecondary)
+                    .lineLimit(2)
+            } else {
+                Text("\u{2013}")
+                    .font(.system(size: 36, weight: .bold, design: .rounded))
+                    .foregroundStyle(StrandPalette.textTertiary)
+                Text("Shows after a session with a heart-rate recovery.")
+                    .font(.system(size: 12))
+                    .foregroundStyle(StrandPalette.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 0)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var circular: some View {
+        ZStack {
+            AccessoryWidgetBackground()
+            if let h = hrr {
+                VStack(spacing: 0) {
+                    Text("\(h.bpm)")
+                        .font(.system(size: 20, weight: .bold, design: .rounded))
+                        .minimumScaleFactor(0.6)
+                    Text("HRR").font(.system(size: 9))
+                }
+            } else {
+                Image(systemName: "heart.text.square")
+            }
+        }
+    }
+}
