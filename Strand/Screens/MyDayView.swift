@@ -16,7 +16,7 @@ import WhoopStore
 /// Set once at launch by the iPhone app: the screen a PaceForge bike ride opens, from its ride id. Nil on a
 /// platform with no ride screen, where the ride row simply does not open.
 enum MyDayRideScreen {
-    @MainActor static var make: ((String) -> AnyView)?
+    static var make: ((String) -> AnyView)?
 }
 
 struct MyDayView: View {

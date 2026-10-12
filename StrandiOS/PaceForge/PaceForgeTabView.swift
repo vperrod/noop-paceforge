@@ -96,7 +96,7 @@ struct PaceForgeTabView: View {
             await model.refreshIfStale()
             if model.phase == .ready { PaceForgeBackground.requestNotificationPermissionOnce() }
             // A `noop://paceforge/standing` link that arrived before the tab existed.
-            if PFStandingLink.consume() { openStanding() }
+            if await PFStandingLink.consume() { openStanding() }
             await PFHeartRecovery.updateSummary(repo: repo, hrMax: profile.hrMax)
         }
     }
