@@ -228,6 +228,7 @@ struct MetricHowItWorksSheet: View {
 
     private var footerBar: some View {
         HStack {
+            AskCoachButton(metric: topic.title, onClose: onClose)
             Spacer()
             Button(action: onClose) {
                 Text("Got it").frame(minWidth: 120).padding(.vertical, 4)

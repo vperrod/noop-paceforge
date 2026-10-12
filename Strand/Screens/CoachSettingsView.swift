@@ -48,6 +48,7 @@ struct CoachSettingsView: View {
                                .accessibilityLabel("Close coach settings")
                        }) {
             modelBar
+            responseLengthBar
             consentBar
             // v5: a SECOND opt-in, only meaningful once data access is on, folds a summary of the
             // new on-device signals (your strongest patterns + Lab Book) into the coach context.
@@ -100,6 +101,30 @@ struct CoachSettingsView: View {
                 .labelsHidden()
                 .pickerStyle(.menu)
                 .accessibilityLabel("Model")
+            }
+        }
+    }
+
+    /// How long the coach's replies are. "Condensed" adds one instruction to the system prompt of each request;
+    /// "Default" sends the prompt exactly as it is.
+    private var responseLengthBar: some View {
+        NoopCard(padding: 14, tint: StrandPalette.chargeColor) {
+            VStack(alignment: .leading, spacing: 8) {
+                Text(verbatim: "Response length")
+                    .font(StrandFont.subhead).foregroundStyle(StrandPalette.textPrimary)
+                Picker(selection: $coach.responseLength) {
+                    ForEach([CoachResponseLength.condensed, CoachResponseLength.standard]) { length in
+                        Text(verbatim: length.label).tag(length)
+                    }
+                } label: {
+                    Text(verbatim: "Response length")
+                }
+                .labelsHidden()
+                .pickerStyle(.segmented)
+                .accessibilityIdentifier("coach-response-length")
+                Text(verbatim: "Condensed asks for short answers: the answer first, then a few lines.")
+                    .font(StrandFont.footnote).foregroundStyle(StrandPalette.textTertiary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
     }

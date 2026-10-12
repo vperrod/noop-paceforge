@@ -153,6 +153,7 @@ struct ScoringGuideView: View {
 
     private var footerBar: some View {
         HStack {
+            AskCoachButton(metric: initialSection.map { $0.displayName } ?? "Charge, Effort and Rest scores", onClose: onClose)
             Spacer()
             Button(action: onClose) {
                 Text("Got it").frame(minWidth: 120).padding(.vertical, 4)

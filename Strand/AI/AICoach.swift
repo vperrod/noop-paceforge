@@ -164,6 +164,18 @@ final class AICoachEngine: ObservableObject {
     // Published state the UI binds to.
     @Published var messages: [ChatMessage] = []
 
+    /// Past conversations put away by "New conversation" or by the day rolling over, newest first. Kept in a
+    /// JSON file on this device only (`CoachLocalFiles`); never sent anywhere.
+    @Published private(set) var history: [CoachConversationRecord] =
+        CoachLocalFiles.load([CoachConversationRecord].self, from: CoachLocalFiles.historyURL)
+    /// Thumbs on replies, newest first. Local only, and never the reply text.
+    @Published private(set) var feedback: [CoachFeedbackEntry] =
+        CoachLocalFiles.load([CoachFeedbackEntry].self, from: CoachLocalFiles.feedbackURL)
+    /// How long replies should be. "Condensed" adds one instruction to the system prompt of each request.
+    @Published var responseLength: CoachResponseLength = CoachResponseLength.current() {
+        didSet { CoachResponseLength.save(responseLength) }
+    }
+
     /// Local day the current transcript was last written on; nil while it is empty. Drives the day
     /// boundary in `send` — see `isStaleConversation`. Kotlin twin: `CoachViewModel.conversationDay`.
     private var conversationDay: Int?
@@ -297,6 +309,9 @@ final class AICoachEngine: ObservableObject {
         if let stored, !stored.isEmpty { return stored }
         return Self.defaultSystemPrompt
     }
+
+    /// What each request carries as its system prompt: the prompt above plus the response-length instruction.
+    var requestSystemPrompt: String { responseLength.systemPrompt(base: systemPrompt) }
 
     /// The user's stored prompt override, or the default when nothing custom is set. The UI binds its
     /// editor to this: writing persists the override; writing a blank string clears it (back to default).
@@ -671,6 +686,11 @@ final class AICoachEngine: ObservableObject {
         // Retire by NOT restoring. The next append replaces the stored rows wholesale, so nothing is
         // deleted here and a transcript is never destroyed by merely opening the screen.
         guard !Self.isStaleConversation(lastEpochDay: lastDay, todayEpochDay: Self.localEpochDay()) else {
+            // Yesterday's chat is not restored, but it is kept in the history. The id is the newest row's time,
+            // so a launch that finds the same stale rows again replaces the same history entry.
+            let stored = rows.sorted { $0.orderIndex < $1.orderIndex }
+                .map { CoachStoredMessage(role: $0.role, text: $0.text) }
+            archive(stored, id: "stale-\(newest)", at: Date(timeIntervalSince1970: TimeInterval(newest)))
             return
         }
         messages = rows
@@ -709,6 +729,74 @@ final class AICoachEngine: ObservableObject {
         Task { try? await repo.storeHandle()?.clearCoachMessages() }
     }
 
+    // MARK: - History of past conversations
+
+    private func archive(_ stored: [CoachStoredMessage], id: String, at date: Date) {
+        guard let record = CoachHistory.record(from: stored, now: date, id: id) else { return }
+        history = CoachHistory.archiving(history, record: record)
+        CoachLocalFiles.save(history, to: CoachLocalFiles.historyURL)
+    }
+
+    /// Puts the current conversation into the history (nothing happens when nothing was asked).
+    private func archiveCurrentConversation() {
+        archive(messages.map { CoachStoredMessage(role: $0.role.rawValue, text: $0.text) },
+                id: UUID().uuidString, at: Date())
+    }
+
+    private func resetCurrentConversation() {
+        messages = []
+        conversationDay = nil
+        droppedSummary = nil
+        droppedSummaryKey = []
+        errorText = nil
+    }
+
+    /// "New conversation": the current one goes to the history, and the next question starts a fresh thread.
+    func startNewConversation() {
+        guard !sending else { return }
+        archiveCurrentConversation()
+        resetCurrentConversation()
+        Task { try? await repo.storeHandle()?.clearCoachMessages() }
+    }
+
+    /// Opens a past conversation as the current one. The one that was current is put into the history first,
+    /// and the opened one leaves it (it is current now, and is archived again when it is put away).
+    func openConversation(_ record: CoachConversationRecord) {
+        guard !sending else { return }
+        archiveCurrentConversation()
+        history = CoachHistory.removing(history, id: record.id)
+        CoachLocalFiles.save(history, to: CoachLocalFiles.historyURL)
+        resetCurrentConversation()
+        messages = record.messages.map {
+            ChatMessage(role: ChatMessage.Role(rawValue: $0.role) ?? .assistant, text: $0.text)
+        }
+        conversationDay = Self.localEpochDay()
+        persistMessages()
+    }
+
+    func deleteConversation(id: String) {
+        history = CoachHistory.removing(history, id: id)
+        CoachLocalFiles.save(history, to: CoachLocalFiles.historyURL)
+    }
+
+    // MARK: - Feedback on a reply
+
+    func feedbackEntry(for message: ChatMessage) -> CoachFeedbackEntry? {
+        CoachFeedbackLog.entry(for: message.id.uuidString, in: feedback)
+    }
+
+    /// Files a thumbs on a reply; the same rating again takes it back.
+    func rate(_ message: ChatMessage, _ rating: CoachFeedbackRating, reason: CoachFeedbackReason? = nil) {
+        let id = message.id.uuidString
+        if let existing = feedbackEntry(for: message), existing.rating == rating, existing.reason == reason {
+            feedback = CoachFeedbackLog.removing(feedback, messageId: id)
+        } else {
+            feedback = CoachFeedbackLog.recording(
+                feedback, entry: CoachFeedbackEntry(messageId: id, rating: rating, reason: reason, at: Date()))
+        }
+        CoachLocalFiles.save(feedback, to: CoachLocalFiles.feedbackURL)
+    }
+
     /// K5: surface a brief generated by the SCHEDULED morning-brief notification as the first Coach
     /// message, with no network call — called once when the app opens via a tap on that notification.
     /// No-op if a conversation already exists, so it never duplicates into an active chat.
@@ -726,6 +814,7 @@ final class AICoachEngine: ObservableObject {
     func retireStaleConversationIfNeeded() {
         guard Self.isStaleConversation(lastEpochDay: conversationDay,
                                        todayEpochDay: Self.localEpochDay()) else { return }
+        archiveCurrentConversation()
         messages = []
         conversationDay = nil
         droppedSummary = nil
@@ -1048,7 +1137,7 @@ final class AICoachEngine: ObservableObject {
         try await provider.client.send(
             key: key,
             model: model,
-            systemPrompt: systemPrompt,
+            systemPrompt: requestSystemPrompt,
             messages: messages,
             session: session
         )
@@ -1065,7 +1154,7 @@ final class AICoachEngine: ObservableObject {
         try await provider.client.streamWithImage(
             key: key,
             model: model,
-            systemPrompt: systemPrompt,
+            systemPrompt: requestSystemPrompt,
             messages: messages,
             inlineImage: inlineImage,
             session: session,

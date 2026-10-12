@@ -99,6 +99,7 @@ struct PlannerInfoSheet: View {
 
     private var footerBar: some View {
         HStack {
+            AskCoachButton(metric: title, onClose: onClose)
             Spacer()
             Button(action: onClose) {
                 Text("Got it").frame(minWidth: 120).padding(.vertical, 4)

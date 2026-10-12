@@ -42,6 +42,8 @@ struct CoachView: View {
     /// #2243: the coach settings, presented as a sheet. See `CoachSettingsView` for why a sheet
     /// rather than a push.
     @State private var showSettings = false
+    /// The list of past conversations, presented as a sheet.
+    @State private var showHistory = false
 
     // K4: on-device voice input for the composer (iOS only). macOS gets a no-op stub via
     // `#if os(iOS)` guards — the shared file keeps compiling for both targets.
@@ -136,6 +138,10 @@ struct CoachView: View {
             CoachSettingsView()
                 .environmentObject(coach)
                 .environmentObject(repo)
+        }
+        .sheet(isPresented: $showHistory) {
+            CoachHistorySheet()
+                .environmentObject(coach)
         }
         .confirmationDialog(
             "Clear conversation?",
@@ -400,6 +406,28 @@ struct CoachView: View {
             if coach.sending {
                 StatePill("Thinking", tone: .accent, pulsing: true)
             }
+            // A fresh thread (the current one goes to the history) and the list of earlier ones.
+            Button {
+                coach.startNewConversation()
+            } label: {
+                Image(systemName: "square.and.pencil")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(StrandPalette.textSecondary)
+            }
+            .buttonStyle(.plain)
+            .disabled(coach.messages.isEmpty || coach.sending)
+            .accessibilityLabel(Text(verbatim: "New conversation"))
+            .accessibilityIdentifier("coach-new-conversation")
+            Button {
+                showHistory = true
+            } label: {
+                Image(systemName: "clock.arrow.circlepath")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(StrandPalette.textSecondary)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(Text(verbatim: "Conversation history"))
+            .accessibilityIdentifier("coach-history")
             // #2243: the way through to what used to be stacked under this header.
             Button {
                 showSettings = true
@@ -551,41 +579,91 @@ struct CoachView: View {
             // verbatim `Text` so typed `*`/`#` never turn into surprise formatting.
             // The reply sits on a frosted Charge-tinted surface, a card, not a flat box.
             // K8: context menu (long-press / right-click) with Copy, Share, and Save actions.
-            HStack {
-                Markdown(message.text)
-                    .markdownTheme(.strand)
-                    .textSelection(.enabled)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 11)
-                    .frostedCardSurface(tint: StrandPalette.chargeColor, cornerRadius: 16)
-                    .frame(maxWidth: 560, alignment: .leading)
-                    // K8: Copy / Share / Save context menu on assistant replies.
-                    .contextMenu {
-                        Button {
-                            #if os(macOS)
-                            NSPasteboard.general.clearContents()
-                            NSPasteboard.general.setString(message.text, forType: .string)
-                            #else
-                            UIPasteboard.general.string = message.text
-                            #endif
-                        } label: {
-                            Label("Copy", systemImage: "doc.on.doc")
+            VStack(alignment: .leading, spacing: 4) {
+                HStack {
+                    Markdown(message.text)
+                        .markdownTheme(.strand)
+                        .textSelection(.enabled)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 11)
+                        .frostedCardSurface(tint: StrandPalette.chargeColor, cornerRadius: 16)
+                        .frame(maxWidth: 560, alignment: .leading)
+                        // K8: Copy / Share / Save context menu on assistant replies.
+                        .contextMenu {
+                            Button {
+                                #if os(macOS)
+                                NSPasteboard.general.clearContents()
+                                NSPasteboard.general.setString(message.text, forType: .string)
+                                #else
+                                UIPasteboard.general.string = message.text
+                                #endif
+                            } label: {
+                                Label("Copy", systemImage: "doc.on.doc")
+                            }
+                            ShareLink(item: message.text) {
+                                Label("Share", systemImage: "square.and.arrow.up")
+                            }
+                            Button {
+                                saveAdvice(message.text)
+                            } label: {
+                                Label("Save to Journal", systemImage: "square.and.pencil")
+                            }
                         }
-                        ShareLink(item: message.text) {
-                            Label("Share", systemImage: "square.and.arrow.up")
-                        }
-                        Button {
-                            saveAdvice(message.text)
-                        } label: {
-                            Label("Save to Journal", systemImage: "square.and.pencil")
+                    Spacer(minLength: 48)
+                }
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel("Coach said: \(message.text)")
+                if showsFeedback(message) { feedbackRow(message).padding(.leading, 6) }
+            }
+        }
+    }
+
+    /// A reply that is finished and has text can be rated.
+    private func showsFeedback(_ message: ChatMessage) -> Bool {
+        guard !message.text.isEmpty else { return false }
+        return !(coach.sending && message.id == coach.messages.last?.id)
+    }
+
+    /// A thumbs-up, and a thumbs-down that asks why. Kept on this device (a local log, no reply text).
+    private func feedbackRow(_ message: ChatMessage) -> some View {
+        let entry = coach.feedbackEntry(for: message)
+        return HStack(spacing: 16) {
+            Button {
+                coach.rate(message, .up)
+            } label: {
+                Image(systemName: entry?.rating == .up ? "hand.thumbsup.fill" : "hand.thumbsup")
+                    .frame(minWidth: 28, minHeight: 28)
+            }
+            .accessibilityLabel(Text(verbatim: "Good reply"))
+            .accessibilityIdentifier("coach-thumbs-up")
+            Menu {
+                ForEach(CoachFeedbackReason.allCases) { reason in
+                    Button {
+                        coach.rate(message, .down, reason: reason)
+                    } label: {
+                        if entry?.rating == .down && entry?.reason == reason {
+                            Label(reason.label, systemImage: "checkmark")
+                        } else {
+                            Text(verbatim: reason.label)
                         }
                     }
-                Spacer(minLength: 48)
+                }
+            } label: {
+                Image(systemName: entry?.rating == .down ? "hand.thumbsdown.fill" : "hand.thumbsdown")
+                    .frame(minWidth: 28, minHeight: 28)
             }
-            .accessibilityElement(children: .combine)
-            .accessibilityLabel("Coach said: \(message.text)")
+            .accessibilityLabel(Text(verbatim: "Not a good reply"))
+            .accessibilityIdentifier("coach-thumbs-down")
+            if let reason = entry?.reason {
+                Text(verbatim: reason.label)
+                    .font(StrandFont.caption)
+                    .accessibilityIdentifier("coach-feedback-reason")
+            }
         }
+        .font(.system(size: 14))
+        .foregroundStyle(StrandPalette.textTertiary)
+        .buttonStyle(.plain)
     }
 
     private var typingIndicator: some View {
