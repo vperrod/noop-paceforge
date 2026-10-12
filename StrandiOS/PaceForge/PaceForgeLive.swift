@@ -36,12 +36,25 @@ enum PFAPI {
     }
 
     /// UI-test switches that swap one fixture file for its alternative, so a screen's second state can be
-    /// captured: `-PaceForgeBehaviourInsufficient` serves a behaviour list with no qualifying question.
+    /// captured: `-PaceForgeBehaviourInsufficient` serves a behaviour list with no qualifying question, and so on.
+    #if DEBUG
+    private static let fixtureVariants: [(flag: String, path: String, alternate: String)] = [
+        ("-PaceForgeBehaviourInsufficient", "data/behaviour-impact.json", "data/behaviour-impact.insufficient.json"),
+        // Race week on (the default fixture is outside race week, so the plain countdown still shows).
+        ("-PaceForgeRaceWeek", "data/race-week.json", "data/race-week.active.json"),
+        ("-PaceForgeSimsEmpty", "data/hyrox-sim-analysis.json", "data/hyrox-sim-analysis.empty.json"),
+        ("-PaceForgeSimsEmpty", "data/hyrox-sims.json", "data/hyrox-sims.empty.json"),
+        ("-PaceForgeEasyPending", "data/easy-mode.json", "data/easy-mode.pending.json"),
+        ("-PaceForgeEasyIdle", "data/easy-mode.json", "data/easy-mode.idle.json"),
+        ("-PaceForgeMuscleCalibrating", "data/muscle-check.json", "data/muscle-check.calibrating.json"),
+    ]
+    #endif
+
     private static func fixtureKey(_ path: String) -> String {
         #if DEBUG
-        if path == "data/behaviour-impact.json",
-           ProcessInfo.processInfo.arguments.contains("-PaceForgeBehaviourInsufficient") {
-            return "data/behaviour-impact.insufficient.json"
+        let arguments = ProcessInfo.processInfo.arguments
+        for variant in fixtureVariants where variant.path == path && arguments.contains(variant.flag) {
+            return variant.alternate
         }
         #endif
         return path

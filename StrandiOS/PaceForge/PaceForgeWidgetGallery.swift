@@ -18,6 +18,15 @@ struct PFWidgetGallery: View {
             caption("PaceForge Today, large")
             card(height: 372) { PFTodayWidgetFace(summary: s, stale: false, family: .systemLarge) }
 
+            caption("PaceForge Today, large, race week")
+            card(height: 372) {
+                PFTodayWidgetFace(summary: changed(s) {
+                    $0.raceWeek = PFSummary.RaceWeek(title: "Synthetic race-week 10K",
+                                                     line: "Taper \u{00B7} 5 days to go \u{00B7} volume 60 %")
+                }, stale: false, family: .systemLarge)
+            }
+            .accessibilityIdentifier("pf-widget-race-week")
+
             caption("PaceForge Today, medium")
             card(height: 160) { PFTodayWidgetFace(summary: s, stale: false, family: .systemMedium) }
 
@@ -40,6 +49,13 @@ struct PFWidgetGallery: View {
             HStack(spacing: 12) {
                 card(height: 160) { PFLoadWidgetFace(summary: s, stale: false, family: .systemSmall) }
                 card(height: 160) { PFBodyWidgetFace(summary: s, stale: false) }
+            }
+
+            caption("PaceForge body, hidden by the privacy setting")
+            HStack(spacing: 12) {
+                card(height: 160) { PFBodyWidgetFace(summary: changed(s) { $0.hideBody = true }, stale: false) }
+                    .accessibilityIdentifier("pf-widget-body-hidden")
+                Spacer(minLength: 0)
             }
 
             caption("PaceForge heart recovery, small")
@@ -86,6 +102,13 @@ struct PFWidgetGallery: View {
             .background(RoundedRectangle(cornerRadius: 22, style: .continuous).fill(Color.black.opacity(0.82)))
             .environment(\.colorScheme, .dark)
         }
+    }
+
+    /// The summary with one change, for a face's second state.
+    private func changed(_ summary: PFSummary, _ change: (inout PFSummary) -> Void) -> PFSummary {
+        var copy = summary
+        change(&copy)
+        return copy
     }
 
     private func caption(_ text: String) -> some View {

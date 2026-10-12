@@ -140,4 +140,56 @@ final class MyDayUITests: XCTestCase {
         app.swipeUp()
         attach(app, "27 My Day widget stale")
     }
+
+    // MARK: PaceForge enrichment (Energy, Garmin stress, planned times, weigh-in time, niggle)
+
+    func testEnergyToggleDrawsBodyBatteryAndTheLastRecharge() throws {
+        let app = try launch(day: "full")
+        openMyDay(app)
+        let energy = element(app, "myday-chip-energy")
+        XCTAssertTrue(energy.waitForExistence(timeout: 10), "A day with Garmin data should offer the Energy toggle.")
+        attach(app, "28 My Day energy off")
+        energy.tap()
+        XCTAssertTrue(element(app, "myday-energy-note").waitForExistence(timeout: 5), "The Energy curve should name Garmin Body Battery.")
+        XCTAssertTrue(element(app, "myday-recharge").exists, "The last recharge line should show under the curve.")
+        attach(app, "28 My Day energy on")
+    }
+
+    func testGarminStressIsItsOwnToggleLabelledBySource() throws {
+        let app = try launch(day: "full")
+        openMyDay(app)
+        let garmin = element(app, "myday-chip-garmin-stress")
+        XCTAssertTrue(garmin.waitForExistence(timeout: 10), "Garmin's stress should have its own toggle.")
+        XCTAssertTrue(app.buttons["myday-chip-stress"].label.contains("NOOP"), "NOOP's stress toggle should be labelled by its source.")
+        element(app, "myday-chip-stress").tap()
+        garmin.tap()
+        XCTAssertTrue(element(app, "myday-garmin-stress-note").waitForExistence(timeout: 5), "Garmin's curve should say it is separate.")
+        attach(app, "29 My Day two stress curves")
+    }
+
+    func testAPlannedSessionWithATimeIsNotAnAllDayRow() throws {
+        let app = try launch(day: "full")
+        openMyDay(app)
+        let row = element(app, "myday-row-plan-s-wed")
+        for _ in 0..<6 where !row.exists { app.swipeUp() }
+        XCTAssertTrue(row.exists, "The planned intervals should be listed.")
+        XCTAssertFalse(row.label.lowercased().contains("all day"), "A planned session with a slot should show its time, not All day.")
+        attach(app, "29b My Day planned with a time")
+    }
+
+    func testTheTimedWeighInAndTheNiggleAreListed() throws {
+        let app = try launch(day: "full")
+        openMyDay(app)
+        let niggle = element(app, "myday-row-note-n1")
+        for _ in 0..<8 where !niggle.exists { app.swipeUp() }
+        XCTAssertTrue(niggle.exists, "The niggle PaceForge logged should be a note on the day.")
+        attach(app, "29c My Day niggle")
+    }
+
+    func testNoEnergyToggleWithoutGarminData() throws {
+        let app = try launch(day: "empty")
+        openMyDay(app)
+        XCTAssertFalse(element(app, "myday-chip-energy").exists, "Without Garmin data there is no Energy toggle.")
+        XCTAssertFalse(element(app, "myday-chip-garmin-stress").exists, "Without Garmin data there is no Garmin stress toggle.")
+    }
 }

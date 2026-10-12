@@ -417,7 +417,7 @@ struct PFBodyWidgetFace: View {
     let stale: Bool
 
     var body: some View {
-        if let s = summary, !stale, s.hideBody == true {
+        if summary?.hideBody == true, !stale {
             hidden
         } else if let s = summary, !stale {
             VStack(alignment: .leading, spacing: 5) {
@@ -475,7 +475,6 @@ struct PFBodyWidgetFace: View {
             Spacer(minLength: 0)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .accessibilityElement(children: .combine)
     }
 
     private func row(_ label: String, _ value: String?, _ delta: String?) -> some View {

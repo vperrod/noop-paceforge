@@ -46,7 +46,9 @@ enum MyDayFixture {
 
         // The plan is there on every variant, as it is on a real day with nothing recorded.
         input.planned = [
-            .init(id: "s-wed", title: "Synthetic 4 x 800 m", detail: "8.0 km \u{00B7} 55 min", durationMin: 55),
+            // The plan has a clock slot for the intervals (PaceForge's day-events.json), so it is a timed row.
+            .init(id: "s-wed", title: "Synthetic 4 x 800 m", detail: "8.0 km \u{00B7} 55 min", startTs: ts(17, 30),
+                  durationMin: 55),
             .init(id: "s-wed2", title: "Synthetic mobility", detail: "30 min", durationMin: 30,
                   matchedActivityIds: ["9000000003"]),
         ]
@@ -75,7 +77,19 @@ enum MyDayFixture {
                                         durationS: 2280, energyKcal: 402, avgHr: 149, maxHr: 174, strain: nil,
                                         distanceM: 6100, zonesJSON: nil, notes: nil, steps: nil)
             input.detected = [.init(startTs: ts(12, 20), endTs: ts(12, 50), avgBpm: 128, peakBpm: 141)]
-            input.weighIns = [.init(ts: nil, kg: 90.8, source: .apple)]
+            input.weighIns = [.init(ts: nil, kg: 90.8, source: .apple), .init(ts: ts(6, 45), kg: 78.7, source: .paceforge)]
+            input.notes = [.init(id: "n1", ts: ts(9, 10), title: "Niggle",
+                                 subtitle: "Left calf \u{00B7} severity 2 \u{00B7} running")]
+            // Garmin's Body Battery climbs through the night and drains through the day; its stress is a read of
+            // its own. Two curves from outside, kept apart from NOOP's stress above.
+            input.energy = stride(from: 0, through: 15 * 60, by: 30).map { minute in
+                let level = minute < 410 ? 30 + Double(minute) / 410 * 55 : max(15, 85 - Double(minute - 410) * 0.07)
+                return DayTimeline.SeriesPoint(ts: start + minute * 60, value: level)
+            }
+            input.garminStress = stride(from: 7 * 60, to: 15 * 60 + 30, by: 30).map { minute in
+                DayTimeline.SeriesPoint(ts: start + minute * 60, value: 28 + 14 * sin(Double(minute) / 60))
+            }
+            input.recharge = DayTimeline.Recharge(startTs: ts(0) - 40 * 60, endTs: ts(6, 50), from: 30, to: 85, minutes: 470)
             input.caffeine = [.init(ts: ts(8, 5), mg: 95), .init(ts: ts(13, 50), mg: nil)]
             input.water = [.init(ts: ts(9, 30), ml: 250), .init(ts: ts(12, 10), ml: 500)]
             let hourlySteps: [(Int, Int)] = [(7, 3200), (8, 900), (12, 1800), (13, 400), (14, 1500)]
