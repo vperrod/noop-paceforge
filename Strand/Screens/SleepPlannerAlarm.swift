@@ -10,19 +10,26 @@ import StrandAnalytics
 // moment lights-out plus the usual time to fall asleep plus the sleep goal would be reached, and never later
 // than the wake time the planner plans for (the latest wake). The screen says so in plain words. It arms a
 // one-off alarm through the same call the regular strap alarm uses and leaves the regular alarm's settings
-// alone; cancelling hands the strap back to them.
+// alone (it is paused while this one is armed); cancelling, or the alarm going off, hands the strap back.
 
 struct SleepPlannerAlarmCard: View {
     let data: SleepPlannerData
     let preset: SleepPlanner.Preset
 
     @EnvironmentObject private var model: AppModel
-    @State private var armed: Date? = SleepPlannerStore.armedAlarm
+    // The stored alarm is the truth (it also lapses on its own once it has passed); the counter only makes
+    // the card re-read it after arming, cancelling or reappearing.
+    @State private var storeRevision = 0
     @State private var note: String?
 
     private static let backupId = "sleep-planner-alarm"
 
     private var plan: SleepPlanner.Plan { data.plan(for: preset) }
+
+    private var armed: Date? {
+        _ = storeRevision
+        return SleepPlannerStore.armedAlarm
+    }
 
     private func time(_ date: Date) -> String { AppClock.hourMinuteFormatter().string(from: date) }
 
@@ -76,13 +83,14 @@ struct SleepPlannerAlarmCard: View {
                     Text(verbatim: note).font(StrandFont.footnote).foregroundStyle(StrandPalette.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
-                Text("The strap buzz is silent, and a later change to your Alarms settings or a reconnect re-arms your regular alarm in its place. Keep a backup alarm for anything you cannot miss.")
+                Text("The strap buzz is silent. While this alarm is armed it holds the strap: your regular alarm is paused, and comes back after this one goes off or when you cancel it. Keep a backup alarm for anything you cannot miss.")
                     .font(StrandFont.footnote)
                     .foregroundStyle(StrandPalette.textTertiary)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
         .accessibilityIdentifier("sleep-planner-alarm")
+        .onAppear { storeRevision += 1 }
     }
 
     private func dayName(_ date: Date) -> String {
@@ -99,7 +107,7 @@ struct SleepPlannerAlarmCard: View {
         model.ble.armStrapAlarm(at: result.alarm)
         scheduleBackup(at: result.alarm)
         SleepPlannerStore.armedAlarm = result.alarm
-        armed = result.alarm
+        storeRevision += 1
         note = result.isCappedByLatestWake
             ? "Capped at your wake time of \(time(data.wake)): at this bedtime the goal would not be reached before it."
             : nil
@@ -108,7 +116,7 @@ struct SleepPlannerAlarmCard: View {
     private func cancel() {
         UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: [Self.backupId])
         SleepPlannerStore.armedAlarm = nil
-        armed = nil
+        storeRevision += 1
         note = nil
         // Hands the strap back to the regular alarm settings: re-armed from them, or disarmed if it is off.
         model.applySmartAlarm()

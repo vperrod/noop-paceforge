@@ -1703,6 +1703,10 @@ final class AppModel: ObservableObject {
     }
 
     func applySmartAlarm() {
+        // A Sleep Planner one-off alarm still ahead owns the strap until it fires or is cancelled; the daily
+        // re-arm, a settings change or a reconnect must not overwrite (or disarm) it. Cancelling clears the
+        // stored alarm first, then calls this to hand the strap back to the regular alarm.
+        if SleepPlannerStore.armedAlarm != nil { return }
         let overrides = WindDownNudge.perDayWakeOverrides
         guard behavior.smartAlarmEnabled else {
             ble.disableStrapAlarm()
