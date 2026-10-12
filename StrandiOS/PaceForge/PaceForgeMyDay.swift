@@ -181,7 +181,7 @@ enum PFMyDay {
     // MARK: Dates
 
     /// "2030-03-11T07:10:00" is the phone's local time; a stamp with a zone is read as written.
-    static func parse(_ text: String) -> Date? {
+    nonisolated static func parse(_ text: String) -> Date? {
         let zoned = ISO8601DateFormatter()
         zoned.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         let plain = ISO8601DateFormatter()
