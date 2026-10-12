@@ -80,8 +80,10 @@ struct PFReadinessCard: View {
     let readiness: PFReadiness
 
     var body: some View {
-        PFCard("Why my readiness is this", icon: "gauge.with.dots.needle.67percent") {
+        PFCard("Why my readiness is this", icon: "gauge.with.dots.needle.67percent",
+               info: PFExplainerID.readinessSources) {
             VStack(alignment: .leading, spacing: 14) {
+                if let answers = readiness.answers { PFAnswersView(answers: answers) }
                 HStack(alignment: .top, spacing: 10) {
                     ForEach(readiness.sources) { PFReadinessColumn(source: $0) }
                 }
@@ -122,13 +124,17 @@ private struct PFReadinessColumn: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 5) {
-            Text(source.source).strandOverline()
+            HStack(spacing: 0) {
+                Text(source.source).strandOverline()
+                if source.source != "PaceForge" { PFInfoButton(id: PFExplainerID.forReadinessSource(source.source)) }
+            }
             Text(source.score.map { String(Int($0.rounded())) } ?? "\u{2013}")
                 .font(StrandFont.rounded(28))
                 .foregroundStyle(StrandPalette.textPrimary)
             if let band = source.band {
                 PFChip(text: PFFormat.capitalized(band), color: PFColor.sky)
             }
+            PFTrustNote(trust: source.trust)
             ForEach(Array(lines.enumerated()), id: \.offset) { _, line in
                 Text(line)
                     .font(StrandFont.caption)
@@ -163,7 +169,7 @@ struct PFHRR1Card: View {
     let hrr: PFHRR1
 
     var body: some View {
-        PFCard(title: "Heart rate recovery", icon: "heart.text.square", trailing: {
+        PFCard(title: "Heart rate recovery", icon: "heart.text.square", info: PFExplainerID.forHRR1(kind: hrr.kind), trailing: {
             if let band = hrr.personalBand { PFChip(text: PFFormat.capitalized(band), color: Self.color(band)) }
         }) {
             VStack(alignment: .leading, spacing: 10) {
@@ -191,11 +197,14 @@ struct PFHRR1Card: View {
                     }
                 }
                 if let context = contextCaption {
-                    Text(context)
-                        .font(StrandFont.footnote)
-                        .foregroundStyle(StrandPalette.textTertiary)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .accessibilityIdentifier("pf-hrr1-context")
+                    HStack(alignment: .top, spacing: 4) {
+                        Text(context)
+                            .font(StrandFont.footnote)
+                            .foregroundStyle(StrandPalette.textTertiary)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .accessibilityIdentifier("pf-hrr1-context")
+                        PFInfoButton(id: PFExplainerID.hrrContextBand)
+                    }
                 }
             }
         }

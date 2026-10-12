@@ -13,8 +13,10 @@ struct PFTodayView: View {
             if let brief = today.brief {
                 PFBriefCard(brief: brief, todayISO: snapshot.todayISO)
             }
+            if let feel = snapshot.feel { PFFeelCard(feel: feel, todayISO: snapshot.todayISO) }
             if !snapshot.alerts.isEmpty { PFAlertsCard(alerts: snapshot.alerts) }
-            if today.recovery != nil || today.strain != nil || today.sleep != nil { scoresCard }
+            if showsScores { scoresCard }
+            if let changes = snapshot.whatChanged { PFWhatChangedCard(changes: changes) }
             if let readiness = snapshot.readiness { PFReadinessCard(readiness: readiness) }
             sessionsSection
             if let race = today.nextRace { raceCard(race) }
@@ -23,24 +25,47 @@ struct PFTodayView: View {
 
     // MARK: Scores
 
+    /// A score that is missing because the engine is still calibrating shows its "Day 3 of 5" line
+    /// where the ring would be, instead of nothing.
+    private var recoveryCalibration: String? {
+        today.recovery == nil ? snapshot.calibrationLine(PFExplainerID.recovery) : nil
+    }
+    private var strainCalibration: String? {
+        today.strain == nil ? snapshot.calibrationLine(PFExplainerID.strain) : nil
+    }
+
+    private var showsScores: Bool {
+        today.recovery != nil || today.strain != nil || today.sleep != nil
+            || recoveryCalibration != nil || strainCalibration != nil
+    }
+
     private var scoresCard: some View {
         PFCard("Today", icon: "heart.fill") {
-            HStack(alignment: .top, spacing: 8) {
-                if let recovery = today.recovery {
-                    PFRing(value: recovery.score, maxValue: 100, color: StrandPalette.chargeColor,
-                           display: String(Int(recovery.score.rounded())),
-                           title: "Recovery", caption: recovery.confidence)
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(alignment: .top, spacing: 8) {
+                    if let recovery = today.recovery {
+                        PFRing(value: recovery.score, maxValue: 100, color: StrandPalette.chargeColor,
+                               display: String(Int(recovery.score.rounded())),
+                               title: "Recovery", caption: recovery.confidence, info: PFExplainerID.recovery)
+                    } else if let line = recoveryCalibration {
+                        PFRing(value: 0, maxValue: 100, color: StrandPalette.chargeColor, display: "\u{2013}",
+                               title: "Recovery", caption: line, info: PFExplainerID.recovery)
+                    }
+                    if let strain = today.strain {
+                        PFRing(value: strain.value, maxValue: 21, color: StrandPalette.effortColor,
+                               display: PFFormat.oneDecimal(strain.value),
+                               title: "Strain", caption: strainTarget(strain), info: PFExplainerID.strain)
+                    } else if let line = strainCalibration {
+                        PFRing(value: 0, maxValue: 21, color: StrandPalette.effortColor, display: "\u{2013}",
+                               title: "Strain", caption: line, info: PFExplainerID.strain)
+                    }
+                    if let sleep = today.sleep {
+                        PFRing(value: sleep.score, maxValue: 100, color: StrandPalette.restColor,
+                               display: String(Int(sleep.score.rounded())),
+                               title: "Sleep", caption: sleepNeed(sleep), info: PFExplainerID.sleepScore)
+                    }
                 }
-                if let strain = today.strain {
-                    PFRing(value: strain.value, maxValue: 21, color: StrandPalette.effortColor,
-                           display: PFFormat.oneDecimal(strain.value),
-                           title: "Strain", caption: strainTarget(strain))
-                }
-                if let sleep = today.sleep {
-                    PFRing(value: sleep.score, maxValue: 100, color: StrandPalette.restColor,
-                           display: String(Int(sleep.score.rounded())),
-                           title: "Sleep", caption: sleepNeed(sleep))
-                }
+                PFTrustNote(trust: today.recovery?.trust)
             }
         }
     }
@@ -131,6 +156,13 @@ private struct PFBriefCard: View {
                     .font(StrandFont.body.weight(.semibold))
                     .foregroundStyle(StrandPalette.textPrimary)
                     .fixedSize(horizontal: false, vertical: true)
+                if let changes = brief.changes {
+                    Label(changes, systemImage: "arrow.left.arrow.right")
+                        .font(StrandFont.subhead)
+                        .foregroundStyle(StrandPalette.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .accessibilityIdentifier("pf-brief-changes")
+                }
                 if brief.partial && !brief.missing.isEmpty {
                     Label("Waiting for: " + brief.missing.joined(separator: ", "), systemImage: "hourglass")
                         .font(StrandFont.caption)
@@ -221,21 +253,28 @@ private struct PFRing: View {
     let display: String
     let title: String
     let caption: String?
+    /// A metric-explainer id for the (i) beside the title.
+    var info: String? = nil
 
     var body: some View {
-        VStack(spacing: 6) {
-            ZStack {
-                Circle().stroke(color.opacity(0.18), lineWidth: 9)
-                Circle()
-                    .trim(from: 0, to: CGFloat(min(max(value / maxValue, 0), 1)))
-                    .stroke(color, style: StrokeStyle(lineWidth: 9, lineCap: .round))
-                    .rotationEffect(.degrees(-90))
-                Text(display)
-                    .font(StrandFont.rounded(24))
-                    .foregroundStyle(color)
+        VStack(spacing: 2) {
+            VStack(spacing: 6) {
+                ZStack {
+                    Circle().stroke(color.opacity(0.18), lineWidth: 9)
+                    Circle()
+                        .trim(from: 0, to: CGFloat(min(max(value / maxValue, 0), 1)))
+                        .stroke(color, style: StrokeStyle(lineWidth: 9, lineCap: .round))
+                        .rotationEffect(.degrees(-90))
+                    Text(display)
+                        .font(StrandFont.rounded(24))
+                        .foregroundStyle(color)
+                }
+                .frame(width: 80, height: 80)
+                Text(title).strandOverline()
             }
-            .frame(width: 80, height: 80)
-            Text(title).strandOverline()
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("\(title) \(display)")
+            if let info { PFInfoButton(id: info) }
             if let caption {
                 Text(caption)
                     .font(StrandFont.caption)
@@ -246,7 +285,5 @@ private struct PFRing: View {
             }
         }
         .frame(maxWidth: .infinity)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(title) \(display)")
     }
 }
