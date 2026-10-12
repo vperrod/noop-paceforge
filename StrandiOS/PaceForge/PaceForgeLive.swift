@@ -288,21 +288,23 @@ final class PFModel: ObservableObject {
 
     /// Files today's feel answer. The card shows it at once; on a failure the previous summary comes back
     /// and this returns false. The server's own summary (with the fresh agreement sentence) replaces the
-    /// optimistic one when it parses.
+    /// optimistic one when it parses. Both the replacement and the rollback only touch the summary while it
+    /// is still the optimistic one: a refresh that landed in between holds newer server data and wins.
     func submitFeel(_ value: Int) async -> Bool {
         guard (1...5).contains(value), var current = snapshot, let before = current.feel else { return false }
-        current.feel = before.answering(value)
+        let optimistic = before.answering(value)
+        current.feel = optimistic
         snapshot = current
         do {
             let data = try await PFAPI.postFeel(value)
-            if let saved = PFWave2Parse.feelSaved(PFJ(data: data)), var latest = snapshot {
+            if let saved = PFWave2Parse.feelSaved(PFJ(data: data)), var latest = snapshot, latest.feel == optimistic {
                 latest.feel = saved.summary ?? latest.feel?.answering(saved.feel)
                 snapshot = latest
             }
             if let latest = snapshot { await PFReminders.update(for: latest) }
             return true
         } catch {
-            if var latest = snapshot {
+            if var latest = snapshot, latest.feel == optimistic {
                 latest.feel = before
                 snapshot = latest
             }

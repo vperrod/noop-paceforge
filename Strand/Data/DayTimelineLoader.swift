@@ -52,7 +52,7 @@ enum DayTimelineLoader {
         let nowTs = Int(now.timeIntervalSince1970)
         let horizon = min(nowTs, endTs)
         let dayKey = Repository.localDayKey(bounds.start)
-        let isToday = bounds.start == Repository.logicalDayStart(now, calendar: calendar)
+        let isToday = isLogicalToday(day: day, dayStart: bounds.start, now: now, calendar: calendar)
         // The repo reads are relative to now; the +3 pads a night that straddles midnight.
         let daysBack = max(0, Int(now.timeIntervalSince(bounds.start) / 86_400)) + 3
 
@@ -138,6 +138,15 @@ enum DayTimelineLoader {
         }
 
         return Loaded(timeline: DayTimeline.build(input), workoutRows: rowsByKey, detected: detectedByEvent)
+    }
+
+    /// True when the day being loaded is the logical day of `now` (it rolls over at the user's rollover hour,
+    /// the same test My Day's stepper uses). Callers pass either an instant inside the day (the widget writer
+    /// passes `now`) or the day's own midnight (My Day), so both reads count: the instant's logical day, and
+    /// the loaded calendar day's start against the logical day's start.
+    static func isLogicalToday(day: Date, dayStart: Date, now: Date, calendar: Calendar = .current) -> Bool {
+        let today = Repository.logicalDayStart(now, calendar: calendar)
+        return dayStart == today || Repository.logicalDayStart(day, calendar: calendar) == today
     }
 
     // MARK: Sleep

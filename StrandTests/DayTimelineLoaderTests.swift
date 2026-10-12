@@ -41,4 +41,27 @@ final class DayTimelineLoaderTests: XCTestCase {
         let afternoon = block(nap, hours: 0.6)
         XCTAssertEqual(DayTimelineLoader.napStarts([night, afternoon], habitual: nil, calendar: cal), [afternoon.startTs])
     }
+
+    // 02:00 on 11 Jun is still the logical day of 10 Jun (rollover 04:00).
+    private var smallHours: Date {
+        Calendar.current.date(from: DateComponents(year: 2026, month: 6, day: 11, hour: 2))!
+    }
+
+    func testTheWidgetsNowInTheSmallHoursIsLogicallyToday() {
+        let cal = Calendar.current
+        let now = smallHours
+        XCTAssertTrue(DayTimelineLoader.isLogicalToday(day: now, dayStart: cal.startOfDay(for: now), now: now, calendar: cal))
+    }
+
+    func testMyDaysMidnightOfTheLogicalDayIsToday() {
+        let cal = Calendar.current
+        let midnight = cal.date(from: DateComponents(year: 2026, month: 6, day: 10))!
+        XCTAssertTrue(DayTimelineLoader.isLogicalToday(day: midnight, dayStart: midnight, now: smallHours, calendar: cal))
+    }
+
+    func testYesterdaysMidnightIsNotToday() {
+        let cal = Calendar.current
+        let midnight = cal.date(from: DateComponents(year: 2026, month: 6, day: 9))!
+        XCTAssertFalse(DayTimelineLoader.isLogicalToday(day: midnight, dayStart: midnight, now: smallHours, calendar: cal))
+    }
 }
