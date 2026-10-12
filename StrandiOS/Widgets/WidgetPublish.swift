@@ -117,6 +117,8 @@ extension WidgetSnapshot {
             stressDay: stress?.day ?? storedStress?.stressDay
         )
         saveAndReloadIfChanged(snap)
+        // The My Day widget's file rides the same publish, throttled inside the writer.
+        await MyDaySummaryWriter.refresh(repo: model.repo)
     }
 
     /// Publish fields that come directly from the live BLE state without re-reading the Rest metric

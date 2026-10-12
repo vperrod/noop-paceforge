@@ -48,6 +48,13 @@ struct PFWidgetGallery: View {
                 Spacer(minLength: 0)
             }
 
+            caption("My Day, medium")
+            card(height: 160) { MyDayWidgetFace(summary: .sample, stale: false) }
+                .accessibilityIdentifier("myday-widget-gallery")
+
+            caption("My Day, no recent file")
+            card(height: 110) { MyDayWidgetFace(summary: nil, stale: true) }
+
             caption("Stale or missing file")
             card(height: 110) { PFTodayWidgetFace(summary: s, stale: true, family: .systemMedium) }
 
