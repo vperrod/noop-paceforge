@@ -113,8 +113,8 @@ final class PaceForgeWave3UITests: XCTestCase {
         let empty = element(app, "pf-sims-empty")
         XCTAssertTrue(reveal(empty, in: app, maxSwipes: 20) || empty.waitForExistence(timeout: 5),
                       "With no simulation the card should say how to log one.")
-        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS[c] %@", "log race sim")).firstMatch.exists,
-                      "The empty state should give the Telegram phrase.")
+        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS[c] %@", "Log a simulation")).firstMatch.exists,
+                      "The empty state should say where to log one.")
         attach(app, "32 Race simulations empty")
     }
 
@@ -145,7 +145,8 @@ final class PaceForgeWave3UITests: XCTestCase {
         try openSegment(app, "Today")
         let proposal = element(app, "pf-easy-pending-p1")
         XCTAssertTrue(reveal(proposal, in: app), "A pending proposal should be listed.")
-        XCTAssertTrue(label(app, "Accept in Telegram").exists, "It should say where to accept it.")
+        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH[c] %@", "Accept in Telegram")).firstMatch.exists,
+                      "It should say where to accept it.")
         attach(app, "34 Easy mode pending")
     }
 

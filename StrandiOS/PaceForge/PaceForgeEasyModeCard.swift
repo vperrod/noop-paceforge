@@ -17,7 +17,7 @@ struct PFEasyModeCard: View {
             VStack(alignment: .leading, spacing: 14) {
                 if let mode = easy.mode { modeBlock(mode) }
                 if !easy.pending.isEmpty { pendingBlock }
-                Label(easy.pending.isEmpty ? "Change or end it in Telegram." : PFTelegramHint.easyModeAccept,
+                Label(easy.pending.isEmpty ? PFTelegramHint.easyModeEnd : PFTelegramHint.easyModeAccept,
                       systemImage: "paperplane")
                     .font(StrandFont.caption)
                     .foregroundStyle(StrandPalette.textTertiary)

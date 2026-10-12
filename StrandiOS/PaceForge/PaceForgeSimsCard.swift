@@ -4,7 +4,7 @@ import StrandDesign
 /// PaceForge Insights: the latest HYROX race simulation against the goal, its 8 run and 8 station
 /// splits against the goal and the previous simulation, run fade, compromised runs, the pacing check and
 /// the two stations to work on. Deltas are signed numbers in neutral colours: faster or slower is not
-/// good or bad on its own here. The app only reads; simulations are logged in Telegram.
+/// good or bad on its own here. The app only reads; simulations are logged in the PaceForge web app.
 struct PFSimulationsCard: View {
     let sims: PFHyroxSims
 

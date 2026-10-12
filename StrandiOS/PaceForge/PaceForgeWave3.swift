@@ -5,20 +5,23 @@ import Foundation
 // reads. Foundation only, so the pure parsing and formatting below is compiled into the macOS
 // unit-test bundle as well. Every field is optional on the wire: an older server or a friend's instance
 // may not serve a file, a number may arrive as an int or a double, and the screens then hide the part.
-// The app only reads these. Anything that changes state (easy mode, tape, race simulations, niggles) is
-// done in Telegram, and the app shows the state and the phrase to say there.
+// The app only reads these. Easy mode and tape are changed in Telegram; race simulations and niggles in the
+// PaceForge web app. The app shows the state and the phrase to say or the place to go.
 
 // MARK: - Telegram hints
 
-/// The phrases the app tells the athlete to say in Telegram. One place, so a wording change is one line.
+/// The phrases the app tells the athlete to say in Telegram, as the bot parses them (runner.py `tg_intent`,
+/// easy_mode.py `parse`, tape.py `parse`). One place, so a wording change is one line. Race simulations and
+/// niggles have no Telegram command: the server takes them from the web app (Events tab, "Log a simulation")
+/// or from the web "Ask the coach" box, so the race-simulation hint points there.
 enum PFTelegramHint {
-    static let logRaceSim = "log race sim \u{2026}"
-    /// What the server accepts after the phrase, as the athlete is told it.
-    static let raceSimFormat = "Give up to 8 run times and up to 8 station times, each as m:ss."
-    static let raceSimEmpty = "Log a race simulation in Telegram: \u{2018}\(logRaceSim)\u{2019}"
-    static let tape = "Log tape measurements in Telegram."
-    static let easyModeNone = "Not feeling 100 %? Say so in Telegram."
-    static let easyModeAccept = "Accept in Telegram"
+    static let raceSimEmpty = "Log a race simulation in the PaceForge web app: Events tab, Log a simulation."
+    /// What the server accepts for a simulation (sims.py): times 0:20 to 30:00, m:ss or seconds.
+    static let raceSimFormat = "Give the 8 run times first, then the 8 station times in race order (SkiErg, Sled Push, Sled Pull, Burpee Broad Jump, Row, Farmers Carry, Sandbag Lunges, Wall Balls), each as m:ss. Add the total Roxzone time if you have it. Fewer times log a half simulation."
+    static let tape = "Log tape measurements in Telegram. Type: waist 88 hips 98 chest 104 arm 36 thigh 58 (cm; any of the five)."
+    static let easyModeNone = "Not feeling 100 %? In Telegram type: not feeling 100 for 5 days. Or: easy mode level 2 for 5 days (level 1 to 3, 3 to 14 days)."
+    static let easyModeAccept = "Accept in Telegram: tap Accept under the proposal, or reply 1 yes."
+    static let easyModeEnd = "End it in Telegram: type end easy mode."
     static let doThisInTelegram = "Do this in Telegram"
 }
 
