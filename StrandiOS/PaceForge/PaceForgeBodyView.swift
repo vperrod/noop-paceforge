@@ -15,6 +15,8 @@ struct PFBodyView: View {
             VStack(alignment: .leading, spacing: 16) {
                 if let progress = snapshot.bodyProgress { PFProgressCard(progress: progress) }
                 PFTrendCard(doc: doc, progress: snapshot.bodyProgress, metric: $metric, range: $range)
+                if let muscle = snapshot.muscle { PFMuscleCheckCard(check: muscle) }
+                if let tape = snapshot.tape { PFTapeCard(tape: tape) }
                 PFScoreCard(doc: doc)
                 if !doc.assessment.isEmpty { compositionCard(doc) }
                 massCard(doc)
@@ -511,6 +513,12 @@ private struct PFSegmentalCard: View {
 
     private func segment(_ key: String) -> PFBodySegment? { doc.segments.first { $0.key == key } }
 
+    /// The four limbs are left or right; the server says whether that split is an estimate. No label when
+    /// it says it is not, or says nothing.
+    private func isEstimate(_ key: String) -> Bool {
+        key != "trunk" && doc.segmentalMeta?.estimate == true
+    }
+
     var body: some View {
         PFCard("Segmental analysis", icon: "figure.arms.open", info: PFExplainerID.bodyEstimates) {
             VStack(alignment: .leading, spacing: 14) {
@@ -535,6 +543,13 @@ private struct PFSegmentalCard: View {
                     .font(StrandFont.caption)
                     .foregroundStyle(StrandPalette.textTertiary)
                     .fixedSize(horizontal: false, vertical: true)
+                if let meta = doc.segmentalMeta, meta.estimate {
+                    Text("Left and right are our estimate." + (meta.note.map { " \($0)" } ?? meta.method.map { " Method: \($0)." } ?? ""))
+                        .font(StrandFont.caption)
+                        .foregroundStyle(StrandPalette.textTertiary)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .accessibilityIdentifier("pf-body-estimate-note")
+                }
             }
         }
         .accessibilityIdentifier("pf-body-segmental")
@@ -556,6 +571,10 @@ private struct PFSegmentalCard: View {
                         .foregroundStyle(StrandPalette.textTertiary)
                 }
                 PFChip(text: status(seg) == "none" ? "\u{2014}" : PFFormat.capitalized(status(seg)), color: tint(seg))
+                if isEstimate(key) {
+                    PFChip(text: "Estimate", color: StrandPalette.textTertiary)
+                        .accessibilityIdentifier("pf-body-estimate-\(key)")
+                }
             }
             .padding(10)
             .frame(maxWidth: .infinity, alignment: .leading)

@@ -188,6 +188,14 @@ final class PaceForgeWave3Tests: XCTestCase {
         XCTAssertEqual(PFWave3Parse.tape(json(#"{"readings":[],"trend":{},"waist_to_hip":null}"#))?.hasData, false)
     }
 
+    func testSignedFiguresUseAMinusSignAndNoColourWord() {
+        XCTAssertEqual(PFNumber.signed(-1.24), "\u{2212}1.2")
+    }
+
+    func testAFigureThatRoundsToNothingHasNoSign() {
+        XCTAssertEqual(PFNumber.signed(-0.04), "0.0")
+    }
+
     // MARK: Heat
 
     func testHeatChipNamesTheTemperatureLevelAndPaceCost() {

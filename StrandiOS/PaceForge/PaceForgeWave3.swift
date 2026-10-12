@@ -544,6 +544,16 @@ enum PFNumber {
     static func trimmed(_ value: Double) -> String {
         value.rounded() == value ? String(Int(value)) : String(format: "%.1f", value)
     }
+
+    /// 62.1, always one decimal.
+    static func trimmedOne(_ value: Double) -> String { String(format: "%.1f", value) }
+
+    /// +0.4, \u{2212}1.2, or 0.0 for a value that rounds to nothing. Neutral: no colour is chosen from the sign.
+    static func signed(_ value: Double, decimals: Int = 1) -> String {
+        let text = String(format: "%.\(max(0, decimals))f", abs(value))
+        if Double(text) == 0 { return text }
+        return (value < 0 ? "\u{2212}" : "+") + text
+    }
 }
 
 // MARK: - Parsing

@@ -100,7 +100,11 @@ struct PFProgressCard: View {
                            note: visceral.standardRange.map { "Standard range \($0)" }))
         }
         if let balance = progress.balance, let note = balance.note {
-            out.append(Row(title: "Balance", value: balance.flag.map { PFFormat.capitalized(PFFormat.words($0)) } ?? "",
+            // Left and right are our estimate when the server says so; with no flag or a false one, no label.
+            let value = [balance.estimate == true ? "Estimate" : nil,
+                         balance.flag.map { PFFormat.capitalized(PFFormat.words($0)) }]
+                .compactMap { $0 }.joined(separator: " \u{00B7} ")
+            out.append(Row(title: "Balance", value: value,
                            note: note, flagged: balance.flag != nil && balance.flag != "ok" && balance.flag != "balanced"))
         }
         return out
