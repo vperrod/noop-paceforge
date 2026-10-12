@@ -160,6 +160,12 @@ final class DayTimelineTests: XCTestCase {
         XCTAssertEqual(gap?.end, date(at(14)))
     }
 
+    func testSkippingTheHeartRateSeriesReportsNoGapRatherThanAWholeDayOfThem() {
+        var i = input()
+        i.detectsGaps = false
+        XCTAssertTrue(events(DayTimeline.build(i), .noData).isEmpty)
+    }
+
     func testAFutureDayHasNoGaps() {
         var i = input(now: day0 - 3600)
         i.hr = []

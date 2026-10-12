@@ -3114,7 +3114,7 @@ final class Repository: ObservableObject {
 
     /// The persisted legacy detected spans ("startTs:endTs"). Read straight off UserDefaults so the read
     /// filter, mutators and confirmation-candidate selector share one source of truth.
-    private var dismissedDetectedSpans: [String] {
+    var dismissedDetectedSpans: [String] {
         get { UserDefaults.standard.stringArray(forKey: WorkoutSource.dismissedDefaultsKey) ?? [] }
         set { UserDefaults.standard.set(newValue, forKey: WorkoutSource.dismissedDefaultsKey) }
     }
@@ -3304,7 +3304,7 @@ final class Repository: ObservableObject {
     /// Dismissed AUTO-DETECT spans ("startSec:endSec"). The key remains distinct for backup compatibility;
     /// candidate selection also honors the legacy `dismissedDetected` intervals during the transition.
     private static let autoDetectDismissedKey = "workouts.autoDetectDismissed"
-    private var autoDetectDismissedSpans: [String] {
+    var autoDetectDismissedSpans: [String] {
         get { UserDefaults.standard.stringArray(forKey: Self.autoDetectDismissedKey) ?? [] }
         set { UserDefaults.standard.set(newValue, forKey: Self.autoDetectDismissedKey) }
     }

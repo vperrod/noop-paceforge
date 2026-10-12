@@ -148,6 +148,9 @@ extension DayTimeline {
         /// True when the strap has not been synced and the day is still running, so a gap at its tail is
         /// most likely data still on the strap.
         public var syncPending = false
+        /// Off when the heart-rate series was deliberately not loaded, so a day with no series is not
+        /// reported as one long gap.
+        public var detectsGaps = true
 
         public init(dayStart: Date, dayEnd: Date, now: Date) {
             self.dayStart = dayStart; self.dayEnd = dayEnd; self.now = now
@@ -167,7 +170,7 @@ extension DayTimeline {
         // Heart rate: sorted, one sample per second, inside [dayStart, horizon).
         let hrSamples = dedupedSorted(input.hr.filter { $0.ts >= dayStartTs && $0.ts < horizon })
         let span = max(1, input.hrSampleSpanSec)
-        let gaps = noDataGaps(hrTs: hrSamples.map(\.ts), span: span, from: dayStartTs, to: horizon)
+        let gaps = input.detectsGaps ? noDataGaps(hrTs: hrSamples.map(\.ts), span: span, from: dayStartTs, to: horizon) : []
         let curve = hrCurve(hrSamples, gaps: gaps, dayStartTs: dayStartTs, dayEndTs: dayEndTs)
 
         var events: [Event] = []
