@@ -149,10 +149,11 @@ final class PlannerUITests: XCTestCase {
         let tab = app.tabBars.buttons["PaceForge"]
         XCTAssertTrue(tab.waitForExistence(timeout: 20))
         tab.tap()
-        let caption = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH[c] %@", "Effort target, small")).firstMatch
-        XCTAssertTrue(app.staticTexts["Widget gallery"].waitForExistence(timeout: 20))
-        for _ in 0..<10 where !caption.exists { app.swipeUp() }
-        XCTAssertTrue(caption.exists, "The Effort target widget should be drawn in the debug gallery.")
+        // The gallery heading and the widget card carry identifiers, which replace their text as the lookup key.
+        let widget = element(app, "effort-target-widget-gallery")
+        XCTAssertTrue(element(app, "pf-widget-gallery").waitForExistence(timeout: 20))
+        for _ in 0..<10 where !widget.exists { app.swipeUp() }
+        XCTAssertTrue(widget.exists, "The Effort target widget should be drawn in the debug gallery.")
         attach(app, "36 Effort target widget")
         app.swipeUp()
         attach(app, "36 Effort target widget lock screen")
