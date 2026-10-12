@@ -99,13 +99,13 @@ struct PFProgressCard: View {
             out.append(Row(title: "Visceral fat", value: PFFormat.trimmed(value) + band,
                            note: visceral.standardRange.map { "Standard range \($0)" }))
         }
-        if let balance = progress.balance, let note = balance.note {
+        if let balance = progress.balance, balance.note != nil || balance.estimate == true {
             // Left and right are our estimate when the server says so; with no flag or a false one, no label.
             let value = [balance.estimate == true ? "Estimate" : nil,
                          balance.flag.map { PFFormat.capitalized(PFFormat.words($0)) }]
                 .compactMap { $0 }.joined(separator: " \u{00B7} ")
             out.append(Row(title: "Balance", value: value,
-                           note: note, flagged: balance.flag != nil && balance.flag != "ok" && balance.flag != "balanced"))
+                           note: balance.note, flagged: balance.flag != nil && balance.flag != "ok" && balance.flag != "balanced"))
         }
         return out
     }
