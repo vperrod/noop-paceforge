@@ -263,6 +263,7 @@ struct SettingsView: View {
                 // Everyday sections stay expanded (S3): the ones a first-run user actually needs.
                 profileCard.staggeredAppear(index: 0)
                 unitsCard.staggeredAppear(index: 1)
+                HideScoresSettingsCard().staggeredAppear(index: 1)
                 appearanceCard.staggeredAppear(index: 2)
                 strapCard.staggeredAppear(index: 3)
                 #if os(iOS)

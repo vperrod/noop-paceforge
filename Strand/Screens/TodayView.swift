@@ -3212,16 +3212,16 @@ struct TodayView: View {
             // Health screen on an unknown key rather than failing, which is why they are pinned.
             heroRingColumn(section: .charge, domain: .charge, provenanceKey: "recovery",
                            onOpenBreakdown: { showChargeBreakdown = true }) {
-                chargeRing(score: score, d: d, diameter: ring)
+                chargeRing(score: score, d: d, diameter: ring).hiddenWhenPrivate(.scores, name: "Charge")
             }
             heroRingColumn(section: .effort, domain: .effort,
-                           detailRoute: .metric(HeroRingMetric.effort)) { effortRing(d: d, diameter: ring) }
+                           detailRoute: .metric(HeroRingMetric.effort)) { effortRing(d: d, diameter: ring).hiddenWhenPrivate(.scores, name: "Effort") }
             // `provenanceKey` spells the same string the route does and stays a literal on purpose: it
             // asks which SOURCE won this day, not which catalog entry to open. See `HeroRingMetric`.
             heroRingColumn(section: .rest, domain: .rest, provenanceKey: "sleep_performance",
                            detailRoute: .metric(HeroRingMetric.rest),
                            caption: restIsPendingSync ? "Pending sync" : nil,
-                           captionWidth: ring) { restRing(diameter: ring) }
+                           captionWidth: ring) { restRing(diameter: ring).hiddenWhenPrivate(.scores, name: "Rest") }
         }
         .frame(maxWidth: .infinity, alignment: .center)
         // Zero-impact width reader: a clear background that publishes the row's width up via preference. It
@@ -3909,8 +3909,21 @@ struct TodayView: View {
     /// One Key-Metric tile, keyed so the grid can be filtered + reordered per the saved layout (#251).
     /// Each case is byte-for-byte the tile that used to be hard-coded in the grid, the refactor only
     /// changes WHICH tiles render and in WHAT order, never how an individual tile looks.
-    @ViewBuilder
     private func keyMetricTile(_ metric: KeyMetric) -> some View {
+        // Hide numbers (Settings): Charge, Effort, Rest and Weight read "Hidden" while their switch is on.
+        keyMetricTileContent(metric).hiddenWhenPrivate(Self.hideKind(for: metric), name: String(describing: metric))
+    }
+
+    private static func hideKind(for metric: KeyMetric) -> HideScoresKind? {
+        switch metric {
+        case .charge, .effort, .rest: return .scores
+        case .weight: return .body
+        default: return nil
+        }
+    }
+
+    @ViewBuilder
+    private func keyMetricTileContent(_ metric: KeyMetric) -> some View {
         let d = displayDay
         let aLatest = appleDays.last
         switch metric {

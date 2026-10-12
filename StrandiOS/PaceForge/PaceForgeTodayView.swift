@@ -4,6 +4,8 @@ import StrandDesign
 /// PaceForge "Today": the daily coach briefing, PaceForge's own recovery / strain / sleep and the day's sessions.
 struct PFTodayView: View {
     let snapshot: PFSnapshot
+    /// Settings > Hide numbers: the three scores read "Hidden".
+    @AppStorage(HideScoresPrefs.scoresKey) private var hideScores = false
 
     private var today: PFToday { snapshot.today }
 
@@ -73,25 +75,25 @@ struct PFTodayView: View {
             VStack(alignment: .leading, spacing: 10) {
                 HStack(alignment: .top, spacing: 8) {
                     if let recovery = today.recovery {
-                        PFRing(value: recovery.score, maxValue: 100, color: StrandPalette.chargeColor,
-                               display: String(Int(recovery.score.rounded())),
-                               title: "Recovery", caption: recovery.confidence, info: PFExplainerID.recovery)
+                        PFRing(value: hideScores ? 0 : recovery.score, maxValue: 100, color: StrandPalette.chargeColor,
+                               display: HideScoresPrefs.shown(String(Int(recovery.score.rounded())), hidden: hideScores),
+                               title: "Recovery", caption: hideScores ? nil : recovery.confidence, info: PFExplainerID.recovery)
                     } else if let line = recoveryCalibration {
                         PFRing(value: 0, maxValue: 100, color: StrandPalette.chargeColor, display: "\u{2013}",
                                title: "Recovery", caption: line, info: PFExplainerID.recovery)
                     }
                     if let strain = today.strain {
-                        PFRing(value: strain.value, maxValue: 21, color: StrandPalette.effortColor,
-                               display: PFFormat.oneDecimal(strain.value),
-                               title: "Strain", caption: strainTarget(strain), info: PFExplainerID.strain)
+                        PFRing(value: hideScores ? 0 : strain.value, maxValue: 21, color: StrandPalette.effortColor,
+                               display: HideScoresPrefs.shown(PFFormat.oneDecimal(strain.value), hidden: hideScores),
+                               title: "Strain", caption: hideScores ? nil : strainTarget(strain), info: PFExplainerID.strain)
                     } else if let line = strainCalibration {
                         PFRing(value: 0, maxValue: 21, color: StrandPalette.effortColor, display: "\u{2013}",
                                title: "Strain", caption: line, info: PFExplainerID.strain)
                     }
                     if let sleep = today.sleep {
-                        PFRing(value: sleep.score, maxValue: 100, color: StrandPalette.restColor,
-                               display: String(Int(sleep.score.rounded())),
-                               title: "Sleep", caption: sleepNeed(sleep), info: PFExplainerID.sleepScore)
+                        PFRing(value: hideScores ? 0 : sleep.score, maxValue: 100, color: StrandPalette.restColor,
+                               display: HideScoresPrefs.shown(String(Int(sleep.score.rounded())), hidden: hideScores),
+                               title: "Sleep", caption: hideScores ? nil : sleepNeed(sleep), info: PFExplainerID.sleepScore)
                     }
                 }
                 PFTrustNote(trust: today.recovery?.trust)

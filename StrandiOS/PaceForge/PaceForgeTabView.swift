@@ -30,6 +30,8 @@ struct PaceForgeTabView: View {
 
     @AppStorage("noop.paceforge.segment") private var segmentRaw = PFSegment.today.rawValue
     @State private var showStanding = false
+    /// Settings > Hide numbers: body weight and body fat. The Body screen then shows a placeholder.
+    @AppStorage(HideScoresPrefs.bodyKey) private var hideBody = false
 
     private var segment: Binding<PFSegment> {
         Binding(
@@ -119,7 +121,15 @@ struct PaceForgeTabView: View {
             case .coach: PFCoachView(snapshot: snapshot)
             case .week: PFWeekView(snapshot: snapshot)
             case .insights: PFInsightsView(snapshot: snapshot)
-            case .body: PFBodyView(snapshot: snapshot)
+            case .body:
+                if hideBody {
+                    PFCard("Body", icon: "figure.stand") {
+                        PFParagraph("\(HideScoresPrefs.placeholder) \u{2014} body weight and body fat are hidden. Turn this off in Settings > Hide numbers.")
+                    }
+                    .containerIdentifier("pf-body-hidden")
+                } else {
+                    PFBodyView(snapshot: snapshot)
+                }
             }
         }
         .environment(\.pfExplainers, snapshot.explainerMap)

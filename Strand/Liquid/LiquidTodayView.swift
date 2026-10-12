@@ -107,6 +107,9 @@ struct LiquidTodayView: View {
     // "today.sectionOrder" key the Android TodayLayoutPrefs uses. Reordered via the Arrange sheet (native
     // drag-to-reorder rows); every section always renders (decode inserts a missing one at its default spot).
     @AppStorage(TodayLayoutPrefs.orderKey) private var sectionOrderRaw = ""
+    /// Settings > Hide numbers: the three scores, and body weight, read "Hidden" on this screen.
+    @AppStorage(HideScoresPrefs.scoresKey) private var hideScoresOn = false
+    @AppStorage(HideScoresPrefs.bodyKey) private var hideBodyOn = false
     @AppStorage(TodayLayoutPrefs.hiddenKey) private var hiddenSectionsRaw = ""
     private var sectionOrder: [TodaySection] {
         TodayLayoutPrefs.visibleOrder(orderRaw: sectionOrderRaw, hiddenRaw: hiddenSectionsRaw)
@@ -1471,7 +1474,10 @@ struct LiquidTodayView: View {
 
     private func ktile(_ label: String, icon: String, _ value: String, _ unit: String, _ tint: Color, _ frac: Double?,
                        key: String? = nil, detailMetric: MetricDescriptor? = nil, caption: String? = nil) -> some View {
-        let displayValue = Self.tileDisplayValue(value, unit: unit)
+        // Hide numbers (Settings): the three scores and body weight read "Hidden" and drop their caption, bar and trend.
+        let hides = HideScoresPrefs.hides(key: key, scores: hideScoresOn, body: hideBodyOn)
+        let displayValue = hides ? HideScoresPrefs.placeholder : Self.tileDisplayValue(value, unit: unit)
+        let caption = hides ? nil : caption
         let tile = VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 6) {
                 Image(systemName: icon)
@@ -1500,14 +1506,14 @@ struct LiquidTodayView: View {
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
             }
-            LiquidTube(frac: frac ?? 0, tint: tint, height: 9, animated: false,
+            LiquidTube(frac: hides ? 0 : (frac ?? 0), tint: tint, height: 9, animated: false,
                        showsHighlight: false, usesCleanFill: true)
             // #430 parity: DETAILED tiles grow the trend graph under the bar, tinted to the metric and
             // windowed to the editor's 1-week / 2-week / 1-month choice (the Android twin). A metric with no
             // windowed series keeps a clear placeholder of the same height so every tile in a detailed row
             // stays equal-height with its bars aligned.
             if keyMetricsDetailed {
-                let spark = key.map { windowedSpark($0) } ?? []
+                let spark = hides ? [] : (key.map { windowedSpark($0) } ?? [])
                 if spark.count >= 2 {
                     Sparkline(values: spark,
                               gradient: Gradient(colors: [tint.opacity(0.5), tint]))
@@ -2293,7 +2299,7 @@ private struct HeroScoreCell: View {
 
     var body: some View {
         VStack(spacing: 7) {
-            gaugeView
+            gaugeView.hiddenWhenPrivate(.scores, name: label)
             Button(action: onGuide) {
                 HStack(spacing: 3) {
                     // #74: one line, shrink-to-fit rather than wrap under large Dynamic Type (mirrors the
