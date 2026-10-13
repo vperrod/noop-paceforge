@@ -54,6 +54,8 @@ enum PFAPI {
         // A card hidden in PaceForge itself (dismissed.json), united with the ones hidden on the phone.
         ("-PaceForgeServerDismissed", "data/dismissed.json", "data/dismissed.server.json"),
         ("-PaceForgeRideNoStream", "data/bike/streams/2030-03-13.json", "data/bike/streams/2030-03-13.missing.json"),
+        // A workout whose recording ended at the stop: Garmin's own readings after it (kind garmin_2min).
+        ("-PaceForgeHRRGarmin", "data/details/9000000001.json", "data/details/9000000001.garmin.json"),
     ]
     #endif
 
