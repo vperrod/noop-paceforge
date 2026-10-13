@@ -41,7 +41,10 @@ final class PaceForgeWave3UITests: XCTestCase {
         tab.tap()
         let segments = app.segmentedControls["pf-segments"]
         XCTAssertTrue(segments.waitForExistence(timeout: 15), "The PaceForge segmented control should load from the fixture.")
-        segments.buttons[title].tap()
+        let button = segments.buttons[title]
+        button.tap()
+        // The segment is remembered between launches; a tap that lands while the previous one is restored is lost.
+        if !button.isSelected { button.tap() }
     }
 
     /// Scrolls down until the element can be tapped.

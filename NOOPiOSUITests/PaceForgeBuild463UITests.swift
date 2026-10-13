@@ -56,6 +56,15 @@ final class PaceForgeBuild463UITests: XCTestCase {
         return element.exists && element.isHittable
     }
 
+    /// Scrolls a sheet with whole-screen swipes: the short drag in `reveal` does not move a sheet's form.
+    private func swipeToReveal(_ element: XCUIElement, in app: XCUIApplication, maxSwipes: Int = 10) -> Bool {
+        for _ in 0..<maxSwipes {
+            if element.exists && element.isHittable { return true }
+            app.swipeUp(velocity: .slow)
+        }
+        return element.exists && element.isHittable
+    }
+
     // MARK: Add measurement
 
     func testAddMeasurementSheetTakesATapeAndAFieldTest() throws {
@@ -190,12 +199,14 @@ final class PaceForgeBuild463UITests: XCTestCase {
         XCTAssertTrue(exercise.waitForExistence(timeout: 10), "The exercise sheet should open.")
         exercise.tap()
         exercise.typeText("Bench press")
+        let returnKey = app.keyboards.buttons["Return"]
+        if returnKey.exists { returnKey.tap() }
         let barbell = element(app, "lift-equipment-barbell")
-        XCTAssertTrue(reveal(barbell, in: app, maxSwipes: 6), "The exercise sheet should tag equipment.")
+        XCTAssertTrue(swipeToReveal(barbell, in: app), "The exercise sheet should tag equipment.")
         barbell.tap()
         attach(app, "89 Lift exercise equipment tag")
         let save = app.buttons["Save exercise"]
-        XCTAssertTrue(reveal(save, in: app, maxSwipes: 12), "The exercise sheet should save.")
+        XCTAssertTrue(swipeToReveal(save, in: app), "The exercise sheet should save.")
         save.tap()
         let addSecond = app.buttons["Add exercise"]
         XCTAssertTrue(addSecond.waitForExistence(timeout: 10), "Back in the editor, Add exercise should still be there.")
