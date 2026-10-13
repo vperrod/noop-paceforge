@@ -216,6 +216,8 @@ struct PFHRR1Card: View {
         switch hrr.kind {
         case PFHRR1.interval:
             return "Interval rebound \u{2014} compared with your own intervals." + (hrr.isEstimated ? " Estimated." : "")
+        case PFHRR1.noPostStopData:
+            return hrr.reason ?? PFHRR1.noPostStopLine
         case PFHRR1.notMeasurable:
             return "Not enough readings after the end."
         default:

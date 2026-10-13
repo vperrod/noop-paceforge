@@ -13,6 +13,10 @@ import WhoopProtocol
 /// at 1 minute, so there was no real stop) and HR that rises after the stop (>= 8 bpm above the reference at
 /// 1 or 2 minutes). Their drops are still reported, but `contextBand` is nil.
 ///
+/// A caller whose source stops recording at the stop (Garmin through PaceForge: its per-second recording ends
+/// there, and what follows is the 120 s all-day series, bin means rather than readings) passes
+/// `requiredPostStopSeconds`; the engine then refuses unless continuous readings run that far past the end.
+///
 /// Missing post-workout coverage stays nil. The engine never interpolates across a gap or turns a missing
 /// reading into zero, which is important when a strap disconnects as the workout ends.
 public enum HeartRateRecovery {
@@ -113,6 +117,9 @@ public enum HeartRateRecovery {
         case notHardEnough
         /// The end heart rate is known but no recovery point (1, 2 or 5 min) has enough readings.
         case noReadingsAfterEnd
+        /// The source stopped recording at the stop: nothing continuous runs `requiredPostStopSeconds` past it,
+        /// so the only later readings (if any) are day-series bin means, not heart rate at +1 / +2 min.
+        case noPostStopData
     }
 
     public enum Outcome: Equatable, Sendable {
@@ -125,14 +132,16 @@ public enum HeartRateRecovery {
                                  minimumSamplesPerReading: Int = HeartRateRecovery.minimumSamplesPerReading,
                                  measurementToleranceSeconds: Int = HeartRateRecovery.measurementToleranceSeconds,
                                  minimumCessationSamples: Int = HeartRateRecovery.minimumSamplesPerReading,
-                                 maximumContinuousGapSeconds: Int = HeartRateRecovery.maximumContinuousGapSeconds) -> Result? {
+                                 maximumContinuousGapSeconds: Int = HeartRateRecovery.maximumContinuousGapSeconds,
+                                 requiredPostStopSeconds: Int = 0) -> Result? {
         if case .measured(let result) = evaluate(
             samples: samples, workoutStart: workoutStart, workoutEnd: workoutEnd,
             maxHR: maxHR, maxHRSource: maxHRSource,
             minimumSamplesPerReading: minimumSamplesPerReading,
             measurementToleranceSeconds: measurementToleranceSeconds,
             minimumCessationSamples: minimumCessationSamples,
-            maximumContinuousGapSeconds: maximumContinuousGapSeconds) {
+            maximumContinuousGapSeconds: maximumContinuousGapSeconds,
+            requiredPostStopSeconds: requiredPostStopSeconds) {
             return result
         }
         return nil
@@ -148,7 +157,8 @@ public enum HeartRateRecovery {
                                 minimumSamplesPerReading: Int = HeartRateRecovery.minimumSamplesPerReading,
                                 measurementToleranceSeconds: Int = HeartRateRecovery.measurementToleranceSeconds,
                                 minimumCessationSamples: Int = HeartRateRecovery.minimumSamplesPerReading,
-                                maximumContinuousGapSeconds: Int = HeartRateRecovery.maximumContinuousGapSeconds) -> Outcome {
+                                maximumContinuousGapSeconds: Int = HeartRateRecovery.maximumContinuousGapSeconds,
+                                requiredPostStopSeconds: Int = 0) -> Outcome {
         guard maxHR > 0 else { return .unavailable(.missingMaxHR) }
         guard workoutStart > 0, workoutEnd > workoutStart else { return .unavailable(.invalidWorkout) }
         let lowerBound = max(workoutStart, workoutEnd - eligibilityLookbackSeconds)
@@ -179,6 +189,10 @@ public enum HeartRateRecovery {
             .map(\.bpm)
         let referencePool = lastTen.count >= max(1, minimumCessationSamples) ? lastTen : cessation
         guard let endHR = median(referencePool) else { return .unavailable(.tooFewReadingsAtEnd) }
+        guard continuousSecondsAfterEnd(in: sorted, workoutEnd: workoutEnd,
+                                        maximumGapSeconds: maximumContinuousGapSeconds) >= requiredPostStopSeconds else {
+            return .unavailable(.noPostStopData)
+        }
 
         /// HR median around `minutes` after the end, or nil without enough readings.
         func reading(at minutes: Int) -> Int? {
@@ -208,6 +222,18 @@ public enum HeartRateRecovery {
             walking: isWalking
         )
         return result.hasMeasurement ? .measured(result) : .unavailable(.noReadingsAfterEnd)
+    }
+
+    /// Seconds past the end covered by unbroken readings (gaps of at most `maximumGapSeconds`), starting from
+    /// the last reading at or before the end. 0 when the recording stops at the end.
+    private static func continuousSecondsAfterEnd(in sorted: [HRSample], workoutEnd: Int,
+                                                  maximumGapSeconds: Int) -> Int {
+        guard var last = sorted.last(where: { $0.ts <= workoutEnd })?.ts else { return 0 }
+        for sample in sorted where sample.ts > workoutEnd {
+            guard sample.ts - last <= maximumGapSeconds else { break }
+            last = sample.ts
+        }
+        return max(0, last - workoutEnd)
     }
 
     private static func sustainedSeconds(atOrAbove threshold: Double, in samples: [HRSample],

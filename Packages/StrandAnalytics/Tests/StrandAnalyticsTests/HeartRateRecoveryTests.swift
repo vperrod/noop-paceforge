@@ -154,6 +154,45 @@ final class HeartRateRecoveryTests: XCTestCase {
         XCTAssertEqual(result, .init(endHR: 170, after1Minute: 20, after2Minutes: 35, after5Minutes: nil, maxHR: 200))
     }
 
+    /// Garmin through PaceForge: per-second readings to the stop, then 120 s day-series bin means.
+    private func recordingThatEndsAtTheStopThenDayBins() -> [HRSample] {
+        denseEligible() + [HRSample(ts: end + 57, bpm: 143), HRSample(ts: end + 177, bpm: 112)]
+    }
+
+    func testNoPostStopDataWhenOnlyDaySeriesBinsFollowTheStop() {
+        XCTAssertEqual(
+            HeartRateRecovery.evaluate(samples: recordingThatEndsAtTheStopThenDayBins(), workoutStart: end - 300,
+                                       workoutEnd: end, maxHR: 200, minimumSamplesPerReading: 1,
+                                       minimumCessationSamples: 1, maximumContinuousGapSeconds: 30,
+                                       requiredPostStopSeconds: 120),
+            .unavailable(.noPostStopData))
+    }
+
+    func testBinsAreStillReadWhenNoPostStopCoverageIsRequired() {
+        XCTAssertNotNil(
+            HeartRateRecovery.calculate(samples: recordingThatEndsAtTheStopThenDayBins(), workoutStart: end - 300,
+                                        workoutEnd: end, maxHR: 200, minimumSamplesPerReading: 1,
+                                        minimumCessationSamples: 1, maximumContinuousGapSeconds: 30))
+    }
+
+    func testAPerSecondRecordingThatRunsPastTwoMinutesIsMeasured() {
+        let tail = (end + 1...end + 125).map { HRSample(ts: $0, bpm: $0 <= end + 62 ? 150 : 135) }
+        let result = HeartRateRecovery.calculate(samples: denseEligible() + tail, workoutStart: end - 300,
+                                                 workoutEnd: end, maxHR: 200, minimumSamplesPerReading: 1,
+                                                 minimumCessationSamples: 1, maximumContinuousGapSeconds: 30,
+                                                 requiredPostStopSeconds: 120)
+        XCTAssertEqual(result?.after1Minute, 20)
+    }
+
+    func testABinAfterAGenuineRecordingDoesNotExtendItsCoverage() {
+        let tail = (end + 1...end + 80).map { HRSample(ts: $0, bpm: 150) } + [HRSample(ts: end + 200, bpm: 120)]
+        XCTAssertEqual(
+            HeartRateRecovery.evaluate(samples: denseEligible() + tail, workoutStart: end - 300, workoutEnd: end,
+                                       maxHR: 200, minimumSamplesPerReading: 1, minimumCessationSamples: 1,
+                                       maximumContinuousGapSeconds: 30, requiredPostStopSeconds: 120),
+            .unavailable(.noPostStopData))
+    }
+
     func testNoReadingsAfterTheEndIsReportedAsSuch() {
         XCTAssertEqual(
             HeartRateRecovery.evaluate(samples: denseEligible(), workoutStart: end - 300, workoutEnd: end, maxHR: 200),

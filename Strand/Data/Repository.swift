@@ -3542,7 +3542,10 @@ final class Repository: ObservableObject {
                                           minimumSamplesPerReading: isPaceForge ? 1 : HeartRateRecovery.minimumSamplesPerReading,
                                           measurementToleranceSeconds: measurementTolerance,
                                           minimumCessationSamples: isPaceForge ? 1 : HeartRateRecovery.minimumSamplesPerReading,
-                                          maximumContinuousGapSeconds: isPaceForge ? 30 : HeartRateRecovery.maximumContinuousGapSeconds)
+                                          maximumContinuousGapSeconds: isPaceForge ? 30 : HeartRateRecovery.maximumContinuousGapSeconds,
+                                          // Garmin's per-second recording ends at the stop; the rows after it are the
+                                          // 120 s all-day series (bin means), which cannot give a 1 or 2 minute drop.
+                                          requiredPostStopSeconds: isPaceForge ? 120 : 0)
     }
 
     /// Apple Health daily aggregates (steps/energy/vo2/hr).

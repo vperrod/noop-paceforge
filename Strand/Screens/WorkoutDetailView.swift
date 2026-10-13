@@ -260,6 +260,8 @@ struct WorkoutDetailView: View {
             return String(localized: "Unavailable: too few heart-rate readings in the last 30 seconds of the workout to set the heart rate at the stop.")
         case .missingMaxHR:
             return String(localized: "Unavailable: your max heart rate is not set. Add your date of birth or max heart rate in your profile.")
+        case .noPostStopData:
+            return String(localized: "Not measured: no heart-rate data after the stop")
         case .invalidWorkout:
             return String(localized: "Unavailable: this workout has no valid start and end time.")
         case nil:

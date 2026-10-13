@@ -21,4 +21,24 @@ final class PaceForgeHRR1Tests: XCTestCase {
         XCTAssertEqual(PFHRR1.notScoredLine,
                        "Not scored: heart rate was still high at the stop or rose in the last seconds (cool-down)")
     }
+
+    func testNoPostStopDataKeepsItsKindAndTheServersReason() {
+        let h = hrr(#"{"kind":"no_post_stop_data","bpm":null,"stop_bpm":148,"peak_bpm":163,"reason":"Garmin stopped recording at the stop; keep the activity recording for 2 minutes after your last effort to measure recovery"}"#)
+        XCTAssertEqual(h?.kind, PFHRR1.noPostStopData)
+        XCTAssertEqual(h?.reason, "Garmin stopped recording at the stop; keep the activity recording for 2 minutes after your last effort to measure recovery")
+    }
+
+    func testNoPostStopDataIsNeverScoredAndHasNoDrop() {
+        let h = hrr(#"{"kind":"no_post_stop_data","bpm":null,"stop_bpm":148,"peak_bpm":163}"#)
+        XCTAssertEqual(h?.isScored, false)
+        XCTAssertNil(h?.bpm)
+    }
+
+    func testNoPostStopDataIsNotCollapsedIntoNotMeasurable() {
+        XCTAssertNotEqual(hrr(#"{"kind":"no_post_stop_data","stop_bpm":148}"#)?.kind, PFHRR1.notMeasurable)
+    }
+
+    func testAnOlderServerWithoutAReasonStillHasTheFallbackLine() {
+        XCTAssertTrue(PFHRR1.noPostStopLine.hasPrefix("Garmin stopped recording at the stop"))
+    }
 }

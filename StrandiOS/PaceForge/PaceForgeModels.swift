@@ -377,7 +377,8 @@ struct PFBodyMetric { var label: String; var unit: String; var dp: Int; var good
 
 /// First-minute heart-rate recovery of a session. `kind` says what the figure is: `post` (the heart rate
 /// fell after the effort stopped), `interval` (a rebound between intervals, compared with the athlete's
-/// own intervals), `walking` (a walking cool-down, not scored) or `not_measurable` (too few readings).
+/// own intervals), `walking` (a walking cool-down, not scored), `no_post_stop_data` (Garmin's per-second
+/// recording ended at the stop, so there is no recovery to read; `reason` says so) or `not_measurable`.
 /// Older servers sent `post`/`mid` with fewer fields; `mid` decodes as `interval` with `isEstimated`.
 struct PFHRR1 {
     /// Beats the heart rate fell in the first minute; nil when it is not measurable.
@@ -398,11 +399,17 @@ struct PFHRR1 {
     var band: String?
     /// The figure came from an older server's `mid` estimate.
     var isEstimated = false
+    /// Why there is no figure, in the server's words (kind `no_post_stop_data`).
+    var reason: String?
 
     static let post = "post"
     static let interval = "interval"
     static let walking = "walking"
     static let notMeasurable = "not_measurable"
+    static let noPostStopData = "no_post_stop_data"
+
+    /// Shown when an older server leaves `reason` out.
+    static let noPostStopLine = "Garmin stopped recording at the stop; keep the activity recording for 2 minutes after your last effort to measure recovery"
 
     /// The first-minute drop is a real recovery figure only for these kinds.
     var isScored: Bool { (kind == Self.post || kind == Self.interval) && bpm != nil }
