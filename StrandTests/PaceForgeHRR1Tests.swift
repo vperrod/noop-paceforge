@@ -1,8 +1,7 @@
 import XCTest
 @testable import Strand
 
-/// The heart-rate-recovery card: a cool-down is explained instead of scored, and a figure read from the
-/// strap says so. All values are made up.
+/// The heart-rate-recovery card: a cool-down is explained instead of scored. All values are made up.
 final class PaceForgeHRR1Tests: XCTestCase {
     private func hrr(_ text: String) -> PFHRR1? { PFBuilder.hrr1(PFJ(data: Data(text.utf8))) }
 
@@ -21,17 +20,5 @@ final class PaceForgeHRR1Tests: XCTestCase {
     func testTheNotScoredLineSaysWhy() {
         XCTAssertEqual(PFHRR1.notScoredLine,
                        "Not scored: heart rate was still high at the stop or rose in the last seconds (cool-down)")
-    }
-
-    func testStrapSourceIsDecoded() {
-        XCTAssertEqual(hrr(#"{"kind":"post","bpm":23,"source":"strap"}"#)?.isFromStrap, true)
-    }
-
-    func testGarminSourceIsNotFromStrap() {
-        XCTAssertEqual(hrr(#"{"kind":"post","bpm":23,"source":"garmin"}"#)?.isFromStrap, false)
-    }
-
-    func testAnOlderServerWithoutASourceIsNotFromStrap() {
-        XCTAssertEqual(hrr(#"{"kind":"post","bpm":23}"#)?.isFromStrap, false)
     }
 }

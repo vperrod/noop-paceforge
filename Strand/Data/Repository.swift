@@ -3533,21 +3533,11 @@ final class Repository: ObservableObject {
         let ids = Self.workoutHrDeviceIds(source: source, activeStrapId: deviceId,
                                           importedIds: importedReadIds)
         let samples = await hrSamples(deviceIds: ids, from: readFrom, to: readTo, limit: 2_000)
-        // A PaceForge/Garmin trace can be too thin after the stop (nothing between +30 and +90 s is common).
-        // Only then is the strap's own trace read for the same window, and the figure is marked `fromStrap`.
-        let strapSamples: [HRSample]
-        if isPaceForge, HeartRateRecovery.postStopWindowIsSparse(samples: samples, workoutEnd: to) {
-            strapSamples = await hrSamples(deviceIds: importedReadIds, from: readFrom,
-                                           to: to + 5 * 60 + HeartRateRecovery.measurementToleranceSeconds, limit: 2_000)
-        } else {
-            strapSamples = []
-        }
         // Garmin's post-workout stream is sampled sparsely. Keep the same sustained-intensity and
         // cessation checks, but accept one nearest measurement within 30 seconds for each recovery point.
         // A watch that records every 5 to 30 s never has two readings within the strap's 10 s of each other,
         // so the strap's continuity gap would make every Garmin workout "not hard enough".
-        return HeartRateRecovery.evaluateWithStrapFallback(samples: samples, strapSamples: strapSamples,
-                                          workoutStart: from, workoutEnd: to,
+        return HeartRateRecovery.evaluate(samples: samples, workoutStart: from, workoutEnd: to,
                                           maxHR: maxHR, maxHRSource: maxHRSource,
                                           minimumSamplesPerReading: isPaceForge ? 1 : HeartRateRecovery.minimumSamplesPerReading,
                                           measurementToleranceSeconds: measurementTolerance,

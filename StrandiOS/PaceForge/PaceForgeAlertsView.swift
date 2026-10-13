@@ -178,18 +178,12 @@ struct PFHRR1Card: View {
                         Text("\(bpm)")
                             .font(StrandFont.rounded(34))
                             .foregroundStyle(StrandPalette.textPrimary)
-                        Text("bpm in the first minute" + (hrr.isFromStrap ? " \u{00B7} from strap" : ""))
+                        Text("bpm in the first minute")
                             .font(StrandFont.caption)
                             .foregroundStyle(StrandPalette.textTertiary)
                     }
                 }
                 PFParagraph(explainer)
-                if hrr.isFromStrap, !showsDrop {
-                    Text("From strap")
-                        .font(StrandFont.footnote)
-                        .foregroundStyle(StrandPalette.textTertiary)
-                        .accessibilityIdentifier("pf-hrr1-source")
-                }
                 HStack(alignment: .top, spacing: 18) {
                     if let stop = hrr.stopBpm { PFFigure(value: "\(stop)", unit: "bpm", label: "At the stop") }
                     if let peak = hrr.peakBpm { PFFigure(value: "\(peak)", unit: "bpm", label: "Peak") }
