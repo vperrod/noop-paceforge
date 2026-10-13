@@ -183,6 +183,7 @@ struct PFActivity {
     var avgPower: Double?
     var elevationM: Double?
     var hrr1: PFHRR1?
+    var hrrGarmin: PFHRRGarmin?
     var heat: PFHeat?
 
     var isRun: Bool { (type ?? "").lowercased().contains("run") }
@@ -203,6 +204,7 @@ struct PFWeather { var tempC: Double?; var desc: String? }
 /// `/data/details/<id>.json`: the heart-rate and pace series, per-km splits and heart-rate zones.
 struct PFDetail {
     var hrr1: PFHRR1?
+    var hrrGarmin: PFHRRGarmin?
     var samples: [PFSample] = []
     var splits: [PFSplit] = []
     var zones: [PFZone] = []

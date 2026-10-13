@@ -118,6 +118,8 @@ public enum SleepPlanner {
     // MARK: - Wake time
 
     public enum WakeSource: Equatable, Sendable {
+        /// The wake time set on the planner screen itself.
+        case user
         /// The wake time of the wind-down reminder.
         case windDown
         /// The strap alarm's time.
@@ -125,16 +127,41 @@ public enum SleepPlanner {
         /// The median of recent wake-ups.
         case typical
         case fallback
+
+        /// Finishes "Taken from ..." / "from ..." on the planner screen.
+        public var sourceText: String {
+            switch self {
+            case .user: return "the wake time you set here"
+            case .windDown: return "the wake time of your wind-down reminder"
+            case .alarm: return "your strap alarm's time"
+            case .typical: return "your typical wake-up"
+            case .fallback: return "a default of 07:00, since no wake time is set yet"
+            }
+        }
     }
 
-    /// The wake time (minutes after midnight) to plan for: the wind-down reminder's when it is on, else
-    /// the strap alarm's when it is on, else the typical wake, else 07:00.
-    public static func resolveWake(windDownMinutes: Int?, alarmMinutes: Int?,
+    /// A stored planner wake time as minutes after midnight, or nil when it is not a time of day.
+    public static func validWakeMinutes(_ minutes: Int?) -> Int? {
+        guard let m = minutes, (0..<(24 * 60)).contains(m) else { return nil }
+        return m
+    }
+
+    /// The wake time (minutes after midnight) to plan for: the one set on the planner screen when there is
+    /// one, else the wind-down reminder's when it is on, else the strap alarm's when it is on, else the typical
+    /// wake, else 07:00. Planning only: nothing here arms an alarm or a notification.
+    public static func resolveWake(userMinutes: Int? = nil, windDownMinutes: Int?, alarmMinutes: Int?,
                                    typicalMinutes: Int?) -> (minutes: Int, source: WakeSource) {
+        if let m = validWakeMinutes(userMinutes) { return (m, .user) }
         if let m = windDownMinutes { return (m, .windDown) }
         if let m = alarmMinutes { return (m, .alarm) }
         if let m = typicalMinutes { return (m, .typical) }
         return (fallbackWakeMinutes, .fallback)
+    }
+
+    /// The per-weekday wake times (reminder / alarm) that retime the plan: only when one of those supplied the
+    /// wake. A time set on the planner screen is explicit and applies to every day, so they are left out.
+    public static func weekdayOverrides(for source: WakeSource, _ overrides: [Int: Int]) -> [Int: Int] {
+        source == .windDown || source == .alarm ? overrides : [:]
     }
 
     /// Median wake-up (minutes after midnight), nil under `minimumNights` of them. Wake-ups sit in the

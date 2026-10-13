@@ -63,7 +63,11 @@ struct PFResultsSheet: View {
                 PFParagraph("Heart-rate detail for this session is not synced. PaceForge keeps it for recent sessions only.")
             }
         }
-        if let hrr = detail?.hrr1 ?? activity?.hrr1 { PFHRR1Card(hrr: hrr) }
+        let hrr = detail?.hrr1 ?? activity?.hrr1
+        let garmin = detail?.hrrGarmin ?? activity?.hrrGarmin
+        if hrr != nil || garmin != nil {
+            PFHRR1Card(hrr: hrr ?? PFHRR1(kind: PFHRR1.notMeasurable), garmin: garmin, tipsGarminWait: true)
+        }
         PFEffortCard(strain: analysis?.strain, band: analysis?.strainBand, trimp: trimp,
                      recovery: analysis?.recoveryReason)
         PFPlanVersusActual(workout: workout, analysis: analysis)

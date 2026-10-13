@@ -8,7 +8,8 @@ final class SleepPlannerIntegrationTests: XCTestCase {
 
     private let keys = ["windDown.wakeMinutes", "windDown.sleepNeedMinutes", "windDown.leadMinutes",
                         "windDown.perDayWakeMinutes", SleepPlannerStore.useForReminderKey,
-                        SleepPlannerStore.plannedSpanKey, SleepPlannerStore.presetKey]
+                        SleepPlannerStore.plannedSpanKey, SleepPlannerStore.presetKey,
+                        SleepPlannerStore.wakeMinutesKey]
 
     override func setUp() {
         super.setUp()
@@ -64,5 +65,17 @@ final class SleepPlannerIntegrationTests: XCTestCase {
         cal.timeZone = TimeZone(identifier: "Europe/Dublin")!
         XCTAssertEqual(SleepPlannerLoader.previousDayKey("2026-03-29", calendar: cal), "2026-03-28")
         XCTAssertEqual(SleepPlannerLoader.previousDayKey("2026-03-01", calendar: cal), "2026-02-28")
+    }
+
+    func testAPlannerWakeTimeIsStoredAndResetByClearingIt() {
+        SleepPlannerStore.wakeMinutes = 6 * 60 + 15
+        XCTAssertEqual(SleepPlannerStore.wakeMinutes, 6 * 60 + 15)
+        SleepPlannerStore.wakeMinutes = nil
+        XCTAssertNil(SleepPlannerStore.wakeMinutes)
+    }
+
+    func testSettingThePlannerWakeTimeLeavesTheWindDownReminderAlone() {
+        SleepPlannerStore.wakeMinutes = 5 * 60
+        XCTAssertEqual(WindDownNudge.wakeMinutes, 7 * 60)
     }
 }

@@ -195,6 +195,8 @@ targets:
       # Logging a measurement from the app (phrase building, checks, how the answer reads) and the Today card order.
       - StrandiOS/PaceForge/PaceForgeLog.swift
       - StrandiOS/PaceForge/PaceForgeTodayLayout.swift
+      # Garmin's own recovery HR (hrr_garmin): parsing and the card's wording.
+      - StrandiOS/PaceForge/PaceForgeHRRGarmin.swift
     # Same wrapper as the app target, so the OURA_CLOUD_IMPORT-gated Oura tests compile exactly
     # when the app's Oura lane does (flag + creds both come from the untracked OuraSecrets.xcconfig).
     configFiles:

@@ -6,7 +6,7 @@ import StrandAnalytics
 //
 // Tonight's sleep need broken into parts, a goal (Get by / Perform / Peak), and the bedtime that reaches it.
 // NOOP's own: the baseline is the personal need the Rest score already uses, the debt is the 14-night ledger
-// the Sleep tab shows, and the wake time is the one the wind-down reminder or the strap alarm already holds.
+// the Sleep tab shows, and the wake time is the one set on this screen, else the one the wind-down reminder or the strap alarm holds.
 // The maths is `SleepPlanner` in StrandAnalytics; this file reads the repository and draws.
 
 struct SleepPlannerView: View {
@@ -17,9 +17,10 @@ struct SleepPlannerView: View {
     @State private var data: SleepPlannerData?
     @State private var preset = SleepPlannerStore.preset
     @State private var followsPlan = SleepPlannerStore.useForReminder
+    @State private var userWake = SleepPlannerStore.wakeMinutes
 
     private var alarmMinutes: Int? { behavior.smartAlarmEnabled ? behavior.smartAlarmMinutes : nil }
-    private var loadKey: String { "\(repo.refreshSeq)|\(alarmMinutes ?? -1)" }
+    private var loadKey: String { "\(repo.refreshSeq)|\(alarmMinutes ?? -1)|\(userWake ?? -1)" }
 
     var body: some View {
         ScreenScaffold(title: "Sleep planner",
@@ -27,6 +28,7 @@ struct SleepPlannerView: View {
             if let data {
                 VStack(alignment: .leading, spacing: NoopMetrics.sectionGap) {
                     hero(data)
+                    wakeCard(data)
                     goalCard(data)
                     needCard(data)
                     bedtimeCard(data)
@@ -54,14 +56,7 @@ struct SleepPlannerView: View {
 
     private func time(_ date: Date) -> String { AppClock.hourMinuteFormatter().string(from: date) }
 
-    private func wakeSourceText(_ data: SleepPlannerData) -> String {
-        switch data.wakeSource {
-        case .windDown: return "the wake time of your wind-down reminder"
-        case .alarm: return "your strap alarm's time"
-        case .typical: return "your typical wake-up"
-        case .fallback: return "a default of 07:00, since no wake time is set yet"
-        }
-    }
+    private func wakeSourceText(_ data: SleepPlannerData) -> String { data.wakeSource.sourceText }
 
     private func latencyText(_ data: SleepPlannerData) -> String {
         data.latencyIsPersonal
@@ -97,6 +92,47 @@ struct SleepPlannerView: View {
             }
         }
         .accessibilityElement(children: .contain)
+    }
+
+    // MARK: Wake time
+
+    /// Shows the wake time in use and lets it be set directly. Planning only: setting it arms no alarm and
+    /// schedules no notification.
+    private func wakeCard(_ data: SleepPlannerData) -> some View {
+        let picker = Binding<Date>(
+            get: { data.wake },
+            set: { newValue in
+                let c = Calendar.current.dateComponents([.hour, .minute], from: newValue)
+                let minutes = (c.hour ?? 0) * 60 + (c.minute ?? 0)
+                SleepPlannerStore.wakeMinutes = minutes
+                userWake = SleepPlannerStore.wakeMinutes
+            })
+        return NoopCard {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(alignment: .center, spacing: 16) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Wake time").font(StrandFont.body).foregroundStyle(StrandPalette.textPrimary)
+                        Text(verbatim: "Taken from \(wakeSourceText(data)). Used for tonight's plan only; it does not set an alarm.")
+                            .font(StrandFont.footnote)
+                            .foregroundStyle(StrandPalette.textTertiary)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .accessibilityIdentifier("sleep-planner-wake-source")
+                    }
+                    Spacer(minLength: 8)
+                    DatePicker("Wake time", selection: picker, displayedComponents: .hourAndMinute)
+                        .labelsHidden()
+                        .accessibilityIdentifier("sleep-planner-wake-picker")
+                }
+                if userWake != nil {
+                    Button {
+                        SleepPlannerStore.wakeMinutes = nil
+                        userWake = nil
+                    } label: { Text("Use my usual wake time instead") }
+                        .buttonStyle(NoopButtonStyle(.secondary, fullWidth: true))
+                        .accessibilityIdentifier("sleep-planner-wake-reset")
+                }
+            }
+        }
     }
 
     // MARK: Goal presets
@@ -295,7 +331,7 @@ struct SleepPlannerView: View {
                 body: "Bedtime = wake time \u{2212} sleep goal \u{2212} time to fall asleep. Tonight: \(time(data.wake)) \u{2212} \(SleepPlanner.durationText(plan.targetSleepMin)) \u{2212} \(data.latencyMin) min = \(time(plan.bedtime)). It counts real elapsed hours, so a night with a clock change still holds the sleep you planned."),
             PlannerInfoSection(
                 heading: "Wake time",
-                body: "Taken from \(wakeSourceText(data)). Your wind-down reminder's wake time comes first, then the strap alarm's, then your typical wake-up (the median of the last four weeks, from \(SleepPlanner.minimumNights) nights). Per-weekday wake times you set in Alarms are honoured."),
+                body: "Taken from \(wakeSourceText(data)). The wake time you set on this screen comes first, then your wind-down reminder's, then the strap alarm's, then your typical wake-up (the median of the last four weeks, from \(SleepPlanner.minimumNights) nights). Per-weekday wake times you set in Alarms are honoured only while you have not set a time here."),
             PlannerInfoSection(
                 heading: "Time to fall asleep",
                 body: "The median gap between getting into bed and the first stretch of sleep in your last four weeks of main sleeps, kept between \(SleepPlanner.latencyFloorMin) and \(SleepPlanner.latencyCeilingMin) min. The strap cannot see the first few minutes of lying down, so treat it as a floor. Until \(SleepPlanner.minimumNights) nights show your own it is \(SleepPlanner.defaultLatencyMin) min. Now: \(latencyText(data))."),

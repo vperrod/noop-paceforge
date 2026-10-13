@@ -178,6 +178,77 @@ final class SleepPlannerTests: XCTestCase {
         XCTAssertEqual(r.source, .fallback)
     }
 
+    func testAWakeTimeSetOnThePlannerWinsOverEverySource() {
+        let r = SleepPlanner.resolveWake(userMinutes: 360, windDownMinutes: 390, alarmMinutes: 420, typicalMinutes: 450)
+        XCTAssertEqual(r.minutes, 360)
+        XCTAssertEqual(r.source, .user)
+    }
+
+    func testAPlannerWakeTimeStandsOnItsOwnWithNoOtherSource() {
+        let r = SleepPlanner.resolveWake(userMinutes: 5 * 60 + 45, windDownMinutes: nil, alarmMinutes: nil, typicalMinutes: nil)
+        XCTAssertEqual(r.source, .user)
+    }
+
+    func testMidnightIsAValidPlannerWakeTime() {
+        let r = SleepPlanner.resolveWake(userMinutes: 0, windDownMinutes: 390, alarmMinutes: nil, typicalMinutes: nil)
+        XCTAssertEqual(r.source, .user)
+    }
+
+    func testResettingThePlannerWakeTimeHandsBackToTheWindDownWake() {
+        let r = SleepPlanner.resolveWake(userMinutes: nil, windDownMinutes: 390, alarmMinutes: 420, typicalMinutes: 450)
+        XCTAssertEqual(r.source, .windDown)
+    }
+
+    func testResettingThePlannerWakeTimeHandsBackToTheTypicalWakeWhenNothingElseIsSet() {
+        let r = SleepPlanner.resolveWake(userMinutes: nil, windDownMinutes: nil, alarmMinutes: nil, typicalMinutes: 450)
+        XCTAssertEqual(r.minutes, 450)
+    }
+
+    func testAStoredValueThatIsNotATimeOfDayIsIgnored() {
+        let r = SleepPlanner.resolveWake(userMinutes: 24 * 60, windDownMinutes: nil, alarmMinutes: nil, typicalMinutes: 450)
+        XCTAssertEqual(r.source, .typical)
+    }
+
+    func testValidWakeMinutesRejectsNegativeAndMissing() {
+        XCTAssertNil(SleepPlanner.validWakeMinutes(-1))
+        XCTAssertNil(SleepPlanner.validWakeMinutes(nil))
+    }
+
+    func testWeekdayOverridesApplyWhenTheWindDownSuppliedTheWake() {
+        XCTAssertEqual(SleepPlanner.weekdayOverrides(for: .windDown, [1: 540]), [1: 540])
+    }
+
+    func testWeekdayOverridesApplyWhenTheAlarmSuppliedTheWake() {
+        XCTAssertEqual(SleepPlanner.weekdayOverrides(for: .alarm, [1: 540]), [1: 540])
+    }
+
+    func testWeekdayOverridesAreIgnoredOnceTheWakeWasSetOnThePlanner() {
+        XCTAssertEqual(SleepPlanner.weekdayOverrides(for: .user, [1: 540]), [:])
+    }
+
+    func testWeekdayOverridesAreIgnoredForTheTypicalAndDefaultWake() {
+        XCTAssertEqual(SleepPlanner.weekdayOverrides(for: .typical, [1: 540]), [:])
+    }
+
+    func testAPlannerWakeTimeLandsOnEveryDayDespiteAWeekdayOverride() {
+        let cal = calendar("Europe/Dublin")
+        // 2026-10-18 is a Sunday (weekday 1), where the override would say 09:00.
+        let overrides = SleepPlanner.weekdayOverrides(for: .user, [1: 9 * 60])
+        let wake = SleepPlanner.nextWake(baseMinutes: 6 * 60, overrides: overrides, after: date(cal, 2026, 10, 17, 22), calendar: cal)!
+        XCTAssertEqual(clock(cal, wake), "10-18 06:00")
+    }
+
+    func testAWeekdayOverrideStillRetimesTheWakeWhenNoPlannerTimeIsSet() {
+        let cal = calendar("Europe/Dublin")
+        let overrides = SleepPlanner.weekdayOverrides(for: .windDown, [1: 9 * 60])
+        let wake = SleepPlanner.nextWake(baseMinutes: 6 * 60, overrides: overrides, after: date(cal, 2026, 10, 17, 22), calendar: cal)!
+        XCTAssertEqual(clock(cal, wake), "10-18 09:00")
+    }
+
+    func testThePlannerSourceTextSaysItCameFromHere() {
+        XCTAssertEqual(SleepPlanner.WakeSource.user.sourceText, "the wake time you set here")
+    }
+
     func testTypicalWakeIsTheMedianAndNeedsSevenNights() {
         XCTAssertNil(SleepPlanner.typicalWakeMinutes([420, 430, 410, 440, 420, 415]))
         XCTAssertEqual(SleepPlanner.typicalWakeMinutes([500, 420, 430, 410, 440, 420, 415]), 420)

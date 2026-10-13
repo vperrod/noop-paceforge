@@ -52,6 +52,7 @@ enum PFExplainerID {
     static let bodyNoiseBand = "body_noise_band"
     static let bodyEstimates = "body_estimates"
     static let hrrContextBand = "hrr1_context_band"
+    static let hrrGarmin = "hrr_garmin"
     // Wave 3 cards: the server's entry wins; PFLocalExplainers has short text for each until it has one.
     static let raceWeek = PFLocalExplainers.raceWeek
     static let raceSims = PFLocalExplainers.raceSims

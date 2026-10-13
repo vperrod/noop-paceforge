@@ -13,6 +13,17 @@ enum SleepPlannerStore {
     static let useForReminderKey = "sleepPlanner.useForReminder"
     static let plannedSpanKey = "sleepPlanner.plannedSpanMin"
     static let alarmAtKey = "sleepPlanner.alarmAt"
+    static let wakeMinutesKey = "sleepPlanner.wakeMinutes"
+
+    /// The wake time set on the planner screen (minutes after midnight), or nil to use the other sources. It
+    /// only feeds the plan; it arms no alarm and schedules no notification.
+    static var wakeMinutes: Int? {
+        get { SleepPlanner.validWakeMinutes(UserDefaults.standard.object(forKey: wakeMinutesKey) as? Int) }
+        set {
+            if let m = SleepPlanner.validWakeMinutes(newValue) { UserDefaults.standard.set(m, forKey: wakeMinutesKey) }
+            else { UserDefaults.standard.removeObject(forKey: wakeMinutesKey) }
+        }
+    }
 
     /// Default Perform (85 % of tonight's need).
     static var preset: SleepPlanner.Preset {
@@ -93,7 +104,8 @@ enum SleepPlannerLoader {
         #if DEBUG
         if let fixture = PlannerFixture.sleepData { return fixture }
         #endif
-        let key = "\(repo.refreshSeq)|\(alarmMinutes ?? -1)|\(WindDownNudge.isEnabled)|\(WindDownNudge.wakeMinutes)|"
+        let userWake = SleepPlannerStore.wakeMinutes
+        let key = "\(repo.refreshSeq)|\(alarmMinutes ?? -1)|\(userWake ?? -1)|\(WindDownNudge.isEnabled)|\(WindDownNudge.wakeMinutes)|"
             + "\(WindDownNudge.perDayWakeOverrides.sorted { $0.key < $1.key })|\(Int(now.timeIntervalSince1970 / 1800))"
         if let memo, memo.key == key { return memo.data }
 
@@ -139,10 +151,10 @@ enum SleepPlannerLoader {
         })
 
         let resolved = SleepPlanner.resolveWake(
-            windDownMinutes: WindDownNudge.isEnabled ? WindDownNudge.wakeMinutes : nil,
+            userMinutes: userWake, windDownMinutes: WindDownNudge.isEnabled ? WindDownNudge.wakeMinutes : nil,
             alarmMinutes: alarmMinutes, typicalMinutes: typicalWake)
         // Per-weekday wake times retime the reminder and the alarm, so they apply when either supplied the wake.
-        let overrides = (resolved.source == .windDown || resolved.source == .alarm) ? WindDownNudge.perDayWakeOverrides : [:]
+        let overrides = SleepPlanner.weekdayOverrides(for: resolved.source, WindDownNudge.perDayWakeOverrides)
         let wake = SleepPlanner.nextWake(baseMinutes: resolved.minutes, overrides: overrides, after: now, calendar: calendar)
             ?? now.addingTimeInterval(8 * 3_600)
 

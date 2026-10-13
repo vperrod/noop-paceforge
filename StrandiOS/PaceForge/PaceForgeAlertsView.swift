@@ -167,12 +167,17 @@ private struct PFReadinessColumn: View {
 /// caption; only the athlete's own band (scored kinds with a baseline) gets a coloured pill.
 struct PFHRR1Card: View {
     let hrr: PFHRR1
+    /// Garmin's own recovery HR for the session, when the watch recorded it.
+    var garmin: PFHRRGarmin?
+    /// A session from the activities feed carries `hrr_garmin` when the watch recorded it, so its absence earns the tip.
+    var tipsGarminWait = false
 
     var body: some View {
-        PFCard(title: "Heart rate recovery", icon: "heart.text.square", info: PFExplainerID.forHRR1(kind: hrr.kind), trailing: {
+        PFCard(title: "Heart rate recovery", icon: "heart.text.square", info: garmin == nil ? PFExplainerID.forHRR1(kind: hrr.kind) : PFExplainerID.hrrGarmin, trailing: {
             if let band = hrr.personalBand { PFChip(text: PFFormat.capitalized(band), color: Self.color(band)) }
         }) {
             VStack(alignment: .leading, spacing: 10) {
+                if let garmin { garminBlock(garmin) }
                 if showsDrop, let bpm = hrr.bpm {
                     HStack(alignment: .firstTextBaseline, spacing: 6) {
                         Text("\(bpm)")
@@ -183,8 +188,17 @@ struct PFHRR1Card: View {
                             .foregroundStyle(StrandPalette.textTertiary)
                     }
                 }
-                PFParagraph(explainer)
-                if hrr.kind == PFHRR1.garmin2min {
+                if garmin == nil {
+                    PFParagraph(explainer)
+                    if tipsGarminWait {
+                        Text(verbatim: PFHRRGarmin.tip)
+                            .font(StrandFont.footnote)
+                            .foregroundStyle(StrandPalette.textTertiary)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .accessibilityIdentifier("pf-hrr-garmin-tip")
+                    }
+                }
+                if garmin == nil, hrr.kind == PFHRR1.garmin2min {
                     VStack(alignment: .leading, spacing: 4) {
                         ForEach(hrr.readings, id: \.offsetSeconds) { reading in
                             Text(Self.readingLine(reading))
@@ -215,6 +229,22 @@ struct PFHRR1Card: View {
             }
         }
         .containerIdentifier("pf-hrr1")
+    }
+
+    private func garminBlock(_ garmin: PFHRRGarmin) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(verbatim: garmin.headline)
+                .font(StrandFont.headline)
+                .foregroundStyle(StrandPalette.textPrimary)
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityIdentifier("pf-hrr-garmin")
+            if let detail = garmin.detail {
+                Text(verbatim: detail)
+                    .font(StrandFont.footnote)
+                    .foregroundStyle(StrandPalette.textSecondary)
+                    .accessibilityIdentifier("pf-hrr-garmin-detail")
+            }
+        }
     }
 
     /// The big first-minute number is for real stops only; a cool-down gets the explanation line instead.

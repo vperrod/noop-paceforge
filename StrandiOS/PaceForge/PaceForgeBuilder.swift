@@ -624,6 +624,7 @@ enum PFBuilder {
         out.avgPower = a["avg_power"].double
         out.elevationM = a["elevation_gain"].double
         out.hrr1 = hrr1(a["hrr1"])
+        out.hrrGarmin = PFHRRGarmin.parse(a["hrr_garmin"])
         out.heat = PFWave3Parse.heat(a["heat"])
         return out
     }
@@ -631,6 +632,7 @@ enum PFBuilder {
     static func detail(_ d: PFJ) -> PFDetail {
         var out = PFDetail()
         out.hrr1 = hrr1(d["hrr1"])
+        out.hrrGarmin = PFHRRGarmin.parse(d["hrr_garmin"])
         out.samples = d["series"].array.compactMap { s in
             guard let t = s["t"].double else { return nil }
             return PFSample(t: t, hr: s["hr"].double, pace: s["pace"].double, cad: s["cad"].double)

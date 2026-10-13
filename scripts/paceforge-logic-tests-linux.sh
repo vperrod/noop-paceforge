@@ -9,8 +9,8 @@ export PATH="$HOME/.local/swift/usr/bin:$PATH"
 command -v swiftc >/dev/null || { echo "swiftc not found (looked in PATH and ~/.local/swift/usr/bin)"; exit 2; }
 work="$(mktemp -d)"; trap 'rm -rf "$work"' EXIT
 pf="$root/StrandiOS/PaceForge"
-tests=("$@"); [ ${#tests[@]} -gt 0 ] || tests=(PaceForgeLogTests PaceForgeTodayLayoutTests PaceForgeDismissTests)
-sources=("$pf/PaceForgeJSON.swift" "$pf/PaceForgeWave3.swift" "$pf/PaceForgeDismiss.swift" "$pf/PaceForgeLog.swift" "$pf/PaceForgeTodayLayout.swift")
+tests=("$@"); [ ${#tests[@]} -gt 0 ] || tests=(PaceForgeLogTests PaceForgeTodayLayoutTests PaceForgeDismissTests PaceForgeHRRGarminTests)
+sources=("$pf/PaceForgeJSON.swift" "$pf/PaceForgeWave3.swift" "$pf/PaceForgeDismiss.swift" "$pf/PaceForgeLog.swift" "$pf/PaceForgeTodayLayout.swift" "$pf/PaceForgeHRRGarmin.swift")
 entries=""
 for t in "${tests[@]}"; do
   sed '/^@testable import Strand$/d' "$root/StrandTests/$t.swift" > "$work/$t.swift"
