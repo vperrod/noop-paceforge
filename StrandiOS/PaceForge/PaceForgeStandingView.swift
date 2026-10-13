@@ -3,8 +3,8 @@ import StrandDesign
 
 // "Where you stand": the scorecard screen, its band bars, the metric and plan sheets, the test-day card and
 // the compact summary cards on Insights and Today. Everything shown comes from standing.json; the app only
-// reads it (field tests are logged in Telegram). Wording is neutral: a band is a place on a scale, never a
-// grade, and "Not rated" is greyed rather than flagged.
+// reads it, and a field test is logged with the "Log a field test" button (the phrase Telegram would take).
+// Wording is neutral: a band is a place on a scale, never a grade, and "Not rated" is greyed rather than flagged.
 
 // MARK: - Colours
 
@@ -277,6 +277,7 @@ struct PFStandingView: View {
         }
         plansCard
         if let testDay = standing.testDay { PFTestDayCard(testDay: testDay) }
+        PFAddMeasurementButton(kind: .fieldTest, title: "Log a field test")
     }
 
     @ViewBuilder private var focusCard: some View {
@@ -686,6 +687,7 @@ struct PFStandingInsightsCard: View {
                 .buttonStyle(.borderedProminent)
                 .tint(StrandPalette.accent)
                 .accessibilityIdentifier("pf-standing-open")
+                PFAddMeasurementButton(kind: .fieldTest, title: "Log a field test")
             }
         }
         .containerIdentifier("pf-standing-insights-card")

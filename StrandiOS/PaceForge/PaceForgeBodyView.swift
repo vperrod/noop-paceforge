@@ -16,7 +16,7 @@ struct PFBodyView: View {
                 if let progress = snapshot.bodyProgress { PFProgressCard(progress: progress) }
                 PFTrendCard(doc: doc, progress: snapshot.bodyProgress, metric: $metric, range: $range)
                 if let muscle = snapshot.muscle { PFMuscleCheckCard(check: muscle) }
-                if let tape = snapshot.tape { PFTapeCard(tape: tape) }
+                PFTapeCard(tape: snapshot.tape ?? PFTape())
                 PFScoreCard(doc: doc)
                 if !doc.assessment.isEmpty { compositionCard(doc) }
                 massCard(doc)

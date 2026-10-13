@@ -224,6 +224,7 @@ struct PFTapeCard: View {
                         .foregroundStyle(StrandPalette.textTertiary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
+                PFAddMeasurementButton(kind: .tape, title: "Add measurement")
                 Label(PFTelegramHint.tape, systemImage: "paperplane")
                     .font(StrandFont.caption)
                     .foregroundStyle(StrandPalette.textTertiary)

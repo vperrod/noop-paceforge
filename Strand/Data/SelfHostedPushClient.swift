@@ -93,9 +93,10 @@ enum SelfHostedPushClient {
         return data
     }
 
-    /// The one write the PaceForge screens make: a bearer POST of a small JSON object to `api/feel`
-    /// (today's 1-5 check-in). Same token and no-redirect session as the reads; any non-2xx throws.
-    static func paceForgePost(_ path: String, body: [String: Any]) async throws -> Data {
+    /// A bearer POST of a small JSON object to a PaceForge page that returns the HTTP status and body whatever the
+    /// status is, for the one caller that shows the server's own refusal text (`api/app/log`). Same token and
+    /// no-redirect session as the reads. Throws only when no HTTP answer came back.
+    static func paceForgePostReturningStatus(_ path: String, body: [String: Any]) async throws -> (status: Int, data: Data) {
         let (endpoint, token) = try configuration()
         var request = URLRequest(url: paceForgeURL(from: endpoint, path: path), timeoutInterval: 20)
         request.httpMethod = "POST"
@@ -107,7 +108,14 @@ enum SelfHostedPushClient {
         defer { session.finishTasksAndInvalidate() }
         let (data, response) = try await session.data(for: request)
         guard let http = response as? HTTPURLResponse else { throw Failure.receiver("PaceForge did not answer.") }
-        guard (200..<300).contains(http.statusCode) else { throw Failure.httpStatus(http.statusCode, path: path) }
+        return (http.statusCode, data)
+    }
+
+    /// The write the PaceForge screens make for the 1-5 check-in: a bearer POST of a small JSON object to
+    /// `api/feel`. Any non-2xx throws.
+    static func paceForgePost(_ path: String, body: [String: Any]) async throws -> Data {
+        let (status, data) = try await paceForgePostReturningStatus(path, body: body)
+        guard (200..<300).contains(status) else { throw Failure.httpStatus(status, path: path) }
         if data.first(where: { !$0.isWhitespaceByte }) == UInt8(ascii: "<") { throw Failure.loginPage }
         return data
     }

@@ -192,6 +192,9 @@ targets:
       - StrandiOS/PaceForge/PaceForgeRide.swift
       # Hiding a card: the FNV-1a hash, hide-until-it-changes / snooze rules and the storage helpers.
       - StrandiOS/PaceForge/PaceForgeDismiss.swift
+      # Logging a measurement from the app (phrase building, checks, how the answer reads) and the Today card order.
+      - StrandiOS/PaceForge/PaceForgeLog.swift
+      - StrandiOS/PaceForge/PaceForgeTodayLayout.swift
     # Same wrapper as the app target, so the OURA_CLOUD_IMPORT-gated Oura tests compile exactly
     # when the app's Oura lane does (flag + creds both come from the untracked OuraSecrets.xcconfig).
     configFiles:

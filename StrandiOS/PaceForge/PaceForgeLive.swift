@@ -97,6 +97,19 @@ enum PFAPI {
         return try await SelfHostedPushClient.paceForgePost("api/feel", body: ["feel": value])
     }
 
+    /// The app's only other write: a typed tape or field-test phrase to `api/app/log`. Returns the status and body
+    /// whatever the status, so the sheet can show the server's own plain-English refusal. In a UI-test fixture the
+    /// `api/app/log` entry stands in for the server (200), or the call fails when it has none.
+    static func postLog(kind: PFLogKind, text: String) async throws -> (status: Int, data: Data) {
+        if let files = fixture {
+            guard let reply = files["api/app/log"] else { throw CocoaError(.fileNoSuchFile) }
+            let data = try JSONSerialization.data(withJSONObject: reply)
+            return (200, data)
+        }
+        return try await SelfHostedPushClient.paceForgePostReturningStatus(
+            "api/app/log", body: PFLog.requestBody(kind: kind, text: text))
+    }
+
     /// One line for the error card: the server host and why the request failed. No token, no path.
     static func failureDetail(_ error: Error) -> String {
         let host = SelfHostedPushClient.paceForgeHost ?? "no endpoint"
@@ -149,6 +162,7 @@ enum PFAPI {
         async let standing = fetchOptional("data/standing.json")
         async let rideMetrics = fetchOptional("data/ride-metrics.json")
         async let dismissed = fetchOptional("data/dismissed.json")
+        async let todayLayout = fetchOptional("data/today-layout.json")
         // Not part of the bundle's view models: fetched so My Day finds it saved on the phone (PFStore).
         async let workoutMatches = fetchOptional("data/workout-matches.json")
         async let state = fetch("api/state")
@@ -178,6 +192,7 @@ enum PFAPI {
         raw.standing = PFJ(data: await standing)
         raw.rideMetrics = PFJ(data: await rideMetrics)
         raw.dismissed = PFJ(data: await dismissed)
+        raw.todayLayout = PFJ(data: await todayLayout)
         _ = await workoutMatches
         return raw
     }
@@ -239,6 +254,7 @@ enum PFStore {
         raw.standing = PFJ(data: read(path: "data/standing.json"))
         raw.rideMetrics = PFJ(data: read(path: "data/ride-metrics.json"))
         raw.dismissed = PFJ(data: read(path: "data/dismissed.json"))
+        raw.todayLayout = PFJ(data: read(path: "data/today-layout.json"))
         return raw
     }
 }
@@ -357,6 +373,20 @@ final class PFModel: ObservableObject {
             }
             return false
         }
+    }
+
+    /// Logs one tape or field-test phrase and, when the server took it, refreshes so the new numbers show at once.
+    /// The outcome carries the server's confirmation or its plain-English reason for refusing.
+    func submitLog(kind: PFLogKind, text: String) async -> PFLogOutcome {
+        let outcome: PFLogOutcome
+        do {
+            let answer = try await PFAPI.postLog(kind: kind, text: text)
+            outcome = PFLogOutcome.from(status: answer.status, body: answer.data)
+        } catch {
+            return .unreachable
+        }
+        if outcome.isSaved { await refresh() }
+        return outcome
     }
 
     /// The details file and the coach's analysis for one activity; each falls back to the saved copy.

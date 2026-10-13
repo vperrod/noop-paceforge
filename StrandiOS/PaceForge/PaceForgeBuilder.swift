@@ -26,6 +26,7 @@ struct PFRawBundle {
     var standing = PFJ(nil)
     var rideMetrics = PFJ(nil)
     var dismissed = PFJ(nil)
+    var todayLayout = PFJ(nil)
 }
 
 /// Derives the screens' view models from the server's JSON, the way the PaceForge web app derives
@@ -96,6 +97,7 @@ enum PFBuilder {
         snapshot.standing = PFStandingParse.standing(raw.standing)
         snapshot.rides = PFRideParse.metrics(raw.rideMetrics)
         snapshot.dismissed = PFDismissStorage.parseServer(raw.dismissed)
+        snapshot.todayLayout = PFTodayOrder.parseServer(raw.todayLayout)
         snapshot.serverHidesBody = PFWave3Parse.hidesBodyOnLockScreen(state)
         snapshot.sleepNights = raw.fitness["load"]["sleep"]["stages_14d"].array.compactMap { night in
             guard let date = night["date"].string else { return nil }

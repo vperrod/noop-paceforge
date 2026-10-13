@@ -15,42 +15,148 @@ struct PFTodayView: View {
         PFDismissable(kind, text: text, snapshot: snapshot, content: content)
     }
 
+    // MARK: Order
+
+    @ObservedObject private var layoutStore = PFTodayLayoutStore.shared
+    @ObservedObject private var dismissStore = PFDismissStore.shared
+    @State private var isArranging = false
+
+    /// The cards that exist right now, in the app's default order. The layout then arranges them.
+    private var presentCards: [PFTodayCard] {
+        PFTodayCard.defaultOrder.filter { isPresent($0) }
+    }
+
+    private func isPresent(_ card: PFTodayCard) -> Bool {
+        switch card {
+        case .todaySoFar, .session: return true
+        case .raceWeek: return snapshot.raceWeek != nil
+        case .brief: return today.brief != nil
+        case .easy: return snapshot.easyMode.map { !$0.isIdle } ?? false
+        case .feel: return snapshot.feel != nil
+        case .alerts: return !snapshot.alerts.isEmpty
+        case .daily: return showsScores
+        case .whatChanged: return snapshot.whatChanged != nil
+        case .readiness: return snapshot.readiness != nil
+        case .standing: return snapshot.standing?.hasContent == true
+        // In race week the race-week card carries the countdown.
+        case .nextRace: return today.nextRace != nil && snapshot.raceWeek == nil
+        }
+    }
+
+    /// The "Not today" kind of a card; the sessions section cannot be hidden.
+    private func dismissKind(_ card: PFTodayCard) -> PFCardKind? {
+        switch card {
+        case .todaySoFar: return .todaySoFar
+        case .raceWeek: return .raceWeek
+        case .brief: return .brief
+        case .easy: return .easyMode
+        case .feel: return .feel
+        case .alerts: return .alerts
+        case .daily: return .scores
+        case .whatChanged: return .whatChanged
+        case .readiness: return .readiness
+        case .standing: return .standing
+        case .session: return nil
+        case .nextRace: return .nextRace
+        }
+    }
+
+    /// The ids of the cards on screen: the ones present and not put away with "Not today".
+    private var visibleIDs: Set<String> {
+        let hidden = Set(PFCardText.hidden(snapshot, local: dismissStore.local).map { $0.card.kind })
+        return Set(presentCards.filter { card in
+            guard let kind = dismissKind(card) else { return true }
+            return !hidden.contains(kind)
+        }.map { $0.rawValue })
+    }
+
     var body: some View {
+        let ids = presentCards.map { $0.rawValue }
+        let layout = layoutStore.layout(server: snapshot.todayLayout)
+        let visible = visibleIDs
         VStack(alignment: .leading, spacing: 16) {
-            dismissable(.todaySoFar, PFCardText.todaySoFar(snapshot)) { PFTodaySoFarCard(snapshot: snapshot) }
-            if let mode = snapshot.easyMode?.mode { PFEasyModeChip(mode: mode) }
+            PFTodayCustomiseHeader(isArranging: $isArranging, hasLocalOrder: layoutStore.local != nil) {
+                layoutStore.reset()
+            }
+            ForEach(PFTodayOrder.sorted(ids, layout: layout), id: \.self) { id in
+                if let card = PFTodayCard(rawValue: id) {
+                    slot(card, ids: ids, visible: visible, layout: layout)
+                }
+            }
+            PFHiddenCardsRow(snapshot: snapshot)
+        }
+    }
+
+    /// One card, with its Up / Down / Pin bar above it while Customise is on (cards put away have none).
+    @ViewBuilder private func slot(_ card: PFTodayCard, ids: [String], visible: Set<String>,
+                                   layout: PFTodayLayout) -> some View {
+        if isArranging && visible.contains(card.rawValue) {
+            VStack(alignment: .leading, spacing: 8) {
+                PFArrangeBar(
+                    card: card,
+                    isPinned: layout.pinned.contains(card.rawValue),
+                    canMoveUp: PFTodayOrder.canMove(card.rawValue, step: -1, ids: ids, visible: visible, layout: layout),
+                    canMoveDown: PFTodayOrder.canMove(card.rawValue, step: 1, ids: ids, visible: visible, layout: layout),
+                    onUp: { layoutStore.set(PFTodayOrder.moving(card.rawValue, step: -1, ids: ids, visible: visible, layout: layout)) },
+                    onDown: { layoutStore.set(PFTodayOrder.moving(card.rawValue, step: 1, ids: ids, visible: visible, layout: layout)) },
+                    onPin: { layoutStore.set(PFTodayOrder.togglingPin(card.rawValue, layout: layout)) })
+                content(for: card)
+            }
+        } else {
+            content(for: card)
+        }
+    }
+
+    @ViewBuilder private func content(for card: PFTodayCard) -> some View {
+        switch card {
+        case .todaySoFar:
+            VStack(alignment: .leading, spacing: 16) {
+                dismissable(.todaySoFar, PFCardText.todaySoFar(snapshot)) { PFTodaySoFarCard(snapshot: snapshot) }
+                if let mode = snapshot.easyMode?.mode { PFEasyModeChip(mode: mode) }
+            }
+        case .raceWeek:
             if let week = snapshot.raceWeek {
                 dismissable(.raceWeek, PFCardText.raceWeek(week)) { PFRaceWeekCard(week: week, todayISO: snapshot.todayISO) }
             }
+        case .brief:
             if let brief = today.brief {
                 dismissable(.brief, PFCardText.brief(brief)) { PFBriefCard(brief: brief, todayISO: snapshot.todayISO) }
             }
+        case .easy:
             if let easy = snapshot.easyMode, !easy.isIdle {
                 dismissable(.easyMode, PFCardText.easyMode(easy)) { PFEasyModeCard(easy: easy) }
             }
+        case .feel:
             if let feel = snapshot.feel {
                 dismissable(.feel, PFCardText.feel(feel)) { PFFeelCard(feel: feel, todayISO: snapshot.todayISO) }
             }
+        case .alerts:
             if !snapshot.alerts.isEmpty {
                 dismissable(.alerts, PFCardText.alerts(snapshot.alerts)) { PFAlertsCard(alerts: snapshot.alerts) }
             }
+        case .daily:
             if showsScores { dismissable(.scores, PFCardText.scores(today)) { scoresCard } }
+        case .whatChanged:
             if let changes = snapshot.whatChanged {
                 dismissable(.whatChanged, PFCardText.whatChanged(changes)) { PFWhatChangedCard(changes: changes) }
             }
+        case .readiness:
             if let readiness = snapshot.readiness {
                 dismissable(.readiness, PFCardText.readiness(readiness)) { PFReadinessCard(readiness: readiness) }
             }
+        case .standing:
             if let standing = snapshot.standing, standing.hasContent {
                 dismissable(.standing, PFCardText.standing(standing)) { PFStandingTodayCard(standing: standing) }
             }
-            sessionsSection
-            if let easy = snapshot.easyMode, easy.isIdle { PFEasyModeHint() }
-            // In race week the race-week card above carries the countdown.
+        case .session:
+            VStack(alignment: .leading, spacing: 16) {
+                sessionsSection
+                if let easy = snapshot.easyMode, easy.isIdle { PFEasyModeHint() }
+            }
+        case .nextRace:
             if let race = today.nextRace, snapshot.raceWeek == nil {
                 dismissable(.nextRace, PFCardText.nextRace(race)) { raceCard(race) }
             }
-            PFHiddenCardsRow(snapshot: snapshot)
         }
     }
 

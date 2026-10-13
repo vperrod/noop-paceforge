@@ -42,6 +42,8 @@ struct PFSnapshot {
     var rides: [PFRide] = []
     /// The server's `dismissed.json` (cards hidden in PaceForge); united with the ones hidden on this iPhone.
     var dismissed: [PFDismissal] = []
+    /// The server's `today-layout.json` (how the web page arranged the Today cards); empty when it serves none.
+    var todayLayout = PFTodayLayout()
     /// `state.settings.privacy.hide_body_on_lock_screen` as the server sent it; nil when it sent nothing.
     var serverHidesBody: Bool?
 
