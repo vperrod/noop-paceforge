@@ -225,8 +225,9 @@ final class PaceForgeBuild463UITests: XCTestCase {
         let push = element(app, "lift-filter-region-push")
         XCTAssertTrue(reveal(push, in: app, maxSwipes: 6))
         push.tap()
-        XCTAssertTrue(element(app, "lift-filter-empty").waitForExistence(timeout: 5),
-                      "An exercise with no muscle tag is left out of a muscle-group filter.")
+        // The program sheet only drops the list; the "no match" note belongs to the in-session sheet.
+        XCTAssertFalse(used.waitForExistence(timeout: 3),
+                       "An exercise with no muscle tag is left out of a muscle-group filter.")
         attach(app, "90 Lift filter Push empty")
     }
 }
