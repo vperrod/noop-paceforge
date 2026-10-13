@@ -398,6 +398,8 @@ struct PFHRR1 {
     var band: String?
     /// The figure came from an older server's `mid` estimate.
     var isEstimated = false
+    /// Which device's heart rate the figure was read from: `garmin` or `strap` (nil from older servers).
+    var source: String?
 
     static let post = "post"
     static let interval = "interval"
@@ -406,6 +408,14 @@ struct PFHRR1 {
 
     /// The first-minute drop is a real recovery figure only for these kinds.
     var isScored: Bool { (kind == Self.post || kind == Self.interval) && bpm != nil }
+
+    /// A cool-down rather than a real stop: HR still high at the stop (walking) or climbing back up after it.
+    /// The first-minute drop is kept for the record but never scored, so the card explains why.
+    var isNotScoredCoolDown: Bool { kind == Self.walking || risingAfterStop }
+
+    static let notScoredLine = "Not scored: heart rate was still high at the stop or rose in the last seconds (cool-down)"
+
+    var isFromStrap: Bool { source == "strap" }
 
     /// The personal band, and only where it applies: a scored kind with a personal baseline.
     var personalBand: String? { isScored && baselineBpm != nil ? band : nil }

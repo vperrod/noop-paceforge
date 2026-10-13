@@ -281,4 +281,60 @@ final class HeartRateRecoveryTests: XCTestCase {
                                                  minimumSamplesPerReading: 1, minimumCessationSamples: 3)
         XCTAssertEqual(result?.endHR, 170)
     }
+
+    // MARK: strap fallback for a sparse watch trace
+
+    /// The watch: effort ending at 140 bpm, then one reading at +99 s and one at +219 s (nothing in +20...+130 but one).
+    private func sparseWatch() -> [HRSample] {
+        (end - 300...end).map { HRSample(ts: $0, bpm: $0 >= end - 30 ? 140 : 145) }
+            + [HRSample(ts: end + 99, bpm: 132), HRSample(ts: end + 219, bpm: 108)]
+    }
+
+    /// The strap: 1 Hz, stop value 152, 129 at +60 s, 118 at +120 s.
+    private func strap() -> [HRSample] {
+        let effort = (end - 300...end).map { HRSample(ts: $0, bpm: $0 >= end - 30 ? 152 : 160) }
+        let after = (1...150).map { s -> HRSample in
+            let bpm = s <= 60 ? 152 - 23 * s / 60 : 129 - 11 * (s - 60) / 60
+            return HRSample(ts: end + s, bpm: bpm)
+        }
+        return effort + after
+    }
+
+    private func fallback(watch: [HRSample], strap: [HRSample]) -> HeartRateRecovery.Result? {
+        if case .measured(let r) = HeartRateRecovery.evaluateWithStrapFallback(
+            samples: watch, strapSamples: strap, workoutStart: end - 300, workoutEnd: end, maxHR: 200,
+            minimumSamplesPerReading: 1, measurementToleranceSeconds: 30, minimumCessationSamples: 1,
+            maximumContinuousGapSeconds: 30) { return r }
+        return nil
+    }
+
+    func testSparseWatchWindowIsDetected() {
+        XCTAssertTrue(HeartRateRecovery.postStopWindowIsSparse(samples: sparseWatch(), workoutEnd: end))
+    }
+
+    func testOneHertzStrapWindowIsNotSparse() {
+        XCTAssertFalse(HeartRateRecovery.postStopWindowIsSparse(samples: strap(), workoutEnd: end))
+    }
+
+    func testSparseWatchIsReadFromTheStrapWithTheStrapStopValue() {
+        let r = fallback(watch: sparseWatch(), strap: strap())
+        XCTAssertEqual([r?.endHR, r?.after1Minute, r?.after2Minutes], [152, 23, 34])
+    }
+
+    func testStrapReadingIsMarkedFromStrapAndIsScorable() {
+        let r = fallback(watch: sparseWatch(), strap: strap())
+        XCTAssertEqual([r?.fromStrap, r?.isScorable], [true, true])
+    }
+
+    func testDenseWatchKeepsItsOwnReadingEvenWithAStrap() {
+        let dense = denseEligible(endHR: 170) + window(minutes: 1, values: [146, 146, 146])
+            + (20...130).map { HRSample(ts: end + $0, bpm: 140) }
+        let r = fallback(watch: dense, strap: strap())
+        XCTAssertEqual(r?.fromStrap, false)
+    }
+
+    func testSparseWatchWithoutAStrapKeepsTheWatchOutcome() {
+        let r = fallback(watch: sparseWatch(), strap: [])
+        XCTAssertEqual(r?.fromStrap, false)
+    }
 }

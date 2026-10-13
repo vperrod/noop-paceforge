@@ -173,19 +173,22 @@ struct PFHRR1Card: View {
             if let band = hrr.personalBand { PFChip(text: PFFormat.capitalized(band), color: Self.color(band)) }
         }) {
             VStack(alignment: .leading, spacing: 10) {
-                if hrr.isScored, let bpm = hrr.bpm {
+                if showsDrop, let bpm = hrr.bpm {
                     HStack(alignment: .firstTextBaseline, spacing: 6) {
                         Text("\(bpm)")
                             .font(StrandFont.rounded(34))
                             .foregroundStyle(StrandPalette.textPrimary)
-                        Text("bpm in the first minute")
+                        Text("bpm in the first minute" + (hrr.isFromStrap ? " \u{00B7} from strap" : ""))
                             .font(StrandFont.caption)
                             .foregroundStyle(StrandPalette.textTertiary)
                     }
                 }
                 PFParagraph(explainer)
-                if hrr.risingAfterStop {
-                    PFParagraph("Heart rate rose after you stopped.")
+                if hrr.isFromStrap, !showsDrop {
+                    Text("From strap")
+                        .font(StrandFont.footnote)
+                        .foregroundStyle(StrandPalette.textTertiary)
+                        .accessibilityIdentifier("pf-hrr1-source")
                 }
                 HStack(alignment: .top, spacing: 18) {
                     if let stop = hrr.stopBpm { PFFigure(value: "\(stop)", unit: "bpm", label: "At the stop") }
@@ -211,12 +214,14 @@ struct PFHRR1Card: View {
         .containerIdentifier("pf-hrr1")
     }
 
+    /// The big first-minute number is for real stops only; a cool-down gets the explanation line instead.
+    private var showsDrop: Bool { hrr.isScored && !hrr.isNotScoredCoolDown }
+
     private var explainer: String {
+        if hrr.isNotScoredCoolDown { return PFHRR1.notScoredLine }
         switch hrr.kind {
         case PFHRR1.interval:
             return "Interval rebound \u{2014} compared with your own intervals." + (hrr.isEstimated ? " Estimated." : "")
-        case PFHRR1.walking:
-            return "Walking cool-down \u{2014} not scored."
         case PFHRR1.notMeasurable:
             return "Not enough readings after the end."
         default:

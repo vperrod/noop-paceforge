@@ -13,6 +13,11 @@ import WhoopProtocol
 /// at 1 minute, so there was no real stop) and HR that rises after the stop (>= 8 bpm above the reference at
 /// 1 or 2 minutes). Their drops are still reported, but `contextBand` is nil.
 ///
+/// A watch's post-stop trace can be too thin to read (fewer than `fallbackMinimumSamples` readings in
+/// `fallbackWindowSeconds` after the stop). `evaluateWithStrapFallback` then reads the strap's own trace for
+/// the same window instead, stop reference included (two devices read a few bpm apart, so a drop is never
+/// taken across devices) and marks the result `fromStrap`.
+///
 /// Missing post-workout coverage stays nil. The engine never interpolates across a gap or turns a missing
 /// reading into zero, which is important when a strap disconnects as the workout ends.
 public enum HeartRateRecovery {
@@ -56,10 +61,12 @@ public enum HeartRateRecovery {
         public let risingAfterStop: Bool
         /// HR at +1 min was within 5 bpm of the stop reference: a walking cool-down, not a real stop.
         public let walking: Bool
+        /// The figure was read from the strap because the watch's post-stop trace was too sparse.
+        public let fromStrap: Bool
 
         public init(endHR: Int, peakHR: Int? = nil, after1Minute: Int?, after2Minutes: Int?, after5Minutes: Int?,
                     maxHR: Double? = nil, maxHRSource: MaxHRSource? = nil,
-                    risingAfterStop: Bool = false, walking: Bool = false) {
+                    risingAfterStop: Bool = false, walking: Bool = false, fromStrap: Bool = false) {
             self.endHR = endHR
             self.peakHR = peakHR ?? endHR
             self.after1Minute = after1Minute
@@ -69,6 +76,7 @@ public enum HeartRateRecovery {
             self.maxHRSource = maxHRSource
             self.risingAfterStop = risingAfterStop
             self.walking = walking
+            self.fromStrap = fromStrap
         }
 
         public var hasMeasurement: Bool {
@@ -100,6 +108,9 @@ public enum HeartRateRecovery {
     public static let measurementToleranceSeconds = 15
     public static let minimumSamplesPerReading = 3
     public static let maximumContinuousGapSeconds = 10
+    /// Sparse watch trace: fewer than this many readings between +20 s and +130 s after the stop.
+    public static let fallbackWindowSeconds = 20...130
+    public static let fallbackMinimumSamples = 3
 
     /// Why a workout has no recovery figure, in the order the checks run.
     public enum Unavailable: Equatable, Sendable {
@@ -208,6 +219,45 @@ public enum HeartRateRecovery {
             walking: isWalking
         )
         return result.hasMeasurement ? .measured(result) : .unavailable(.noReadingsAfterEnd)
+    }
+
+    /// True when `samples` has fewer than `fallbackMinimumSamples` readings in +20...+130 s after `workoutEnd`.
+    public static func postStopWindowIsSparse(samples: [HRSample], workoutEnd: Int) -> Bool {
+        let count = samples.filter {
+            fallbackWindowSeconds.contains($0.ts - workoutEnd) && (30...250).contains($0.bpm)
+        }.count
+        return count < fallbackMinimumSamples
+    }
+
+    /// `evaluate` over the watch's `samples`, with the strap as the fallback for a sparse post-stop window.
+    ///
+    /// The strap replaces the watch only when the watch window is sparse, the strap's is not, and the strap
+    /// yields a measured result; otherwise the watch's outcome stands. The strap is read with the strict
+    /// 1 Hz defaults (3 readings within 15 s of each recovery point), whatever lenient settings the watch used.
+    public static func evaluateWithStrapFallback(
+        samples: [HRSample], strapSamples: [HRSample], workoutStart: Int, workoutEnd: Int,
+        maxHR: Double, maxHRSource: MaxHRSource? = nil,
+        minimumSamplesPerReading: Int = HeartRateRecovery.minimumSamplesPerReading,
+        measurementToleranceSeconds: Int = HeartRateRecovery.measurementToleranceSeconds,
+        minimumCessationSamples: Int = HeartRateRecovery.minimumSamplesPerReading,
+        maximumContinuousGapSeconds: Int = HeartRateRecovery.maximumContinuousGapSeconds) -> Outcome {
+        let primary = evaluate(samples: samples, workoutStart: workoutStart, workoutEnd: workoutEnd,
+                               maxHR: maxHR, maxHRSource: maxHRSource,
+                               minimumSamplesPerReading: minimumSamplesPerReading,
+                               measurementToleranceSeconds: measurementToleranceSeconds,
+                               minimumCessationSamples: minimumCessationSamples,
+                               maximumContinuousGapSeconds: maximumContinuousGapSeconds)
+        guard postStopWindowIsSparse(samples: samples, workoutEnd: workoutEnd),
+              !postStopWindowIsSparse(samples: strapSamples, workoutEnd: workoutEnd),
+              case .measured(let strap) = evaluate(samples: strapSamples, workoutStart: workoutStart,
+                                                   workoutEnd: workoutEnd, maxHR: maxHR,
+                                                   maxHRSource: maxHRSource),
+              strap.after1Minute != nil || strap.after2Minutes != nil else { return primary }
+        return .measured(Result(
+            endHR: strap.endHR, peakHR: strap.peakHR, after1Minute: strap.after1Minute,
+            after2Minutes: strap.after2Minutes, after5Minutes: strap.after5Minutes,
+            maxHR: strap.maxHR, maxHRSource: strap.maxHRSource,
+            risingAfterStop: strap.risingAfterStop, walking: strap.walking, fromStrap: true))
     }
 
     private static func sustainedSeconds(atOrAbove threshold: Double, in samples: [HRSample],

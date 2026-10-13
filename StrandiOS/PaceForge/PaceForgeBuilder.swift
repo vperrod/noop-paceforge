@@ -324,7 +324,8 @@ enum PFBuilder {
         return PFHRR1(bpm: bpm, kind: kind, bpm120: j["bpm120"].int, stopBpm: j["stop_bpm"].int,
                       peakBpm: j["peak_bpm"].int, risingAfterStop: j["rising_after_stop"].bool ?? false,
                       contextBand: j["context_band"].text, baselineBpm: j["baseline_bpm"].double,
-                      delta: j["delta"].double, band: j["band"].text, isEstimated: isEstimated)
+                      delta: j["delta"].double, band: j["band"].text, isEstimated: isEstimated,
+                      source: j["source"].text)
     }
 
     static func bodyProgress(_ b: PFJ) -> PFBodyProgress? {
