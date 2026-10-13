@@ -378,7 +378,9 @@ struct PFBodyMetric { var label: String; var unit: String; var dp: Int; var good
 /// First-minute heart-rate recovery of a session. `kind` says what the figure is: `post` (the heart rate
 /// fell after the effort stopped), `interval` (a rebound between intervals, compared with the athlete's
 /// own intervals), `walking` (a walking cool-down, not scored), `no_post_stop_data` (Garmin's per-second
-/// recording ended at the stop, so there is no recovery to read; `reason` says so) or `not_measurable`.
+/// recording ended at the stop and nothing follows yet; `reason` says so), `garmin_2min` (the same, but Garmin's
+/// all-day series has readings after the stop; `readings` lists them as Garmin Connect shows them, not as 1 / 2 minute
+/// values) or `not_measurable`.
 /// Older servers sent `post`/`mid` with fewer fields; `mid` decodes as `interval` with `isEstimated`.
 struct PFHRR1 {
     /// Beats the heart rate fell in the first minute; nil when it is not measurable.
@@ -401,12 +403,19 @@ struct PFHRR1 {
     var isEstimated = false
     /// Why there is no figure, in the server's words (kind `no_post_stop_data`).
     var reason: String?
+    /// Garmin's own readings after the stop and the server's label for them (kind `garmin_2min`).
+    var readings: [Reading] = []
+    var label: String?
+
+    /// One Garmin all-day-series reading, `drop` being the stop value minus it (negative: above the stop value).
+    struct Reading { var offsetSeconds: Int; var bpm: Int; var drop: Int? }
 
     static let post = "post"
     static let interval = "interval"
     static let walking = "walking"
     static let notMeasurable = "not_measurable"
     static let noPostStopData = "no_post_stop_data"
+    static let garmin2min = "garmin_2min"
 
     /// Shown when an older server leaves `reason` out.
     static let noPostStopLine = "Garmin stopped recording at the stop; keep the activity recording for 2 minutes after your last effort to measure recovery"
@@ -417,6 +426,8 @@ struct PFHRR1 {
     /// A cool-down rather than a real stop: HR still high at the stop (walking) or climbing back up after it.
     /// The first-minute drop is kept for the record but never scored, so the card explains why.
     var isNotScoredCoolDown: Bool { kind == Self.walking || risingAfterStop }
+
+    static let garminLabel = "Garmin records one reading every 2 minutes after the workout; shown as Garmin Connect shows it"
 
     static let notScoredLine = "Not scored: heart rate was still high at the stop or rose in the last seconds (cool-down)"
 

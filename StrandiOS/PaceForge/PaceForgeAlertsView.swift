@@ -184,6 +184,15 @@ struct PFHRR1Card: View {
                     }
                 }
                 PFParagraph(explainer)
+                if hrr.kind == PFHRR1.garmin2min {
+                    VStack(alignment: .leading, spacing: 4) {
+                        ForEach(hrr.readings, id: \.offsetSeconds) { reading in
+                            Text(Self.readingLine(reading))
+                                .font(StrandFont.footnote)
+                                .foregroundStyle(StrandPalette.textSecondary)
+                        }
+                    }
+                }
                 HStack(alignment: .top, spacing: 18) {
                     if let stop = hrr.stopBpm { PFFigure(value: "\(stop)", unit: "bpm", label: "At the stop") }
                     if let peak = hrr.peakBpm { PFFigure(value: "\(peak)", unit: "bpm", label: "Peak") }
@@ -216,6 +225,8 @@ struct PFHRR1Card: View {
         switch hrr.kind {
         case PFHRR1.interval:
             return "Interval rebound \u{2014} compared with your own intervals." + (hrr.isEstimated ? " Estimated." : "")
+        case PFHRR1.garmin2min:
+            return hrr.label ?? PFHRR1.garminLabel
         case PFHRR1.noPostStopData:
             return hrr.reason ?? PFHRR1.noPostStopLine
         case PFHRR1.notMeasurable:
@@ -223,6 +234,12 @@ struct PFHRR1Card: View {
         default:
             return "How far your heart rate fell in the first minute after you stopped."
         }
+    }
+
+    static func readingLine(_ reading: PFHRR1.Reading) -> String {
+        let clock = String(format: "+%d:%02d", reading.offsetSeconds / 60, reading.offsetSeconds % 60)
+        let change = reading.drop.map { $0 >= 0 ? " (\($0) below the stop)" : " (\(-$0) above the stop)" } ?? ""
+        return "\(clock) after the stop: \(reading.bpm) bpm" + change
     }
 
     /// Population context for a one-minute drop after stopping; never a grade, so it is never coloured.

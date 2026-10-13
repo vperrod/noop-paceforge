@@ -311,7 +311,7 @@ enum PFBuilder {
 
     /// Decodes the new `hrr1` object and the older `{bpm, kind: post|mid, …}` one. An older `mid` is an
     /// estimated interval rebound. A figure that is missing its `bpm` is only kept when the server says
-    /// why (`not_measurable`, `walking`, `no_post_stop_data`).
+    /// why (`not_measurable`, `walking`, `no_post_stop_data`, `garmin_2min`).
     static func hrr1(_ j: PFJ) -> PFHRR1? {
         let bpm = j["bpm"].int
         var kind = j["kind"].text ?? PFHRR1.post
@@ -319,13 +319,18 @@ enum PFBuilder {
         if kind == "mid" { kind = PFHRR1.interval; isEstimated = true }
         if bpm == nil {
             guard j.exists, j["kind"].text != nil else { return nil }
-            if kind != PFHRR1.walking && kind != PFHRR1.noPostStopData { kind = PFHRR1.notMeasurable }
+            if ![PFHRR1.walking, PFHRR1.noPostStopData, PFHRR1.garmin2min].contains(kind) { kind = PFHRR1.notMeasurable }
         }
         return PFHRR1(bpm: bpm, kind: kind, bpm120: j["bpm120"].int, stopBpm: j["stop_bpm"].int,
                       peakBpm: j["peak_bpm"].int, risingAfterStop: j["rising_after_stop"].bool ?? false,
                       contextBand: j["context_band"].text, baselineBpm: j["baseline_bpm"].double,
                       delta: j["delta"].double, band: j["band"].text, isEstimated: isEstimated,
-                      reason: j["reason"].text)
+                      reason: j["reason"].text,
+                      readings: j["readings"].array.compactMap { r in
+                          guard let offset = r["offset_s_from_stop"].int, let value = r["bpm"].int else { return nil }
+                          return PFHRR1.Reading(offsetSeconds: offset, bpm: value, drop: r["drop_bpm"].int)
+                      },
+                      label: j["label"].text)
     }
 
     static func bodyProgress(_ b: PFJ) -> PFBodyProgress? {

@@ -58,6 +58,8 @@ struct WorkoutDetailView: View {
     @State private var heartRateRecovery: HeartRateRecovery.Result?
     /// Why `heartRateRecovery` is nil, so the card can say so instead of guessing.
     @State private var heartRateRecoveryReason: HeartRateRecovery.Unavailable?
+    /// Garmin's own 2-minute readings after the stop, when that is all a PaceForge workout has.
+    @State private var garminReadings: HeartRateRecovery.GarminReadings?
 
     /// The GPS route captured for this session on-device (#524), if any. Decoded from `RouteStore` by the
     /// row's natural key. nil = no route was recorded (honest — the map only shows when points exist).
@@ -145,8 +147,10 @@ struct WorkoutDetailView: View {
             maxHRSource: profile.hrMaxOverride > 0 ? .override : .tanaka, source: row.source)
         var hrr: HeartRateRecovery.Result?
         var hrrReason: HeartRateRecovery.Unavailable?
+        var garmin: HeartRateRecovery.GarminReadings?
         switch hrrOutcome {
         case .measured(let result): hrr = result
+        case .garminReadings(let readings): garmin = readings
         case .unavailable(let reason): hrrReason = reason
         }
 
@@ -175,6 +179,7 @@ struct WorkoutDetailView: View {
             self.zonesFromImport = fromImport
             self.heartRateRecovery = hrr
             self.heartRateRecoveryReason = hrrReason
+            self.garminReadings = garmin
             self.steps = stepReadout
             self.loaded = true
         }
@@ -211,6 +216,22 @@ struct WorkoutDetailView: View {
                     }
                 }
             }
+        } else if let garmin = garminReadings {
+            NoopCard(tint: StrandPalette.metricRose) {
+                VStack(alignment: .leading, spacing: 6) {
+                    SectionHeader("Heart Rate Recovery", overline: "After high-intensity effort",
+                                  trailing: String(localized: "From \(garmin.endHR) bpm at the stop"))
+                    Text(String(localized: "Not measured as a 1 or 2 minute recovery: Garmin stopped recording at the stop."))
+                        .font(StrandFont.footnote)
+                        .foregroundStyle(StrandPalette.textTertiary)
+                    ForEach(garmin.readings, id: \.offsetSeconds) { reading in
+                        Text(garminReadingText(reading))
+                            .font(StrandFont.footnote)
+                            .foregroundStyle(StrandPalette.textSecondary)
+                    }
+                    recoveryNote(HeartRateRecovery.garminReadingsLabel)
+                }
+            }
         } else if loaded {
             NoopCard(tint: StrandPalette.metricRose) {
                 VStack(alignment: .leading, spacing: 6) {
@@ -222,6 +243,12 @@ struct WorkoutDetailView: View {
                 }
             }
         }
+    }
+
+    private func garminReadingText(_ reading: HeartRateRecovery.GarminReading) -> String {
+        let clock = String(format: "+%d:%02d", reading.offsetSeconds / 60, reading.offsetSeconds % 60)
+        let change = reading.drop >= 0 ? "\(reading.drop) below" : "\(-reading.drop) above"
+        return "\(clock) after the stop: \(reading.bpm) bpm (\(change) the stop)"
     }
 
     private func recoveryNote(_ text: String) -> some View {

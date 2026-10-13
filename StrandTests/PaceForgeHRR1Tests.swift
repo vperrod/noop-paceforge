@@ -41,4 +41,11 @@ final class PaceForgeHRR1Tests: XCTestCase {
     func testAnOlderServerWithoutAReasonStillHasTheFallbackLine() {
         XCTAssertTrue(PFHRR1.noPostStopLine.hasPrefix("Garmin stopped recording at the stop"))
     }
+
+    func testGarmin2MinListsTheReadingsExactlyAndIsNeverScored() {
+        let h = hrr(#"{"kind":"garmin_2min","bpm":null,"stop_bpm":148,"peak_bpm":163,"label":"L","readings":[{"offset_s_from_stop":46,"bpm":143,"drop_bpm":5},{"offset_s_from_stop":166,"bpm":112,"drop_bpm":36}]}"#)
+        XCTAssertEqual(h?.kind, PFHRR1.garmin2min)
+        XCTAssertEqual(h?.readings.map { [$0.offsetSeconds, $0.bpm, $0.drop ?? -1] }, [[46, 143, 5], [166, 112, 36]])
+        XCTAssertEqual(h?.isScored, false)
+    }
 }

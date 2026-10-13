@@ -159,13 +159,24 @@ final class HeartRateRecoveryTests: XCTestCase {
         denseEligible() + [HRSample(ts: end + 57, bpm: 143), HRSample(ts: end + 177, bpm: 112)]
     }
 
-    func testNoPostStopDataWhenOnlyDaySeriesBinsFollowTheStop() {
+    private func evaluateGarmin(_ samples: [HRSample]) -> HeartRateRecovery.Outcome {
+        HeartRateRecovery.evaluate(samples: samples, workoutStart: end - 300, workoutEnd: end, maxHR: 200,
+                                   minimumSamplesPerReading: 1, minimumCessationSamples: 1,
+                                   maximumContinuousGapSeconds: 30, requiredPostStopSeconds: 120)
+    }
+
+    func testDaySeriesReadingsAreListedAsGarminShowsThemNotReadAsARecovery() {
+        let samples = recordingThatEndsAtTheStopThenDayBins() + [HRSample(ts: end + 297, bpm: 100), HRSample(ts: end + 417, bpm: 95)]
         XCTAssertEqual(
-            HeartRateRecovery.evaluate(samples: recordingThatEndsAtTheStopThenDayBins(), workoutStart: end - 300,
-                                       workoutEnd: end, maxHR: 200, minimumSamplesPerReading: 1,
-                                       minimumCessationSamples: 1, maximumContinuousGapSeconds: 30,
-                                       requiredPostStopSeconds: 120),
-            .unavailable(.noPostStopData))
+            evaluateGarmin(samples),
+            .garminReadings(.init(endHR: 170, peakHR: 170, readings: [
+                .init(offsetSeconds: 57, bpm: 143, drop: 27),
+                .init(offsetSeconds: 177, bpm: 112, drop: 58),
+                .init(offsetSeconds: 297, bpm: 100, drop: 70)])))
+    }
+
+    func testNoPostStopDataWhenNothingFollowsTheStop() {
+        XCTAssertEqual(evaluateGarmin(denseEligible()), .unavailable(.noPostStopData))
     }
 
     func testBinsAreStillReadWhenNoPostStopCoverageIsRequired() {
@@ -186,11 +197,8 @@ final class HeartRateRecoveryTests: XCTestCase {
 
     func testABinAfterAGenuineRecordingDoesNotExtendItsCoverage() {
         let tail = (end + 1...end + 80).map { HRSample(ts: $0, bpm: 150) } + [HRSample(ts: end + 200, bpm: 120)]
-        XCTAssertEqual(
-            HeartRateRecovery.evaluate(samples: denseEligible() + tail, workoutStart: end - 300, workoutEnd: end,
-                                       maxHR: 200, minimumSamplesPerReading: 1, minimumCessationSamples: 1,
-                                       maximumContinuousGapSeconds: 30, requiredPostStopSeconds: 120),
-            .unavailable(.noPostStopData))
+        guard case .garminReadings(let listed) = evaluateGarmin(denseEligible() + tail) else { return XCTFail("expected Garmin readings") }
+        XCTAssertEqual(listed.readings, [.init(offsetSeconds: 200, bpm: 120, drop: 50)])
     }
 
     func testNoReadingsAfterTheEndIsReportedAsSuch() {

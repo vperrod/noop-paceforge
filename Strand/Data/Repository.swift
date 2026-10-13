@@ -3529,7 +3529,8 @@ final class Repository: ObservableObject {
         // query must cover that same upper edge or it silently drops a valid late five-minute sample.
         let isPaceForge = WorkoutSource.classify(source) == .paceforge
         let measurementTolerance = isPaceForge ? 30 : HeartRateRecovery.measurementToleranceSeconds
-        let readTo = to + 5 * 60 + measurementTolerance
+        // PaceForge workouts also list the next Garmin day-series readings (about +2, +4, +6 min).
+        let readTo = to + 5 * 60 + measurementTolerance + (isPaceForge ? 2 * 60 : 0)
         let ids = Self.workoutHrDeviceIds(source: source, activeStrapId: deviceId,
                                           importedIds: importedReadIds)
         let samples = await hrSamples(deviceIds: ids, from: readFrom, to: readTo, limit: 2_000)
@@ -3544,7 +3545,8 @@ final class Repository: ObservableObject {
                                           minimumCessationSamples: isPaceForge ? 1 : HeartRateRecovery.minimumSamplesPerReading,
                                           maximumContinuousGapSeconds: isPaceForge ? 30 : HeartRateRecovery.maximumContinuousGapSeconds,
                                           // Garmin's per-second recording ends at the stop; the rows after it are the
-                                          // 120 s all-day series (bin means), which cannot give a 1 or 2 minute drop.
+                                          // all-day series (one reading every 2 minutes), which cannot give a 1 or 2
+                                          // minute drop. They come back as .garminReadings, listed as Garmin shows them.
                                           requiredPostStopSeconds: isPaceForge ? 120 : 0)
     }
 

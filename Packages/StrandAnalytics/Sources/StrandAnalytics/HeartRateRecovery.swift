@@ -15,7 +15,9 @@ import WhoopProtocol
 ///
 /// A caller whose source stops recording at the stop (Garmin through PaceForge: its per-second recording ends
 /// there, and what follows is the 120 s all-day series, bin means rather than readings) passes
-/// `requiredPostStopSeconds`; the engine then refuses unless continuous readings run that far past the end.
+/// `requiredPostStopSeconds`; the engine then refuses to compute a drop unless continuous readings run that
+/// far past the end. The day-series readings that do follow (one every 2 minutes) are returned as
+/// `.garminReadings`, listed exactly as Garmin Connect shows them: not 1- / 2-minute values, no band.
 ///
 /// Missing post-workout coverage stays nil. The engine never interpolates across a gap or turns a missing
 /// reading into zero, which is important when a strap disconnects as the workout ends.
@@ -117,13 +119,42 @@ public enum HeartRateRecovery {
         case notHardEnough
         /// The end heart rate is known but no recovery point (1, 2 or 5 min) has enough readings.
         case noReadingsAfterEnd
-        /// The source stopped recording at the stop: nothing continuous runs `requiredPostStopSeconds` past it,
-        /// so the only later readings (if any) are day-series bin means, not heart rate at +1 / +2 min.
+        /// The source stopped recording at the stop and its all-day series has nothing after it yet.
         case noPostStopData
     }
 
+    /// One Garmin all-day-series reading after the stop, exactly as Garmin Connect shows it.
+    public struct GarminReading: Equatable, Sendable {
+        public let offsetSeconds: Int
+        public let bpm: Int
+        /// The stop reference minus this reading (negative: above the stop value).
+        public let drop: Int
+        public init(offsetSeconds: Int, bpm: Int, drop: Int) {
+            self.offsetSeconds = offsetSeconds
+            self.bpm = bpm
+            self.drop = drop
+        }
+    }
+
+    /// What exists after the stop when the source stopped recording at it: the first readings of Garmin's
+    /// all-day series. Display only: never scored, banded or compared with a baseline.
+    public struct GarminReadings: Equatable, Sendable {
+        public let endHR: Int
+        public let peakHR: Int
+        public let readings: [GarminReading]
+        public init(endHR: Int, peakHR: Int, readings: [GarminReading]) {
+            self.endHR = endHR
+            self.peakHR = peakHR
+            self.readings = readings
+        }
+    }
+
+    public static let garminReadingCount = 3
+    public static let garminReadingsLabel = "Garmin records one reading every 2 minutes after the workout; shown as Garmin Connect shows it"
+
     public enum Outcome: Equatable, Sendable {
         case measured(Result)
+        case garminReadings(GarminReadings)
         case unavailable(Unavailable)
     }
 
@@ -162,7 +193,9 @@ public enum HeartRateRecovery {
         guard maxHR > 0 else { return .unavailable(.missingMaxHR) }
         guard workoutStart > 0, workoutEnd > workoutStart else { return .unavailable(.invalidWorkout) }
         let lowerBound = max(workoutStart, workoutEnd - eligibilityLookbackSeconds)
+        // A source that stops recording at the stop lists its next day-series readings, about +2, +4 and +6 min.
         let upperBound = workoutEnd + 5 * 60 + max(0, measurementToleranceSeconds)
+            + (requiredPostStopSeconds > 0 ? 2 * 60 : 0)
         let sorted = samples
             .filter { $0.ts >= lowerBound && $0.ts <= upperBound && (30...250).contains($0.bpm) }
             .sorted { lhs, rhs in lhs.ts == rhs.ts ? lhs.bpm < rhs.bpm : lhs.ts < rhs.ts }
@@ -189,9 +222,14 @@ public enum HeartRateRecovery {
             .map(\.bpm)
         let referencePool = lastTen.count >= max(1, minimumCessationSamples) ? lastTen : cessation
         guard let endHR = median(referencePool) else { return .unavailable(.tooFewReadingsAtEnd) }
-        guard continuousSecondsAfterEnd(in: sorted, workoutEnd: workoutEnd,
-                                        maximumGapSeconds: maximumContinuousGapSeconds) >= requiredPostStopSeconds else {
-            return .unavailable(.noPostStopData)
+        let coverage = continuousSecondsAfterEnd(in: sorted, workoutEnd: workoutEnd,
+                                                 maximumGapSeconds: maximumContinuousGapSeconds)
+        if coverage < requiredPostStopSeconds {
+            let readings = sorted.filter { $0.ts > workoutEnd + coverage }.prefix(garminReadingCount)
+                .map { GarminReading(offsetSeconds: $0.ts - workoutEnd, bpm: $0.bpm, drop: endHR - $0.bpm) }
+            return readings.isEmpty
+                ? .unavailable(.noPostStopData)
+                : .garminReadings(GarminReadings(endHR: endHR, peakHR: peakHR, readings: Array(readings)))
         }
 
         /// HR median around `minutes` after the end, or nil without enough readings.

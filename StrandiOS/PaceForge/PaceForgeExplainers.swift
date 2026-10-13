@@ -94,7 +94,7 @@ enum PFExplainerID {
         switch kind {
         case PFHRR1.interval: return "hrr1_interval"
         case PFHRR1.walking: return "hrr1_walking"
-        case PFHRR1.notMeasurable, PFHRR1.noPostStopData: return "hrr1_not_measurable"
+        case PFHRR1.notMeasurable, PFHRR1.noPostStopData, PFHRR1.garmin2min: return "hrr1_not_measurable"
         default: return "hrr1_post"
         }
     }
