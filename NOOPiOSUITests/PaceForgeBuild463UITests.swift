@@ -219,14 +219,17 @@ final class PaceForgeBuild463UITests: XCTestCase {
         XCTAssertTrue(reveal(barbellChip, in: app, maxSwipes: 6))
         barbellChip.tap()
         attach(app, "90 Lift filter Barbell")
-        let used = app.staticTexts.matching(NSPredicate(format: "label CONTAINS 'Bench press'")).firstMatch
-        XCTAssertTrue(used.waitForExistence(timeout: 5), "The barbell filter should keep the remembered barbell exercise.")
+        // "Bench press" also labels the program line behind the sheet, so the suggestion list is asserted
+        // through its own heading: "Used before" is only drawn while the filtered list has rows.
+        let usedBefore = app.staticTexts.matching(NSPredicate(format: "label ==[c] 'Used before'")).firstMatch
+        XCTAssertTrue(usedBefore.waitForExistence(timeout: 5), "The barbell filter should keep the remembered barbell exercise.")
         barbellChip.tap()
         let push = element(app, "lift-filter-region-push")
         XCTAssertTrue(reveal(push, in: app, maxSwipes: 6))
         push.tap()
-        // The program sheet only drops the list; the "no match" note belongs to the in-session sheet.
-        XCTAssertFalse(used.waitForExistence(timeout: 3),
+        // The remembered exercise has no muscle tag, so a muscle-group filter leaves it out. The program sheet
+        // only drops the list; the "no match" note belongs to the in-session sheet.
+        XCTAssertFalse(usedBefore.waitForExistence(timeout: 3),
                        "An exercise with no muscle tag is left out of a muscle-group filter.")
         attach(app, "90 Lift filter Push empty")
     }
