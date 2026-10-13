@@ -205,7 +205,9 @@ final class WhoopGapsUITests: XCTestCase {
         let history = element(app, "coach-history")
         XCTAssertTrue(history.waitForExistence(timeout: 40))
         app.buttons["Done"].firstMatch.tap()
-        let guide = app.buttons.matching(NSPredicate(format: "label CONTAINS[c] %@", "Charge")).firstMatch
+        // The label under the ring ("Charge, 49. See how it is scored.") opens the guide; the ring itself opens the trend.
+        let guide = app.buttons.matching(NSPredicate(
+            format: "label BEGINSWITH[c] %@ AND label CONTAINS[c] %@", "Charge", "See how it is scored")).firstMatch
         XCTAssertTrue(guide.waitForExistence(timeout: 20), "Today should show the Charge label.")
         guide.tap()
         let ask = element(app, "ask-coach-button")

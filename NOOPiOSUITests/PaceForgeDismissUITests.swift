@@ -82,7 +82,10 @@ final class PaceForgeDismissUITests: XCTestCase {
         let restore = app.buttons["pf-restore-brief"]
         XCTAssertTrue(restore.waitForExistence(timeout: 5))
         restore.tap()
-        app.buttons["pf-hidden-done"].tap()
+        // Restoring the last hidden card removes the Hidden cards row, which closes its sheet by itself, so
+        // Done is tapped only if the sheet is still up.
+        let done = app.buttons["pf-hidden-done"]
+        if done.waitForExistence(timeout: 2) { done.tap() }
         XCTAssertTrue(label(app, "Daily briefing").waitForExistence(timeout: 10), "Showing it again should bring the briefing back.")
     }
 
