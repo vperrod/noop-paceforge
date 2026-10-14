@@ -39,6 +39,13 @@ final class PaceForgeNativeTabUITests: XCTestCase {
         return segments
     }
 
+    /// The segment is remembered between launches; a tap that lands while the previous one is restored is lost.
+    private func select(_ segments: XCUIElement, _ title: String) {
+        let button = segments.buttons[title]
+        button.tap()
+        if !button.isSelected { button.tap() }
+    }
+
     /// Any element with this accessibility identifier, whatever its type.
     private func element(_ app: XCUIApplication, _ id: String) -> XCUIElement {
         app.descendants(matching: .any).matching(identifier: id).firstMatch
@@ -112,7 +119,7 @@ final class PaceForgeNativeTabUITests: XCTestCase {
     func testTodayShowsTheBriefingAndNoVerdictCard() throws {
         let app = try launch(fixture: true)
         let segments = try openPaceForge(app)
-        segments.buttons["Today"].tap()
+        select(segments, "Today")
         XCTAssertTrue(label(app, "Daily briefing").waitForExistence(timeout: 10), "Today should lead with the daily briefing.")
         XCTAssertFalse(label(app, "Should you push today?").exists, "The verdict card should be gone.")
         XCTAssertFalse(label(app, "Coach's morning read").exists, "The morning-read card should be gone.")
@@ -121,7 +128,7 @@ final class PaceForgeNativeTabUITests: XCTestCase {
     func testCompletedSessionOpensItsResults() throws {
         let app = try launch(fixture: true)
         let segments = try openPaceForge(app)
-        segments.buttons["This week"].tap()
+        select(segments, "This week")
 
         let done = app.buttons["pf-workout-s-mon"]
         XCTAssertTrue(done.waitForExistence(timeout: 10), "The completed easy run should be listed.")
@@ -139,7 +146,7 @@ final class PaceForgeNativeTabUITests: XCTestCase {
     func testBodyProgressCardIsCaptured() throws {
         let app = try launch(fixture: true)
         let segments = try openPaceForge(app)
-        segments.buttons["Body"].tap()
+        select(segments, "Body")
         XCTAssertTrue(label(app, "Progress").waitForExistence(timeout: 10), "Body should lead with the Progress card.")
         XCTAssertTrue(label(app, "Needs readings").exists, "A goal without a pace should say it needs more readings.")
         attach(app, "09 Body progress")
@@ -150,7 +157,7 @@ final class PaceForgeNativeTabUITests: XCTestCase {
     func testTodayShowsPartialBriefAlertsAndReadiness() throws {
         let app = try launch(fixture: true)
         let segments = try openPaceForge(app)
-        segments.buttons["Today"].tap()
+        select(segments, "Today")
         XCTAssertTrue(label(app, "Waiting for: scale").waitForExistence(timeout: 10),
                       "A partial brief should say what it is waiting for.")
         XCTAssertTrue(label(app, "Updated 08:12").exists, "An updated brief should show when.")
@@ -166,7 +173,7 @@ final class PaceForgeNativeTabUITests: XCTestCase {
     func testSessionResultsShowHeartRateRecovery() throws {
         let app = try launch(fixture: true)
         let segments = try openPaceForge(app)
-        segments.buttons["This week"].tap()
+        select(segments, "This week")
         let done = app.buttons["pf-workout-s-mon"]
         XCTAssertTrue(done.waitForExistence(timeout: 10))
         done.tap()
@@ -181,7 +188,7 @@ final class PaceForgeNativeTabUITests: XCTestCase {
     func testPlannedSessionStillExpandsToPlanDetail() throws {
         let app = try launch(fixture: true)
         let segments = try openPaceForge(app)
-        segments.buttons["This week"].tap()
+        select(segments, "This week")
 
         let planned = app.buttons["pf-workout-s-wed"]
         XCTAssertTrue(planned.waitForExistence(timeout: 10), "The planned intervals session should be listed.")
@@ -209,7 +216,7 @@ final class PaceForgeNativeTabUITests: XCTestCase {
     func testFeelCardSavesAnAnswerAndShowsTheSentenceAndStrip() throws {
         let app = try launch(fixture: true)
         let segments = try openPaceForge(app)
-        segments.buttons["Today"].tap()
+        select(segments, "Today")
         let four = app.buttons["pf-feel-4"]
         XCTAssertTrue(reveal(four, in: app), "The feel card should offer five buttons on Today.")
         XCTAssertTrue(element(app, "pf-feel-strip").exists, "The 14-day dot strip should be drawn.")
@@ -225,7 +232,7 @@ final class PaceForgeNativeTabUITests: XCTestCase {
     func testFeelCardSaysSoWhenTheSaveFails() throws {
         let app = try launch(fixture: true, extraArguments: ["-PaceForgeFeelFails"])
         let segments = try openPaceForge(app)
-        segments.buttons["Today"].tap()
+        select(segments, "Today")
         let three = app.buttons["pf-feel-3"]
         XCTAssertTrue(reveal(three, in: app))
         three.tap()
@@ -237,7 +244,7 @@ final class PaceForgeNativeTabUITests: XCTestCase {
     func testWhatChangedCardShowsRowsAndTheCalibrationLine() throws {
         let app = try launch(fixture: true)
         let segments = try openPaceForge(app)
-        segments.buttons["Today"].tap()
+        select(segments, "Today")
         let hrv = app.buttons["pf-change-hrv_7d"]
         XCTAssertTrue(reveal(hrv, in: app), "The what-changed card should list the HRV row.")
         XCTAssertTrue(label(app, "Day 12 of 21").exists, "A calibrating metric should show its Day N of M line.")
@@ -251,7 +258,7 @@ final class PaceForgeNativeTabUITests: XCTestCase {
     func testReadinessShowsTheTwoAnswersAndATrustNote() throws {
         let app = try launch(fixture: true)
         let segments = try openPaceForge(app)
-        segments.buttons["Today"].tap()
+        select(segments, "Today")
         let train = element(app, "pf-answer-train")
         XCTAssertTrue(reveal(train, in: app), "The readiness card should show 'OK to train'.")
         XCTAssertTrue(element(app, "pf-answer-hard").exists, "And 'OK to train hard'.")
@@ -263,7 +270,7 @@ final class PaceForgeNativeTabUITests: XCTestCase {
     func testExplainerSheetOpensFromTheRecoveryRing() throws {
         let app = try launch(fixture: true)
         let segments = try openPaceForge(app)
-        segments.buttons["Today"].tap()
+        select(segments, "Today")
         let info = app.buttons["pf-info-recovery"].firstMatch
         XCTAssertTrue(reveal(info, in: app), "The recovery ring should carry an info button.")
         info.tap()
@@ -275,7 +282,7 @@ final class PaceForgeNativeTabUITests: XCTestCase {
     func testExplainerSheetShowsCalibrationProgress() throws {
         let app = try launch(fixture: true)
         let segments = try openPaceForge(app)
-        segments.buttons["Insights"].tap()
+        select(segments, "Insights")
         let row = app.buttons["pf-how-hrv_status"]
         XCTAssertTrue(reveal(row, in: app, maxSwipes: 20), "Insights should list 'How these scores work'.")
         attach(app, "16 How these scores work")
@@ -289,7 +296,7 @@ final class PaceForgeNativeTabUITests: XCTestCase {
     func testBehaviourImpactQualifyingState() throws {
         let app = try launch(fixture: true)
         let segments = try openPaceForge(app)
-        segments.buttons["Insights"].tap()
+        select(segments, "Insights")
         let card = element(app, "pf-behaviour-card")
         XCTAssertTrue(reveal(card, in: app, maxSwipes: 6) || card.waitForExistence(timeout: 5),
                       "Insights should show 'What affects your recovery'.")
@@ -300,7 +307,7 @@ final class PaceForgeNativeTabUITests: XCTestCase {
     func testBehaviourImpactInsufficientState() throws {
         let app = try launch(fixture: true, extraArguments: ["-PaceForgeBehaviourInsufficient"])
         let segments = try openPaceForge(app)
-        segments.buttons["Insights"].tap()
+        select(segments, "Insights")
         let message = element(app, "pf-behaviour-insufficient")
         XCTAssertTrue(reveal(message, in: app, maxSwipes: 6) || message.waitForExistence(timeout: 5),
                       "With no qualifying question the card should say 'Insufficient data yet'.")
