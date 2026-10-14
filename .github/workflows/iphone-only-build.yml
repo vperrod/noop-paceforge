@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: noop-iphone-ipa
@@ -34,7 +34,7 @@ jobs:
           CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY=""
           build
 
-      - name: Verify, package, and publish the iPhone IPA
+      - name: Verify and package the iPhone IPA
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -71,14 +71,11 @@ jobs:
           (cd build/ipa && zip -qry "$IPA" Payload)
           unzip -t "$IPA"
 
-          TAG="noop-ios-v${VERSION}-b${BUILD}"
-          TITLE="NOOP iPhone v${VERSION} build ${BUILD}"
-          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            gh release upload "$TAG" "$IPA" --repo "$GITHUB_REPOSITORY" --clobber
-          else
-            gh release create "$TAG" "$IPA" --repo "$GITHUB_REPOSITORY" \
-              --title "$TITLE" \
-              --notes "Unsigned iPhone-only NOOP IPA with optional PaceForge integration. Bundle: $BUNDLE; version: $VERSION; build: $BUILD. Updates the existing NOOP app in place."
-          fi
+          echo "ipa_path=$IPA" >> "$GITHUB_ENV"
+          echo "Built $IPA (release publishing disabled on this branch)"
 
-          echo "Published $IPA"
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: noop-ipa
+          path: NOOP-v*.ipa
