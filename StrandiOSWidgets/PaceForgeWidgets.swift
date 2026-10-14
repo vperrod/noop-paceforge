@@ -213,6 +213,55 @@ struct PaceForgeHeartRecoveryWidget: Widget {
     }
 }
 
+private struct PFGlanceEntryView<Face: View>: View {
+    let entry: PFEntry
+    let face: (PFSummary?, WidgetFamily) -> Face
+    @Environment(\.widgetFamily) private var family
+
+    var body: some View {
+        face(entry.summary, family)
+    }
+}
+
+struct PaceForgeStandingWidget: Widget {
+    var body: some WidgetConfiguration {
+        StaticConfiguration(kind: PFWidgetKind.standing, provider: PFProvider()) { entry in
+            PFGlanceEntryView(entry: entry) { PFStandingWidgetFace(summary: $0, family: $1) }
+                .widgetURL(URL(string: "noop://paceforge/standing"))
+                .containerBackground(StrandPalette.surfaceBase, for: .widget)
+        }
+        .configurationDisplayName("PaceForge where you stand")
+        .description("Your strongest and your focus metrics against published norms.")
+        .supportedFamilies([.systemSmall, .systemMedium])
+    }
+}
+
+struct PaceForgeGarminRecoveryWidget: Widget {
+    var body: some WidgetConfiguration {
+        StaticConfiguration(kind: PFWidgetKind.garminRecovery, provider: PFProvider()) { entry in
+            PFGlanceEntryView(entry: entry) { PFGarminRecoveryWidgetFace(summary: $0, family: $1) }
+                .widgetURL(URL(string: "noop://paceforge/week"))
+                .containerBackground(StrandPalette.surfaceBase, for: .widget)
+        }
+        .configurationDisplayName("PaceForge Garmin recovery")
+        .description("How far your heart rate fell in the 2 minutes after your latest session, as Garmin recorded it.")
+        .supportedFamilies([.systemSmall, .systemMedium])
+    }
+}
+
+struct PaceForgeRideWidget: Widget {
+    var body: some WidgetConfiguration {
+        StaticConfiguration(kind: PFWidgetKind.rides, provider: PFProvider()) { entry in
+            PFGlanceEntryView(entry: entry) { PFRideWidgetFace(summary: $0, family: $1) }
+                .widgetURL(URL(string: "noop://paceforge/week"))
+                .containerBackground(StrandPalette.surfaceBase, for: .widget)
+        }
+        .configurationDisplayName("PaceForge rides")
+        .description("Your next planned ride and your latest one.")
+        .supportedFamilies([.systemSmall, .systemMedium])
+    }
+}
+
 struct PaceForgeBodyWidget: Widget {
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: PFWidgetKind.body, provider: PFProvider()) { entry in

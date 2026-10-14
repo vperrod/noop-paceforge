@@ -68,6 +68,11 @@ enum PFSummaryWriter {
         out.body = bodyReading(s.body)
         out.heartRecovery = previous?.heartRecovery
         out.hrr1 = latestHRR1(in: s)
+        out.standing = PFGlanceBuilder.standing(s.standing)
+        out.garminRecovery = PFGlanceBuilder.garminRecovery(s.activities.values.map {
+            PFGlanceBuilder.Activity(name: $0.name, startTime: $0.startTime, hrrGarmin: $0.hrrGarmin)
+        })
+        out.rides = PFGlanceBuilder.rides(s.rides, sessions: glanceSessions(in: s), today: s.todayISO)
         out.openAlerts = s.alerts.count
         out.answerTrain = s.readiness?.answers?.train?.level.word
         out.answerHard = s.readiness?.answers?.trainHard?.level.word
@@ -154,6 +159,17 @@ enum PFSummaryWriter {
         return PFSummary.BodyReading(date: body.date, score: body.score, band: body.band,
                                      weightKg: body.latest["weight_kg"], weightDelta: change("weight_kg"),
                                      fatPct: body.latest["body_fat_pct"], fatPctDelta: change("body_fat_pct"))
+    }
+
+    /// Every planned session in the loaded weeks, for the next-ride pick.
+    private static func glanceSessions(in s: PFSnapshot) -> [PFGlanceBuilder.Session] {
+        s.weeks.flatMap(\.days).flatMap { day in
+            day.workouts.map { w in
+                PFGlanceBuilder.Session(name: w.name ?? "Ride", sport: w.sport, kind: w.kind, date: day.date,
+                                        isOpen: w.status != "optional" && w.status != "done" && w.status != "partial",
+                                        detail: detail(w), target: primaryTarget(w))
+            }
+        }
     }
 
     /// The first session still to do after today, with its day.

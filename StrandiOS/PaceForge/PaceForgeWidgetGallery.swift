@@ -64,6 +64,36 @@ struct PFWidgetGallery: View {
                 Spacer(minLength: 0)
             }
 
+            caption("PaceForge where you stand, small and medium")
+            HStack(spacing: 12) {
+                card(height: 160) { PFStandingWidgetFace(summary: s, family: .systemSmall) }
+                Spacer(minLength: 0)
+            }
+            card(height: 160) { PFStandingWidgetFace(summary: s, family: .systemMedium) }
+
+            caption("PaceForge where you stand, medium, body and sleep numbers hidden")
+            card(height: 160) {
+                PFStandingWidgetFace(summary: changed(s) { $0.hideScores = true; $0.hideBody = true }.redactedForDisplay(),
+                                     family: .systemMedium)
+            }
+
+            caption("PaceForge Garmin recovery, small and medium")
+            HStack(spacing: 12) {
+                card(height: 160) { PFGarminRecoveryWidgetFace(summary: s, family: .systemSmall) }
+                Spacer(minLength: 0)
+            }
+            card(height: 160) { PFGarminRecoveryWidgetFace(summary: s, family: .systemMedium) }
+
+            caption("PaceForge rides, small and medium, then medium with the scores hidden")
+            HStack(spacing: 12) {
+                card(height: 160) { PFRideWidgetFace(summary: s, family: .systemSmall) }
+                Spacer(minLength: 0)
+            }
+            card(height: 160) { PFRideWidgetFace(summary: s, family: .systemMedium) }
+            card(height: 160) {
+                PFRideWidgetFace(summary: changed(s) { $0.hideScores = true }.redactedForDisplay(), family: .systemMedium)
+            }
+
             caption("My Day, medium")
             card(height: 160) { MyDayWidgetFace(summary: .sample, stale: false) }
                 .accessibilityIdentifier("myday-widget-gallery")

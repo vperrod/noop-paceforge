@@ -9,8 +9,9 @@ export PATH="$HOME/.local/swift/usr/bin:$PATH"
 command -v swiftc >/dev/null || { echo "swiftc not found (looked in PATH and ~/.local/swift/usr/bin)"; exit 2; }
 work="$(mktemp -d)"; trap 'rm -rf "$work"' EXIT
 pf="$root/StrandiOS/PaceForge"
-tests=("$@"); [ ${#tests[@]} -gt 0 ] || tests=(PaceForgeLogTests PaceForgeTodayLayoutTests PaceForgeDismissTests PaceForgeHRRGarminTests PaceForgeRedactTests WidgetSnapshotHideTests LiftFiltersTests)
+tests=("$@"); [ ${#tests[@]} -gt 0 ] || tests=(PaceForgeLogTests PaceForgeTodayLayoutTests PaceForgeDismissTests PaceForgeHRRGarminTests PaceForgeRedactTests WidgetSnapshotHideTests PaceForgeGlanceTests LiftFiltersTests)
 sources=("$pf/PaceForgeJSON.swift" "$pf/PaceForgeWave3.swift" "$pf/PaceForgeDismiss.swift" "$pf/PaceForgeLog.swift" "$pf/PaceForgeTodayLayout.swift" "$pf/PaceForgeHRRGarmin.swift" "$root/StrandiOSShared/PaceForgeRedact.swift" "$root/Strand/Data/HideScores.swift"
+         "$pf/PaceForgeStanding.swift" "$pf/PaceForgeRide.swift" "$pf/PaceForgeGlanceBuilder.swift" "$root/StrandiOSShared/PaceForgeGlance.swift"
          "$root/StrandiOSShared/WidgetSnapshot.swift" "$root/StrandiOSShared/HrTrace.swift" "$root/StrandiOSShared/StressTrace.swift"
          "$root/Strand/Data/LiftFilters.swift" "$root/Packages/WhoopStore/Sources/WhoopStore/LiftMuscle.swift")
 entries=""

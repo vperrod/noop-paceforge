@@ -169,6 +169,11 @@ public struct PFSummary: Codable, Equatable {
     public var hideBody: Bool?
     /// The server's own value, kept so Settings can say what "use the server's setting" means.
     public var serverHidesBody: Bool?
+    /// "Where you stand" for its widget, Garmin's own recovery heart rate after the newest session that has it, and
+    /// the latest ride with the next planned one. Nil in a file from an older build, or when the app has none.
+    public var standing: PFStandingGlance?
+    public var garminRecovery: PFGarminRecoveryGlance?
+    public var rides: PFRideGlance?
     /// Settings > Hide numbers: Charge, Effort and Sleep numbers stay off the widgets. The values stay in the
     /// file; the faces draw `redactedForDisplay()`. Nil in a file from an older build, which means shown.
     public var hideScores: Bool?
@@ -197,6 +202,8 @@ public struct PFSummary: Codable, Equatable {
             out.sleepNeed = nil
         }
         out.briefHeadline = briefHeadline.map { PFRedact.text($0, scores: scoresHidden, body: hideBody == true) }
+        out.standing = standing?.redacted(scores: scoresHidden, body: hideBody == true)
+        out.rides = rides?.redacted(scores: scoresHidden, today: Self.dayString())
         return out
     }
 
@@ -267,7 +274,11 @@ public enum PFWidgetKind {
     public static let load = "PaceForgeLoadWidget"
     public static let body = "PaceForgeBodyWidget"
     public static let hrr = "PaceForgeHeartRecoveryWidget"
-    public static let all = [today, session, race, recoveryGauge, strainGauge, week, sleepHrv, load, body, hrr]
+    public static let standing = "PaceForgeStandingWidget"
+    public static let garminRecovery = "PaceForgeGarminRecoveryWidget"
+    public static let rides = "PaceForgeRideWidget"
+    public static let all = [today, session, race, recoveryGauge, strainGauge, week, sleepHrv, load, body, hrr,
+                             standing, garminRecovery, rides]
 }
 
 /// The acute:chronic workload ratio band that is treated as safe, used by the load widgets.
@@ -355,6 +366,27 @@ extension PFSummary {
         }
         if out.hrr1 == nil {
             out.hrr1 = HRR1(bpm: 24, kind: "post", band: "good", sessionName: "Example intervals", date: date)
+        }
+        if out.standing == nil {
+            out.standing = PFStandingGlance(
+                strongest: [PFStandingGlance.Item(id: "vo2max", label: "VO2 max", band: 4, bandName: "Very good", value: "52 ml/kg/min"),
+                            PFStandingGlance.Item(id: "resting_hr", label: "Resting heart rate", band: 4, bandName: "Very good", value: "51 bpm"),
+                            PFStandingGlance.Item(id: "pushups", label: "Push-ups", band: 3, bandName: "Good", value: "35 reps")],
+                focus: [PFStandingGlance.Item(id: "body_fat", label: "Body fat", band: 2, bandName: "Average", value: "24 %", hideKind: "body"),
+                        PFStandingGlance.Item(id: "sleep_duration", label: "Sleep duration", band: 2, bandName: "Average", value: "6.8 h", hideKind: "scores"),
+                        PFStandingGlance.Item(id: "sit_reach", label: "Sit and reach", band: 1, bandName: "Poor", value: "4 cm")],
+                date: date)
+        }
+        if out.garminRecovery == nil {
+            out.garminRecovery = PFGarminRecoveryGlance(dropBpm: 46, headline: "Garmin recovery heart rate: -46 bpm in 2 minutes",
+                                                        detail: "149 at the stop, 103 two minutes later",
+                                                        sessionName: "Example intervals", date: date)
+        }
+        if out.rides == nil {
+            let tomorrow = Self.dayString(Date().addingTimeInterval(86_400))
+            out.rides = PFRideGlance(
+                last: PFRideGlance.Last(title: "Example endurance ride", date: date, durationS: 3_900, avgPower: 182, np: 195, tss: 62, avgHr: 141),
+                next: PFRideGlance.Next(name: "Example tempo ride", date: tomorrow, detail: "40 km \u{00B7} 75 min", target: "190\u{2013}210 W"))
         }
         out.openAlerts = out.openAlerts ?? 2
         out.answerTrain = out.answerTrain ?? "yes"
