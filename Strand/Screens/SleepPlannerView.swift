@@ -22,7 +22,15 @@ struct SleepPlannerView: View {
     private var alarmMinutes: Int? { behavior.smartAlarmEnabled ? behavior.smartAlarmMinutes : nil }
     private var loadKey: String { "\(repo.refreshSeq)|\(alarmMinutes ?? -1)|\(userWake ?? -1)" }
 
-    var body: some View {
+    @ViewBuilder var body: some View {
+        #if os(iOS)
+        lookBody
+        #else
+        classicBody
+        #endif
+    }
+
+    private var classicBody: some View {
         ScreenScaffold(title: "Sleep planner",
                        subtitle: "Tonight's need, a goal, and the bedtime that reaches it.") {
             if let data {
@@ -51,6 +59,254 @@ struct SleepPlannerView: View {
         data = loaded
         SleepPlannerLoader.publish(loaded, preset: preset)
     }
+
+    // MARK: Look (iPhone)
+
+    #if os(iOS)
+    private var lookBody: some View {
+        ScrollView {
+            Group {
+                if let data {
+                    lookContent(data)
+                } else {
+                    Text("Working out tonight")
+                        .font(LookFont.text(15, weight: .medium))
+                        .foregroundStyle(NoopLook.textTertiary)
+                        .accessibilityIdentifier("sleep-planner-loading")
+                }
+            }
+            .padding(.horizontal, NoopLook.Metric.screenInset)
+            .padding(.top, 8)
+            .padding(.bottom, NoopMetrics.tabBarClearance)
+        }
+        .scrollBounceBehavior(.basedOnSize, axes: .horizontal)
+        .lookScreenBackground()
+        .navigationTitle("Sleep planner")
+        .navigationBarTitleDisplayMode(.inline)
+        .accessibilityIdentifier("sleep-planner")
+        .task(id: loadKey) { await reload() }
+    }
+
+    private func lookContent(_ data: SleepPlannerData) -> some View {
+        let plan = data.plan(for: preset)
+        let peak = SleepPlanner.targetSleepMin(needMin: data.needMin, preset: .peak)
+        let copy = LookPlannerCopy.make(
+            bedtime: plan.bedtime, wake: data.wake, targetSleepMin: plan.targetSleepMin, latencyMin: plan.latencyMin,
+            peakSleepMin: peak, goalTitle: preset.title, percentText: preset.percentText, clock: { time($0) })
+        return VStack(spacing: 18) {
+            HStack {
+                Color.clear.frame(width: 30, height: 30)
+                Spacer(minLength: 0)
+                Text("SLEEP PLANNER").lookCaps(13).foregroundStyle(NoopLook.textPrimary)
+                Spacer(minLength: 0)
+                PlannerInfoButton(title: "Bedtime", tint: StrandPalette.restColor, sections: bedtimeInfo(data),
+                                  calibration: data.calibration.note, identifier: "sleep-planner-bedtime-info")
+                    .frame(width: 30, height: 30)
+            }
+            Text(copy.sentence)
+                .font(LookFont.text(17, weight: .semibold))
+                .foregroundStyle(NoopLook.textPrimary)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityIdentifier("sleep-planner-sentence")
+            if let note = data.calibration.note {
+                Text(verbatim: "\(note). Until then the plan runs on defaults where your own data is missing.")
+                    .font(LookFont.text(12.5, weight: .medium))
+                    .foregroundStyle(NoopLook.textTertiary)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier("sleep-planner-calibration")
+            }
+            VStack(spacing: 10) {
+                Text("TOMORROW I WANT TO").lookCaps(10.5).foregroundStyle(NoopLook.textSecondary)
+                HStack(spacing: 8) {
+                    ForEach(SleepPlanner.Preset.allCases, id: \.self) { p in lookPresetButton(p, data) }
+                }
+            }
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(copy.bedtimeText)
+                        .font(LookFont.numeral(30))
+                        .foregroundStyle(NoopLook.textPrimary)
+                        .accessibilityLabel("Bed by \(copy.bedtimeText)")
+                        .accessibilityIdentifier("sleep-planner-bedtime")
+                    Text("SUGGESTED TIME\nTO BED").lookCaps(10.5).foregroundStyle(NoopLook.textSecondary)
+                }
+                Spacer(minLength: 12)
+                VStack(alignment: .trailing, spacing: 4) {
+                    Text(copy.wakeText).font(LookFont.numeral(30)).foregroundStyle(NoopLook.textPrimary)
+                    Text("YOUR WAKE TIME").lookCaps(10.5).foregroundStyle(NoopLook.textSecondary)
+                }
+                .accessibilityElement(children: .combine)
+            }
+            LookTimeInBedBar(copy: copy)
+            lookWakeCard(data)
+            lookWindDown(data)
+            lookNeed(data)
+            lookBedtimeRows(data)
+            SleepPlannerAlarmCard(data: data, preset: preset)
+        }
+    }
+
+    private func lookPresetButton(_ p: SleepPlanner.Preset, _ data: SleepPlannerData) -> some View {
+        let selected = p == preset
+        let target = SleepPlanner.targetSleepMin(needMin: data.needMin, preset: p)
+        return Button {
+            preset = p
+            SleepPlannerStore.preset = p
+            SleepPlannerLoader.publish(data, preset: p)
+        } label: {
+            VStack(spacing: 3) {
+                Text(p.title).lookCaps(11)
+                Text(LookFormat.hoursMinutes(minutes: target)).font(LookFont.numeral(15))
+            }
+            .foregroundStyle(selected ? NoopLook.textPrimary : NoopLook.textSecondary)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 10)
+            .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(selected ? NoopLook.segmentOn : NoopLook.card))
+            .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .strokeBorder(selected ? NoopLook.textPrimary.opacity(0.9) : Color.clear, lineWidth: 1.5))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(Text(verbatim: "\(p.title), \(p.percentText), \(SleepPlanner.durationText(target))"))
+        .accessibilityAddTraits(selected ? .isSelected : [])
+        .accessibilityIdentifier("sleep-planner-preset-\(p.rawValue)")
+    }
+
+    /// The wake time in use, settable directly. Planning only: setting it arms no alarm and schedules no notification.
+    private func lookWakeCard(_ data: SleepPlannerData) -> some View {
+        let picker = Binding<Date>(
+            get: { data.wake },
+            set: { newValue in
+                let c = Calendar.current.dateComponents([.hour, .minute], from: newValue)
+                SleepPlannerStore.wakeMinutes = (c.hour ?? 0) * 60 + (c.minute ?? 0)
+                userWake = SleepPlannerStore.wakeMinutes
+            })
+        return VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .center, spacing: 16) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Wake time").font(LookFont.text(15.5, weight: .semibold)).foregroundStyle(NoopLook.textPrimary)
+                    Text(verbatim: "Taken from \(wakeSourceText(data)). Used for tonight's plan only; it does not set an alarm.")
+                        .font(LookFont.text(12.5, weight: .medium))
+                        .foregroundStyle(NoopLook.textTertiary)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .accessibilityIdentifier("sleep-planner-wake-source")
+                }
+                Spacer(minLength: 8)
+                DatePicker("Wake time", selection: picker, displayedComponents: .hourAndMinute)
+                    .labelsHidden()
+                    .accessibilityIdentifier("sleep-planner-wake-picker")
+            }
+            if userWake != nil {
+                Button {
+                    SleepPlannerStore.wakeMinutes = nil
+                    userWake = nil
+                } label: {
+                    Text("Use my usual wake time instead")
+                        .lookCaps(11.5)
+                        .foregroundStyle(NoopLook.textPrimary)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 40)
+                        .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(NoopLook.row))
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("sleep-planner-wake-reset")
+            }
+        }
+        .padding(16)
+        .background(RoundedRectangle(cornerRadius: NoopLook.Metric.tileRadius, style: .continuous).fill(NoopLook.card))
+    }
+
+    /// The wind-down reminder panel: the toggle that makes the reminder follow the plan, and the two figures it uses.
+    private func lookWindDown(_ data: SleepPlannerData) -> some View {
+        VStack(spacing: 14) {
+            HStack(spacing: 10) {
+                Image(systemName: "bell").font(.system(size: 16)).foregroundStyle(NoopLook.textPrimary)
+                Text("WIND-DOWN REMINDER").lookCaps(12).foregroundStyle(NoopLook.textPrimary)
+                Spacer(minLength: 8)
+                Toggle("", isOn: $followsPlan)
+                    .labelsHidden().toggleStyle(.switch).tint(NoopLook.trendUp)
+                    .accessibilityLabel("Use the plan for my wind-down reminder")
+                    .accessibilityIdentifier("sleep-planner-follow")
+            }
+            HStack(spacing: 10) {
+                windDownCell("SLEEP NEED", LookFormat.hoursMinutes(minutes: data.needMin))
+                windDownCell("WAKE TIME SET TO", time(data.wake))
+            }
+            Text(WindDownNudge.isEnabled
+                 ? "The reminder then lands before the planned bedtime instead of counting back over a fixed sleep need."
+                 : "Turn on the wind-down reminder under Alarms first; this then sets when it fires.")
+                .font(LookFont.text(12.5, weight: .medium))
+                .foregroundStyle(NoopLook.textSecondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(14)
+        .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color(hex: "#3B4752")))
+        .onChangeCompat(of: followsPlan) { on in
+            SleepPlannerStore.useForReminder = on
+            SleepPlannerLoader.publish(data, preset: preset)
+            WindDownNudge.refreshSchedule()
+        }
+    }
+
+    private func windDownCell(_ title: String, _ value: String) -> some View {
+        VStack(spacing: 3) {
+            Text(title).lookCaps(10).foregroundStyle(NoopLook.textSecondary)
+            Text(value).font(LookFont.numeral(17)).foregroundStyle(NoopLook.textPrimary)
+        }
+        .frame(maxWidth: .infinity)
+        .frame(height: 52)
+        .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(Color(hex: "#8E9AA5"), lineWidth: 1.5))
+    }
+
+    private func signedClock(_ minutes: Int) -> String {
+        if minutes == 0 { return "0:00" }
+        return (minutes > 0 ? "+" : "\u{2212}") + LookFormat.hoursMinutes(minutes: abs(minutes))
+    }
+
+    /// Tonight's need, broken into its parts.
+    private func lookNeed(_ data: SleepPlannerData) -> some View {
+        let b = data.breakdown
+        let scale = UnitPrefs.resolveEffortScale(effortScaleRaw)
+        let rows = [
+            LookNeedRow(id: "baseline", label: "Your baseline", caption: "The personal need your Rest score uses",
+                        valueText: LookFormat.hoursMinutes(minutes: b.baselineMin),
+                        spokenValue: SleepPlanner.durationText(b.baselineMin)),
+            LookNeedRow(id: "effort", label: "Yesterday's effort", caption: effortCaption(data, scale: scale),
+                        valueText: signedClock(b.effortExtraMin), spokenValue: SleepPlanner.signedDurationText(b.effortExtraMin)),
+            LookNeedRow(id: "debt", label: "Sleep debt repayment", caption: debtCaption(data),
+                        valueText: signedClock(b.debtRepaymentMin), spokenValue: SleepPlanner.signedDurationText(b.debtRepaymentMin)),
+            LookNeedRow(id: "naps", label: "Naps today", caption: napCaption(data),
+                        valueText: signedClock(-b.napCreditMin), spokenValue: SleepPlanner.signedDurationText(-b.napCreditMin)),
+            LookNeedRow(id: "total", label: "Tonight's need", valueText: LookFormat.hoursMinutes(minutes: b.tonightMin),
+                        spokenValue: SleepPlanner.durationText(b.tonightMin), isTotal: true),
+        ]
+        return LookNeedTable(
+            title: "Tonight's need", rows: rows, idPrefix: "sleep-planner-need-",
+            accessory: AnyView(PlannerInfoButton(title: "Sleep need", tint: StrandPalette.restColor, sections: needInfo,
+                                                 calibration: data.calibration.note, identifier: "sleep-planner-need-info")))
+    }
+
+    /// What each goal costs: bed time and sleep for the three goals.
+    private func lookBedtimeRows(_ data: SleepPlannerData) -> some View {
+        let rows = data.presetRows(selected: preset).map { row in
+            LookNeedRow(id: row.preset.rawValue, label: row.preset.title, caption: shiftText(row, selected: row.preset == preset),
+                        valueText: time(row.plan.bedtime),
+                        spokenValue: "bed \(time(row.plan.bedtime)), \(SleepPlanner.durationText(row.plan.targetSleepMin)) of sleep")
+        }
+        return VStack(alignment: .leading, spacing: 8) {
+            LookNeedTable(
+                title: "Bedtime for each goal", rows: rows, idPrefix: "sleep-planner-row-",
+                accessory: AnyView(PlannerInfoButton(title: "Bedtime", tint: StrandPalette.restColor, sections: bedtimeInfo(data),
+                                                     calibration: data.calibration.note, identifier: "sleep-planner-bedtime-card-info")))
+            Text(verbatim: "Up at \(time(data.wake)), from \(wakeSourceText(data)). Plans on \(latencyText(data)).")
+                .font(LookFont.text(12.5, weight: .medium))
+                .foregroundStyle(NoopLook.textTertiary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+    #endif
 
     // MARK: Text helpers
 

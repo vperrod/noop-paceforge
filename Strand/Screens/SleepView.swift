@@ -182,6 +182,11 @@ struct SleepView: View {
                             .padding(.horizontal, -16)
                             .padding(.top, -24)
                             .staggeredAppear(index: 0)
+                        #if os(iOS)
+                        LookLastNightSleepCard(model: resolved)
+                        LookRepoTrends(specs: LookRepoTrends.sleepSpecs, initialKey: "sleep_total_min",
+                                       identifier: "look-sleep-trends")
+                        #endif
                         alarmsEntry
                         SleepPlannerEntryCard()
                         // #sleep-layout: the analytical cards render in the user's saved order minus the

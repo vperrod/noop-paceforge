@@ -315,6 +315,12 @@ struct TrendsView: View {
                         // The Charge / Effort / Rest trio, presented in NOOP's pip language.
                         weekInReview(charge: metrics.recovery, effort: metrics.strain, rest: metrics.rest)
                             .staggeredAppear(index: 1)
+                        #if os(iOS)
+                        // The look's trend view: metric dropdown, average with change, W / M / 6M / Y, 7-day average.
+                        LookRepoTrends(specs: LookRepoTrends.trendsSpecs, initialKey: "recovery",
+                                       identifier: "look-noop-trends")
+                            .staggeredAppear(index: 2)
+                        #endif
                         rangeBar(recovery: metrics.recovery)
                             .staggeredAppear(index: 2)
                         heroRecovery(recovery: metrics.recovery)
