@@ -6,7 +6,7 @@ final class PaceForgeMenuVisibilityUITests: XCTestCase {
         app.launchArguments.append("--demo-seed")
         app.launch()
 
-        let moreTab = app.tabBars.buttons["More"]
+        let moreTab = app.shellTab("More")
         XCTAssertTrue(moreTab.waitForExistence(timeout: 15), "The More tab should be present.")
         moreTab.tap()
 

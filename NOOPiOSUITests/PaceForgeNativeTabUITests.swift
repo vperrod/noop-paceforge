@@ -31,7 +31,7 @@ final class PaceForgeNativeTabUITests: XCTestCase {
     }
 
     private func openPaceForge(_ app: XCUIApplication) throws -> XCUIElement {
-        let tab = app.tabBars.buttons["PaceForge"]
+        let tab = app.shellTab("PaceForge")
         XCTAssertTrue(tab.waitForExistence(timeout: 20), "The PaceForge tab should be present.")
         tab.tap()
         let segments = app.segmentedControls["pf-segments"]
@@ -72,7 +72,7 @@ final class PaceForgeNativeTabUITests: XCTestCase {
 
     func testBottomBarShowsPaceForgeTab() throws {
         let app = try launch(fixture: false)
-        let tab = app.tabBars.buttons["PaceForge"]
+        let tab = app.shellTab("PaceForge")
         XCTAssertTrue(tab.waitForExistence(timeout: 20), "The bottom bar should show a PaceForge tab.")
         XCTAssertFalse(app.tabBars.buttons["Coach"].exists, "NOOP's Coach tab should no longer be in the bottom bar.")
         attach(app, "00 Bottom bar")
@@ -80,7 +80,7 @@ final class PaceForgeNativeTabUITests: XCTestCase {
 
     func testNotSetUpStateWithoutSyncSettings() throws {
         let app = try launch(fixture: false)
-        let tab = app.tabBars.buttons["PaceForge"]
+        let tab = app.shellTab("PaceForge")
         XCTAssertTrue(tab.waitForExistence(timeout: 20))
         tab.tap()
         XCTAssertTrue(label(app, "PaceForge sync not set up").waitForExistence(timeout: 10),
@@ -200,7 +200,7 @@ final class PaceForgeNativeTabUITests: XCTestCase {
 
     func testWidgetGalleryIsCaptured() throws {
         let app = try launch(fixture: true, widgetGallery: true)
-        let tab = app.tabBars.buttons["PaceForge"]
+        let tab = app.shellTab("PaceForge")
         XCTAssertTrue(tab.waitForExistence(timeout: 20))
         tab.tap()
         XCTAssertTrue(label(app, "Widget gallery").waitForExistence(timeout: 15), "The widget gallery should draw from the fixture.")
@@ -316,7 +316,7 @@ final class PaceForgeNativeTabUITests: XCTestCase {
 
     func testLargeWidgetShowsTheTwoAnswers() throws {
         let app = try launch(fixture: true, widgetGallery: true)
-        let tab = app.tabBars.buttons["PaceForge"]
+        let tab = app.shellTab("PaceForge")
         XCTAssertTrue(tab.waitForExistence(timeout: 20))
         tab.tap()
         XCTAssertTrue(label(app, "Train: yes \u{00B7} Hard: careful").waitForExistence(timeout: 15),

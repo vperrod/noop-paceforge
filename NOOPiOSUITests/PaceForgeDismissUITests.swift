@@ -32,7 +32,7 @@ final class PaceForgeDismissUITests: XCTestCase {
     }
 
     private func openToday(_ app: XCUIApplication) throws {
-        let tab = app.tabBars.buttons["PaceForge"]
+        let tab = app.shellTab("PaceForge")
         XCTAssertTrue(tab.waitForExistence(timeout: 20), "The PaceForge tab should be present.")
         tab.tap()
         let segments = app.segmentedControls["pf-segments"]

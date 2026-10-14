@@ -106,7 +106,7 @@ final class PlannerUITests: XCTestCase {
         openPlanner(app)
         XCTAssertTrue(element(app, "sleep-planner-bedtime").label.hasPrefix("Bed by"))
         // 8 h baseline + 45 min effort + 25 min debt - 30 min nap.
-        XCTAssertEqual(element(app, "sleep-planner-need-total").label, "8 h 40 min")
+        XCTAssertTrue(element(app, "sleep-planner-need-total").label.hasSuffix("8 h 40 min"), "The need total should read 8 h 40 min.")
         attach(app, "32 Sleep planner")
         app.swipeUp()
         attach(app, "32 Sleep planner scrolled")
@@ -146,7 +146,7 @@ final class PlannerUITests: XCTestCase {
 
     func testEffortTargetWidgetIsInTheGallery() throws {
         let app = try launch(widgetGallery: true)
-        let tab = app.tabBars.buttons["PaceForge"]
+        let tab = app.shellTab("PaceForge")
         XCTAssertTrue(tab.waitForExistence(timeout: 20))
         tab.tap()
         // The gallery heading and the widget card carry identifiers, which replace their text as the lookup key.

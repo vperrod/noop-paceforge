@@ -30,7 +30,7 @@ final class PaceForgeBuild463UITests: XCTestCase {
     }
 
     private func openSegment(_ app: XCUIApplication, _ title: String) throws {
-        let tab = app.tabBars.buttons["PaceForge"]
+        let tab = app.shellTab("PaceForge")
         XCTAssertTrue(tab.waitForExistence(timeout: 20), "The PaceForge tab should be present.")
         tab.tap()
         let segments = app.segmentedControls["pf-segments"]
@@ -177,7 +177,7 @@ final class PaceForgeBuild463UITests: XCTestCase {
 
     func testLiftExercisePickerFiltersByMuscleGroupAndEquipment() throws {
         let app = try launch(fixture: false)
-        let more = app.tabBars.buttons["More"]
+        let more = app.shellTab("More")
         XCTAssertTrue(more.waitForExistence(timeout: 30))
         more.tap()
         let body = app.buttons["Body"]

@@ -112,7 +112,7 @@ final class WhoopGapsUITests: XCTestCase {
 
     func testTrendsReportSheetOffersTheHealthReport() {
         let app = launch()
-        let trends = app.tabBars.buttons["Trends"]
+        let trends = app.shellTab("Trends")
         XCTAssertTrue(trends.waitForExistence(timeout: 30))
         trends.tap()
         let export = element(app, "trends-export-report")
@@ -132,7 +132,7 @@ final class WhoopGapsUITests: XCTestCase {
 
     func testHealthShowsPaceOfAging() {
         let app = launch()
-        let more = app.tabBars.buttons["More"]
+        let more = app.shellTab("More")
         XCTAssertTrue(more.waitForExistence(timeout: 30))
         more.tap()
         let body = app.buttons["Body"]

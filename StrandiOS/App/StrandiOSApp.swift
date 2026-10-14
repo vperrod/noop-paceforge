@@ -608,6 +608,12 @@ enum DemoScreens {
         case "liquidtoday": return AnyView(LiquidTodayView())
         // Every component of the dark look with made-up numbers, one section each (LookComponentsUITests).
         case "looklab":  return AnyView(LookGalleryScreen())
+        // The Charge / Effort / Rest detail screens and the sleep planner in the look (LookScreensUITests).
+        case "lookcharge": return MetricCatalog.metric(key: "recovery", source: "my-whoop").map { AnyView(MetricDetailView(metric: $0)) }
+        case "lookeffort": return MetricCatalog.metric(key: "strain", source: "my-whoop").map { AnyView(MetricDetailView(metric: $0)) }
+        case "lookrest":   return MetricCatalog.metric(key: "sleep_performance", source: "my-whoop").map { AnyView(MetricDetailView(metric: $0)) }
+        case "lookhrv":    return MetricCatalog.metric(key: "hrv", source: "my-whoop").map { AnyView(MetricDetailView(metric: $0)) }
+        case "lookplanner": return AnyView(SleepPlannerView())
         case "trends":   return AnyView(TrendsView())
         case "sleep":    return AnyView(SleepView())
         case "live":     return AnyView(LiveView())

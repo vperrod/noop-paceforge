@@ -29,7 +29,7 @@ final class PaceForgeStandingUITests: XCTestCase {
     }
 
     private func openSegment(_ app: XCUIApplication, _ title: String) throws {
-        let tab = app.tabBars.buttons["PaceForge"]
+        let tab = app.shellTab("PaceForge")
         XCTAssertTrue(tab.waitForExistence(timeout: 20), "The PaceForge tab should be present.")
         tab.tap()
         let segments = app.segmentedControls["pf-segments"]

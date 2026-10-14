@@ -116,7 +116,7 @@ final class MyDayUITests: XCTestCase {
 
     func testPaceForgeTodaySoFarOpensMyDay() throws {
         let app = try launch(paceForge: true)
-        let tab = app.tabBars.buttons["PaceForge"]
+        let tab = app.shellTab("PaceForge")
         XCTAssertTrue(tab.waitForExistence(timeout: 20), "The PaceForge tab should be present.")
         tab.tap()
         XCTAssertTrue(element(app, "pf-sofar-card").waitForExistence(timeout: 20), "PaceForge Today should open on the today-so-far strip.")
@@ -129,7 +129,7 @@ final class MyDayUITests: XCTestCase {
 
     func testMyDayWidgetIsInTheGallery() throws {
         let app = try launch(paceForge: true, widgetGallery: true)
-        let tab = app.tabBars.buttons["PaceForge"]
+        let tab = app.shellTab("PaceForge")
         XCTAssertTrue(tab.waitForExistence(timeout: 20))
         tab.tap()
         let caption = label(app, "My Day, medium")

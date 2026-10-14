@@ -36,7 +36,7 @@ final class PaceForgeWave3UITests: XCTestCase {
     }
 
     private func openSegment(_ app: XCUIApplication, _ title: String) throws {
-        let tab = app.tabBars.buttons["PaceForge"]
+        let tab = app.shellTab("PaceForge")
         XCTAssertTrue(tab.waitForExistence(timeout: 20), "The PaceForge tab should be present.")
         tab.tap()
         let segments = app.segmentedControls["pf-segments"]
@@ -233,7 +233,7 @@ final class PaceForgeWave3UITests: XCTestCase {
 
     func testWidgetGalleryShowsTheHiddenBodyAndRaceWeekFaces() throws {
         let app = try launch(widgetGallery: true)
-        let tab = app.tabBars.buttons["PaceForge"]
+        let tab = app.shellTab("PaceForge")
         XCTAssertTrue(tab.waitForExistence(timeout: 20))
         tab.tap()
         XCTAssertTrue(label(app, "Widget gallery").waitForExistence(timeout: 15))
