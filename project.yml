@@ -192,6 +192,8 @@ targets:
       - StrandiOS/PaceForge/PaceForgeInsightsV2.swift
       # Daily intel: daily-intel.json parsing, the verdict and Health monitor tile wording, bedtime from a wake time, range bands and the evening switch.
       - StrandiOS/PaceForge/PaceForgeDailyIntel.swift
+      # Phase 4 intel: healthspan, journal impact, highlights, monthly report and my plan parsing, the age range and pace wording, the driver bar, the streak chip.
+      - StrandiOS/PaceForge/PaceForgeIntelDocs.swift
       # Bike rides: ride-metrics.json, the stream file, 600-point downsampling and the ride formats.
       - StrandiOS/PaceForge/PaceForgeRide.swift
       # Hiding a card: the FNV-1a hash, hide-until-it-changes / snooze rules and the storage helpers.
