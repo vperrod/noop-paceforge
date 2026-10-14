@@ -201,6 +201,32 @@ final class HeartRateRecoveryTests: XCTestCase {
         XCTAssertEqual(listed.readings, [.init(offsetSeconds: 200, bpm: 120, drop: 50)])
     }
 
+    /// A paused Garmin session: the timer stops at `end`, the watch keeps recording per second for 37 s more
+    /// (the real stop, 148 bpm), then only the 120 s day-series bins follow.
+    private var pausedSession: [HRSample] {
+        denseEligible()
+            + (end + 1...end + 37).map { HRSample(ts: $0, bpm: $0 > end + 27 ? 148 : 160) }
+            + [HRSample(ts: end + 94, bpm: 120), HRSample(ts: end + 214, bpm: 110)]
+    }
+
+    func testAPausedSessionIsReadFromItsWallClockStopNotTheTimerEnd() {
+        XCTAssertEqual(
+            HeartRateRecovery.evaluate(samples: pausedSession, workoutStart: end - 300, workoutEnd: end + 37, maxHR: 200,
+                                       minimumSamplesPerReading: 1, minimumCessationSamples: 1,
+                                       maximumContinuousGapSeconds: 30, requiredPostStopSeconds: 120),
+            .garminReadings(.init(endHR: 148, peakHR: 160, readings: [
+                .init(offsetSeconds: 57, bpm: 120, drop: 28),
+                .init(offsetSeconds: 177, bpm: 110, drop: 38)])))
+    }
+
+    func testTheTimerEndOfAPausedSessionReadsTheStopMidEffort() {
+        guard case .garminReadings(let listed) = HeartRateRecovery.evaluate(
+            samples: pausedSession, workoutStart: end - 300, workoutEnd: end, maxHR: 200,
+            minimumSamplesPerReading: 1, minimumCessationSamples: 1,
+            maximumContinuousGapSeconds: 30, requiredPostStopSeconds: 120) else { return XCTFail("expected Garmin readings") }
+        XCTAssertEqual(listed.endHR, 170)
+    }
+
     func testNoReadingsAfterTheEndIsReportedAsSuch() {
         XCTAssertEqual(
             HeartRateRecovery.evaluate(samples: denseEligible(), workoutStart: end - 300, workoutEnd: end, maxHR: 200),

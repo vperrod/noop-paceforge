@@ -201,7 +201,7 @@ enum SelfHostedPushClient {
             let aerobicEffect = item["aerobicEffect"] as? Double
             let powerNote = power.map { " · \(Int($0.rounded())) W avg" } ?? ""
             let effectNote = aerobicEffect.map { " · Garmin aerobic effect \(String(format: "%.1f", $0))" } ?? ""
-            let notes = "PaceForge #\(identifier): \(name)" + powerNote + effectNote
+            let notes = "PaceForge #\(identifier): \(name)" + powerNote + effectNote + garminRecoveryTag(item["hrrGarmin"])
             return WorkoutRow(startTs: start, endTs: end, sport: sport, source: "paceforge",
                               durationS: duration, energyKcal: energy, avgHr: avgHr, maxHr: maxHr,
                               strain: nil, distanceM: distance, zonesJSON: nil, notes: notes, steps: nil)
@@ -226,6 +226,15 @@ enum SelfHostedPushClient {
         }
         UserDefaults.standard.set(Date().timeIntervalSince1970, forKey: lastActivityFetchKey)
         return rows.count
+    }
+
+    /// ` · hrr_garmin={"drop_bpm":46,...}` for a workout's notes (NOOP has no column for Garmin's own recovery HR).
+    /// Same compact, key-sorted text the PaceForge replica writes; `PFHRRGarmin.fromNotes` reads it back.
+    static func garminRecoveryTag(_ doc: Any?) -> String {
+        guard let doc = doc as? [String: Any], doc["drop_bpm"] is NSNumber,
+              let data = try? JSONSerialization.data(withJSONObject: doc, options: [.sortedKeys]),
+              let json = String(data: data, encoding: .utf8) else { return "" }
+        return " · hrr_garmin=" + json
     }
 
     /// Fetch Garmin's own daily steps and SpO₂ from PaceForge into a separate source, preserving NOOP values.

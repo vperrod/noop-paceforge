@@ -28,4 +28,13 @@ struct PFHRRGarmin: Equatable {
         guard let drop = j["drop_bpm"].int else { return nil }
         return PFHRRGarmin(dropBpm: drop, hr2min: j["hr_2min"].int, stopBpm: j["stop_bpm"].int)
     }
+
+    /// NOOP's workout row has no column for it, so PaceForge's sync leaves Garmin's three values in the row's
+    /// notes as ` · hrr_garmin={"drop_bpm":46,"hr_2min":103,"stop_bpm":149}`. Nil unless a numeric drop is there.
+    static func fromNotes(_ notes: String?) -> PFHRRGarmin? {
+        guard let notes, let marker = notes.range(of: "hrr_garmin="),
+              let close = notes[marker.upperBound...].firstIndex(of: "}") else { return nil }
+        let json = String(notes[marker.upperBound...close])
+        return parse(PFJ(data: Data(json.utf8)))
+    }
 }

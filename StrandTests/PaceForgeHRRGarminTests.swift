@@ -70,4 +70,30 @@ final class PaceForgeHRRGarminTests: XCTestCase {
     func testTheTipTellsWhatToDoWhenGarminRecordedNothing() {
         XCTAssertEqual(PFHRRGarmin.tip, "To get Garmin's recovery HR: after the last Stop wait 2 minutes before Save.")
     }
+
+    func testTheNotesTagTheSyncWritesReadsBackAsTheSameThreeNumbers() {
+        let notes = #"PaceForge #1: Cruise intervals · hrr_garmin={"drop_bpm":46,"hr_2min":103,"stop_bpm":149}"#
+        XCTAssertEqual(PFHRRGarmin.fromNotes(notes), PFHRRGarmin(dropBpm: 46, hr2min: 103, stopBpm: 149))
+    }
+
+    func testTheNotesTagKeepsWorkingWhenTheImporterAppendsItsOwnTextAfterIt() {
+        let notes = #"PaceForge #1: Ride · 210 W avg · hrr_garmin={"drop_bpm":32} · Garmin aerobic effect 3.1"#
+        XCTAssertEqual(PFHRRGarmin.fromNotes(notes), PFHRRGarmin(dropBpm: 32, hr2min: nil, stopBpm: nil))
+    }
+
+    func testNotesWithoutTheTagHaveNoGarminRecovery() {
+        XCTAssertNil(PFHRRGarmin.fromNotes("PaceForge #1: Easy run · 210 W avg"))
+    }
+
+    func testNilNotesHaveNoGarminRecovery() {
+        XCTAssertNil(PFHRRGarmin.fromNotes(nil))
+    }
+
+    func testATagWithoutADropIsNil() {
+        XCTAssertNil(PFHRRGarmin.fromNotes(#"PaceForge #1: Run · hrr_garmin={"stop_bpm":149}"#))
+    }
+
+    func testAnUnclosedTagIsNil() {
+        XCTAssertNil(PFHRRGarmin.fromNotes(#"PaceForge #1: Run · hrr_garmin={"drop_bpm":46"#))
+    }
 }

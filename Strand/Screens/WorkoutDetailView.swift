@@ -221,6 +221,7 @@ struct WorkoutDetailView: View {
                 VStack(alignment: .leading, spacing: 6) {
                     SectionHeader("Heart Rate Recovery", overline: "After high-intensity effort",
                                   trailing: String(localized: "From \(garmin.endHR) bpm at the stop"))
+                    garminRecoveryLines
                     Text(String(localized: "Not measured as a 1 or 2 minute recovery: Garmin stopped recording at the stop."))
                         .font(StrandFont.footnote)
                         .foregroundStyle(StrandPalette.textTertiary)
@@ -236,6 +237,7 @@ struct WorkoutDetailView: View {
             NoopCard(tint: StrandPalette.metricRose) {
                 VStack(alignment: .leading, spacing: 6) {
                     SectionHeader("Heart Rate Recovery", overline: "After high-intensity effort")
+                    garminRecoveryLines
                     Text(heartRateRecoveryUnavailableText)
                         .font(StrandFont.footnote)
                         .foregroundStyle(StrandPalette.textTertiary)
@@ -243,6 +245,19 @@ struct WorkoutDetailView: View {
                 }
             }
         }
+    }
+
+    /// Garmin's own recovery heart rate (`hrr_garmin`, left in the row's notes by the PaceForge sync): the watch's
+    /// number, shown as it recorded it. PaceForge workouts only, and the PaceForge type lives in the iOS app.
+    @ViewBuilder private var garminRecoveryLines: some View {
+        #if os(iOS)
+        if WorkoutSource.classify(row.source) == .paceforge, let garmin = PFHRRGarmin.fromNotes(row.notes) {
+            Text(garmin.headline)
+                .font(StrandFont.footnote.weight(.semibold))
+                .foregroundStyle(StrandPalette.textSecondary)
+            if let detail = garmin.detail { recoveryNote(detail) }
+        }
+        #endif
     }
 
     private func garminReadingText(_ reading: HeartRateRecovery.GarminReading) -> String {
