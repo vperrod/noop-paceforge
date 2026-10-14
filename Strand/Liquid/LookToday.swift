@@ -11,20 +11,29 @@ import StrandAnalytics
 
 // MARK: Health monitor
 
-/// Health monitor tile. Until the per-vital typical-range monitor exists (it needs the 30-day ranges), the tile
-/// reports what the illness early-warning already knows: red when it has raised an alert, calm otherwise.
+/// Health monitor tile. With PaceForge's daily-intel.json it reads each vital against its own 30-day range:
+/// "WITHIN RANGE · 4/4 metrics", or the worst vital ("VERY ELEVATED · Respiratory rate") in red, and opens the Health
+/// monitor screen. Without it (PaceForge not set up or not reachable) it keeps to what the illness early-warning
+/// already knows: red when it has raised an alert, calm otherwise, opening the Health screen.
 /// Its own leaf, because it observes AppModel (see HealthAlertBanner for why that is kept out of Today's body).
 struct LookHealthTile: View {
     @EnvironmentObject private var model: AppModel
+    @ObservedObject private var intelStore = PFDailyIntelStore.shared
+
+    /// Today's tile text from the server, when the file is today's and the Health monitor has vitals.
+    private var monitorTile: PFHealthTile? { intelStore.current?.health?.tile }
 
     var body: some View {
-        NavigationLink(value: TabRoute.health) { tile }
+        NavigationLink(value: monitorTile == nil ? TabRoute.health : TabRoute.healthMonitor) { tile }
             .buttonStyle(.plain)
             .accessibilityIdentifier("look-health-tile")
+            .task { await intelStore.refreshIfStale() }
     }
 
     @ViewBuilder private var tile: some View {
-        if let alert = model.healthAlert {
+        if let monitor = monitorTile {
+            PFHealthMonitorTile(tile: monitor)
+        } else if let alert = model.healthAlert {
             MonitorTile(title: String(localized: "Health monitor"), badge: .symbol("exclamationmark"),
                         badgeForeground: Color(hex: "#E8505A"), badgeBackground: NoopLook.alertWash,
                         status: String(localized: "ELEVATED"), statusColor: NoopLook.alert,

@@ -23,6 +23,10 @@ import SwiftUI
 /// One reorderable Today section. The rawValue is the stable persisted identifier — keep it byte-identical
 /// to the Android `TodaySection` enum so a backup/restore reads the same layout on either OS.
 enum TodaySection: String, CaseIterable, Identifiable {
+    /// The daily loop's verdict card and its evening wrap (iPhone only; daily-intel.json from PaceForge). Both sit above
+    /// the hero by default. The tokens are new, so an Android restore drops them and a saved order inserts them at the top.
+    case todaysCall = "todays-call"
+    case dayInReview = "day-in-review"
     case hero
     case liveSession
     case synthesis
@@ -43,6 +47,8 @@ enum TodaySection: String, CaseIterable, Identifiable {
     /// The section's display label in the Arrange sheet — matches the Android `TodaySection.title`.
     var title: String {
         switch self {
+        case .todaysCall:     return String(localized: "Today's call")
+        case .dayInReview:    return String(localized: "Day in review")
         case .hero:           return String(localized: "Charge / Effort / Rest")
         case .liveSession:    return String(localized: "Start session")
         case .synthesis:      return String(localized: "Synthesis")
@@ -60,7 +66,7 @@ enum TodaySection: String, CaseIterable, Identifiable {
     /// The original, hard-coded section order — the default when the layout isn't customised. The journal
     /// widget (#656) is last by default, where it was first added, above the data-sources card.
     static let defaultOrder: [TodaySection] = [
-        .hero, .liveSession, .synthesis, .keyMetrics, .workouts, .heartRate, .recoveryVitals, .yourCards,
+        .todaysCall, .dayInReview, .hero, .liveSession, .synthesis, .keyMetrics, .workouts, .heartRate, .recoveryVitals, .yourCards,
         .menstrualCycle, .journal, .addedCards,
     ]
 }

@@ -79,6 +79,11 @@ struct SleepPlannerData: Equatable {
     var typicalEffort: Double?
     var debtMin: Double
     var napMin: Double
+    #if os(iOS)
+    /// Set when the figures above are PaceForge's `sleep_need_tonight` (see SleepPlannerIntel.swift); the screens then
+    /// draw its tiers and its own words for each row.
+    var intelNeed: PFSleepNeed?
+    #endif
 
     var needMin: Int { breakdown.tonightMin }
 

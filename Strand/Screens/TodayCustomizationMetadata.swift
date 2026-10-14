@@ -4,6 +4,8 @@ import StrandDesign
 extension TodaySection {
     var customizationIcon: String {
         switch self {
+        case .todaysCall: return "scope"
+        case .dayInReview: return "moon.stars"
         case .hero: return "gauge.with.dots.needle.67percent"
         case .liveSession: return "figure.run.circle"
         case .synthesis: return "sparkles"
@@ -20,6 +22,8 @@ extension TodaySection {
 
     var customizationTint: Color {
         switch self {
+        case .todaysCall: return StrandPalette.effortColor
+        case .dayInReview: return StrandPalette.restColor
         case .hero: return StrandPalette.chargeColor
         case .liveSession: return StrandPalette.metricCyan
         case .synthesis: return StrandPalette.accent

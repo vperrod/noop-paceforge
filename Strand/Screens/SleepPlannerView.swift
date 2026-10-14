@@ -18,9 +18,19 @@ struct SleepPlannerView: View {
     @State private var preset = SleepPlannerStore.preset
     @State private var followsPlan = SleepPlannerStore.useForReminder
     @State private var userWake = SleepPlannerStore.wakeMinutes
+    #if os(iOS)
+    /// PaceForge's sleep need for tonight, when its file is today's (see SleepPlannerIntel.swift).
+    @ObservedObject private var intelStore = PFDailyIntelStore.shared
+    #endif
 
     private var alarmMinutes: Int? { behavior.smartAlarmEnabled ? behavior.smartAlarmMinutes : nil }
-    private var loadKey: String { "\(repo.refreshSeq)|\(alarmMinutes ?? -1)|\(userWake ?? -1)" }
+    private var loadKey: String {
+        #if os(iOS)
+        return "\(repo.refreshSeq)|\(alarmMinutes ?? -1)|\(userWake ?? -1)|\(intelStore.intel?.generatedAt ?? "")"
+        #else
+        return "\(repo.refreshSeq)|\(alarmMinutes ?? -1)|\(userWake ?? -1)"
+        #endif
+    }
 
     @ViewBuilder var body: some View {
         #if os(iOS)
@@ -54,10 +64,23 @@ struct SleepPlannerView: View {
     }
 
     private func reload() async {
+        #if os(iOS)
+        await intelStore.refreshIfStale()
+        #endif
         let loaded = await SleepPlannerLoader.load(repo: repo, alarmMinutes: alarmMinutes)
         guard !Task.isCancelled else { return }
         data = loaded
-        SleepPlannerLoader.publish(loaded, preset: preset)
+        SleepPlannerLoader.publish(plannedData(loaded, preset: preset), preset: preset)
+    }
+
+    /// `data` as the screen shows it: PaceForge's need for `preset` when it has one, else NOOP's own.
+    private func plannedData(_ data: SleepPlannerData, preset: SleepPlanner.Preset) -> SleepPlannerData {
+        #if os(iOS)
+        if let need = intelStore.current?.sleepNeed {
+            return data.applying(need, preset: preset, userWake: userWake)
+        }
+        #endif
+        return data
     }
 
     // MARK: Look (iPhone)
@@ -67,7 +90,7 @@ struct SleepPlannerView: View {
         ScrollView {
             Group {
                 if let data {
-                    lookContent(data)
+                    lookContent(plannedData(data, preset: preset))
                 } else {
                     Text("Working out tonight")
                         .font(LookFont.text(15, weight: .medium))
@@ -89,7 +112,7 @@ struct SleepPlannerView: View {
 
     private func lookContent(_ data: SleepPlannerData) -> some View {
         let plan = data.plan(for: preset)
-        let peak = SleepPlanner.targetSleepMin(needMin: data.needMin, preset: .peak)
+        let peak = data.intelNeed?.tier("peak")?.sleepMin ?? SleepPlanner.targetSleepMin(needMin: data.needMin, preset: .peak)
         let copy = LookPlannerCopy.make(
             bedtime: plan.bedtime, wake: data.wake, targetSleepMin: plan.targetSleepMin, latencyMin: plan.latencyMin,
             peakSleepMin: peak, goalTitle: preset.title, percentText: preset.percentText, clock: { time($0) })
@@ -150,11 +173,11 @@ struct SleepPlannerView: View {
 
     private func lookPresetButton(_ p: SleepPlanner.Preset, _ data: SleepPlannerData) -> some View {
         let selected = p == preset
-        let target = SleepPlanner.targetSleepMin(needMin: data.needMin, preset: p)
+        let target = data.intelNeed?.tier(p.rawValue)?.sleepMin ?? SleepPlanner.targetSleepMin(needMin: data.needMin, preset: p)
         return Button {
             preset = p
             SleepPlannerStore.preset = p
-            SleepPlannerLoader.publish(data, preset: p)
+            SleepPlannerLoader.publish(plannedData(data, preset: p), preset: p)
         } label: {
             VStack(spacing: 3) {
                 Text(p.title).lookCaps(11)
@@ -245,7 +268,7 @@ struct SleepPlannerView: View {
         .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color(hex: "#3B4752")))
         .onChangeCompat(of: followsPlan) { on in
             SleepPlannerStore.useForReminder = on
-            SleepPlannerLoader.publish(data, preset: preset)
+            SleepPlannerLoader.publish(plannedData(data, preset: preset), preset: preset)
             WindDownNudge.refreshSchedule()
         }
     }
@@ -266,7 +289,8 @@ struct SleepPlannerView: View {
     }
 
     /// Tonight's need, broken into its parts.
-    private func lookNeed(_ data: SleepPlannerData) -> some View {
+    private func lookNeed(_ data: SleepPlannerData) -> LookNeedTable {
+        if let need = data.intelNeed { return lookIntelNeed(need, data) }
         let b = data.breakdown
         let scale = UnitPrefs.resolveEffortScale(effortScaleRaw)
         let rows = [
@@ -288,12 +312,59 @@ struct SleepPlannerView: View {
                                                  calibration: data.calibration.note, identifier: "sleep-planner-need-info")))
     }
 
+    /// Tonight's need as PaceForge worked it out: its four parts in its own words, then the total.
+    private func lookIntelNeed(_ need: PFSleepNeed, _ data: SleepPlannerData) -> LookNeedTable {
+        var rows = need.rows.map { row in
+            LookNeedRow(id: row.key, label: need.label(of: row), caption: row.detail ?? "",
+                        valueText: PFSleepNeed.signedHoursMinutes(row.minutes),
+                        spokenValue: SleepPlanner.signedDurationText(row.minutes))
+        }
+        // The baseline is a size, not a change: no plus sign.
+        if let at = rows.firstIndex(where: { $0.id == "baseline" }) {
+            rows[at] = LookNeedRow(id: "baseline", label: rows[at].label, caption: rows[at].caption,
+                                   valueText: PFSleepNeed.hoursMinutes(need.baselineMin ?? 0),
+                                   spokenValue: SleepPlanner.durationText(need.baselineMin ?? 0))
+        }
+        rows.append(LookNeedRow(id: "total", label: "Tonight's need", caption: need.isProvisional ? "Settles through the evening as today's Effort builds" : "",
+                                valueText: PFSleepNeed.hoursMinutes(need.needMin),
+                                spokenValue: SleepPlanner.durationText(need.needMin), isTotal: true))
+        return LookNeedTable(
+            title: "Tonight's need", rows: rows, idPrefix: "sleep-planner-need-",
+            accessory: AnyView(PlannerInfoButton(title: "Sleep need", tint: StrandPalette.restColor, sections: intelNeedInfo(need),
+                                                 calibration: nil, identifier: "sleep-planner-need-info")))
+    }
+
+    private func intelNeedInfo(_ need: PFSleepNeed) -> [PlannerInfoSection] {
+        [
+            PlannerInfoSection(
+                heading: "Where this comes from",
+                body: "PaceForge works tonight's need out from your baseline, today's Effort, your sleep debt and any naps: need = baseline + extra for Effort + debt \u{2212} naps. The rows show each part in minutes and what it was counted from. Today's Effort is still building before 18:00, so the figure settles through the evening."),
+            PlannerInfoSection(
+                heading: "Your wake time",
+                body: "The wake time you set on this screen comes first. Without one, your typical wake time stands (\(need.wakeBasis ?? "from your recent nights")). Bedtime is the wake time minus the time in bed for your goal."),
+        ]
+    }
+
     /// What each goal costs: bed time and sleep for the three goals.
     private func lookBedtimeRows(_ data: SleepPlannerData) -> some View {
-        let rows = data.presetRows(selected: preset).map { row in
-            LookNeedRow(id: row.preset.rawValue, label: row.preset.title, caption: shiftText(row, selected: row.preset == preset),
-                        valueText: time(row.plan.bedtime),
-                        spokenValue: "bed \(time(row.plan.bedtime)), \(SleepPlanner.durationText(row.plan.targetSleepMin)) of sleep")
+        let rows: [LookNeedRow]
+        if let need = data.intelNeed, let selected = need.tier(preset.rawValue) {
+            // Same wake time for every goal, so the bedtime shifts by exactly the difference in time in bed.
+            rows = need.tiers.compactMap { (tier: PFSleepTier) -> LookNeedRow? in
+                guard let night = need.nightPlan(tierID: tier.id, userWake: userWake) else { return nil }
+                let shift = selected.timeInBedMin - tier.timeInBedMin
+                let sleepShift = tier.sleepMin - selected.sleepMin
+                let caption = tier.id == preset.rawValue ? "Your goal"
+                    : "\(SleepPlanner.signedDurationText(sleepShift)) sleep, bed \(SleepPlanner.durationText(abs(shift))) \(shift < 0 ? "later" : "earlier")"
+                return LookNeedRow(id: tier.id, label: tier.title, caption: caption, valueText: night.bedtimeText,
+                                   spokenValue: "bed \(night.bedtimeText), \(SleepPlanner.durationText(tier.sleepMin)) of sleep")
+            }
+        } else {
+            rows = data.presetRows(selected: preset).map { row in
+                LookNeedRow(id: row.preset.rawValue, label: row.preset.title, caption: shiftText(row, selected: row.preset == preset),
+                            valueText: time(row.plan.bedtime),
+                            spokenValue: "bed \(time(row.plan.bedtime)), \(SleepPlanner.durationText(row.plan.targetSleepMin)) of sleep")
+            }
         }
         return VStack(alignment: .leading, spacing: 8) {
             LookNeedTable(
@@ -312,10 +383,18 @@ struct SleepPlannerView: View {
 
     private func time(_ date: Date) -> String { AppClock.hourMinuteFormatter().string(from: date) }
 
-    private func wakeSourceText(_ data: SleepPlannerData) -> String { data.wakeSource.sourceText }
+    private func wakeSourceText(_ data: SleepPlannerData) -> String {
+        #if os(iOS)
+        if let need = data.intelNeed, data.wakeSource != .user, let basis = need.wakeBasis { return basis }
+        #endif
+        return data.wakeSource.sourceText
+    }
 
     private func latencyText(_ data: SleepPlannerData) -> String {
-        data.latencyIsPersonal
+        #if os(iOS)
+        if let text = data.intelNeed?.efficiencyText { return text }
+        #endif
+        return data.latencyIsPersonal
             ? "about \(data.latencyMin) min to fall asleep, the median of your last \(data.latencyNights) nights"
             : "a default \(data.latencyMin) min to fall asleep, until \(SleepPlanner.minimumNights) nights show your own"
     }

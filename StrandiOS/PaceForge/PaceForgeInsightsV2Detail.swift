@@ -492,6 +492,7 @@ struct PFWeightGoalDetail: View {
             VStack(alignment: .leading, spacing: 16) {
                 figuresCard
                 if weight.hasTrend { weightTrendCard }
+                PFWhatMovedSection(intelKey: "weight")
                 chartCard
             }
         }
@@ -868,6 +869,7 @@ struct PFSleepDetail: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             consistencyCard
+            PFWhatMovedSection(intelKey: "sleep_hours")
             debtCard
             targetCard
         }

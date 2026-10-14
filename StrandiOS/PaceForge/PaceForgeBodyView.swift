@@ -203,7 +203,8 @@ private struct PFTrendCard: View {
                         .frame(maxWidth: .infinity, minHeight: 80)
                 } else {
                     LookTrendView(metrics: lookMetrics, metricID: $metric, range: $lookRange, endDate: $lookEnd,
-                                  today: Calendar.current.startOfDay(for: Date()))
+                                  today: Calendar.current.startOfDay(for: Date()),
+                                  footer: { AnyView(PFWhatMovedSection(metricID: $0.id)) })
                         .padding(.horizontal, -16)
                         .accessibilityElement(children: .contain)
                         .accessibilityIdentifier("pf-body-trend-chart")

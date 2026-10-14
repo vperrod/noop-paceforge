@@ -13,13 +13,15 @@ public struct LookTrendHost: View {
     public var initialRange: LookRange
     public var calendar: Calendar
     public var today: Date
+    public var footer: ((LookTrendMetric) -> AnyView)?
 
     @State private var metricID: String
     @State private var range: LookRange
     @State private var endDate: Date
 
     public init(metrics: [LookTrendMetric], initialMetricID: String? = nil, initialRange: LookRange = .month,
-                calendar: Calendar = .current, today: Date = Date()) {
+                calendar: Calendar = .current, today: Date = Date(), footer: ((LookTrendMetric) -> AnyView)? = nil) {
+        self.footer = footer
         self.metrics = metrics
         self.initialMetricID = initialMetricID
         self.initialRange = initialRange
@@ -33,7 +35,7 @@ public struct LookTrendHost: View {
 
     public var body: some View {
         LookTrendView(metrics: metrics, metricID: $metricID, range: $range, endDate: $endDate,
-                      today: today, calendar: calendar)
+                      today: today, calendar: calendar, footer: footer)
             .padding(.horizontal, -NoopLook.Metric.screenInset)
     }
 }

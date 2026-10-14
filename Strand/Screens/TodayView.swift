@@ -1944,6 +1944,9 @@ struct TodayView: View {
     @ViewBuilder
     private func todaySection(_ section: TodaySection) -> some View {
         switch section {
+        case .todaysCall, .dayInReview:
+            // iPhone's Liquid Today draws these two (they read PaceForge's daily-intel.json); the classic stack has no twin.
+            EmptyView()
         case .hero:
             classicHeroSection
             if selectedDayOffset == 0 { MyDayEntryCard(); EffortTargetCard(); SleepPlannerEntryCard(); WeeklyGoalsCard() }

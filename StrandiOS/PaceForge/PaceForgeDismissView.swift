@@ -10,6 +10,8 @@ import StrandDesign
 
 /// The cards that can be hidden. The raw value is the key stored locally and matched against dismissed.json.
 enum PFCardKind: String, CaseIterable {
+    case todaysCall = "todays-call"
+    case dayInReview = "day-in-review"
     case todaySoFar = "today-so-far"
     case brief
     case easyMode = "easy-mode"
@@ -26,6 +28,8 @@ enum PFCardKind: String, CaseIterable {
 
     var title: String {
         switch self {
+        case .todaysCall: return "Today's call"
+        case .dayInReview: return "Day in review"
         case .todaySoFar: return "Today so far"
         case .brief: return "Daily briefing"
         case .easyMode: return "Easy mode"
@@ -111,6 +115,15 @@ enum PFCardText {
         return lines.joined(separator: "\n")
     }
 
+    /// Today's call hashes the verdict and the two bands, not the scores, so a score moving a point does not bring it back.
+    static func todaysCall(_ call: PFTodaysCall) -> String {
+        "\(call.call.chipText)|\(call.charge?.band ?? "")|\(call.readiness?.band ?? "")|\(call.agreement ?? "")"
+    }
+
+    static func dayInReview(_ review: PFDayReview) -> String {
+        "\(review.outcomeText)|\(review.tonight?.bedtime ?? "")|\(review.tomorrow?.name ?? "")"
+    }
+
     static func nextRace(_ race: PFNextRace) -> String { "\(race.name)|\(race.date)|\(race.daysOut)" }
 
     static func standing(_ s: PFStanding) -> String {
@@ -133,7 +146,12 @@ enum PFCardText {
 
     /// Every card the snapshot has right now, in screen order.
     static func all(_ s: PFSnapshot) -> [PFCardRef] {
-        var out: [PFCardRef] = [PFCardRef(kind: .todaySoFar, text: todaySoFar(s))]
+        var out: [PFCardRef] = []
+        if let call = s.dailyIntel?.call { out.append(PFCardRef(kind: .todaysCall, text: todaysCall(call))) }
+        if let review = s.dailyIntel?.review, PFIntelClock.isEvening() {
+            out.append(PFCardRef(kind: .dayInReview, text: dayInReview(review)))
+        }
+        out.append(PFCardRef(kind: .todaySoFar, text: todaySoFar(s)))
         if let brief = s.today.brief { out.append(PFCardRef(kind: .brief, text: Self.brief(brief))) }
         if let easy = s.easyMode, !easy.isIdle { out.append(PFCardRef(kind: .easyMode, text: easyMode(easy))) }
         if let week = s.raceWeek { out.append(PFCardRef(kind: .raceWeek, text: raceWeek(week))) }

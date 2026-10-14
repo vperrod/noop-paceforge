@@ -24,7 +24,8 @@ struct LookRepoTrends: View {
     var body: some View {
         Group {
             if !metrics.isEmpty {
-                LookTrendHost(metrics: metrics, initialMetricID: initialID, initialRange: .month)
+                LookTrendHost(metrics: metrics, initialMetricID: initialID, initialRange: .month,
+                              footer: { AnyView(PFWhatMovedSection(metricID: $0.id)) })
             } else if loaded {
                 LookInfoCard(title: "No trend yet",
                              message: "Trends draw once a few days of readings are in. Import your history in Data Sources or wear the strap for a few nights.")

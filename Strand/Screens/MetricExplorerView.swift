@@ -1012,8 +1012,10 @@ struct MetricDetailView: View {
             higherIsBetter: metric.higherIsBetter,
             style: (isEffort || TrendChartStyle(rawValue: trendChartStyleRaw) == .bar) ? .bars : .line,
             points: points, caption: metric.description, info: info)
+        // "What moved it" (PaceForge's daily-intel.json) under the metric's own card, for the metrics it covers.
+        let whatMoved: (LookTrendMetric) -> AnyView = { _ in AnyView(PFWhatMovedSection(metricID: metric.key)) }
         return LookTrendView(metrics: [item], metricID: .constant(metric.id), range: lookRangeBinding,
-                             endDate: $lookEnd, today: Calendar.current.startOfDay(for: Date()))
+                             endDate: $lookEnd, today: Calendar.current.startOfDay(for: Date()), footer: whatMoved)
             .padding(.horizontal, -NoopMetrics.screenPadding)
             .accessibilityIdentifier("look-metric-trend")
     }

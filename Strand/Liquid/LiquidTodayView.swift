@@ -59,6 +59,8 @@ struct LiquidTodayView: View {
     #if os(iOS)
     /// Today's Effort target (for the Effort dial) and where the big dials sit, for the sticky mini dials.
     @State private var effortReading: EffortTargetReading?
+    /// PaceForge's daily-intel.json: its Effort target range stands in for the dial's tick when NOOP has none of its own.
+    @ObservedObject private var intelStore = PFDailyIntelStore.shared
     @State private var heroBottomY: CGFloat = .greatestFiniteMagnitude
     @State private var scrollTopY: CGFloat = 0
     #endif
@@ -376,6 +378,20 @@ struct LiquidTodayView: View {
                     // nothing and keeps its slot in the saved order.
                     ForEach(sectionOrder) { section in
                         switch section {
+                        // The daily loop (PaceForge's daily-intel.json): the day's call above the dials, the evening
+                        // wrap after 18:00. Today only; each says so itself when its item is unavailable.
+                        case .todaysCall:
+                            #if os(iOS)
+                            if selectedDayOffset == 0 { PFTodaysCallStoreHost() }
+                            #else
+                            EmptyView()
+                            #endif
+                        case .dayInReview:
+                            #if os(iOS)
+                            if selectedDayOffset == 0 { PFDayReviewStoreHost() }
+                            #else
+                            EmptyView()
+                            #endif
                         case .hero:
                             heroCard
                             #if os(iOS)
@@ -818,7 +834,8 @@ struct LiquidTodayView: View {
     /// The three thin dials. Same scores, same taps (ring opens the metric, the label opens the scoring guide).
     private var lookHeroCard: some View {
         let band = effortReading?.progress
-        let target = LookDial.targetArc(low: band?.lowFraction, high: band?.highFraction, max: 1)
+        let ownTarget = LookDial.targetArc(low: band?.lowFraction, high: band?.highFraction, max: 1)
+        let target = ownTarget ?? (selectedDayOffset == 0 ? intelStore.current?.call?.effortTarget?.arc : nil)
         let chargeColor = chargeDisplay.pct.map { NoopLook.chargeColor($0) } ?? NoopLook.chargeHigh
         return HStack(alignment: .top, spacing: 0) {
             HeroScoreCell(label: String(localized: "Rest"), score: restScore, tint: NoopLook.rest,
@@ -841,6 +858,7 @@ struct LiquidTodayView: View {
         )
         .onAppear { refreshEffortReading() }
         .onChangeCompat(of: effortReadingKey) { _ in refreshEffortReading() }
+        .task { await intelStore.refreshIfStale() }
     }
 
     /// Health and Stress monitor tiles side by side.

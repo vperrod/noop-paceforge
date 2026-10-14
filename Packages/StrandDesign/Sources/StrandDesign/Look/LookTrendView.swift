@@ -102,17 +102,21 @@ public struct LookTrendView: View {
     @Binding public var endDate: Date
     public var today: Date
     public var calendar: Calendar
+    /// Drawn under the "What is it?" card for the metric on show (the iPhone puts "What moved it" here). nil draws nothing.
+    public var footer: ((LookTrendMetric) -> AnyView)?
     /// The 7-day average line over the daily one; a per-viewer view setting, so it lives here.
     @State private var showsSevenDay = false
 
     public init(metrics: [LookTrendMetric], metricID: Binding<String>, range: Binding<LookRange>,
-                endDate: Binding<Date>, today: Date, calendar: Calendar = .current) {
+                endDate: Binding<Date>, today: Date, calendar: Calendar = .current,
+                footer: ((LookTrendMetric) -> AnyView)? = nil) {
         self.metrics = metrics
         self._metricID = metricID
         self._range = range
         self._endDate = endDate
         self.today = today
         self.calendar = calendar
+        self.footer = footer
     }
 
     private var metric: LookTrendMetric? { metrics.first { $0.id == metricID } ?? metrics.first }
@@ -150,6 +154,11 @@ public struct LookTrendView: View {
                 .padding(.top, 18)
             if let info = metric.info {
                 LookInfoCard(title: info.title, message: info.message)
+                    .padding(.horizontal, NoopLook.Metric.screenInset)
+                    .padding(.top, 14)
+            }
+            if let footer {
+                footer(metric)
                     .padding(.horizontal, NoopLook.Metric.screenInset)
                     .padding(.top, 14)
             }

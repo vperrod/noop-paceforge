@@ -37,6 +37,8 @@ enum TabRoute: Hashable {
     case stress
     case sleep
     case health
+    /// The Health monitor: each vital against its own 30-day range (PaceForge's daily-intel.json). iPhone only; elsewhere it falls back to Health.
+    case healthMonitor
     case hydration
     case coupled
 }
@@ -75,6 +77,12 @@ extension View {
             case .stress: StressView()
             case .sleep: SleepView()
             case .health: HealthView()
+            case .healthMonitor:
+                #if os(iOS)
+                PFHealthMonitorScreen()
+                #else
+                HealthView()
+                #endif
             case .hydration: HydrationView()
             case .coupled: CoupledView()
             }

@@ -11,6 +11,9 @@ import Foundation
 /// `easy`, `race-week`, `brief`, `session`), so one saved order means the same thing in both. The rest are the
 /// app's own cards and use their own ids; the web layout does not name them, so they sit in their default place.
 enum PFTodayCard: String, CaseIterable, Equatable {
+    /// The daily loop's two cards (daily-intel.json): the day's verdict at the top, the evening wrap just under it.
+    case todaysCall = "todays-call"
+    case dayInReview = "day-in-review"
     case todaySoFar = "today-so-far"
     case raceWeek = "race-week"
     case brief
@@ -27,6 +30,8 @@ enum PFTodayCard: String, CaseIterable, Equatable {
 
     var title: String {
         switch self {
+        case .todaysCall: return "Today's call"
+        case .dayInReview: return "Day in review"
         case .todaySoFar: return "Today so far"
         case .raceWeek: return "Race week"
         case .brief: return "Daily briefing"

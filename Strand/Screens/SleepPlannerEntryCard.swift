@@ -15,10 +15,18 @@ struct SleepPlannerEntryCard: View {
     @State private var summary: String?
     #if os(iOS)
     @State private var plan: SleepPlanner.Plan?
+    /// PaceForge's sleep need for tonight, when its file is today's (see SleepPlannerIntel.swift).
+    @ObservedObject private var intelStore = PFDailyIntelStore.shared
     #endif
 
     private var alarmMinutes: Int? { behavior.smartAlarmEnabled ? behavior.smartAlarmMinutes : nil }
-    private var loadKey: String { "\(repo.refreshSeq)|\(alarmMinutes ?? -1)" }
+    private var loadKey: String {
+        #if os(iOS)
+        return "\(repo.refreshSeq)|\(alarmMinutes ?? -1)|\(intelStore.intel?.generatedAt ?? "")"
+        #else
+        return "\(repo.refreshSeq)|\(alarmMinutes ?? -1)"
+        #endif
+    }
 
     @ViewBuilder var body: some View {
         #if os(iOS)
@@ -87,9 +95,18 @@ struct SleepPlannerEntryCard: View {
     }
 
     private func load() async {
-        let data = await SleepPlannerLoader.load(repo: repo, alarmMinutes: alarmMinutes)
+        #if os(iOS)
+        await intelStore.refreshIfStale()
+        #endif
+        var data = await SleepPlannerLoader.load(repo: repo, alarmMinutes: alarmMinutes)
         guard !Task.isCancelled else { return }
         let preset = SleepPlannerStore.preset
+        #if os(iOS)
+        // The same numbers the planner screen draws: PaceForge's need and bedtime when it has them.
+        if let need = intelStore.current?.sleepNeed {
+            data = data.applying(need, preset: preset, userWake: SleepPlannerStore.wakeMinutes)
+        }
+        #endif
         let plan = data.plan(for: preset)
         summary = "Bed by \(AppClock.hourMinuteFormatter().string(from: plan.bedtime)) for \(SleepPlanner.durationText(plan.targetSleepMin)) of sleep"
         #if os(iOS)

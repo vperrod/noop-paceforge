@@ -30,6 +30,9 @@ struct PFTodayView: View {
     private func isPresent(_ card: PFTodayCard) -> Bool {
         switch card {
         case .todaySoFar, .session: return true
+        case .todaysCall: return snapshot.dailyIntel?.item(PFIntelID.todaysCall) != nil
+        case .dayInReview:
+            return PFIntelClock.isEvening() && snapshot.dailyIntel?.item(PFIntelID.dayInReview) != nil
         case .raceWeek: return snapshot.raceWeek != nil
         case .brief: return today.brief != nil
         case .nextBestAction: return snapshot.insightsV2?.todayCard != nil
@@ -48,6 +51,8 @@ struct PFTodayView: View {
     /// The "Not today" kind of a card; the sessions section cannot be hidden.
     private func dismissKind(_ card: PFTodayCard) -> PFCardKind? {
         switch card {
+        case .todaysCall: return .todaysCall
+        case .dayInReview: return .dayInReview
         case .todaySoFar: return .todaySoFar
         case .raceWeek: return .raceWeek
         case .brief: return .brief
@@ -112,6 +117,25 @@ struct PFTodayView: View {
 
     @ViewBuilder private func content(for card: PFTodayCard) -> some View {
         switch card {
+        case .todaysCall:
+            if let intel = snapshot.dailyIntel, intel.item(PFIntelID.todaysCall) != nil {
+                // "Not today" only on a real call; the not-ready and unavailable notes are never hidden.
+                if intel.isCurrent(for: snapshot.todayISO), let call = intel.call {
+                    dismissable(.todaysCall, PFCardText.todaysCall(call)) {
+                        PFTodaysCallHost(intel: intel, todayISO: snapshot.todayISO)
+                    }
+                } else {
+                    PFTodaysCallHost(intel: intel, todayISO: snapshot.todayISO)
+                }
+            }
+        case .dayInReview:
+            if let intel = snapshot.dailyIntel, let review = intel.review, intel.isCurrent(for: snapshot.todayISO) {
+                dismissable(.dayInReview, PFCardText.dayInReview(review)) {
+                    PFDayReviewHost(intel: intel, todayISO: snapshot.todayISO)
+                }
+            } else if let intel = snapshot.dailyIntel {
+                PFDayReviewHost(intel: intel, todayISO: snapshot.todayISO)
+            }
         case .todaySoFar:
             VStack(alignment: .leading, spacing: 16) {
                 dismissable(.todaySoFar, PFCardText.todaySoFar(snapshot)) { PFTodaySoFarCard(snapshot: snapshot) }

@@ -51,6 +51,14 @@ public enum SleepPlanner {
         public let napCreditMin: Int
 
         public var tonightMin: Int { baselineMin + effortExtraMin + debtRepaymentMin - napCreditMin }
+
+        /// For a need worked out elsewhere (PaceForge's sleep model) that the planner shows in the same table.
+        public init(baselineMin: Int, effortExtraMin: Int, debtRepaymentMin: Int, napCreditMin: Int) {
+            self.baselineMin = baselineMin
+            self.effortExtraMin = effortExtraMin
+            self.debtRepaymentMin = debtRepaymentMin
+            self.napCreditMin = napCreditMin
+        }
     }
 
     /// Mean of the supplied daily Effort values, nil under `minimumNights` of them.

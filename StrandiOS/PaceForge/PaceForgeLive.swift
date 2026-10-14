@@ -59,6 +59,10 @@ enum PFAPI {
         // Insights v2 with little data behind it (every item's "not enough data" state), and no insights-v2.json at all.
         ("-PaceForgeInsightsSparse", "data/insights-v2.json", "data/insights-v2.sparse.json"),
         ("-PaceForgeInsightsMissing", "data/insights-v2.json", "data/insights-v2.missing.json"),
+        // Daily intel: a vital far out of its range (the red Health monitor tile and its alert), every item unavailable, and no file.
+        ("-PaceForgeIntelAlert", "data/daily-intel.json", "data/daily-intel.alert.json"),
+        ("-PaceForgeIntelUnavailable", "data/daily-intel.json", "data/daily-intel.unavailable.json"),
+        ("-PaceForgeIntelMissing", "data/daily-intel.json", "data/daily-intel.missing.json"),
     ]
     #endif
 
@@ -166,6 +170,7 @@ enum PFAPI {
         async let tape = fetchOptional("data/tape.json")
         async let standing = fetchOptional("data/standing.json")
         async let insightsV2 = fetchOptional("data/insights-v2.json")
+        async let dailyIntel = fetchOptional("data/daily-intel.json")
         async let rideMetrics = fetchOptional("data/ride-metrics.json")
         async let dismissed = fetchOptional("data/dismissed.json")
         async let todayLayout = fetchOptional("data/today-layout.json")
@@ -197,6 +202,7 @@ enum PFAPI {
         raw.tape = PFJ(data: await tape)
         raw.standing = PFJ(data: await standing)
         raw.insightsV2 = PFJ(data: await insightsV2)
+        raw.dailyIntel = PFJ(data: await dailyIntel)
         raw.rideMetrics = PFJ(data: await rideMetrics)
         raw.dismissed = PFJ(data: await dismissed)
         raw.todayLayout = PFJ(data: await todayLayout)
@@ -260,6 +266,7 @@ enum PFStore {
         raw.tape = PFJ(data: read(path: "data/tape.json"))
         raw.standing = PFJ(data: read(path: "data/standing.json"))
         raw.insightsV2 = PFJ(data: read(path: "data/insights-v2.json"))
+        raw.dailyIntel = PFJ(data: read(path: "data/daily-intel.json"))
         raw.rideMetrics = PFJ(data: read(path: "data/ride-metrics.json"))
         raw.dismissed = PFJ(data: read(path: "data/dismissed.json"))
         raw.todayLayout = PFJ(data: read(path: "data/today-layout.json"))
@@ -338,6 +345,7 @@ final class PFModel: ObservableObject {
                 throw CocoaError(.fileReadCorruptFile)
             }
             snapshot = built
+            PFDailyIntelStore.shared.update(built.dailyIntel)
             PFSummaryWriter.publish(built)
             savedAt = Date()
             lastSuccess = Date()

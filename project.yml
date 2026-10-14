@@ -190,6 +190,8 @@ targets:
       - StrandiOS/PaceForge/PaceForgeStanding.swift
       # Insights v2: insights-v2.json parsing, the card order, status and effort wording, the finish bar and sleep clock maths.
       - StrandiOS/PaceForge/PaceForgeInsightsV2.swift
+      # Daily intel: daily-intel.json parsing, the verdict and Health monitor tile wording, bedtime from a wake time, range bands and the evening switch.
+      - StrandiOS/PaceForge/PaceForgeDailyIntel.swift
       # Bike rides: ride-metrics.json, the stream file, 600-point downsampling and the ride formats.
       - StrandiOS/PaceForge/PaceForgeRide.swift
       # Hiding a card: the FNV-1a hash, hide-until-it-changes / snooze rules and the storage helpers.
