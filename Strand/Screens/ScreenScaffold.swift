@@ -75,7 +75,12 @@ struct ScreenScaffold<Content: View, Trailing: View>: View {
         // on the opaque canvas and stay fully legible (2026-06-23: cards were "losing the data").
         .background(alignment: .top) {
             ZStack(alignment: .top) {
+                #if os(iOS)
+                // The dark look's screen gradient (#1A2227 down to #101518); light keeps its quiet grey.
+                LookScreenGradient()
+                #else
                 StrandPalette.surfaceBase
+                #endif
                 topBackground
             }
             .ignoresSafeArea()

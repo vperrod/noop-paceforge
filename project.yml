@@ -285,6 +285,12 @@ targets:
               CFBundleIconFiles: []
               UIPrerenderedIcon: false
         NSSupportsLiveActivities: true
+        # D-DIN numerals for the dark look (SIL OFL 1.1, Datto Inc.; files + licence in StrandiOS/Resources/Fonts).
+        # If registration fails the look falls back to the system rounded face (LookFont).
+        UIAppFonts:
+          - D-DIN.ttf
+          - D-DIN-Bold.ttf
+          - D-DINCondensed-Bold.ttf
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
         UISupportedInterfaceOrientations~ipad:
