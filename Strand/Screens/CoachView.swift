@@ -753,9 +753,8 @@ struct CoachView: View {
     }
 
     private var suggestionChips: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                ForEach(suggestions, id: \.self) { prompt in
+        LookFlowLayout(spacing: 8, lineSpacing: 8) {
+            ForEach(suggestions, id: \.self) { prompt in
                     Button {
                         send(prompt)
                     } label: {
@@ -773,9 +772,8 @@ struct CoachView: View {
                     .disabled(coach.sending)
                     .accessibilityLabel("Suggested prompt: \(prompt)")
                 }
-            }
-            .padding(.vertical, 1)
         }
+        .padding(.vertical, 1)
     }
 
     /// K7: True when follow-up chips should show instead of the initial contextual chips —
@@ -789,9 +787,8 @@ struct CoachView: View {
     /// K7: Follow-up suggestion chips shown after each assistant reply, so the user can dig
     /// deeper without typing. Uses the static `AICoachEngine.followUpSuggestions` list.
     private var followUpChips: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                ForEach(AICoachEngine.followUpSuggestions, id: \.self) { prompt in
+        LookFlowLayout(spacing: 8, lineSpacing: 8) {
+            ForEach(AICoachEngine.followUpSuggestions, id: \.self) { prompt in
                     Button {
                         send(prompt)
                     } label: {
@@ -807,9 +804,8 @@ struct CoachView: View {
                     .disabled(coach.sending)
                     .accessibilityLabel("Follow-up prompt: \(prompt)")
                 }
-            }
-            .padding(.vertical, 1)
         }
+        .padding(.vertical, 1)
     }
 
     /// K12: A subtle token estimate shown below the composer when the draft is non-empty.

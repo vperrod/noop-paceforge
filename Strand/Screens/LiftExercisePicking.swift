@@ -192,9 +192,8 @@ struct LiftExerciseFilterBar: View {
                                         identifier: String) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(verbatim: title).strandOverline()
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 6) {
-                    ForEach(Array(options.enumerated()), id: \.offset) { _, option in
+            LookFlowLayout(spacing: 6, lineSpacing: 6) {
+                ForEach(Array(options.enumerated()), id: \.offset) { _, option in
                         let on = selection.wrappedValue == option.1
                         Button {
                             selection.wrappedValue = on ? nil : option.1
@@ -214,7 +213,6 @@ struct LiftExerciseFilterBar: View {
                         .accessibilityAddTraits(on ? [.isSelected] : [])
                         .accessibilityIdentifier("\(identifier)-\(option.0.lowercased())")
                     }
-                }
             }
         }
     }

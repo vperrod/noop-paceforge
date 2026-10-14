@@ -22,6 +22,11 @@ struct RootTabView: View {
     /// attached and would otherwise keep posting AI notifications for a feature the wearer switched off.
     @AppStorage("noop.coachEnabled") private var coachEnabled = true
     @AppStorage("noop.bottomBarAutoHide") private var bottomBarAutoHide = false
+    /// The look's rounded floating bar with the coach button replaces the system tab bar. The TabView, its
+    /// per-tab NavigationStacks and every selection / re-tap / deep-link path below are unchanged: the system bar
+    /// is only hidden, and the floating bar writes through the same `nativeTabSelection` setter. Set `noop.lookTabBar`
+    /// to false (a launch argument `-noop.lookTabBar NO` does it) to get the system bar back.
+    @AppStorage("noop.lookTabBar") private var lookTabBar = true
 
     /// The live gym session, owned at the app root — see `LiftSessionController`.
     @EnvironmentObject private var liftSession: LiftSessionController
@@ -90,6 +95,25 @@ struct RootTabView: View {
         )
     }
 
+    /// Tab ids for the floating bar, in tag order. The ids are the lower-cased titles, which is also what the UI
+    /// tests look for (`look-tab-<id>`).
+    private static let lookTabs: [LookTabItem] = [
+        LookTabItem(id: "today", title: "Today", symbol: "square.grid.2x2"),
+        LookTabItem(id: "trends", title: "Trends", symbol: "chart.line.uptrend.xyaxis"),
+        LookTabItem(id: "sleep", title: "Sleep", symbol: "bed.double"),
+        LookTabItem(id: "paceforge", title: "PaceForge", symbol: "figure.run"),
+        LookTabItem(id: "more", title: "More", symbol: "ellipsis"),
+    ]
+
+    private var lookTabSelection: Binding<String> {
+        Binding(
+            get: { Self.lookTabs.indices.contains(selectedTab) ? Self.lookTabs[selectedTab].id : "today" },
+            set: { id in
+                if let tag = Self.lookTabs.firstIndex(where: { $0.id == id }) { nativeTabSelection.wrappedValue = tag }
+            }
+        )
+    }
+
     private func openPaceForgeToday() {
         PFDeepLink.pending = false
         withAnimation(.timingCurve(0.22, 1, 0.36, 1, duration: 0.24)) { selectedTab = 3 }
@@ -148,6 +172,13 @@ struct RootTabView: View {
             moreTab(path: $tabPaths[4], scrollSignal: scrollTop[4]).tag(4)
         }
         .tint(StrandPalette.accent)
+        .toolbar(lookTabBar ? .hidden : .automatic, for: .tabBar)
+        .overlay(alignment: .bottom) {
+            if lookTabBar {
+                FloatingTabBar(items: Self.lookTabs, selection: lookTabSelection, onCoach: { router.openCoach() })
+                    .padding(.bottom, 6)
+            }
+        }
         // #1841: the same "Hide bar when scrolling" preference Android drives its own bar with. Here the
         // system owns the behaviour — iOS 26's tab bar MINIMISES to a pill on scroll down rather than
         // sliding away entirely, so this is the platform's read of the same intent, not a copy of ours.

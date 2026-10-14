@@ -205,10 +205,7 @@ struct MyDayView: View {
                 MyDayStrip(timeline: timeline, showStress: showStress, showSteps: showSteps, showEnergy: showEnergy,
                            showGarminStress: showGarminStress, scrubDate: $scrubDate)
                     .accessibilityIdentifier("myday-strip")
-                ViewThatFits(in: .horizontal) {
-                    chips(timeline)
-                    ScrollView(.horizontal, showsIndicators: false) { chips(timeline) }
-                }
+                chips(timeline)
                 outsideNotes(timeline)
             }
         }
@@ -217,7 +214,7 @@ struct MyDayView: View {
     /// The overlay switches. Garmin's curves appear only on a day that has them, and each is named for its
     /// source: NOOP's stress and Garmin's stress are never one curve.
     private func chips(_ timeline: DayTimeline) -> some View {
-        HStack(spacing: NoopMetrics.space2) {
+        LookFlowLayout(spacing: NoopMetrics.space2, lineSpacing: NoopMetrics.space2) {
             MyDayChip(title: timeline.garminStress.isEmpty ? "Stress" : "Stress \u{00B7} NOOP", systemImage: "bolt.heart",
                       isOn: showStress, identifier: "myday-chip-stress") { showStress.toggle() }
             if !timeline.garminStress.isEmpty {
@@ -230,8 +227,8 @@ struct MyDayView: View {
                 MyDayChip(title: "Energy", systemImage: "battery.75percent", isOn: showEnergy,
                           identifier: "myday-chip-energy") { showEnergy.toggle() }
             }
-            Spacer(minLength: 0)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     /// One line under the switches for each outside curve that is on: what it is and where it came from, and

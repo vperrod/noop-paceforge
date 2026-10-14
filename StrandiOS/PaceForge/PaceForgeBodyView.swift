@@ -8,13 +8,12 @@ struct PFBodyView: View {
     let snapshot: PFSnapshot
 
     @State private var metric = "weight_kg"
-    @State private var range = PFTrendRange.month
 
     var body: some View {
         if let doc = snapshot.body {
             VStack(alignment: .leading, spacing: 16) {
                 if let progress = snapshot.bodyProgress { PFProgressCard(progress: progress) }
-                PFTrendCard(doc: doc, progress: snapshot.bodyProgress, metric: $metric, range: $range)
+                PFTrendCard(doc: doc, progress: snapshot.bodyProgress, metric: $metric)
                 if let muscle = snapshot.muscle { PFMuscleCheckCard(check: muscle) }
                 PFTapeCard(tape: snapshot.tape ?? PFTape())
                 PFScoreCard(doc: doc)
@@ -137,16 +136,12 @@ enum PFBodyFormat {
 
 // MARK: Trend
 
-enum PFTrendRange: String, CaseIterable, Identifiable {
-    case day = "D", week = "W", month = "M"
-    var id: String { rawValue }
-}
-
 private struct PFTrendCard: View {
     let doc: PFBodyDoc
     let progress: PFBodyProgress?
     @Binding var metric: String
-    @Binding var range: PFTrendRange
+    @State private var lookRange = LookRange.month
+    @State private var lookEnd = Calendar.current.startOfDay(for: Date())
 
     private static let metricKeys = [
         "weight_kg", "body_fat_pct", "muscle_mass_kg", "total_body_water_pct", "visceral_fat_index",
@@ -155,28 +150,26 @@ private struct PFTrendCard: View {
 
     private var options: [String] { Self.metricKeys.filter { doc.metrics[$0] != nil } }
 
-    private var points: [(date: Date, key: String, value: Double)] {
-        let rows = doc.series.compactMap { r in r.values[metric].map { (date: r.date, value: $0) } }
-        switch range {
-        case .day:
-            return rows.suffix(14).map { (date: PFFormat.date($0.date), key: $0.date, value: $0.value) }
-        case .week:
-            return bucket(rows) { PFFormat.monday(of: $0) }
-        case .month:
-            return bucket(rows) { String($0.prefix(7)) }
+    private static func icon(_ key: String) -> String {
+        switch key {
+        case "body_fat_pct": return "percent"
+        case "muscle_mass_kg": return "figure.strengthtraining.traditional"
+        case "total_body_water_pct": return "drop"
+        case "bmi", "visceral_fat_index": return "figure.stand"
+        case "metabolic_age", "bmr_kcal": return "flame"
+        default: return "scalemass"
         }
     }
 
-    /// The last reading in each bucket, newest twelve buckets.
-    private func bucket(_ rows: [(date: String, value: Double)], by key: (String) -> String)
-        -> [(date: Date, key: String, value: Double)] {
-        var out: [(date: Date, key: String, value: Double)] = []
-        for row in rows {
-            let k = key(row.date)
-            let entry = (date: PFFormat.date(row.date), key: k, value: row.value)
-            if let last = out.last, last.key == k { out[out.count - 1] = entry } else { out.append(entry) }
+    /// Every metric the scale reports, as a look trend; the server says which direction is good for each.
+    private var lookMetrics: [LookTrendMetric] {
+        options.map { key in
+            let info = doc.metrics[key]
+            let rows = doc.series.compactMap { r in r.values[key].map { (date: r.date, value: $0) } }
+            let better: Bool? = info?.good == "up" ? true : (info?.good == "down" ? false : nil)
+            return PFLook.metric(id: key, title: info?.label ?? key, icon: Self.icon(key), unit: info?.unit ?? "",
+                                 decimals: info?.dp ?? 1, higherIsBetter: better, rows: rows)
         }
-        return Array(out.suffix(12))
     }
 
     var body: some View {
@@ -189,21 +182,6 @@ private struct PFTrendCard: View {
                 .foregroundStyle(StrandPalette.textTertiary)
         }) {
             VStack(alignment: .leading, spacing: 12) {
-                HStack(spacing: 10) {
-                    Picker("Range", selection: $range) {
-                        ForEach(PFTrendRange.allCases) { Text($0.rawValue).tag($0) }
-                    }
-                    .pickerStyle(.segmented)
-                    .frame(maxWidth: 140)
-                    .accessibilityIdentifier("pf-body-range")
-                    Spacer(minLength: 0)
-                    Picker("Metric", selection: $metric) {
-                        ForEach(options, id: \.self) { key in Text(doc.metrics[key]?.label ?? key).tag(key) }
-                    }
-                    .pickerStyle(.menu)
-                    .tint(StrandPalette.accent)
-                    .accessibilityIdentifier("pf-body-metric")
-                }
                 HStack(alignment: .top, spacing: 28) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(info?.label ?? "").strandOverline()
@@ -218,7 +196,18 @@ private struct PFTrendCard: View {
                         }
                     }
                 }
-                chart(goal: goal)
+                if lookMetrics.isEmpty {
+                    Text("Two or more readings are needed for a trend. Keep stepping on the scale.")
+                        .font(StrandFont.subhead)
+                        .foregroundStyle(StrandPalette.textSecondary)
+                        .frame(maxWidth: .infinity, minHeight: 80)
+                } else {
+                    LookTrendView(metrics: lookMetrics, metricID: $metric, range: $lookRange, endDate: $lookEnd,
+                                  today: Calendar.current.startOfDay(for: Date()))
+                        .padding(.horizontal, -16)
+                        .accessibilityElement(children: .contain)
+                        .accessibilityIdentifier("pf-body-trend-chart")
+                }
                 noiseLegend
                 deltaRow
             }
@@ -249,71 +238,9 @@ private struct PFTrendCard: View {
         return (centre - half, centre + half)
     }
 
-    /// Everything the chart must keep in view: the readings, the goal line and the noise band.
-    private func yValues(_ pts: [(date: Date, key: String, value: Double)], goal: PFBodyGoal?,
-                         noise: (low: Double, high: Double)?) -> [Double] {
-        var values = pts.map { $0.value }
-        if let goal { values.append(goal.target) }
-        if let noise { values += [noise.low, noise.high] }
-        return values
-    }
-
-    @ViewBuilder private func chart(goal: PFBodyGoal?) -> some View {
-        let pts = points
-        if pts.count >= 2 {
-            let noise = noiseBand
-            let values = yValues(pts, goal: goal, noise: noise)
-            let lo = values.min() ?? 0, hi = values.max() ?? 1
-            let pad = max((hi - lo) * 0.15, 0.5)
-            Chart {
-                if let noise, let first = pts.first?.date, let last = pts.last?.date {
-                    RectangleMark(xStart: .value("From", first), xEnd: .value("To", last),
-                                  yStart: .value("Noise low", noise.low), yEnd: .value("Noise high", noise.high))
-                        .foregroundStyle(StrandPalette.textTertiary.opacity(0.16))
-                }
-                ForEach(Array(pts.enumerated()), id: \.offset) { _, p in
-                    AreaMark(x: .value("Date", p.date), yStart: .value("Base", lo - pad), yEnd: .value("Value", p.value))
-                        .foregroundStyle(StrandPalette.accent.opacity(0.14))
-                    LineMark(x: .value("Date", p.date), y: .value("Value", p.value))
-                        .foregroundStyle(StrandPalette.accent)
-                        .lineStyle(StrokeStyle(lineWidth: 2.4))
-                    PointMark(x: .value("Date", p.date), y: .value("Value", p.value))
-                        .foregroundStyle(StrandPalette.accent)
-                        .symbolSize(40)
-                }
-                if let goal {
-                    RuleMark(y: .value("Goal", goal.target))
-                        .foregroundStyle(PFColor.positive.opacity(0.7))
-                        .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))
-                }
-            }
-            .chartYScale(domain: (lo - pad)...(hi + pad))
-            .chartXAxis {
-                AxisMarks(values: .automatic(desiredCount: 4)) { _ in
-                    AxisGridLine().foregroundStyle(StrandPalette.hairline)
-                    AxisValueLabel(format: .dateTime.day().month(.abbreviated))
-                        .foregroundStyle(StrandPalette.textTertiary)
-                }
-            }
-            .chartYAxis {
-                AxisMarks { _ in
-                    AxisGridLine().foregroundStyle(StrandPalette.hairline)
-                    AxisValueLabel().foregroundStyle(StrandPalette.textTertiary)
-                }
-            }
-            .frame(height: 190)
-            .accessibilityIdentifier("pf-weight-chart")
-        } else {
-            Text("Two or more readings are needed for a trend. Keep stepping on the scale.")
-                .font(StrandFont.subhead)
-                .foregroundStyle(StrandPalette.textSecondary)
-                .frame(maxWidth: .infinity, minHeight: 80)
-        }
-    }
-
     /// Names the shaded band, with its "how it works" button.
     @ViewBuilder private var noiseLegend: some View {
-        if noiseBand != nil, points.count >= 2 {
+        if noiseBand != nil, lookMetrics.contains(where: { $0.id == metric }) {
             HStack(spacing: 4) {
                 Text("Shaded band = the scale's usual morning-to-morning noise")
                     .font(StrandFont.caption)

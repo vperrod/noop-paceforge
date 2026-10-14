@@ -491,6 +491,7 @@ struct PFWeightGoalDetail: View {
         } else {
             VStack(alignment: .leading, spacing: 16) {
                 figuresCard
+                if weight.hasTrend { weightTrendCard }
                 chartCard
             }
         }
@@ -543,6 +544,22 @@ struct PFWeightGoalDetail: View {
                            text: item.status.reason ?? "Not enough weigh-ins to read your own pace yet (needs 4 readings over at least 7 days).",
                            identifier: "pf-weight-no-pace")
         }
+    }
+
+    private var weightTrendCard: some View {
+        PFCard("Weight over time", icon: "chart.line.uptrend.xyaxis") {
+            LookTrendHost(metrics: [
+                PFLook.metric(id: "trend", title: "Weight trend", icon: "scalemass", unit: "kg", decimals: 1, higherIsBetter: nil,
+                              rows: weight.series.compactMap { row in row.trendKg.map { (date: row.date, value: $0) } },
+                              what: "The smoothed weight: each weigh-in nudges it, so one heavy morning does not move it far."),
+                PFLook.metric(id: "readings", title: "Weigh-ins", icon: "scalemass.fill", unit: "kg", decimals: 1, higherIsBetter: nil,
+                              rows: weight.series.compactMap { row in row.weightKg.map { (date: row.date, value: $0) } },
+                              what: "Each reading from the scale, as measured."),
+            ])
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier("pf-weight-look-trend")
+        }
+        .containerIdentifier("pf-weight-look-card")
     }
 
     private var chartCard: some View {
@@ -694,10 +711,13 @@ struct PFEfficiencyDetail: View {
                                  caption: "Six weeks earlier: \(paceText(run.pacePriorS)). Change \(percent(run.changePct)).")
                         .accessibilityIdentifier("pf-eff-run-pace")
                     if run.series.filter({ $0.ef != nil }).count >= 2 {
-                        PFEfficiencyChart(points: run.series.compactMap { p in p.ef.map { (date: p.date, value: $0) } },
-                                          title: "Speed per heartbeat")
-                            .frame(height: 170)
-                            .accessibilityIdentifier("pf-eff-run-chart")
+                        LookTrendHost(metrics: [
+                            PFLook.metric(id: "ef", title: "Speed per heartbeat", icon: "figure.run", decimals: 2, higherIsBetter: true,
+                                          rows: run.series.compactMap { p in p.ef.map { (date: p.date, value: $0) } },
+                                          what: "How fast you run for each heartbeat on steady outdoor runs. A rising line means you are getting more efficient.")
+                        ])
+                        .accessibilityElement(children: .contain)
+                        .accessibilityIdentifier("pf-eff-run-chart")
                         PFParagraph("Each dot is one steady run: speed per heartbeat. Higher is more efficient.")
                     }
                 } else {
@@ -735,10 +755,13 @@ struct PFEfficiencyDetail: View {
                                    identifier: "pf-eff-bike-insufficient")
                 }
                 if bike.series.filter({ $0.z2PowerW != nil }).count >= 2 {
-                    PFEfficiencyChart(points: bike.series.compactMap { p in p.z2PowerW.map { (date: p.date, value: $0) } },
-                                      title: "Power at zone 2")
-                        .frame(height: 150)
-                        .accessibilityIdentifier("pf-eff-bike-chart")
+                    LookTrendHost(metrics: [
+                        PFLook.metric(id: "z2", title: "Power at zone 2", icon: "bicycle", unit: "W", decimals: 0, higherIsBetter: true,
+                                      rows: bike.series.compactMap { p in p.z2PowerW.map { (date: p.date, value: $0) } },
+                                      what: "The power you hold at a zone-2 heart rate on the bike. A rising line means more output for the same effort.")
+                    ])
+                    .accessibilityElement(children: .contain)
+                    .accessibilityIdentifier("pf-eff-bike-chart")
                 }
                 if let rule = bike.threshold { footnote(rule) }
             }
@@ -798,42 +821,6 @@ struct PFEfficiencyDetail: View {
     }
 }
 
-private struct PFEfficiencyChart: View {
-    let points: [(date: String, value: Double)]
-    let title: String
-
-    var body: some View {
-        let rows = points.map { (date: PFFormat.date($0.date), value: $0.value) }
-        let lo = rows.map { $0.value }.min() ?? 0, hi = rows.map { $0.value }.max() ?? 1
-        let pad = max((hi - lo) * 0.2, hi * 0.01)
-        Chart {
-            ForEach(Array(rows.enumerated()), id: \.offset) { _, p in
-                LineMark(x: .value("Date", p.date), y: .value(title, p.value), series: .value("Series", "line"))
-                    .foregroundStyle(StrandPalette.accent)
-                    .lineStyle(StrokeStyle(lineWidth: 2))
-                PointMark(x: .value("Date", p.date), y: .value(title, p.value))
-                    .foregroundStyle(StrandPalette.accent)
-                    .symbolSize(28)
-            }
-        }
-        .chartYScale(domain: (lo - pad)...(hi + pad))
-        .chartXAxis {
-            AxisMarks(values: .automatic(desiredCount: 4)) { _ in
-                AxisGridLine().foregroundStyle(StrandPalette.hairline)
-                AxisValueLabel(format: .dateTime.day().month(.abbreviated))
-                    .foregroundStyle(StrandPalette.textTertiary)
-            }
-        }
-        .chartYAxis {
-            AxisMarks { _ in
-                AxisGridLine().foregroundStyle(StrandPalette.hairline)
-                AxisValueLabel().foregroundStyle(StrandPalette.textTertiary)
-            }
-        }
-    }
-}
-
-/// Easy, middle and hard time as one bar, with the 80 % easy line of an 80/20 pattern.
 private struct PFZoneBar: View {
     let split: PFZoneSplit
 
@@ -908,6 +895,15 @@ struct PFSleepDetail: View {
                     PFInsufficient(title: "Too few nights to rate consistency",
                                    text: item.status.reason ?? "\(sleep.regularityNights ?? 0) nights have a sleep window; at least 14 are needed.",
                                    identifier: "pf-sleep-no-spread")
+                }
+                if sleep.series.contains(where: { $0.hours != nil }) {
+                    LookTrendHost(metrics: [
+                        PFLook.metric(id: "hours", title: "Hours of sleep", icon: "moon.zzz", unit: "h", decimals: 1, higherIsBetter: true,
+                                      rows: sleep.series.compactMap { n in n.hours.map { (date: n.date, value: $0) } },
+                                      what: "The hours you slept each night, from your sleep windows. Compare it with your need, not with a round eight.")
+                    ])
+                    .accessibilityElement(children: .contain)
+                    .accessibilityIdentifier("pf-sleep-hours-trend")
                 }
                 if sleep.hasNights {
                     PFSleepClockChart(nights: sleep.series, kind: .bedtime, targetWindow: sleep.targetWindow, targetClock: nil)

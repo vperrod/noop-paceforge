@@ -220,7 +220,7 @@ struct PFChip: View {
 
     var body: some View {
         Text(hiding.text(text))
-            .font(StrandFont.overline)
+            .lookCaps(11)
             .foregroundStyle(color)
             .lineLimit(1)
             .padding(.horizontal, 9)
@@ -238,8 +238,9 @@ struct PFParagraph: View {
 
     var body: some View {
         Text(hiding.text(text))
-            .font(StrandFont.subhead)
-            .foregroundStyle(StrandPalette.textSecondary)
+            .font(LookFont.text(15, weight: .medium))
+            .foregroundStyle(NoopLook.textSecondary)
+            .lineSpacing(2)
             .fixedSize(horizontal: false, vertical: true)
     }
 }
@@ -267,20 +268,21 @@ struct PFFigure: View {
         VStack(alignment: .leading, spacing: 2) {
             HStack(alignment: .firstTextBaseline, spacing: 3) {
                 Text(value)
-                    .font(StrandFont.rounded(24))
-                    .foregroundStyle(StrandPalette.textPrimary)
+                    .font(LookFont.numeral(24))
+                    .foregroundStyle(NoopLook.textPrimary)
                     .minimumScaleFactor(0.7)
                     .lineLimit(1)
                 if let unit {
                     Text(unit)
-                        .font(StrandFont.caption)
-                        .foregroundStyle(StrandPalette.textTertiary)
+                        .font(LookFont.text(12, weight: .semibold))
+                        .foregroundStyle(NoopLook.textTertiary)
                 }
             }
             Text(label)
-                .font(StrandFont.caption)
-                .foregroundStyle(StrandPalette.textSecondary)
-                .lineLimit(1)
+                .font(LookFont.text(12, weight: .medium))
+                .foregroundStyle(NoopLook.textSecondary)
+                .lineLimit(2)
+                .minimumScaleFactor(0.85)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
