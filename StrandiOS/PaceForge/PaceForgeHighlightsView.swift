@@ -317,7 +317,11 @@ struct PFHighlightsBody: View {
 #if DEBUG
 #Preview("Highlights") {
     NavigationStack {
-        PFHighlightsScreen()
+        ScrollView {
+            PFHighlightsBody(highlights: PFPhase4Sample.highlights, item: PFPhase4Sample.item(PFDocID.highlights))
+                .padding(16)
+        }
+        .lookScreenBackground()
     }
     .preferredColorScheme(.dark)
 }

@@ -77,6 +77,13 @@ struct LookJournalFlow: View {
                     groupBlock(group)
                 }
                 saveButton
+                // What the answers add up to, once there are enough days: PaceForge's journal impact.
+                NavigationLink { PFJournalImpactScreen() } label: {
+                    InsightLink("See what helps and hurts")
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("look-journal-impact-link")
             }
         }
         .padding(16)
