@@ -14,6 +14,7 @@ enum PFTodayCard: String, CaseIterable, Equatable {
     case todaySoFar = "today-so-far"
     case raceWeek = "race-week"
     case brief
+    case nextBestAction = "next-best-action"
     case easy
     case feel
     case alerts
@@ -29,6 +30,7 @@ enum PFTodayCard: String, CaseIterable, Equatable {
         case .todaySoFar: return "Today so far"
         case .raceWeek: return "Race week"
         case .brief: return "Daily briefing"
+        case .nextBestAction: return "Next best action"
         case .easy: return "Easy mode"
         case .feel: return "How do you feel?"
         case .alerts: return "Alerts"

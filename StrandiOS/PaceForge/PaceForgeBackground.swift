@@ -22,11 +22,18 @@ enum PFDeepLink {
 
     /// `noop://paceforge` opens Today; `noop://paceforge/week` (or coach, insights, body) opens that screen;
     /// `noop://paceforge/standing` opens Insights with the "Where you stand" scorecard on top.
+    /// `noop://paceforge/insights/power-curve` (or race-countdown, weight-goal, efficiency, sleep) opens Insights with that
+    /// item's detail on top; `next-best-action` opens Today with its detail. The short form `noop://paceforge/sleep` works too.
     static func open(url: URL) {
         let name = url.pathComponents.dropFirst().first ?? ""
         if name == "standing" {
             open(.insights)
             PFStandingLink.open()
+            return
+        }
+        if let id = PFInsightID.linkedID(pathComponents: url.pathComponents) {
+            open(id == PFInsightID.nextBestAction ? .today : .insights)
+            PFInsightLink.open(id)
             return
         }
         open(PFSegment(rawValue: name) ?? .today)

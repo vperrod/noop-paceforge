@@ -16,6 +16,7 @@ struct PFInsightsView: View {
                     PFStandingInsightsCard(standing: standing)
                 }
             }
+            if let insights = snapshot.insightsV2, insights.hasContent { PFInsightsV2Section(doc: insights) }
             chartCard
             warningsCard
             if let impact = snapshot.behaviour {

@@ -22,6 +22,7 @@ enum PFCardKind: String, CaseIterable {
     case nextRace = "next-race"
     case standing
     case behaviour
+    case nextBestAction = "next-best-action"
 
     var title: String {
         switch self {
@@ -37,6 +38,7 @@ enum PFCardKind: String, CaseIterable {
         case .nextRace: return "Next race"
         case .standing: return "Where you stand"
         case .behaviour: return "Behaviour impact"
+        case .nextBestAction: return "Next best action"
         }
     }
 }
@@ -145,6 +147,7 @@ enum PFCardText {
         if let standing = s.standing, standing.hasContent { out.append(PFCardRef(kind: .standing, text: Self.standing(standing))) }
         if let race = s.today.nextRace, s.raceWeek == nil { out.append(PFCardRef(kind: .nextRace, text: nextRace(race))) }
         if let b = s.behaviour { out.append(PFCardRef(kind: .behaviour, text: behaviour(b))) }
+        if let next = s.insightsV2?.todayCard { out.append(PFCardRef(kind: .nextBestAction, text: next.dismissText)) }
         return out
     }
 }

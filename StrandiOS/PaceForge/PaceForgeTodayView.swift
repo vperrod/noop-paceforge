@@ -32,6 +32,7 @@ struct PFTodayView: View {
         case .todaySoFar, .session: return true
         case .raceWeek: return snapshot.raceWeek != nil
         case .brief: return today.brief != nil
+        case .nextBestAction: return snapshot.insightsV2?.todayCard != nil
         case .easy: return snapshot.easyMode.map { !$0.isIdle } ?? false
         case .feel: return snapshot.feel != nil
         case .alerts: return !snapshot.alerts.isEmpty
@@ -50,6 +51,7 @@ struct PFTodayView: View {
         case .todaySoFar: return .todaySoFar
         case .raceWeek: return .raceWeek
         case .brief: return .brief
+        case .nextBestAction: return .nextBestAction
         case .easy: return .easyMode
         case .feel: return .feel
         case .alerts: return .alerts
@@ -122,6 +124,10 @@ struct PFTodayView: View {
         case .brief:
             if let brief = today.brief {
                 dismissable(.brief, PFCardText.brief(brief)) { PFBriefCard(brief: brief, todayISO: snapshot.todayISO) }
+            }
+        case .nextBestAction:
+            if let next = snapshot.insightsV2?.todayCard {
+                dismissable(.nextBestAction, next.dismissText) { PFNextActionCard(item: next) }
             }
         case .easy:
             if let easy = snapshot.easyMode, !easy.isIdle {

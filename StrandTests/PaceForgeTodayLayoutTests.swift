@@ -133,10 +133,10 @@ final class PaceForgeTodayLayoutTests: XCTestCase {
     func testNoTwoCardsShareAnId() {
         XCTAssertEqual(Set(PFTodayCard.allCases.map { $0.rawValue }).count, PFTodayCard.allCases.count)
     }
-    func testTheDefaultOrderIsTheOneTheScreenAlwaysHad() {
+    func testTheDefaultOrderIsTheOneTheScreenHadWithNextBestActionAfterTheBrief() {
         XCTAssertEqual(PFTodayCard.defaultOrder.map { $0.rawValue },
-                       ["today-so-far", "race-week", "brief", "easy", "feel", "alerts", "daily", "what-changed",
-                        "readiness", "standing", "session", "next-race"])
+                       ["today-so-far", "race-week", "brief", "next-best-action", "easy", "feel", "alerts", "daily",
+                        "what-changed", "readiness", "standing", "session", "next-race"])
     }
     func testAWebLayoutOrdersTheCardsItNamesAndLeavesTheAppsOwnWhereTheyWere() {
         let present = ["today-so-far", "brief", "feel", "daily", "session"]

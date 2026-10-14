@@ -30,6 +30,7 @@ struct PaceForgeTabView: View {
 
     @AppStorage("noop.paceforge.segment") private var segmentRaw = PFSegment.today.rawValue
     @State private var showStanding = false
+    @State private var insightRoute: PFInsightRoute?
     /// Settings > Hide numbers: body weight and body fat. The Body screen then shows a placeholder.
     private let hiding = PFHiding()
 
@@ -94,16 +95,22 @@ struct PaceForgeTabView: View {
         }
         .environmentObject(model)
         .environment(\.pfOpenStanding, { openStanding() })
+        .environment(\.pfOpenInsight, { id in openInsight(id) })
         .sheet(isPresented: $showStanding) { standingSheet }
+        .sheet(item: $insightRoute) { route in insightSheet(route.id) }
         .onReceive(NotificationCenter.default.publisher(for: .pfOpenStanding)) { _ in
             _ = PFStandingLink.consume()
             openStanding()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .pfOpenInsight)) { _ in
+            if let id = PFInsightLink.consume() { openInsight(id) }
         }
         .task {
             await model.refreshIfStale()
             if model.phase == .ready { PaceForgeBackground.requestNotificationPermissionOnce() }
             // A `noop://paceforge/standing` link that arrived before the tab existed.
             if await PFStandingLink.consume() { openStanding() }
+            if let id = await PFInsightLink.consume() { openInsight(id) }
             await PFHeartRecovery.updateSummary(repo: repo, hrMax: profile.hrMax)
         }
     }
@@ -111,6 +118,19 @@ struct PaceForgeTabView: View {
     /// Opens the scorecard when the server serves one; otherwise the request is dropped.
     private func openStanding() {
         if model.snapshot?.standing?.hasContent == true { showStanding = true }
+    }
+
+    /// Opens an insight's detail when the server serves that item; otherwise the request is dropped.
+    private func openInsight(_ id: String) {
+        if model.snapshot?.insightsV2?.item(id) != nil { insightRoute = PFInsightRoute(id: id) }
+    }
+
+    @ViewBuilder private func insightSheet(_ id: String) -> some View {
+        if let snapshot = model.snapshot, let item = snapshot.insightsV2?.item(id) {
+            PFInsightDetailView(item: item)
+                .environmentObject(model)
+                .environment(\.pfExplainers, snapshot.explainerMap)
+        }
     }
 
     @ViewBuilder private var standingSheet: some View {

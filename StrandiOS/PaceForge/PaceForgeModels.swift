@@ -38,6 +38,8 @@ struct PFSnapshot {
     var tape: PFTape?
     /// `standing.json` ("Where you stand"); nil when the server does not serve it.
     var standing: PFStanding?
+    /// `insights-v2.json` (the rules-written "what to do" items); nil when the server does not serve it.
+    var insightsV2: PFInsightsV2?
     /// Bike rides from `ride-metrics.json`, newest first; empty when the server does not serve it.
     var rides: [PFRide] = []
     /// The server's `dismissed.json` (cards hidden in PaceForge); united with the ones hidden on this iPhone.
