@@ -42,6 +42,8 @@ struct PFSnapshot {
     var insightsV2: PFInsightsV2?
     /// `daily-intel.json` (Today's call, sleep need, Health monitor, What moved it, Day in review); nil when the server does not serve it.
     var dailyIntel: PFDailyIntel?
+    /// The five Phase 4 documents (healthspan, journal impact, highlights, monthly report, my plan); each reads as missing when not served.
+    var intelDocs = PFIntelDocs()
     /// Bike rides from `ride-metrics.json`, newest first; empty when the server does not serve it.
     var rides: [PFRide] = []
     /// The server's `dismissed.json` (cards hidden in PaceForge); united with the ones hidden on this iPhone.

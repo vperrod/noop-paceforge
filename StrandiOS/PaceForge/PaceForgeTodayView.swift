@@ -30,6 +30,7 @@ struct PFTodayView: View {
     private func isPresent(_ card: PFTodayCard) -> Bool {
         switch card {
         case .todaySoFar, .session: return true
+        case .myPlan: return snapshot.intelDocs.myPlan.value != nil
         case .todaysCall: return snapshot.dailyIntel?.item(PFIntelID.todaysCall) != nil
         case .dayInReview:
             return PFIntelClock.isEvening() && snapshot.dailyIntel?.item(PFIntelID.dayInReview) != nil
@@ -54,6 +55,7 @@ struct PFTodayView: View {
         case .todaysCall: return .todaysCall
         case .dayInReview: return .dayInReview
         case .todaySoFar: return .todaySoFar
+        case .myPlan: return nil
         case .raceWeek: return .raceWeek
         case .brief: return .brief
         case .nextBestAction: return .nextBestAction
@@ -135,6 +137,10 @@ struct PFTodayView: View {
                 }
             } else if let intel = snapshot.dailyIntel {
                 PFDayReviewHost(intel: intel, todayISO: snapshot.todayISO)
+            }
+        case .myPlan:
+            if let plan = snapshot.intelDocs.myPlan.value {
+                PFMyPlanCard(plan: plan)
             }
         case .todaySoFar:
             VStack(alignment: .leading, spacing: 16) {

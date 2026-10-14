@@ -15,6 +15,8 @@ enum PFTodayCard: String, CaseIterable, Equatable {
     case todaysCall = "todays-call"
     case dayInReview = "day-in-review"
     case todaySoFar = "today-so-far"
+    /// The week's plan progress (my-plan.json): the same card NOOP Today carries.
+    case myPlan = "my-plan"
     case raceWeek = "race-week"
     case brief
     case nextBestAction = "next-best-action"
@@ -33,6 +35,7 @@ enum PFTodayCard: String, CaseIterable, Equatable {
         case .todaysCall: return "Today's call"
         case .dayInReview: return "Day in review"
         case .todaySoFar: return "Today so far"
+        case .myPlan: return "My Plan"
         case .raceWeek: return "Race week"
         case .brief: return "Daily briefing"
         case .nextBestAction: return "Next best action"

@@ -63,6 +63,20 @@ enum PFAPI {
         ("-PaceForgeIntelAlert", "data/daily-intel.json", "data/daily-intel.alert.json"),
         ("-PaceForgeIntelUnavailable", "data/daily-intel.json", "data/daily-intel.unavailable.json"),
         ("-PaceForgeIntelMissing", "data/daily-intel.json", "data/daily-intel.missing.json"),
+        // Phase 4 documents: every one unavailable (the server's own reason), none served, a fresh install with no streak alive,
+        // and a Journal impact with nothing clear yet.
+        ("-PaceForgePhase4Unavailable", "data/healthspan.json", "data/healthspan.unavailable.json"),
+        ("-PaceForgePhase4Unavailable", "data/journal-impact.json", "data/journal-impact.unavailable.json"),
+        ("-PaceForgePhase4Unavailable", "data/highlights.json", "data/highlights.unavailable.json"),
+        ("-PaceForgePhase4Unavailable", "data/monthly-report.json", "data/monthly-report.unavailable.json"),
+        ("-PaceForgePhase4Unavailable", "data/my-plan.json", "data/my-plan.unavailable.json"),
+        ("-PaceForgePhase4Missing", "data/healthspan.json", "data/healthspan.missing.json"),
+        ("-PaceForgePhase4Missing", "data/journal-impact.json", "data/journal-impact.missing.json"),
+        ("-PaceForgePhase4Missing", "data/highlights.json", "data/highlights.missing.json"),
+        ("-PaceForgePhase4Missing", "data/monthly-report.json", "data/monthly-report.missing.json"),
+        ("-PaceForgePhase4Missing", "data/my-plan.json", "data/my-plan.missing.json"),
+        ("-PaceForgeNoStreak", "data/highlights.json", "data/highlights.nostreak.json"),
+        ("-PaceForgeJournalImpactEmpty", "data/journal-impact.json", "data/journal-impact.empty.json"),
     ]
     #endif
 
@@ -171,6 +185,11 @@ enum PFAPI {
         async let standing = fetchOptional("data/standing.json")
         async let insightsV2 = fetchOptional("data/insights-v2.json")
         async let dailyIntel = fetchOptional("data/daily-intel.json")
+        async let healthspan = fetchOptional(PFDocPath.healthspan)
+        async let journalImpact = fetchOptional(PFDocPath.journalImpact)
+        async let highlights = fetchOptional(PFDocPath.highlights)
+        async let monthlyReport = fetchOptional(PFDocPath.monthlyReport)
+        async let myPlan = fetchOptional(PFDocPath.myPlan)
         async let rideMetrics = fetchOptional("data/ride-metrics.json")
         async let dismissed = fetchOptional("data/dismissed.json")
         async let todayLayout = fetchOptional("data/today-layout.json")
@@ -203,6 +222,11 @@ enum PFAPI {
         raw.standing = PFJ(data: await standing)
         raw.insightsV2 = PFJ(data: await insightsV2)
         raw.dailyIntel = PFJ(data: await dailyIntel)
+        raw.healthspan = PFJ(data: await healthspan)
+        raw.journalImpact = PFJ(data: await journalImpact)
+        raw.highlights = PFJ(data: await highlights)
+        raw.monthlyReport = PFJ(data: await monthlyReport)
+        raw.myPlan = PFJ(data: await myPlan)
         raw.rideMetrics = PFJ(data: await rideMetrics)
         raw.dismissed = PFJ(data: await dismissed)
         raw.todayLayout = PFJ(data: await todayLayout)
@@ -267,6 +291,11 @@ enum PFStore {
         raw.standing = PFJ(data: read(path: "data/standing.json"))
         raw.insightsV2 = PFJ(data: read(path: "data/insights-v2.json"))
         raw.dailyIntel = PFJ(data: read(path: "data/daily-intel.json"))
+        raw.healthspan = PFJ(data: read(path: PFDocPath.healthspan))
+        raw.journalImpact = PFJ(data: read(path: PFDocPath.journalImpact))
+        raw.highlights = PFJ(data: read(path: PFDocPath.highlights))
+        raw.monthlyReport = PFJ(data: read(path: PFDocPath.monthlyReport))
+        raw.myPlan = PFJ(data: read(path: PFDocPath.myPlan))
         raw.rideMetrics = PFJ(data: read(path: "data/ride-metrics.json"))
         raw.dismissed = PFJ(data: read(path: "data/dismissed.json"))
         raw.todayLayout = PFJ(data: read(path: "data/today-layout.json"))
@@ -346,6 +375,7 @@ final class PFModel: ObservableObject {
             }
             snapshot = built
             PFDailyIntelStore.shared.update(built.dailyIntel)
+            PFPhase4Store.shared.update(built.intelDocs)
             PFSummaryWriter.publish(built)
             savedAt = Date()
             lastSuccess = Date()

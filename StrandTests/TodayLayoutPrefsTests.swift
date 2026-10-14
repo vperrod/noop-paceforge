@@ -13,11 +13,11 @@ final class TodayLayoutPrefsTests: XCTestCase {
 
     func testEncodeDecodeRoundTripsAReorderedList() {
         let reordered: [TodaySection] = [
-            .todaysCall, .dayInReview, .heartRate, .hero, .yourCards, .liveSession, .synthesis, .keyMetrics, .workouts,
-            .recoveryVitals, .journal, .menstrualCycle, .addedCards,
+            .todaysCall, .dayInReview, .myPlan, .myDashboard, .heartRate, .hero, .yourCards, .liveSession, .synthesis, .keyMetrics,
+            .workouts, .recoveryVitals, .journal, .menstrualCycle, .addedCards,
         ]
         let encoded = TodayLayoutPrefs.encode(reordered)
-        XCTAssertEqual(encoded, "todays-call,day-in-review,heartRate,hero,yourCards,liveSession,synthesis,keyMetrics,workouts,recoveryVitals,journal,menstrualCycle,addedCards")
+        XCTAssertEqual(encoded, "todays-call,day-in-review,my-plan,my-dashboard,heartRate,hero,yourCards,liveSession,synthesis,keyMetrics,workouts,recoveryVitals,journal,menstrualCycle,addedCards")
         XCTAssertEqual(TodayLayoutPrefs.decodeOrder(encoded), reordered)
     }
 
@@ -29,7 +29,7 @@ final class TodayLayoutPrefsTests: XCTestCase {
         XCTAssertEqual(
             TodayLayoutPrefs.decodeOrder(firstCut),
             // journal(8) follows everything saved → appended; addedCards(10) is last, appended after it.
-            [.todaysCall, .dayInReview, .hero, .liveSession, .synthesis, .keyMetrics, .workouts, .heartRate, .recoveryVitals, .yourCards, .menstrualCycle, .journal, .addedCards]
+            [.todaysCall, .dayInReview, .hero, .myPlan, .myDashboard, .liveSession, .synthesis, .keyMetrics, .workouts, .heartRate, .recoveryVitals, .yourCards, .menstrualCycle, .journal, .addedCards]
         )
     }
 
@@ -37,7 +37,7 @@ final class TodayLayoutPrefsTests: XCTestCase {
         let partial = "heartRate,synthesis,keyMetrics,recoveryVitals"
         XCTAssertEqual(
             TodayLayoutPrefs.decodeOrder(partial),
-            [.todaysCall, .dayInReview, .hero, .liveSession, .workouts, .heartRate, .synthesis, .keyMetrics, .recoveryVitals, .yourCards, .menstrualCycle, .journal, .addedCards]
+            [.todaysCall, .dayInReview, .hero, .myPlan, .myDashboard, .liveSession, .workouts, .heartRate, .synthesis, .keyMetrics, .recoveryVitals, .yourCards, .menstrualCycle, .journal, .addedCards]
         )
     }
 
@@ -45,7 +45,7 @@ final class TodayLayoutPrefsTests: XCTestCase {
         let messy = "yourCards,BOGUS,yourCards,heartRate, ,heartRate"
         XCTAssertEqual(
             TodayLayoutPrefs.decodeOrder(messy),
-            [.todaysCall, .dayInReview, .hero, .liveSession, .synthesis, .keyMetrics, .workouts, .recoveryVitals, .yourCards, .heartRate, .menstrualCycle, .journal, .addedCards]
+            [.todaysCall, .dayInReview, .hero, .myPlan, .myDashboard, .liveSession, .synthesis, .keyMetrics, .workouts, .recoveryVitals, .yourCards, .heartRate, .menstrualCycle, .journal, .addedCards]
         )
     }
 
@@ -63,11 +63,11 @@ final class TodayLayoutPrefsTests: XCTestCase {
         let order = "heartRate,hero,yourCards,liveSession,synthesis,keyMetrics,workouts,recoveryVitals,journal"
         XCTAssertEqual(
             TodayLayoutPrefs.visibleOrder(orderRaw: order, hiddenRaw: "hero,workouts"),
-            [.todaysCall, .dayInReview, .heartRate, .yourCards, .liveSession, .synthesis, .keyMetrics, .recoveryVitals, .menstrualCycle, .journal, .addedCards]
+            [.todaysCall, .dayInReview, .myPlan, .myDashboard, .heartRate, .yourCards, .liveSession, .synthesis, .keyMetrics, .recoveryVitals, .menstrualCycle, .journal, .addedCards]
         )
         XCTAssertEqual(TodayLayoutPrefs.decodeOrder(order), [
-            .todaysCall, .dayInReview, .heartRate, .hero, .yourCards, .liveSession, .synthesis, .keyMetrics, .workouts,
-            .recoveryVitals, .menstrualCycle, .journal, .addedCards,
+            .todaysCall, .dayInReview, .myPlan, .myDashboard, .heartRate, .hero, .yourCards, .liveSession, .synthesis, .keyMetrics,
+            .workouts, .recoveryVitals, .menstrualCycle, .journal, .addedCards,
         ])
     }
 
@@ -90,11 +90,11 @@ final class TodayLayoutPrefsTests: XCTestCase {
     func testSectionRawKeysAreStableAndUnique() {
         let raws = TodaySection.allCases.map(\.rawValue)
         XCTAssertEqual(raws.count, Set(raws).count, "raw keys must be unique (they're the persisted identity)")
-        // Pin the exact wire strings. The first two are iPhone-only (daily-intel.json); every other one must match the
-        // Android TodaySection byte-for-byte, and Android's decoder drops the two it does not know.
+        // Pin the exact wire strings. todays-call, day-in-review, my-plan and my-dashboard are iPhone-only; every other one must match the
+        // Android TodaySection byte-for-byte, and Android's decoder drops the four it does not know.
         XCTAssertEqual(
             raws,
-            ["todays-call", "day-in-review", "hero", "liveSession", "synthesis", "keyMetrics", "workouts", "heartRate", "recoveryVitals", "yourCards", "menstrualCycle", "journal", "addedCards"]
+            ["todays-call", "day-in-review", "hero", "my-plan", "my-dashboard", "liveSession", "synthesis", "keyMetrics", "workouts", "heartRate", "recoveryVitals", "yourCards", "menstrualCycle", "journal", "addedCards"]
         )
     }
 

@@ -818,4 +818,65 @@ final class PaceForgeIntelDocsTests: XCTestCase {
             id: PFDocID.myPlan, PFIntelDocsParse.myPlan)
         XCTAssertEqual(state.value?.items.first?.status, "done")
     }
+
+    // MARK: The synthetic UI-test fixture
+
+    /// A document of the synthetic UI-test fixture (`PF_FIXTURE_FILE` when compiled outside the repo tree).
+    private func fixtureRoot(_ key: String, file: StaticString = #filePath) throws -> PFJ {
+        let fallback = URL(fileURLWithPath: "\(file)").deletingLastPathComponent().deletingLastPathComponent()
+            .appendingPathComponent("NOOPiOSUITests/PaceForgeFixture.json")
+        let url = ProcessInfo.processInfo.environment["PF_FIXTURE_FILE"].map { URL(fileURLWithPath: $0) } ?? fallback
+        let root = try XCTUnwrap(try JSONSerialization.jsonObject(with: Data(contentsOf: url)) as? [String: Any])
+        return PFJ(try XCTUnwrap(root[key]))
+    }
+
+    func testFixtureHealthspanDecodesWithNineDrivers() throws {
+        let state = PFIntelDocsParse.state(try fixtureRoot("data/healthspan.json"), id: PFDocID.healthspan, PFIntelDocsParse.healthspan)
+        XCTAssertEqual(state.value?.drivers.count, 9)
+    }
+
+    func testFixtureHealthspanHasAWeekKeyForTheStepper() throws {
+        let state = PFIntelDocsParse.state(try fixtureRoot("data/healthspan.json"), id: PFDocID.healthspan, PFIntelDocsParse.healthspan)
+        XCTAssertEqual(state.value?.pace?.week, "2030-W11")
+    }
+
+    func testFixtureWeeksDecode() throws {
+        let weeks = PFHealthspanHistory.decode(try JSONSerialization.data(withJSONObject: try fixtureRoot("ui/healthspan-weeks.json").raw as Any))
+        XCTAssertEqual(weeks.count, 5)
+    }
+
+    func testFixtureJournalImpactDecodes() throws {
+        let state = PFIntelDocsParse.state(try fixtureRoot("data/journal-impact.json"), id: PFDocID.journalImpact, PFIntelDocsParse.journalImpact)
+        XCTAssertEqual([state.value?.hurts.count, state.value?.helps.count, state.value?.notEnoughData.count], [2, 2, 3])
+    }
+
+    func testFixtureEmptyJournalImpactHasNoEffects() throws {
+        let state = PFIntelDocsParse.state(try fixtureRoot("data/journal-impact.empty.json"), id: PFDocID.journalImpact, PFIntelDocsParse.journalImpact)
+        XCTAssertEqual(state.value?.hasAnyEffect, false)
+    }
+
+    func testFixtureHighlightsDecodeWithAChipThatLeadsWithSixDays() throws {
+        let state = PFIntelDocsParse.state(try fixtureRoot("data/highlights.json"), id: PFDocID.highlights, PFIntelDocsParse.highlights)
+        XCTAssertEqual(PFHighlightsLogic.chip(state.value)?.text, "6")
+    }
+
+    func testFixtureHighlightsWithNoStreakAliveHaveNoChip() throws {
+        let state = PFIntelDocsParse.state(try fixtureRoot("data/highlights.nostreak.json"), id: PFDocID.highlights, PFIntelDocsParse.highlights)
+        XCTAssertNil(PFHighlightsLogic.chip(state.value))
+    }
+
+    func testFixtureMonthlyReportDecodesBothPeriods() throws {
+        let state = PFIntelDocsParse.state(try fixtureRoot("data/monthly-report.json"), id: PFDocID.monthlyReport, PFIntelDocsParse.monthlyReport)
+        XCTAssertEqual(state.value?.periods.map(\.id), ["last_full", "month_to_date"])
+    }
+
+    func testFixtureMyPlanDecodesTheHeaderTheCardShows() throws {
+        let state = PFIntelDocsParse.state(try fixtureRoot("data/my-plan.json"), id: PFDocID.myPlan, PFIntelDocsParse.myPlan)
+        XCTAssertEqual(state.value?.headerText, "5 DAYS LEFT \u{00B7} 62 % ACCOMPLISHED")
+    }
+
+    func testFixtureUnavailableVariantsCarryTheirReason() throws {
+        let state = PFIntelDocsParse.state(try fixtureRoot("data/my-plan.unavailable.json"), id: PFDocID.myPlan, PFIntelDocsParse.myPlan)
+        XCTAssertEqual(state.reason, "Synthetic: no plan is published for this week.")
+    }
 }

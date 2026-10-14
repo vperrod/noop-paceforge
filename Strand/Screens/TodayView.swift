@@ -1944,8 +1944,9 @@ struct TodayView: View {
     @ViewBuilder
     private func todaySection(_ section: TodaySection) -> some View {
         switch section {
-        case .todaysCall, .dayInReview:
-            // iPhone's Liquid Today draws these two (they read PaceForge's daily-intel.json); the classic stack has no twin.
+        case .todaysCall, .dayInReview, .myPlan, .myDashboard:
+            // iPhone's Liquid Today draws these (the first two read PaceForge's daily-intel.json, My Plan its my-plan.json, My Dashboard
+            // is the user's own list); the classic stack has no twin.
             EmptyView()
         case .hero:
             classicHeroSection

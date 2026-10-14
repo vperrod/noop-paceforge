@@ -517,6 +517,11 @@ struct RootTabView: View {
                     MoreRow("Intelligence", "brain.head.profile", .intelligence)
                     // K3: Coach promoted to a top-level tab — no longer listed under More.
                     MoreRow("Insights", "lightbulb.fill", .insights)
+                    // Records and streaks, what helps and hurts the next morning's score, and the monthly report: PaceForge's
+                    // highlights, journal-impact and monthly-report documents in the look.
+                    MoreRow("Highlights", "star.fill", .highlights)
+                    MoreRow("Journal impact", "book.closed.fill", .journalImpact)
+                    MoreRow("Monthly report", "calendar", .monthlyReport)
                     MoreRow("Explore", "square.grid.2x2.fill", .explore)
                     MoreRow("Compare", "rectangle.split.2x1.fill", .compare)
                 }
@@ -525,8 +530,10 @@ struct RootTabView: View {
                     MoreRow("Workouts", "figure.run", .workouts)
                     MoreRow("Lift Log", "dumbbell.fill", .liftLog)
                     MoreRow("Health", "heart.text.square.fill", .health)
+                    MoreRow("Healthspan", "hourglass", .healthspan)
                     MoreRow("Lab Book", "books.vertical.fill", .labBook)
                     MoreRow("Stress", "bolt.heart.fill", .stress)
+                    MoreRow("Stress monitor", "gauge.with.dots.needle.50percent", .stressMonitor)
                     MoreRow("Breathe", "wind", .breathe)
                     MoreRow("Intervals", "timer", .intervals)
                     // Experimental beat-to-beat regularity visualization — self-gates on its own consent.
@@ -649,6 +656,7 @@ struct RootTabView: View {
 private enum MoreDestination: Hashable {
     case insightsHub, intelligence, coach, insights, explore, compare
     case live, workouts, liftLog, health, labBook, stress, breathe, intervals, rhythm
+    case highlights, journalImpact, monthlyReport, healthspan, stressMonitor
     case fusedRecord, appleHealth, miBand, dataSources, backupSync, shortcutsExport, selfHostedPush, noopLimitations
     case alarms, automations, testCentre, siriShortcuts, powerSaving, settings
 
@@ -666,6 +674,11 @@ private enum MoreDestination: Hashable {
         case .health:          HealthView()
         case .labBook:         LabBookView()
         case .stress:          StressView()
+        case .highlights:      PFHighlightsScreen()
+        case .journalImpact:   PFJournalImpactScreen()
+        case .monthlyReport:   PFMonthlyReportScreen()
+        case .healthspan:      PFHealthspanScreen()
+        case .stressMonitor:   LookStressMonitorScreen()
         case .breathe:         BreathingView()
         case .intervals:       IntervalTimerView()
         case .rhythm:          RhythmHost()

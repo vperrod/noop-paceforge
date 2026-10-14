@@ -79,6 +79,16 @@ enum JournalFlowLogic {
         }
     }
 
+    /// The question above the answers: "What's happening today, April 15?", "What happened yesterday, April 14?".
+    static func question(forOffset offset: Int, dateText: String) -> String {
+        switch offset {
+        case ..<0: return "What's happening tomorrow, \(dateText)?"
+        case 0: return "What's happening today, \(dateText)?"
+        case 1: return "What happened yesterday, \(dateText)?"
+        default: return "What happened on \(dateText)?"
+        }
+    }
+
     /// The stepper's bounds: tomorrow (-1) to six days back, the same window the journal has always allowed.
     static let offsetRange: ClosedRange<Int> = -1...6
 

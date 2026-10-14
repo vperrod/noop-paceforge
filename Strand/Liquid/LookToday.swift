@@ -54,7 +54,8 @@ struct LookStressTile: View {
     let score: Double?
 
     var body: some View {
-        NavigationLink(value: TabRoute.stress) { tile }
+        // The monitor (reading, day line, honest empty state); the full Stress screen is one tap further.
+        NavigationLink(value: TabRoute.stressMonitor) { tile }
             .buttonStyle(.plain)
             .accessibilityIdentifier("look-stress-tile")
     }

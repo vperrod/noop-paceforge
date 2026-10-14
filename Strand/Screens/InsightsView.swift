@@ -198,6 +198,10 @@ struct InsightsView: View {
     @State private var dayNumeric: [String: Double] = [:]
     /// -1 = tomorrow (log ahead), 0 = today, 1 = yesterday (late logging).
     @State private var journalDayOffset = 0
+    #if os(iOS)
+    /// Bumped when the journal question editor closes, so the look's journal flow is made again with the edited questions.
+    @State private var journalFlowEpoch = 0
+    #endif
     /// #860 item 4: today's local calendar-day key, captured on appear and refreshed on foreground. The
     /// journal day chips ("Today"/"Yesterday"/"Tomorrow") are relative to the CURRENT date, but the
     /// answers (`dayAnswers`) and the resolved day key are derived from `Date()` only inside `load()`,
@@ -227,11 +231,20 @@ struct InsightsView: View {
                     // honest in-Insights entry point.
                     whatMovesYouLink
                     // Native logging, always reachable: the account-free way into Insights.
+                    #if os(iOS)
+                    // The look's journal flow (week strip, grouped questions, SAVE JOURNAL); the previous card sits under its pencil.
+                    LookJournalFlow(importedQuestions: importedQuestions,
+                                    dayOffset: $journalDayOffset,
+                                    onChanged: { Task { await load() } },
+                                    onEditorClosed: { journalFlowEpoch += 1 })
+                        .id(journalFlowEpoch)
+                    #else
                     JournalLogCard(importedQuestions: importedQuestions,
                                    answers: dayAnswers,
                                    numericAnswers: dayNumeric,
                                    dayOffset: $journalDayOffset,
                                    onChanged: { Task { await load() } })
+                    #endif
                     // Mind, daily mood check-in + mood↔body correlations.
                     // Self-contained (owns its own load/state); sits with the
                     // journal card so the two daily-logging surfaces read as one

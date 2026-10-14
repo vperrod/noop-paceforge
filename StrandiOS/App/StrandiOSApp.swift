@@ -614,6 +614,14 @@ enum DemoScreens {
         case "lookrest":   return MetricCatalog.metric(key: "sleep_performance", source: "my-whoop").map { AnyView(MetricDetailView(metric: $0)) }
         case "lookhrv":    return MetricCatalog.metric(key: "hrv", source: "my-whoop").map { AnyView(MetricDetailView(metric: $0)) }
         case "lookplanner": return AnyView(SleepPlannerView())
+        // The Phase 4 screens (Phase4UITests): PaceForge's highlights, healthspan, journal-impact and monthly-report documents
+        // (from the synthetic fixture), the Stress monitor and the dashboard editor.
+        case "highlights": return AnyView(PFHighlightsScreen())
+        case "healthspan": return AnyView(PFHealthspanScreen())
+        case "journalimpact": return AnyView(PFJournalImpactScreen())
+        case "monthlyreport": return AnyView(PFMonthlyReportScreen())
+        case "stressmonitor": return AnyView(LookStressMonitorScreen())
+        case "dashboardeditor": return AnyView(LookDashboardEditor(initial: MyDashboardPrefs.defaultIDs, onSave: { _ in }, onCancel: {}))
         case "trends":   return AnyView(TrendsView())
         case "sleep":    return AnyView(SleepView())
         case "live":     return AnyView(LiveView())

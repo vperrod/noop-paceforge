@@ -392,6 +392,19 @@ struct LiquidTodayView: View {
                             #else
                             EmptyView()
                             #endif
+                        // This week's plan progress and the user's own metrics. Today only; each draws nothing when it has nothing to say.
+                        case .myPlan:
+                            #if os(iOS)
+                            if selectedDayOffset == 0 { PFMyPlanStoreHost() }
+                            #else
+                            EmptyView()
+                            #endif
+                        case .myDashboard:
+                            #if os(iOS)
+                            LookMyDashboardSection(day: selectedLogicalDay)
+                            #else
+                            EmptyView()
+                            #endif
                         case .hero:
                             heroCard
                             #if os(iOS)
@@ -896,8 +909,17 @@ struct LiquidTodayView: View {
         return String(Int(value.rounded()))
     }
 
-    /// Top bar: profile, the ‹ TODAY › day pill, the strap battery / sync control and the customise button.
+    /// Top bar: profile, the streak chip, the ‹ TODAY › day pill, the strap battery / sync control and the customise button.
+    /// The chip is the first thing dropped when the row is too wide for it (a long day name on a narrow phone), so nothing is ever
+    /// squeezed or clipped.
     private var lookTopBar: some View {
+        ViewThatFits(in: .horizontal) {
+            lookTopBarRow(showsStreak: true)
+            lookTopBarRow(showsStreak: false)
+        }
+    }
+
+    private func lookTopBarRow(showsStreak: Bool) -> some View {
         HStack(spacing: 8) {
             Button { showSettings = true } label: {
                 Color.clear.frame(width: NoopMetrics.compactControlSize, height: NoopMetrics.compactControlSize)
@@ -915,6 +937,8 @@ struct LiquidTodayView: View {
             .nativeLiquidGlassPhotoFinish()
             .accessibilityLabel("Profile and settings")
             .accessibilityIdentifier("today-settings")
+            // The longest streak alive (PaceForge's highlights.json); nothing without one.
+            if showsStreak { PFStreakChipView() }
             Spacer(minLength: 0)
             lookDayPill
             Spacer(minLength: 0)

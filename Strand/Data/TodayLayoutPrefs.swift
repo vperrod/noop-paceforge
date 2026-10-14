@@ -28,6 +28,10 @@ enum TodaySection: String, CaseIterable, Identifiable {
     case todaysCall = "todays-call"
     case dayInReview = "day-in-review"
     case hero
+    /// This week's plan progress (my-plan.json from PaceForge) and the user's own chosen metrics. iPhone only, like the two above:
+    /// a restore on Android drops the tokens, and a saved order inserts them right after the hero.
+    case myPlan = "my-plan"
+    case myDashboard = "my-dashboard"
     case liveSession
     case synthesis
     case keyMetrics
@@ -50,6 +54,8 @@ enum TodaySection: String, CaseIterable, Identifiable {
         case .todaysCall:     return String(localized: "Today's call")
         case .dayInReview:    return String(localized: "Day in review")
         case .hero:           return String(localized: "Charge / Effort / Rest")
+        case .myPlan:         return String(localized: "My Plan")
+        case .myDashboard:    return String(localized: "My Dashboard")
         case .liveSession:    return String(localized: "Start session")
         case .synthesis:      return String(localized: "Synthesis")
         case .keyMetrics:     return String(localized: "Key Metrics")
@@ -66,7 +72,7 @@ enum TodaySection: String, CaseIterable, Identifiable {
     /// The original, hard-coded section order — the default when the layout isn't customised. The journal
     /// widget (#656) is last by default, where it was first added, above the data-sources card.
     static let defaultOrder: [TodaySection] = [
-        .todaysCall, .dayInReview, .hero, .liveSession, .synthesis, .keyMetrics, .workouts, .heartRate, .recoveryVitals, .yourCards,
+        .todaysCall, .dayInReview, .hero, .myPlan, .myDashboard, .liveSession, .synthesis, .keyMetrics, .workouts, .heartRate, .recoveryVitals, .yourCards,
         .menstrualCycle, .journal, .addedCards,
     ]
 }

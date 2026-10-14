@@ -140,7 +140,7 @@ final class PaceForgeTodayLayoutTests: XCTestCase {
     }
     func testTheDefaultOrderIsTheOneTheScreenHadWithTodaysCallOnTopAndNextBestActionAfterTheBrief() {
         XCTAssertEqual(PFTodayCard.defaultOrder.map { $0.rawValue },
-                       ["todays-call", "day-in-review", "today-so-far", "race-week", "brief", "next-best-action", "easy", "feel", "alerts", "daily",
+                       ["todays-call", "day-in-review", "today-so-far", "my-plan", "race-week", "brief", "next-best-action", "easy", "feel", "alerts", "daily",
                         "what-changed", "readiness", "standing", "session", "next-race"])
     }
     func testAWebLayoutOrdersTheCardsItNamesAndLeavesTheAppsOwnWhereTheyWere() {

@@ -94,4 +94,20 @@ final class JournalFlowLogicTests: XCTestCase {
     func testStepperMovesOneDayBack() {
         XCTAssertEqual(JournalFlowLogic.stepped(0, by: 1), 1)
     }
+
+    func testQuestionForToday() {
+        XCTAssertEqual(JournalFlowLogic.question(forOffset: 0, dateText: "April 15"), "What's happening today, April 15?")
+    }
+
+    func testQuestionForTomorrowLooksAhead() {
+        XCTAssertEqual(JournalFlowLogic.question(forOffset: -1, dateText: "April 16"), "What's happening tomorrow, April 16?")
+    }
+
+    func testQuestionForYesterday() {
+        XCTAssertEqual(JournalFlowLogic.question(forOffset: 1, dateText: "April 14"), "What happened yesterday, April 14?")
+    }
+
+    func testQuestionForAnOlderDay() {
+        XCTAssertEqual(JournalFlowLogic.question(forOffset: 4, dateText: "Saturday, April 11"), "What happened on Saturday, April 11?")
+    }
 }
