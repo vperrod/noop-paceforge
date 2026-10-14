@@ -40,7 +40,7 @@ public struct InsightLink: View {
     }
 }
 
-public struct InsightCard: View {
+public struct LookInsightCard: View {
     public var text: String
     public var linkTitle: String?
     public var action: (() -> Void)?
@@ -71,11 +71,11 @@ public struct InsightCard: View {
 }
 
 #if DEBUG
-#Preview("InsightCard") {
+#Preview("LookInsightCard") {
     VStack(spacing: 14) {
-        InsightCard("Your resting heart rate (59 bpm) is within its typical range of 58 to 62 bpm, and HRV is a little low, which gives a yellow Charge. A good day to stay active without a hard session.",
+        LookInsightCard("Your resting heart rate (59 bpm) is within its typical range of 58 to 62 bpm, and HRV is a little low, which gives a yellow Charge. A good day to stay active without a hard session.",
                     linkTitle: "Break down my Charge", action: {})
-        InsightCard("Effort between 14.0 and 17.9 is strenuous.")
+        LookInsightCard("Effort between 14.0 and 17.9 is strenuous.")
     }
     .padding(16)
     .frame(width: 402)

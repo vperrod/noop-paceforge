@@ -292,17 +292,17 @@ struct LookScoreDetailView: View {
     @ViewBuilder private var insight: some View {
         switch kind {
         case .charge:
-            InsightCard(insightText, linkTitle: "Break down my Charge", action: { showGuide = true })
+            LookInsightCard(insightText, linkTitle: "Break down my Charge", action: { showGuide = true })
                 .accessibilityIdentifier("look-score-insight")
         case .effort:
             NavigationLink { EffortBreakdownView() } label: {
-                InsightCard(insightText, linkTitle: "Explore my Effort")
+                LookInsightCard(insightText, linkTitle: "Explore my Effort")
             }
             .buttonStyle(.plain)
             .accessibilityIdentifier("look-score-insight")
         case .rest:
             NavigationLink(value: TabRoute.sleep) {
-                InsightCard(insightText, linkTitle: "Explore your sleep insights")
+                LookInsightCard(insightText, linkTitle: "Explore your sleep insights")
             }
             .buttonStyle(.plain)
             .accessibilityIdentifier("look-score-insight")

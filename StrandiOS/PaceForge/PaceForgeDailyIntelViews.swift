@@ -662,7 +662,7 @@ struct PFHealthMonitorBody: View {
             }
             .containerIdentifier("pf-health-alert")
         } else if let meaning = item.base.meaning {
-            InsightCard(hiding.text(meaning))
+            LookInsightCard(hiding.text(meaning))
                 .accessibilityIdentifier("pf-health-meaning")
         }
     }

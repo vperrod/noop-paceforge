@@ -436,7 +436,7 @@ struct PFHealthspanBody: View {
                 paceSection
                 if isCurrent {
                     if let meaning = item.base.meaning {
-                        InsightCard(hiding.text(meaning))
+                        LookInsightCard(hiding.text(meaning))
                             .accessibilityIdentifier("pf-healthspan-meaning")
                     }
                     goTo(proxy)

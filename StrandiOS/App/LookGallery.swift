@@ -96,7 +96,7 @@ struct LookGalleryScreen: View {
                 LookCompareRow(id: "rest", icon: "moon", label: "Rest", valueText: "92%", baselineText: "87%",
                                mark: LookCompare.mark(today: 92, baseline: 87, higherIsBetter: true)),
             ])
-            InsightCard("Your resting heart rate is within its typical range and HRV is a little low, which gives a yellow Charge. A good day to stay active without a hard session.",
+            LookInsightCard("Your resting heart rate is within its typical range and HRV is a little low, which gives a yellow Charge. A good day to stay active without a hard session.",
                         linkTitle: "Break down my Charge", action: {})
         }
     }

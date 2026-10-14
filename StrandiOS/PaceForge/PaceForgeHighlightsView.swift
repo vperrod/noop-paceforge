@@ -230,7 +230,7 @@ struct PFHighlightsBody: View {
     /// The streak's own line: what the athlete's numbers were while it ran.
     @ViewBuilder private var streakInsight: some View {
         if let streak = selectedStreak, let line = streak.line {
-            InsightCard(hiding.text(line))
+            LookInsightCard(hiding.text(line))
                 .accessibilityIdentifier("pf-streak-insight")
         } else if highlights.streaks.allSatisfy({ !$0.alive }) {
             LookInfoCard(title: "No streak is going",
