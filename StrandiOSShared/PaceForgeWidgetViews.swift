@@ -61,8 +61,13 @@ struct PFWidgetRing: View {
 }
 
 enum PFWidgetFormat {
-    static func whole(_ v: Double?) -> String { v.map { String(Int($0.rounded())) } ?? "\u{2013}" }
-    static func one(_ v: Double?) -> String { v.map { String(format: "%.1f", $0) } ?? "\u{2013}" }
+    /// `hidden` is Settings > Hide numbers: the placeholder takes the number's place.
+    static func whole(_ v: Double?, hidden: Bool = false) -> String {
+        hidden ? PFRedact.placeholder : (v.map { String(Int($0.rounded())) } ?? "\u{2013}")
+    }
+    static func one(_ v: Double?, hidden: Bool = false) -> String {
+        hidden ? PFRedact.placeholder : (v.map { String(format: "%.1f", $0) } ?? "\u{2013}")
+    }
 
     static func dayLine(_ iso: String) -> String {
         let f = DateFormatter()
@@ -178,11 +183,11 @@ struct PFTodayWidgetFace: View {
 
     private func rings(_ s: PFSummary, diameter: CGFloat, lineWidth: CGFloat) -> some View {
         HStack(spacing: family == .systemLarge ? 14 : 8) {
-            PFWidgetRing(fraction: s.recovery.map { $0 / 100 }, text: PFWidgetFormat.whole(s.recovery), label: "Recovery",
+            PFWidgetRing(fraction: s.recovery.map { $0 / 100 }, text: PFWidgetFormat.whole(s.recovery, hidden: s.scoresHidden), label: "Recovery",
                          color: StrandPalette.chargeColor, diameter: diameter, lineWidth: lineWidth)
-            PFWidgetRing(fraction: s.strain.map { $0 / 21 }, text: PFWidgetFormat.one(s.strain), label: "Strain",
+            PFWidgetRing(fraction: s.strain.map { $0 / 21 }, text: PFWidgetFormat.one(s.strain, hidden: s.scoresHidden), label: "Strain",
                          color: StrandPalette.effortColor, diameter: diameter, lineWidth: lineWidth)
-            PFWidgetRing(fraction: s.sleep.map { $0 / 100 }, text: PFWidgetFormat.whole(s.sleep), label: "Sleep",
+            PFWidgetRing(fraction: s.sleep.map { $0 / 100 }, text: PFWidgetFormat.whole(s.sleep, hidden: s.scoresHidden), label: "Sleep",
                          color: StrandPalette.restColor, diameter: diameter, lineWidth: lineWidth)
         }
     }
@@ -270,7 +275,7 @@ struct PFTodayWidgetFace: View {
         HStack(alignment: .top, spacing: 6) {
             cell("HRV", s.hrv.map { PFWidgetFormat.whole($0) + " ms" })
             cell("Resting HR", s.restingHr.map { PFWidgetFormat.whole($0) + " bpm" })
-            cell("Sleep", sleepText(s))
+            cell("Sleep", s.scoresHidden ? PFRedact.placeholder : sleepText(s))
             cell("Load A:C", s.acwr.map { String(format: "%.2f", $0) })
         }
     }
@@ -358,7 +363,7 @@ struct PFSessionWidgetFace: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     VStack {
                         if !medium { Spacer(minLength: 0) }
-                        PFWidgetRing(fraction: s.recovery.map { $0 / 100 }, text: PFWidgetFormat.whole(s.recovery),
+                        PFWidgetRing(fraction: s.recovery.map { $0 / 100 }, text: PFWidgetFormat.whole(s.recovery, hidden: s.scoresHidden),
                                      label: "Recovery", color: StrandPalette.chargeColor,
                                      diameter: medium ? 62 : 46, lineWidth: medium ? 7 : 5)
                     }
@@ -372,7 +377,8 @@ struct PFSessionWidgetFace: View {
     private var inline: some View {
         Group {
             if let s = fresh {
-                let rec = s.recovery.map { " \u{00B7} Rec \(PFWidgetFormat.whole($0))" } ?? ""
+                let rec = s.scoresHidden ? " \u{00B7} Rec \(PFRedact.placeholder)"
+                    : (s.recovery.map { " \u{00B7} Rec \(PFWidgetFormat.whole($0))" } ?? "")
                 if let first = s.sessions.first(where: { !$0.done }) ?? s.sessions.first {
                     let key = first.detail?.components(separatedBy: " \u{00B7} ").first ?? ""
                     let head = key.isEmpty ? first.name : "\(first.name) \u{00B7} \(key)"
@@ -400,7 +406,7 @@ struct PFSessionWidgetFace: View {
                     } else {
                         Text("Rest day").font(.headline)
                     }
-                    Text("Recovery \(PFWidgetFormat.whole(s.recovery))" + (s.strain.map { " \u{00B7} Strain \(PFWidgetFormat.one($0))" } ?? ""))
+                    Text("Recovery \(PFWidgetFormat.whole(s.recovery, hidden: s.scoresHidden))" + (s.strain.map { " \u{00B7} Strain \(PFWidgetFormat.one($0))" } ?? ""))
                         .font(.caption2)
                         .lineLimit(1)
                 }
@@ -480,7 +486,15 @@ struct PFGaugeWidgetFace: View {
     let stale: Bool
 
     var body: some View {
-        if let s = summary, !stale {
+        if let s = summary, !stale, s.scoresHidden {
+            ZStack {
+                AccessoryWidgetBackground()
+                VStack(spacing: 0) {
+                    Image(systemName: "eye.slash").font(.system(size: 12))
+                    Text(PFRedact.placeholder).font(.system(size: 9, weight: .semibold)).minimumScaleFactor(0.6).lineLimit(1)
+                }
+            }
+        } else if let s = summary, !stale {
             switch kind {
             case .recovery:
                 if let value = s.recovery {

@@ -100,7 +100,7 @@ extension WidgetSnapshot {
         let storedStress: WidgetSnapshot? = stress == nil ? load() : nil
         // The Effort target widget: today's Effort against the OPTIMAL band, pre-formatted on the user's scale.
         let target = EffortTargetReading.make(days: days, now: now, effortScale: effortScale).progress
-        let snap = WidgetSnapshot(
+        var snap = WidgetSnapshot(
             recovery: day?.recovery.map { Int($0.rounded()) },
             bpm: model.bpm ?? model.live.heartRate,
             batteryPct: activeBatteryPct(from: model),
@@ -126,9 +126,25 @@ extension WidgetSnapshot {
             effortTargetDay: WidgetSnapshot.logicalDayKey(now),
             effortTargetAt: now
         )
+        snap.scoresHidden = HideScoresPrefs.isOn(.scores)
+        snap.bodyHidden = HideScoresPrefs.isOn(.body)
         saveAndReloadIfChanged(snap)
         // The My Day widget's file rides the same publish, throttled inside the writer.
         await MyDaySummaryWriter.refresh(repo: model.repo)
+    }
+
+    /// Settings > Hide numbers changed: restate the two switches in the stored snapshot and reload the widgets.
+    /// The scores stay in the file, so turning a switch off brings them straight back with no recompute.
+    @MainActor
+    static func applyHideNumbers() {
+        guard var snap = load() else { return }
+        let scores = HideScoresPrefs.isOn(.scores)
+        let body = HideScoresPrefs.isOn(.body)
+        guard (snap.scoresHidden ?? false) != scores || (snap.bodyHidden ?? false) != body else { return }
+        snap.scoresHidden = scores
+        snap.bodyHidden = body
+        snap.save(previousSeries: snap.hrSeries ?? [])
+        WidgetCenter.shared.reloadAllTimelines()
     }
 
     /// Publish fields that come directly from the live BLE state without re-reading the Rest metric

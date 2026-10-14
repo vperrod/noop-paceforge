@@ -4,8 +4,9 @@ import StrandDesign
 /// PaceForge "Today": the daily coach briefing, PaceForge's own recovery / strain / sleep and the day's sessions.
 struct PFTodayView: View {
     let snapshot: PFSnapshot
-    /// Settings > Hide numbers: the three scores read "Hidden".
-    @AppStorage(HideScoresPrefs.scoresKey) private var hideScores = false
+    /// Settings > Hide numbers: the three scores read "Hidden" (until the athlete taps to show them).
+    private let hiding = PFHiding()
+    private var hideScores: Bool { hiding.hides(.scores) }
 
     private var today: PFToday { snapshot.today }
 
@@ -281,6 +282,7 @@ struct PFTodayView: View {
 private struct PFBriefCard: View {
     let brief: PFDailyBrief
     let todayISO: String
+    private let hiding = PFHiding()
 
     private var isToday: Bool { brief.date == todayISO }
 
@@ -291,12 +293,12 @@ private struct PFBriefCard: View {
             }
         }) {
             VStack(alignment: .leading, spacing: 12) {
-                Text(brief.headline)
+                Text(hiding.text(brief.headline))
                     .font(StrandFont.body.weight(.semibold))
                     .foregroundStyle(StrandPalette.textPrimary)
                     .fixedSize(horizontal: false, vertical: true)
                 if let changes = brief.changes {
-                    Label(changes, systemImage: "arrow.left.arrow.right")
+                    Label(hiding.text(changes), systemImage: "arrow.left.arrow.right")
                         .font(StrandFont.subhead)
                         .foregroundStyle(StrandPalette.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
@@ -331,7 +333,7 @@ private struct PFBriefCard: View {
                         ForEach(Array(brief.focus.enumerated()), id: \.offset) { _, item in
                             HStack(alignment: .top, spacing: 8) {
                                 Text("\u{2022}").foregroundStyle(StrandPalette.accent)
-                                Text(item)
+                                Text(hiding.text(item))
                                     .font(StrandFont.subhead)
                                     .foregroundStyle(StrandPalette.textSecondary)
                                     .fixedSize(horizontal: false, vertical: true)
@@ -363,6 +365,7 @@ private struct PFCallout: View {
     let text: String
     let color: Color
     let label: String?
+    private let hiding = PFHiding()
 
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
@@ -371,7 +374,7 @@ private struct PFCallout: View {
                 .frame(width: 3)
             VStack(alignment: .leading, spacing: 4) {
                 if let label { Text(label).strandOverline() }
-                Text(text)
+                Text(hiding.text(text))
                     .font(StrandFont.subhead)
                     .foregroundStyle(StrandPalette.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)

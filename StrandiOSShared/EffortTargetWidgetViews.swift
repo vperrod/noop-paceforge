@@ -80,7 +80,9 @@ struct EffortTargetWidgetFace: View {
     let family: WidgetFamily
 
     var body: some View {
-        if let s = snapshot, !stale {
+        if let s = snapshot, !stale, s.scoresHidden == true {
+            hidden
+        } else if let s = snapshot, !stale {
             switch family {
             case .accessoryCircular: circular(s)
             default: small(s)
@@ -90,6 +92,26 @@ struct EffortTargetWidgetFace: View {
         } else {
             PFWidgetStale()
         }
+    }
+
+    // MARK: Hidden (Settings > Hide numbers)
+
+    private var hidden: some View {
+        VStack(alignment: family == .accessoryCircular ? .center : .leading, spacing: 4) {
+            if family != .accessoryCircular {
+                Text("EFFORT TARGET")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(StrandPalette.textTertiary)
+            }
+            Image(systemName: "eye.slash")
+                .font(.system(size: family == .accessoryCircular ? 14 : 22))
+            Text(PFRedact.placeholder)
+                .font(.system(size: family == .accessoryCircular ? 10 : 13, weight: .semibold))
+                .minimumScaleFactor(0.6)
+                .lineLimit(1)
+        }
+        .foregroundStyle(family == .accessoryCircular ? Color.primary : StrandPalette.textSecondary)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: family == .accessoryCircular ? .center : .topLeading)
     }
 
     // MARK: Small

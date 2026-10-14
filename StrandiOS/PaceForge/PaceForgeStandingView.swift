@@ -182,6 +182,9 @@ struct PFStandingSummaryHeader: View {
 struct PFStandingMetricRow: View {
     let metric: PFStandingMetric
     let onTap: () -> Void
+    private let hiding = PFHiding()
+
+    private var hidden: Bool { metric.hideKind.map(hiding.hides) ?? false }
 
     var body: some View {
         Button(action: onTap) {
@@ -192,7 +195,7 @@ struct PFStandingMetricRow: View {
                             .font(StrandFont.subhead.weight(.semibold))
                             .foregroundStyle(StrandPalette.textPrimary)
                             .multilineTextAlignment(.leading)
-                        Text(metric.valueText)
+                        Text(metric.valueText(hidden: hidden))
                             .font(StrandFont.rounded(20))
                             .foregroundStyle(metric.isRated ? StrandPalette.textPrimary : StrandPalette.textTertiary)
                     }
@@ -216,7 +219,7 @@ struct PFStandingMetricRow: View {
         }
         .buttonStyle(.plain)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(metric.accessibilityText + (metric.isLowConfidence ? " Low confidence." : ""))
+        .accessibilityLabel(metric.accessibilityText(hidden: hidden) + (metric.isLowConfidence ? " Low confidence." : ""))
         .accessibilityHint("Opens the norms and the source")
         .accessibilityAddTraits(.isButton)
         .accessibilityIdentifier("pf-standing-metric-\(metric.id)")
@@ -235,6 +238,7 @@ struct PFStandingView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
+                    PFRevealBar()
                     if standing.isApplicable {
                         content
                     } else {
@@ -376,18 +380,22 @@ struct PFStandingMetricSheet: View {
     let plan: PFStandingPlan?
     @Environment(\.dismiss) private var dismiss
     @State private var showPlan = false
+    private let hiding = PFHiding()
+
+    private var hidden: Bool { metric.hideKind.map(hiding.hides) ?? false }
 
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
+                    PFRevealBar()
                     headerCard
                     if let norm = metric.norm { normCard(norm) }
                     if let why = metric.why { PFCard("Why it matters", icon: "questionmark.circle") { PFParagraph(why) } }
-                    if let trend = metric.trend { trendCard(trend) }
+                    if let trend = metric.trend, !hidden { trendCard(trend) }
                     sourceCard
                     if let note = metric.note {
-                        PFCard("Note", icon: "note.text") { PFParagraph(note) }
+                        PFCard("Note", icon: "note.text") { PFParagraph(hidden ? PFRedact.placeholder : note) }
                     }
                     if plan != nil {
                         Button { showPlan = true } label: {
@@ -425,7 +433,7 @@ struct PFStandingMetricSheet: View {
         PFCard(metric.label, icon: "gauge.with.dots.needle.33percent") {
             VStack(alignment: .leading, spacing: 10) {
                 HStack(alignment: .firstTextBaseline, spacing: 8) {
-                    Text(metric.valueText)
+                    Text(metric.valueText(hidden: hidden))
                         .font(StrandFont.rounded(30))
                         .foregroundStyle(StrandPalette.textPrimary)
                     PFChip(text: metric.bandName, color: PFBandColor.color(for: metric.band))

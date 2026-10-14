@@ -41,6 +41,13 @@ enum HideScoresPrefs {
     /// `text`, or the placeholder while hidden.
     static func shown(_ text: String, hidden: Bool) -> String { hidden ? placeholder : text }
 
+    /// Posted when either switch changes, so the iOS app can restate the choice to the widgets at once.
+    static let changedNotification = Notification.Name("noop.hide.changed")
+
+    static func announceChange() {
+        NotificationCenter.default.post(name: changedNotification, object: nil)
+    }
+
     static func isOn(_ kind: HideScoresKind, defaults: UserDefaults = .standard) -> Bool {
         defaults.bool(forKey: kind == .scores ? scoresKey : bodyKey)
     }

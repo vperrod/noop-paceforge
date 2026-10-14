@@ -30,7 +30,7 @@ struct PFProvider: TimelineProvider {
 
     private func entry() -> PFEntry {
         let summary = PFSummary.load()
-        return PFEntry(date: Date(), summary: summary, stale: summary?.isStale() ?? true)
+        return PFEntry(date: Date(), summary: summary?.redactedForDisplay(), stale: summary?.isStale() ?? true)
     }
 }
 

@@ -268,6 +268,11 @@ struct StrandiOSApp: App {
                 // what is worth pushing, and the banner's clocks tick on their own. A strap step is pushed
                 // at once, with its light-up alert, below.
                 .onReceive(liftSession.changesSettled) { _ in pushLiftActivity() }
+                // Settings > Hide numbers: the widgets follow the two switches at once, not at the next fetch.
+                .onReceive(NotificationCenter.default.publisher(for: HideScoresPrefs.changedNotification)) { _ in
+                    WidgetSnapshot.applyHideNumbers()
+                    PFSummaryWriter.applyPrivacy()
+                }
                 // A strap double-tap lights the Lock Screen on the step it took.
                 .onReceive(liftSession.strapStepTaken) { _ in pushLiftActivity(alert: true) }
                 // #911/#759: republish the Home/Lock-Screen widget whenever the dashboard caches actually

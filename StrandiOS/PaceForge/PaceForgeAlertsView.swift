@@ -121,6 +121,7 @@ struct PFReadinessCard: View {
 
 private struct PFReadinessColumn: View {
     let source: PFReadinessSource
+    private let hiding = PFHiding()
 
     var body: some View {
         VStack(alignment: .leading, spacing: 5) {
@@ -128,7 +129,7 @@ private struct PFReadinessColumn: View {
                 Text(source.source).strandOverline()
                 if source.source != "PaceForge" { PFInfoButton(id: PFExplainerID.forReadinessSource(source.source)) }
             }
-            Text(source.score.map { String(Int($0.rounded())) } ?? "\u{2013}")
+            Text(hiding.shown(source.score.map { String(Int($0.rounded())) } ?? "\u{2013}", .scores))
                 .font(StrandFont.rounded(28))
                 .foregroundStyle(StrandPalette.textPrimary)
             if let band = source.band {

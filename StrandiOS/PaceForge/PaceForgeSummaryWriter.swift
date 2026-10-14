@@ -21,9 +21,15 @@ enum PFSummaryWriter {
     /// waiting for the next fetch.
     static func applyPrivacy() {
         guard var summary = PFSummary.load() else { return }
-        summary.hideBody = PFPrivacy.hidesBody(server: summary.serverHidesBody, choice: PFPrivacy.savedOverride())
+        summary.hideBody = hidesBody(server: summary.serverHidesBody)
+        summary.hideScores = HideScoresPrefs.isOn(.scores)
         summary.save()
-        WidgetCenter.shared.reloadTimelines(ofKind: PFWidgetKind.body)
+        for kind in PFWidgetKind.all { WidgetCenter.shared.reloadTimelines(ofKind: kind) }
+    }
+
+    /// The Lock Screen privacy choice, or the Settings > Hide numbers body switch: either one hides body figures.
+    private static func hidesBody(server: Bool?) -> Bool {
+        PFPrivacy.hidesBody(server: server, choice: PFPrivacy.savedOverride()) || HideScoresPrefs.isOn(.body)
     }
 
     /// `previous` is the file this one replaces. The server serves no per-night HRV history, so the
@@ -67,7 +73,8 @@ enum PFSummaryWriter {
         out.answerHard = s.readiness?.answers?.trainHard?.level.word
         if let week = s.raceWeek { out.raceWeek = PFSummary.RaceWeek(title: week.event.name, line: week.summaryLine) }
         out.serverHidesBody = s.serverHidesBody
-        out.hideBody = PFPrivacy.hidesBody(server: s.serverHidesBody, choice: PFPrivacy.savedOverride())
+        out.hideBody = hidesBody(server: s.serverHidesBody)
+        out.hideScores = HideScoresPrefs.isOn(.scores)
         if let next = nextSession(in: s) {
             out.nextSession = next.session
             out.nextSessionDate = next.date

@@ -213,9 +213,10 @@ extension PFCard where Trailing == EmptyView {
 struct PFChip: View {
     let text: String
     let color: Color
+    private let hiding = PFHiding()
 
     var body: some View {
-        Text(text)
+        Text(hiding.text(text))
             .font(StrandFont.overline)
             .foregroundStyle(color)
             .lineLimit(1)
@@ -229,10 +230,11 @@ struct PFChip: View {
 /// A body-text paragraph in the secondary colour.
 struct PFParagraph: View {
     let text: String
+    private let hiding = PFHiding()
     init(_ text: String) { self.text = text }
 
     var body: some View {
-        Text(text)
+        Text(hiding.text(text))
             .font(StrandFont.subhead)
             .foregroundStyle(StrandPalette.textSecondary)
             .fixedSize(horizontal: false, vertical: true)
@@ -388,9 +390,10 @@ struct PFStaleLabel: View {
 /// Renders markdown text (the coach's analysis, the briefing sections) in the app's look.
 struct PFMarkdown: View {
     let text: String
+    private let hiding = PFHiding()
 
     var body: some View {
-        Markdown(text)
+        Markdown(hiding.text(text))
             .markdownTheme(.strand)
             .frame(maxWidth: .infinity, alignment: .leading)
     }

@@ -31,7 +31,9 @@ struct EffortTargetProvider: TimelineProvider {
 
     private func entry() -> EffortTargetEntry {
         let snapshot = WidgetSnapshot.load()
-        return EffortTargetEntry(date: Date(), snapshot: snapshot, stale: !(snapshot?.effortTargetIsFresh() ?? false))
+        // Freshness is judged on the stored target; what is drawn has the hidden scores taken out.
+        return EffortTargetEntry(date: Date(), snapshot: snapshot?.redactedForDisplay(),
+                                 stale: !(snapshot?.effortTargetIsFresh() ?? false))
     }
 }
 

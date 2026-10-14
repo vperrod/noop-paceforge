@@ -65,11 +65,11 @@ struct HideScoresSettingsCard: View {
                             .foregroundStyle(StrandPalette.textPrimary)
                     }
                 }
-                Text(verbatim: "For when someone else can see your screen. A hidden number reads \u{201C}Hidden\u{201D} on Today and in the PaceForge tab. Nothing stored changes.")
+                Text(verbatim: "For when someone else can see your screen. A hidden number reads \u{201C}Hidden\u{201D} on Today, in the PaceForge tab and on the widgets. Tap the eye in the PaceForge tab to show them for a moment. Nothing stored changes.")
                     .font(StrandFont.subhead)
                     .foregroundStyle(StrandPalette.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
-                Toggle(isOn: $hideScores) {
+                Toggle(isOn: Binding(get: { hideScores }, set: { hideScores = $0; HideScoresPrefs.announceChange() })) {
                     Text(verbatim: "Hide Charge, Effort and Sleep numbers")
                         .font(StrandFont.subhead)
                         .foregroundStyle(StrandPalette.textPrimary)
@@ -77,7 +77,7 @@ struct HideScoresSettingsCard: View {
                 .toggleStyle(.switch)
                 .tint(StrandPalette.accent)
                 .accessibilityIdentifier("hide-scores-toggle")
-                Toggle(isOn: $hideBody) {
+                Toggle(isOn: Binding(get: { hideBody }, set: { hideBody = $0; HideScoresPrefs.announceChange() })) {
                     Text(verbatim: "Hide body weight and body fat")
                         .font(StrandFont.subhead)
                         .foregroundStyle(StrandPalette.textPrimary)

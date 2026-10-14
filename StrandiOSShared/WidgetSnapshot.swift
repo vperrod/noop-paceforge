@@ -56,6 +56,11 @@ public struct WidgetSnapshot: Codable, Equatable {
     /// The logical day (yyyy-MM-dd) the target was built for, and when.
     public var effortTargetDay: String?
     public var effortTargetAt: Date?
+    /// Settings > Hide numbers, as the app last published them. The values above stay in the file; the widget
+    /// draws `redactedForDisplay()` instead, so flipping a switch needs no recompute and flipping it back
+    /// brings the numbers straight back. Optional so a snapshot from an older build still decodes.
+    public var scoresHidden: Bool?
+    public var bodyHidden: Bool?
 
     public init(recovery: Int?, bpm: Int?, batteryPct: Int?, bonded: Bool, updated: Date,
                 effort: Int? = nil, rest: Int? = nil, hrv: Int? = nil, restingHr: Int? = nil,
@@ -87,6 +92,24 @@ public struct WidgetSnapshot: Codable, Equatable {
         self.effortToGo = effortToGo
         self.effortTargetDay = effortTargetDay
         self.effortTargetAt = effortTargetAt
+    }
+
+    /// This snapshot as a widget draws it: with Charge, Effort and Rest (and the Effort target built from them)
+    /// taken out while the scores are hidden, so no face can print what it was asked to hide.
+    public func redactedForDisplay() -> WidgetSnapshot {
+        guard scoresHidden == true else { return self }
+        var out = self
+        out.recovery = nil
+        out.effort = nil
+        out.rest = nil
+        out.effortDisplay = nil
+        out.effortTargetEffort = nil
+        out.effortTargetEffortText = nil
+        out.effortBandLow = nil
+        out.effortBandHigh = nil
+        out.effortBandText = nil
+        out.effortToGo = nil
+        return out
     }
 
     /// How old the Effort target may be before the widget stops showing it.
@@ -294,6 +317,8 @@ public struct WidgetSnapshot: Codable, Equatable {
             || previous.effortBandText != next.effortBandText
             || previous.effortToGo != next.effortToGo
             || previous.effortTargetDay != next.effortTargetDay
+            || previous.scoresHidden != next.scoresHidden
+            || previous.bodyHidden != next.bodyHidden
             || effortTargetHour(previous.effortTargetAt) != effortTargetHour(next.effortTargetAt)
     }
 

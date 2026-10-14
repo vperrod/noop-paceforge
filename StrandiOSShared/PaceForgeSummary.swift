@@ -169,10 +169,35 @@ public struct PFSummary: Codable, Equatable {
     public var hideBody: Bool?
     /// The server's own value, kept so Settings can say what "use the server's setting" means.
     public var serverHidesBody: Bool?
+    /// Settings > Hide numbers: Charge, Effort and Sleep numbers stay off the widgets. The values stay in the
+    /// file; the faces draw `redactedForDisplay()`. Nil in a file from an older build, which means shown.
+    public var hideScores: Bool?
 
     public init(updated: Date, date: String) {
         self.updated = updated
         self.date = date
+    }
+
+    /// True while the three scores are hidden; the faces print the placeholder where a score would be.
+    public var scoresHidden: Bool { hideScores == true }
+
+    /// This summary as a widget draws it: scores, the sleep line beside them and any score or weight written
+    /// into the brief taken out while the matching Hide-numbers switch is on. Body figures are the body face's
+    /// own business (`hideBody`), so only the words are touched for them.
+    public func redactedForDisplay() -> PFSummary {
+        var out = self
+        if scoresHidden {
+            out.recovery = nil
+            out.recoveryBand = nil
+            out.strain = nil
+            out.strainLow = nil
+            out.strainHigh = nil
+            out.sleep = nil
+            out.sleepHours = nil
+            out.sleepNeed = nil
+        }
+        out.briefHeadline = briefHeadline.map { PFRedact.text($0, scores: scoresHidden, body: hideBody == true) }
+        return out
     }
 
     /// "Train: yes · Hard: careful", or nil when the server gave no answers.

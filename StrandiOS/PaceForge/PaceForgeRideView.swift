@@ -62,6 +62,7 @@ struct PFRideRow: View {
     let ride: PFRide
     let snapshot: PFSnapshot
     @State private var isShowing = false
+    private let hiding = PFHiding()
 
     var body: some View {
         StrandCard(padding: 14) {
@@ -78,13 +79,13 @@ struct PFRideRow: View {
                             .multilineTextAlignment(.leading)
                             .fixedSize(horizontal: false, vertical: true)
                         if !ride.rowLine.isEmpty {
-                            Text(ride.rowLine)
+                            Text(hiding.text(ride.rowLine))
                                 .font(StrandFont.caption)
                                 .foregroundStyle(StrandPalette.textSecondary)
                                 .multilineTextAlignment(.leading)
                         }
                         if let line = ride.summaryLine {
-                            Text(line)
+                            Text(hiding.text(line))
                                 .font(StrandFont.caption)
                                 .foregroundStyle(StrandPalette.textTertiary)
                                 .lineLimit(2)
@@ -175,11 +176,13 @@ struct PFRideSheet: View {
     @Environment(\.dismiss) private var dismiss
     @State private var detail: PFRideDetail?
     @State private var chart: PFRideChartData?
+    private let hiding = PFHiding()
 
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
+                    PFRevealBar()
                     headerCard
                     numbersCard
                     if !ride.powerZones.isEmpty { PFRideZonesCard(title: "Power zones", icon: "bolt.fill", zones: ride.powerZones, unit: "W", isPower: true) }
@@ -249,19 +252,21 @@ struct PFRideSheet: View {
         let label: String
         let value: String
         let unit: String?
+        /// The Hide-numbers switch that blanks this figure, if any.
+        var kind: PFRedact.Kind?
         var id: String { label }
     }
 
     private var tiles: [Tile] {
         var out: [Tile] = []
-        func add(_ label: String, _ value: Double?, _ unit: String?, _ format: (Double) -> String) {
-            if let value { out.append(Tile(label: label, value: format(value), unit: unit)) }
+        func add(_ label: String, _ value: Double?, _ unit: String?, kind: PFRedact.Kind? = nil, _ format: (Double) -> String) {
+            if let value { out.append(Tile(label: label, value: format(value), unit: unit, kind: kind)) }
         }
         func whole(_ v: Double) -> String { String(Int(v.rounded())) }
         add("Avg power", ride.avgPower, "W", whole)
         add("Normalized power", ride.np, "W", whole)
         add("Intensity factor", ride.intensityFactor, nil, PFRideFormat.twoDecimals)
-        add("TSS", ride.tss, nil, whole)
+        add("TSS", ride.tss, nil, kind: .scores, whole)
         add("Variability index", ride.vi, nil, PFRideFormat.twoDecimals)
         add("Work", ride.kj, "kJ", whole)
         add("Efficiency factor", ride.ef, nil, PFRideFormat.twoDecimals)
@@ -279,7 +284,8 @@ struct PFRideSheet: View {
                 LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: 3),
                           alignment: .leading, spacing: 16) {
                     ForEach(items) { tile in
-                        PFFigure(value: tile.value, unit: tile.unit, label: tile.label)
+                        PFFigure(value: tile.kind.map { hiding.shown(tile.value, $0) } ?? tile.value,
+                                 unit: tile.kind.map { hiding.hides($0) } == true ? nil : tile.unit, label: tile.label)
                     }
                 }
             }
@@ -428,7 +434,7 @@ struct PFRideSheet: View {
     private func rpeCard(_ rpe: Double) -> some View {
         PFCard("How hard it felt", icon: "gauge.with.dots.needle.67percent") {
             HStack(alignment: .firstTextBaseline, spacing: 6) {
-                Text(PFFormat.trimmed(rpe))
+                Text(hiding.shown(PFFormat.trimmed(rpe), .scores))
                     .font(StrandFont.rounded(30))
                     .foregroundStyle(StrandPalette.textPrimary)
                 Text("RPE of 10").font(StrandFont.caption).foregroundStyle(StrandPalette.textTertiary)

@@ -31,7 +31,7 @@ struct PaceForgeTabView: View {
     @AppStorage("noop.paceforge.segment") private var segmentRaw = PFSegment.today.rawValue
     @State private var showStanding = false
     /// Settings > Hide numbers: body weight and body fat. The Body screen then shows a placeholder.
-    @AppStorage(HideScoresPrefs.bodyKey) private var hideBody = false
+    private let hiding = PFHiding()
 
     private var segment: Binding<PFSegment> {
         Binding(
@@ -51,8 +51,13 @@ struct PaceForgeTabView: View {
         // Locks again as soon as the app leaves the foreground (not on `inactive`, which the Face ID
         // prompt itself causes).
         .onChange(of: scenePhase) { _, phase in
-            if phase == .background { lock.lock() }
+            if phase == .background {
+                lock.lock()
+                PFPeek.shared.isShowing = false
+            }
         }
+        // The one-tap reveal lasts until the athlete leaves the tab.
+        .onDisappear { PFPeek.shared.isShowing = false }
     }
 
     private var content: some View {
@@ -75,6 +80,8 @@ struct PaceForgeTabView: View {
                     }
                     .pickerStyle(.segmented)
                     .accessibilityIdentifier("pf-segments")
+
+                    PFRevealBar()
 
                     if let note = model.offlineNote {
                         PFOfflineBanner(text: note, detail: model.failureDetail, isRetrying: model.isRefreshing) {
@@ -122,9 +129,9 @@ struct PaceForgeTabView: View {
             case .week: PFWeekView(snapshot: snapshot)
             case .insights: PFInsightsView(snapshot: snapshot)
             case .body:
-                if hideBody {
+                if hiding.hides(.body) {
                     PFCard("Body", icon: "figure.stand") {
-                        PFParagraph("\(HideScoresPrefs.placeholder) \u{2014} body weight and body fat are hidden. Turn this off in Settings > Hide numbers.")
+                        PFParagraph("\(HideScoresPrefs.placeholder) \u{2014} body weight and body fat are hidden. Tap the eye above to show them, or turn this off in Settings > Hide numbers.")
                     }
                     .containerIdentifier("pf-body-hidden")
                 } else {

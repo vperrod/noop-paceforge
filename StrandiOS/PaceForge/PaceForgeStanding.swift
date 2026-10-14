@@ -180,6 +180,17 @@ struct PFStandingMetric: Identifiable, Equatable {
     var accessibilityText: String {
         PFBand.accessibilityText(label: label, value: valueText, band: band, serverLabel: bandLabel)
     }
+
+    /// `valueText`, or the Hide-numbers placeholder in its place.
+    func valueText(hidden: Bool) -> String { hidden ? PFRedact.placeholder : valueText }
+
+    /// What VoiceOver reads: the placeholder instead of the number while hidden.
+    func accessibilityText(hidden: Bool) -> String {
+        PFBand.accessibilityText(label: label, value: valueText(hidden: hidden), band: band, serverLabel: bandLabel)
+    }
+
+    /// The Hide-numbers switch that covers this metric, if any.
+    var hideKind: PFRedact.Kind? { PFRedact.kind(forStandingMetric: id) }
 }
 
 struct PFStandingDomain: Identifiable, Equatable {
