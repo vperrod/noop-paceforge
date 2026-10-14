@@ -13,11 +13,46 @@ struct SleepPlannerEntryCard: View {
     @EnvironmentObject private var repo: Repository
     @EnvironmentObject private var behavior: BehaviorStore
     @State private var summary: String?
+    #if os(iOS)
+    @State private var plan: SleepPlanner.Plan?
+    #endif
 
     private var alarmMinutes: Int? { behavior.smartAlarmEnabled ? behavior.smartAlarmMinutes : nil }
     private var loadKey: String { "\(repo.refreshSeq)|\(alarmMinutes ?? -1)" }
 
-    var body: some View {
+    @ViewBuilder var body: some View {
+        #if os(iOS)
+        lookBody
+        #else
+        classicBody
+        #endif
+    }
+
+    #if os(iOS)
+    /// The dark look: tonight's sleep as one activity row (sleep pill with the target hours, bedtime and wake).
+    private var lookBody: some View {
+        let clock = AppClock.hourMinuteFormatter()
+        let item = ActivityPillItem(
+            id: "tonight", pillColor: NoopLook.rest, icon: "bed.double.fill",
+            pillText: plan.map { LookFormat.hoursMinutes(minutes: $0.targetSleepMin) } ?? "\u{2013}",
+            title: String(localized: "Tonight's sleep"),
+            startText: plan.map { clock.string(from: $0.bedtime) }, endText: plan.map { clock.string(from: $0.wake) },
+            barColor: NoopLook.rest)
+        return NavigationLink(value: TabRoute.sleepPlanner) {
+            ActivityPillRow(item)
+                .padding(8)
+                .background(RoundedRectangle(cornerRadius: NoopLook.Metric.tileRadius, style: .continuous).fill(NoopLook.card))
+        }
+        .buttonStyle(LiquidPressStyle())
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(summary ?? "Sleep planner. Tonight's need, a goal and a bedtime")
+        .accessibilityHint("Opens tonight's sleep need and bedtime")
+        .accessibilityIdentifier("sleep-planner-entry")
+        .task(id: loadKey) { await load() }
+    }
+    #endif
+
+    private var classicBody: some View {
         NavigationLink(value: TabRoute.sleepPlanner) {
             HStack(spacing: 12) {
                 Image(systemName: "bed.double.fill")
@@ -57,6 +92,9 @@ struct SleepPlannerEntryCard: View {
         let preset = SleepPlannerStore.preset
         let plan = data.plan(for: preset)
         summary = "Bed by \(AppClock.hourMinuteFormatter().string(from: plan.bedtime)) for \(SleepPlanner.durationText(plan.targetSleepMin)) of sleep"
+        #if os(iOS)
+        self.plan = plan
+        #endif
         SleepPlannerLoader.publish(data, preset: preset)
     }
 }

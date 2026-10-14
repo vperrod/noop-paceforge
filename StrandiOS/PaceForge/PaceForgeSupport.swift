@@ -181,25 +181,28 @@ struct PFCard<Content: View, Trailing: View>: View {
     @ViewBuilder var trailing: () -> Trailing
     @ViewBuilder var content: () -> Content
 
+    /// The look's card: a 12 pt tile on the dark gradient, a small caps title, content below. Every PaceForge
+    /// screen builds on it, so this is the one place its card style lives.
     var body: some View {
-        StrandCard {
-            VStack(alignment: .leading, spacing: 12) {
-                HStack(alignment: .firstTextBaseline, spacing: 8) {
-                    if let icon {
-                        Image(systemName: icon)
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundStyle(StrandPalette.accent)
-                    }
-                    Text(title)
-                        .font(StrandFont.headline)
-                        .foregroundStyle(StrandPalette.textPrimary)
-                    Spacer(minLength: 8)
-                    trailing()
-                    if let info { PFInfoButton(id: info) }
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                if let icon {
+                    Image(systemName: icon)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(NoopLook.textSecondary)
                 }
-                content()
+                Text(title)
+                    .lookCaps(12.5)
+                    .foregroundStyle(NoopLook.textPrimary)
+                Spacer(minLength: 8)
+                trailing()
+                if let info { PFInfoButton(id: info) }
             }
+            content()
         }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: NoopLook.Metric.tileRadius, style: .continuous).fill(NoopLook.card))
     }
 }
 

@@ -188,23 +188,24 @@ struct PFTodayView: View {
             VStack(alignment: .leading, spacing: 10) {
                 HStack(alignment: .top, spacing: 8) {
                     if let recovery = today.recovery {
-                        PFRing(value: hideScores ? 0 : recovery.score, maxValue: 100, color: StrandPalette.chargeColor,
+                        PFRing(value: hideScores ? 0 : recovery.score, maxValue: 100, color: hideScores ? NoopLook.textTertiary : NoopLook.chargeColor(recovery.score),
                                display: HideScoresPrefs.shown(String(Int(recovery.score.rounded())), hidden: hideScores),
                                title: "Recovery", caption: hideScores ? nil : recovery.confidence, info: PFExplainerID.recovery)
                     } else if let line = recoveryCalibration {
-                        PFRing(value: 0, maxValue: 100, color: StrandPalette.chargeColor, display: "\u{2013}",
+                        PFRing(value: 0, maxValue: 100, color: NoopLook.chargeHigh, display: "\u{2013}",
                                title: "Recovery", caption: line, info: PFExplainerID.recovery)
                     }
                     if let strain = today.strain {
-                        PFRing(value: hideScores ? 0 : strain.value, maxValue: 21, color: StrandPalette.effortColor,
+                        PFRing(value: hideScores ? 0 : strain.value, maxValue: 21, color: NoopLook.effort,
                                display: HideScoresPrefs.shown(PFFormat.oneDecimal(strain.value), hidden: hideScores),
-                               title: "Strain", caption: hideScores ? nil : strainTarget(strain), info: PFExplainerID.strain)
+                               title: "Strain", caption: hideScores ? nil : strainTarget(strain), info: PFExplainerID.strain,
+                               target: hideScores ? nil : LookDial.targetArc(low: strain.targetLow, high: strain.targetHigh, max: 21))
                     } else if let line = strainCalibration {
-                        PFRing(value: 0, maxValue: 21, color: StrandPalette.effortColor, display: "\u{2013}",
+                        PFRing(value: 0, maxValue: 21, color: NoopLook.effort, display: "\u{2013}",
                                title: "Strain", caption: line, info: PFExplainerID.strain)
                     }
                     if let sleep = today.sleep {
-                        PFRing(value: hideScores ? 0 : sleep.score, maxValue: 100, color: StrandPalette.restColor,
+                        PFRing(value: hideScores ? 0 : sleep.score, maxValue: 100, color: NoopLook.rest,
                                display: HideScoresPrefs.shown(String(Int(sleep.score.rounded())), hidden: hideScores),
                                title: "Sleep", caption: hideScores ? nil : sleepNeed(sleep), info: PFExplainerID.sleepScore)
                     }
@@ -291,6 +292,8 @@ private struct PFBriefCard: View {
     private let hiding = PFHiding()
 
     private var isToday: Bool { brief.date == todayISO }
+    /// The Daily Outlook bar opens and closes the briefing. Open by default, so the briefing reads as it always did.
+    @State private var isOpen = true
 
     var body: some View {
         PFCard(title: "Daily briefing", icon: "sparkles", trailing: {
@@ -299,6 +302,29 @@ private struct PFBriefCard: View {
             }
         }) {
             VStack(alignment: .leading, spacing: 12) {
+                OutlookBar(isOpen ? "Your Daily Outlook" : hiding.text(brief.headline), isExpanded: isOpen) {
+                    withAnimation(.easeOut(duration: 0.2)) { isOpen.toggle() }
+                }
+                .accessibilityIdentifier("pf-brief-outlook")
+                if isOpen { briefBody }
+            }
+        }
+        .opacity(isToday ? 1 : 0.7)
+        .containerIdentifier("pf-brief-card")
+    }
+
+    private var briefBody: some View {
+        PFBriefBody(brief: brief)
+    }
+}
+
+/// The whole briefing, every field the web card renders. Split out of the card so the outlook bar can fold it.
+private struct PFBriefBody: View {
+    let brief: PFDailyBrief
+    private let hiding = PFHiding()
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
                 Text(hiding.text(brief.headline))
                     .font(StrandFont.body.weight(.semibold))
                     .foregroundStyle(StrandPalette.textPrimary)
@@ -351,10 +377,7 @@ private struct PFBriefCard: View {
                     PFCallout(text: pulse.text, color: PFColor.sky,
                               label: "Day pulse" + (PFFormat.relative(pulse.at).map { " \u{00B7} \($0)" } ?? ""))
                 }
-            }
         }
-        .opacity(isToday ? 1 : 0.7)
-        .containerIdentifier("pf-brief-card")
     }
 
     @ViewBuilder private func section(_ title: String, _ markdown: String?) -> some View {
@@ -403,22 +426,15 @@ private struct PFRing: View {
     let caption: String?
     /// A metric-explainer id for the (i) beside the title.
     var info: String? = nil
+    /// The target range as circle fractions (Strain); the dial draws its arc and tick.
+    var target: (start: Double, end: Double)? = nil
 
     var body: some View {
         VStack(spacing: 2) {
-            VStack(spacing: 6) {
-                ZStack {
-                    Circle().stroke(color.opacity(0.18), lineWidth: 9)
-                    Circle()
-                        .trim(from: 0, to: CGFloat(min(max(value / maxValue, 0), 1)))
-                        .stroke(color, style: StrokeStyle(lineWidth: 9, lineCap: .round))
-                        .rotationEffect(.degrees(-90))
-                    Text(display)
-                        .font(StrandFont.rounded(24))
-                        .foregroundStyle(color)
-                }
-                .frame(width: 80, height: 80)
-                Text(title).strandOverline()
+            VStack(spacing: 8) {
+                RingDial(fraction: LookDial.fraction(value, max: maxValue), color: color, valueText: display,
+                         target: target, diameter: 92, accessibilityName: title)
+                Text(title).lookCaps(13.5).foregroundStyle(NoopLook.textPrimary)
             }
             .accessibilityElement(children: .ignore)
             .accessibilityLabel("\(title) \(display)")
@@ -426,7 +442,7 @@ private struct PFRing: View {
             if let caption {
                 Text(caption)
                     .font(StrandFont.caption)
-                    .foregroundStyle(StrandPalette.textTertiary)
+                    .foregroundStyle(NoopLook.textTertiary)
                     .multilineTextAlignment(.center)
                     .lineLimit(2)
                     .minimumScaleFactor(0.8)

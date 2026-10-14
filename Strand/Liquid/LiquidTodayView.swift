@@ -56,6 +56,12 @@ struct LiquidTodayView: View {
     /// Input providers for the three scores, keyed by recovery / strain / sleep_performance.
     @State private var heroProviderByMetric: [String: ScoreInputProvider] = [:]
     @State private var stress: Double?             // StressModel(...).score, 0–3
+    #if os(iOS)
+    /// Today's Effort target (for the Effort dial) and where the big dials sit, for the sticky mini dials.
+    @State private var effortReading: EffortTargetReading?
+    @State private var heroBottomY: CGFloat = .greatestFiniteMagnitude
+    @State private var scrollTopY: CGFloat = 0
+    #endif
     @State private var fitnessAge: Double?         // exploreSeries("fitness_age").last
     @State private var vo2max: Double?             // exploreSeries("vo2max_est").last (#1391)
     @State private var vitality: Double?           // exploreSeries("vitality").last
@@ -193,7 +199,7 @@ struct LiquidTodayView: View {
     /// Day-cycle scene backdrop (#698). Default ON. When off, the liquid Today drops the sky for the plain
     /// dark canvas — parity with Android and the classic TodayView, which already honour this pref. Mirrors
     /// Kotlin `NoopPrefs.showDayCycleBackground`.
-    @AppStorage(SceneBackgroundPrefs.enabledKey) private var showDayCycleBackground = true
+    @AppStorage(SceneBackgroundPrefs.enabledKey) private var showDayCycleBackground = SceneBackgroundPrefs.defaultEnabled
     /// Custom background image (#custom-background): when active it overrides the sky in the backdrop below.
     @ObservedObject private var backgroundStore = BackgroundImageStore.shared
 
@@ -372,8 +378,19 @@ struct LiquidTodayView: View {
                         switch section {
                         case .hero:
                             heroCard
+                            #if os(iOS)
+                            // The dark look: monitor tiles under the dials, then My Day with today's activities.
+                            // Everything the classic stack held is still here (the My Day entry became the header).
+                            lookMonitorRow
+                            if chargeLegacyRRGap { ChargeLegacyRRGapNote() }
+                            if selectedDayOffset == 0 {
+                                LookMyDaySection(day: selectedLogicalDay)
+                                EffortTargetCard(); SleepPlannerEntryCard(); WeeklyGoalsCard()
+                            }
+                            #else
                             if chargeLegacyRRGap { ChargeLegacyRRGapNote() }
                             if selectedDayOffset == 0 { MyDayEntryCard(); EffortTargetCard(); SleepPlannerEntryCard(); WeeklyGoalsCard() }
+                            #endif
                         case .liveSession: if liveSessionsBeta { liveSessionStartRow }
                         case .synthesis: synthesisSection
                         case .keyMetrics: keyMetricsSection
@@ -425,6 +442,24 @@ struct LiquidTodayView: View {
         // brings Today's scroll behaviour in line with the rest of the app without touching the
         // vertical pull-to-refresh gesture above.
         .scrollBounceBehavior(.basedOnSize, axes: .horizontal)
+        // Sticky mini dials: once the big dials have scrolled under the top edge, a slim strip of the same three
+        // scores stays pinned to it.
+        .background(
+            GeometryReader { geo in
+                Color.clear.preference(key: LookScrollTopKey.self, value: geo.frame(in: .global).minY)
+            }
+        )
+        .onPreferenceChange(LookHeroBottomKey.self) { heroBottomY = $0 }
+        .onPreferenceChange(LookScrollTopKey.self) { scrollTopY = $0 }
+        .overlay(alignment: .top) {
+            if LookSticky.isVisible(heroBottomY: Double(heroBottomY), topInset: Double(scrollTopY)) {
+                StickyMiniDials(items: lookMiniDialItems)
+                    .hiddenWhenPrivate(.scores, name: String(localized: "Scores"))
+                    .transition(.move(edge: .top).combined(with: .opacity))
+            }
+        }
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.2),
+                   value: LookSticky.isVisible(heroBottomY: Double(heroBottomY), topInset: Double(scrollTopY)))
         #endif
         .onPreferenceChange(PullOffsetKey.self) { handlePull($0) }
         // The sky is a FIXED full-bleed backdrop drawn behind the scroll content, edge-to-edge under the
@@ -432,7 +467,11 @@ struct LiquidTodayView: View {
         // moves the sky (the exact behaviour the scaffold uses on the classic Today).
         .background(alignment: .top) {
             ZStack(alignment: .top) {
+                #if os(iOS)
+                LookScreenGradient()
+                #else
                 StrandPalette.surfaceBase
+                #endif
                 // Custom background image (#custom-background): a picked photo OVERRIDES the sky, filling
                 // the whole backdrop (same cached image as every other tab, so it's seamless).
                 if backgroundStore.isActive {
@@ -569,7 +608,20 @@ struct LiquidTodayView: View {
 
     // MARK: - Scene (sky title + controls + hero)
 
-    private var scene: some View {
+    @ViewBuilder private var scene: some View {
+        #if os(iOS)
+        VStack(alignment: .leading, spacing: 0) {
+            lookTopBar
+            LiquidWordmark()
+                .padding(.top, 22)
+                .padding(.bottom, 4)
+        }
+        #else
+        classicScene
+        #endif
+    }
+
+    private var classicScene: some View {
         VStack(alignment: .leading, spacing: 0) {
             ZStack(alignment: .topTrailing) {
                 Button { showDayPicker = true } label: {
@@ -701,7 +753,15 @@ struct LiquidTodayView: View {
         .accessibilityLabel("Start a live session. Beta. Silent strap coaching against today's Charge.")
     }
 
-    private var heroCard: some View {
+    @ViewBuilder private var heroCard: some View {
+        #if os(iOS)
+        lookHeroCard
+        #else
+        classicHeroCard
+        #endif
+    }
+
+    private var classicHeroCard: some View {
         HStack(alignment: .top, spacing: 4) {
             // #543 carry: an unscored today shows the last scored night's REAL Charge (labelled as prior by
             // the state pill) rather than an empty vessel, matching the classic Today, the widget/watch/Live
@@ -741,6 +801,166 @@ struct LiquidTodayView: View {
         .padding(.horizontal, NoopMetrics.space3)
         .background(NoopPanelSurface(cornerRadius: 26, elevated: true, surfaceOpacity: cardOpacity))
     }
+
+    #if os(iOS)
+    // MARK: - Look (dark, WHOOP-style layout): dials, monitor tiles, top bar
+
+    /// Today's Effort target, read the way EffortTargetCard reads it, so the Effort dial can draw its target.
+    private var effortReadingKey: String { EffortTargetReading.inputKey(days: repo.days, effortScaleRaw: effortScaleRaw) }
+
+    @MainActor private func refreshEffortReading() {
+        #if DEBUG
+        if let fixture = PlannerFixture.effortReading { effortReading = fixture; return }
+        #endif
+        effortReading = EffortTargetReading.make(days: repo.days, effortScale: effortScale)
+    }
+
+    /// The three thin dials. Same scores, same taps (ring opens the metric, the label opens the scoring guide).
+    private var lookHeroCard: some View {
+        let band = effortReading?.progress
+        let target = LookDial.targetArc(low: band?.lowFraction, high: band?.highFraction, max: 1)
+        let chargeColor = chargeDisplay.pct.map { NoopLook.chargeColor($0) } ?? NoopLook.chargeHigh
+        return HStack(alignment: .top, spacing: 0) {
+            HeroScoreCell(label: String(localized: "Rest"), score: restScore, tint: NoopLook.rest,
+                          animated: dataLoaded, onGuide: { guideSection = .rest },
+                          detailRoute: .metric(HeroRingMetric.rest), unit: "%", caption: heroSourceLabel)
+            HeroScoreCell(label: String(localized: "Charge"), score: chargeDisplay.pct, tint: chargeColor,
+                          animated: dataLoaded, onGuide: { guideSection = .charge },
+                          detailRoute: .metric(HeroRingMetric.charge), unit: "%")
+            HeroScoreCell(label: String(localized: "Effort"),
+                          score: effortStrain(displayDay).map { UnitFormatter.effortValue($0, scale: effortScale) },
+                          tint: NoopLook.effort, animated: dataLoaded, onGuide: { guideSection = .effort },
+                          maxValue: effortScale == .whoop ? 21 : 100, decimals: effortScale == .whoop ? 1 : 0,
+                          detailRoute: .metric(HeroRingMetric.effort), target: target)
+        }
+        .padding(.horizontal, 2)
+        .background(
+            GeometryReader { geo in
+                Color.clear.preference(key: LookHeroBottomKey.self, value: geo.frame(in: .global).maxY)
+            }
+        )
+        .onAppear { refreshEffortReading() }
+        .onChangeCompat(of: effortReadingKey) { _ in refreshEffortReading() }
+    }
+
+    /// Health and Stress monitor tiles side by side.
+    private var lookMonitorRow: some View {
+        HStack(spacing: 12) {
+            // The illness early-warning describes now, so it sits on today only.
+            if selectedDayOffset == 0 { LookHealthTile() }
+            LookStressTile(score: stress)
+                .hiddenWhenPrivate(.scores, name: String(localized: "Stress"))
+        }
+    }
+
+    /// The strip of mini dials that slides in once the big ones have scrolled away.
+    private var lookMiniDialItems: [MiniDialItem] {
+        let maxEffort: Double = effortScale == .whoop ? 21 : 100
+        let effortDecimals: Int = effortScale == .whoop ? 1 : 0
+        let effort: Double? = effortStrain(displayDay).map { UnitFormatter.effortValue($0, scale: effortScale) }
+        let chargePct: Double? = chargeDisplay.pct
+        let chargeColor: Color = chargePct.map { NoopLook.chargeColor($0) } ?? NoopLook.chargeHigh
+        let rest = MiniDialItem(id: "rest", title: String(localized: "Rest"),
+                                fraction: LookDial.fraction(restScore ?? 0, max: 100), color: NoopLook.rest,
+                                valueText: Self.miniText(restScore, decimals: 0))
+        let charge = MiniDialItem(id: "charge", title: String(localized: "Charge"),
+                                  fraction: LookDial.fraction(chargePct ?? 0, max: 100), color: chargeColor,
+                                  valueText: Self.miniText(chargePct, decimals: 0))
+        let effortItem = MiniDialItem(id: "effort", title: String(localized: "Effort"),
+                                      fraction: LookDial.fraction(effort ?? 0, max: maxEffort), color: NoopLook.effort,
+                                      valueText: Self.miniText(effort, decimals: effortDecimals))
+        return [rest, charge, effortItem]
+    }
+
+    private static func miniText(_ value: Double?, decimals: Int) -> String {
+        guard let value else { return "\u{2013}" }
+        if decimals > 0 { return String(format: "%.\(decimals)f", locale: AppLanguage.activeLocale, value) }
+        return String(Int(value.rounded()))
+    }
+
+    /// Top bar: profile, the ‹ TODAY › day pill, the strap battery / sync control and the customise button.
+    private var lookTopBar: some View {
+        HStack(spacing: 8) {
+            Button { showSettings = true } label: {
+                Color.clear.frame(width: NoopMetrics.compactControlSize, height: NoopMetrics.compactControlSize)
+            }
+            .nativeLiquidGlassHeaderButton()
+            .overlay {
+                GeometryReader { proxy in
+                    let diameter = min(proxy.size.width, proxy.size.height)
+                    ProfileAvatarView(imageData: profile.avatarImageData, size: diameter)
+                        .frame(width: diameter, height: diameter)
+                        .position(x: proxy.size.width / 2, y: proxy.size.height / 2)
+                }
+                .allowsHitTesting(false)
+            }
+            .nativeLiquidGlassPhotoFinish()
+            .accessibilityLabel("Profile and settings")
+            .accessibilityIdentifier("today-settings")
+            Spacer(minLength: 0)
+            lookDayPill
+            Spacer(minLength: 0)
+            LiquidBatteryButton()
+            Button { customizationDestination = .today } label: {
+                Image(systemName: "slider.horizontal.3")
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundStyle(StrandPalette.textPrimary)
+                    .frame(width: NoopMetrics.compactControlSize, height: NoopMetrics.compactControlSize)
+            }
+            .nativeLiquidGlassHeaderButton()
+            .accessibilityLabel("Customize Today")
+        }
+    }
+
+    /// ‹ TODAY › : older day on the left, newer on the right (greyed on today); the title opens the calendar.
+    private var lookDayPill: some View {
+        HStack(spacing: 0) {
+            Button { stepDay(1) } label: {
+                Image(systemName: "chevron.left").font(.system(size: 13, weight: .bold))
+                    .frame(width: 28, height: 30)
+            }
+            .disabled(selectedDayOffset >= earliestDayOffset)
+            .accessibilityLabel("Previous day")
+            Button { showDayPicker = true } label: {
+                Text(dayTitle)
+                    .lookCaps(14)
+                    .foregroundStyle(NoopLook.textPrimary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+                    .padding(.horizontal, 20)
+                    .frame(height: 30)
+                    .background(Capsule(style: .continuous).fill(Color(light: "#C9D0D8", dark: "#4A5056")))
+            }
+            .accessibilityLabel("\(dayTitle). Tap to pick a day.")
+            .accessibilityIdentifier("look-day-title")
+            .popover(isPresented: $showDayPicker) {
+                DatePicker("", selection: dayPickerBinding, in: ...Repository.logicalDay(Date()),
+                           displayedComponents: [.date])
+                    .datePickerStyle(.graphical)
+                    .labelsHidden()
+                    .padding(12)
+                    .frame(minWidth: 320, minHeight: 360)
+                    .liquidPopoverAdaptation()
+            }
+            Button { stepDay(-1) } label: {
+                Image(systemName: "chevron.right").font(.system(size: 13, weight: .bold))
+                    .frame(width: 28, height: 30)
+            }
+            .disabled(selectedDayOffset == 0)
+            .accessibilityLabel("Next day")
+        }
+        .foregroundStyle(NoopLook.textPrimary)
+        .buttonStyle(.plain)
+        .background(Capsule(style: .continuous).fill(Color(light: "#DDE2E8", dark: "#35393E")))
+        .fixedSize()
+    }
+
+    private func stepDay(_ delta: Int) {
+        let next = Self.clampedDayOffset(current: selectedDayOffset, delta: delta, maxOffset: earliestDayOffset)
+        guard next != selectedDayOffset else { return }
+        withAnimation(StrandMotion.interactive) { selectedDayOffset = next }
+    }
+    #endif
 
     // MARK: - Heart rate
 
@@ -2191,11 +2411,11 @@ private struct LiquidWordmark: View {
     @State private var token = 0      // drives the tap haptic
 
     var body: some View {
-        HStack(spacing: 14) {
+        HStack(spacing: letterSpacing) {
             ForEach(Array("NOOP".enumerated()), id: \.offset) { _, ch in
                 Text(String(ch))
-                    .font(StrandFont.rounded(16, weight: .bold))
-                    .foregroundStyle(StrandPalette.textTertiary)
+                    .font(letterFont)
+                    .foregroundStyle(letterColor)
             }
         }
         .shadow(color: .black.opacity(0.25), radius: 6, y: 1)
@@ -2209,6 +2429,17 @@ private struct LiquidWordmark: View {
         .frame(maxWidth: .infinity)
         .accessibilityHidden(true)
     }
+
+    #if os(iOS)
+    // The look's wordmark: thin, large, evenly tracked (the NOOP name, not an image).
+    private var letterSpacing: CGFloat { 7 }
+    private var letterFont: Font { LookFont.text(25, weight: .light) }
+    private var letterColor: Color { NoopLook.textPrimary.opacity(0.92) }
+    #else
+    private var letterSpacing: CGFloat { 14 }
+    private var letterFont: Font { StrandFont.rounded(16, weight: .bold) }
+    private var letterColor: Color { StrandPalette.textTertiary }
+    #endif
 
     /// The easter egg: one of several one-shot animations at random. The oscillating ones (wiggle/shake/
     /// squash) kick the value to an extreme then let an under-damped spring settle it back through zero,
@@ -2242,7 +2473,11 @@ private struct LiquidWordmark: View {
 /// COUNTS UP to the value when data lands; tapping the gauge itself splashes (the number is
 /// hit-transparent so the tap reaches the vessel). The label row taps through to the scoring guide.
 private struct HeroScoreCell: View {
+    #if os(iOS)
+    static let vesselDiameter: CGFloat = 92
+    #else
     static let vesselDiameter: CGFloat = 96
+    #endif
 
     let label: String
     let score: Double?            // on whatever scale the caller passes (nil = no data yet)
@@ -2261,11 +2496,40 @@ private struct HeroScoreCell: View {
     /// the same score land on the identical dossier rather than diverging. The LABEL keeps its own job:
     /// it opens the scoring guide, which is this screen's only route to that explainer.
     var detailRoute: TabRoute? = nil
+    /// Unit printed after the number ("%" for Charge and Rest). Look only.
+    var unit: String? = nil
+    /// Effort's target range as circle fractions; the dial draws its arc and tick. Look only.
+    var target: (start: Double, end: Double)? = nil
+    /// A one-line note under the label (the score's source). Look only.
+    var caption: String? = nil
 
     /// The gauge, linked when there is somewhere to go.
     ///
     /// Built here rather than inline so the linked and plain forms stay in one place and the body reads
     /// as three stacked elements rather than a branch.
+    #if os(iOS)
+    private var lookValueText: String {
+        guard let score else { return "\u{2013}" }
+        return decimals > 0 ? String(format: "%.\(decimals)f", locale: AppLanguage.activeLocale, score)
+                            : String(Int(score.rounded()))
+    }
+
+    /// The thin dial (no vessel, no splash): same score, same tap target.
+    @ViewBuilder
+    private var gaugeView: some View {
+        let gauge = RingDial(fraction: score.map { LookDial.fraction($0, max: maxValue) } ?? 0, color: tint,
+                             valueText: lookValueText, unitText: score == nil ? nil : unit, target: target,
+                             diameter: Self.vesselDiameter, accessibilityName: label)
+        if let detailRoute {
+            NavigationLink(value: detailRoute) { gauge.contentShape(Rectangle()) }
+                .buttonStyle(LiquidPressStyle())
+                .accessibilityLabel(Text("\(label), \(spokenScore)"))
+                .accessibilityHint(Text("Opens the trend and readings"))
+        } else {
+            gauge
+        }
+    }
+    #else
     @ViewBuilder
     private var gaugeView: some View {
         let gauge = LiquidScoreGauge(
@@ -2290,6 +2554,8 @@ private struct HeroScoreCell: View {
         }
     }
 
+    #endif
+
     /// The score as VoiceOver should say it, matching the label row's own phrasing.
     private var spokenScore: String {
         guard let score else { return String(localized: "no data yet") }
@@ -2298,6 +2564,36 @@ private struct HeroScoreCell: View {
             : String(Int(score.rounded()))
     }
 
+    #if os(iOS)
+    var body: some View {
+        VStack(spacing: 8) {
+            gaugeView.hiddenWhenPrivate(.scores, name: label)
+            Button(action: onGuide) {
+                HStack(spacing: 5) {
+                    Text(label)
+                        .lookCaps(13.5)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(NoopLook.textTertiary)
+                }
+                .foregroundStyle(NoopLook.textPrimary)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(Text("\(label), \(spokenScore). See how it is scored."))
+            if let caption {
+                Text(caption)
+                    .font(LookFont.text(11, weight: .medium))
+                    .foregroundStyle(NoopLook.textTertiary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+            }
+        }
+        .frame(maxWidth: .infinity)
+    }
+    #else
     var body: some View {
         VStack(spacing: 7) {
             gaugeView.hiddenWhenPrivate(.scores, name: label)
@@ -2318,7 +2614,22 @@ private struct HeroScoreCell: View {
         }
         .frame(maxWidth: .infinity)
     }
+    #endif
 }
+
+#if os(iOS)
+/// Carries the big dials' bottom edge (global y) up to Today, which shows the sticky mini dials past it.
+private struct LookHeroBottomKey: PreferenceKey {
+    static var defaultValue: CGFloat = .greatestFiniteMagnitude
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = nextValue() }
+}
+
+/// Carries the scroll view's top edge (global y): the line the dials must pass.
+private struct LookScrollTopKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = nextValue() }
+}
+#endif
 
 
 // MARK: - Scene controls (LiveState-isolated leaves)

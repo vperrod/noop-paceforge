@@ -282,38 +282,44 @@ struct PFNextActionCard: View {
     @Environment(\.pfOpenInsight) private var openInsight
     private let hiding = PFHiding()
 
+    /// An insight-style card: the action in the gradient frame, the chips under it and the link that opens the
+    /// other options. Same content and the same tap as before.
     var body: some View {
         Button { openInsight(item.id) } label: {
-            PFCard(title: "Next best action", icon: PFInsightIcon.symbol(item.id), trailing: {
-                PFInsightStatusChip(item: item)
-            }) {
-                VStack(alignment: .leading, spacing: 10) {
-                    if let action = item.actions.first {
-                        Text(hiding.text(action.text))
-                            .font(StrandFont.subhead.weight(.semibold))
-                            .foregroundStyle(StrandPalette.textPrimary)
+            InsightCardFrame {
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    Image(systemName: PFInsightIcon.symbol(item.id))
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(NoopLook.textSecondary)
+                    Text("Next best action")
+                        .lookCaps(12.5)
+                        .foregroundStyle(NoopLook.textPrimary)
+                    Spacer(minLength: 8)
+                    PFInsightStatusChip(item: item)
+                }
+                if let action = item.actions.first {
+                    Text(hiding.text(action.text))
+                        .font(LookFont.text(15.5, weight: .semibold))
+                        .foregroundStyle(NoopLook.textPrimary)
+                        .multilineTextAlignment(.leading)
+                        .fixedSize(horizontal: false, vertical: true)
+                    if let why = action.why {
+                        Text(hiding.text(why))
+                            .font(LookFont.text(14.5, weight: .medium))
+                            .foregroundStyle(NoopLook.textSecondary)
                             .multilineTextAlignment(.leading)
-                            .fixedSize(horizontal: false, vertical: true)
-                        if let why = action.why {
-                            Text(hiding.text(why))
-                                .font(StrandFont.subhead)
-                                .foregroundStyle(StrandPalette.textSecondary)
-                                .multilineTextAlignment(.leading)
-                                .lineLimit(4)
-                        }
-                        HStack(spacing: 8) {
-                            if let effort = action.effort {
-                                PFChip(text: effort.chipText, color: effort.isFree ? PFColor.positive : StrandPalette.accent)
-                            }
-                            if let impact = action.impactText {
-                                PFChip(text: impact, color: StrandPalette.textTertiary)
-                            }
-                            Spacer(minLength: 4)
-                            Image(systemName: "chevron.right")
-                                .font(.system(size: 12, weight: .semibold))
-                                .foregroundStyle(StrandPalette.textTertiary)
-                        }
+                            .lineLimit(4)
                     }
+                    HStack(spacing: 8) {
+                        if let effort = action.effort {
+                            PFChip(text: effort.chipText, color: effort.isFree ? PFColor.positive : StrandPalette.accent)
+                        }
+                        if let impact = action.impactText {
+                            PFChip(text: impact, color: StrandPalette.textTertiary)
+                        }
+                        Spacer(minLength: 4)
+                    }
+                    InsightLink("See the other options")
                 }
             }
             .contentShape(Rectangle())
