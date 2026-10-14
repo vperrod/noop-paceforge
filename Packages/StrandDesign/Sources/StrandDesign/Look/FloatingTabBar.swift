@@ -51,6 +51,8 @@ public struct FloatingTabBar: View {
                     .font(.system(size: 20, weight: .regular))
                 Text(item.title)
                     .font(LookFont.text(11, weight: .medium))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
             }
             .foregroundStyle(isOn ? NoopLook.textPrimary : NoopLook.textTertiary)
             .frame(maxWidth: .infinity)

@@ -102,6 +102,8 @@ public struct LookTrendView: View {
     @Binding public var endDate: Date
     public var today: Date
     public var calendar: Calendar
+    /// The 7-day average line over the daily one; a per-viewer view setting, so it lives here.
+    @State private var showsSevenDay = false
 
     public init(metrics: [LookTrendMetric], metricID: Binding<String>, range: Binding<LookRange>,
                 endDate: Binding<Date>, today: Date, calendar: Calendar = .current) {
@@ -132,6 +134,7 @@ public struct LookTrendView: View {
         return VStack(alignment: .leading, spacing: 0) {
             dropdown(metric)
             header(metric, window)
+            averageToggle
             if let caption = metric.caption {
                 Text(caption)
                     .font(LookFont.text(15.5, weight: .medium))
@@ -141,7 +144,8 @@ public struct LookTrendView: View {
                     .padding(.horizontal, NoopLook.Metric.screenInset)
                     .padding(.top, 20)
             }
-            LookTrendChart(window: window, metric: metric, calendar: calendar)
+            LookTrendChart(window: window, metric: metric, calendar: calendar,
+                           sevenDay: showsSevenDay ? sevenDayLine(metric, window) : [])
                 .frame(height: 300)
                 .padding(.top, 18)
             if let info = metric.info {
@@ -154,34 +158,74 @@ public struct LookTrendView: View {
 
     // MARK: Pieces
 
-    private func dropdown(_ metric: LookTrendMetric) -> some View {
-        Menu {
-            ForEach(metrics) { m in
-                Button(m.title) { metricID = m.id }
-            }
-        } label: {
-            HStack(spacing: 14) {
-                Image(systemName: metric.icon)
-                    .font(.system(size: 20, weight: .regular))
-                    .foregroundStyle(NoopLook.textTertiary)
-                Text(metric.title)
-                    .lookCaps(13.5)
-                    .foregroundStyle(NoopLook.textPrimary)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.75)
-                Spacer(minLength: 4)
+    @ViewBuilder private func dropdown(_ metric: LookTrendMetric) -> some View {
+        if metrics.count > 1 {
+            Menu {
+                ForEach(metrics) { m in
+                    Button(m.title) { metricID = m.id }
+                }
+            } label: { dropdownLabel(metric, showsChevron: true) }
+                .padding(.horizontal, NoopLook.Metric.screenInset)
+                .padding(.top, 10)
+                .accessibilityLabel("Metric: \(metric.title)")
+                .accessibilityIdentifier("look-trend-metric-menu")
+        } else {
+            dropdownLabel(metric, showsChevron: false)
+                .padding(.horizontal, NoopLook.Metric.screenInset)
+                .padding(.top, 10)
+                .accessibilityElement(children: .combine)
+                .accessibilityIdentifier("look-trend-metric-title")
+        }
+    }
+
+    private func dropdownLabel(_ metric: LookTrendMetric, showsChevron: Bool) -> some View {
+        HStack(spacing: 14) {
+            Image(systemName: metric.icon)
+                .font(.system(size: 20, weight: .regular))
+                .foregroundStyle(NoopLook.textTertiary)
+            Text(metric.title)
+                .lookCaps(13.5)
+                .foregroundStyle(NoopLook.textPrimary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
+            Spacer(minLength: 4)
+            if showsChevron {
                 Image(systemName: "chevron.down")
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(NoopLook.textPrimary)
             }
-            .padding(.horizontal, 18)
-            .frame(height: 56)
-            .background(RoundedRectangle(cornerRadius: NoopLook.Metric.tileRadius, style: .continuous).fill(NoopLook.card))
         }
+        .padding(.horizontal, 18)
+        .frame(height: 56)
+        .background(RoundedRectangle(cornerRadius: NoopLook.Metric.tileRadius, style: .continuous).fill(NoopLook.card))
+    }
+
+    /// "7-DAY AVERAGE" switch under the header: draws the smoothed line over the daily one.
+    private var averageToggle: some View {
+        Button { showsSevenDay.toggle() } label: {
+            HStack(spacing: 8) {
+                Image(systemName: showsSevenDay ? "checkmark.square.fill" : "square")
+                    .font(.system(size: 16, weight: .regular))
+                    .foregroundStyle(showsSevenDay ? NoopLook.textPrimary : NoopLook.textTertiary)
+                Text("7-day average")
+                    .lookCaps(12)
+                    .foregroundStyle(showsSevenDay ? NoopLook.textPrimary : NoopLook.textSecondary)
+            }
+            .padding(.vertical, 4)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
         .padding(.horizontal, NoopLook.Metric.screenInset)
-        .padding(.top, 10)
-        .accessibilityLabel("Metric: \(metric.title)")
-        .accessibilityIdentifier("look-trend-metric-menu")
+        .padding(.top, 14)
+        .accessibilityAddTraits(showsSevenDay ? [.isButton, .isSelected] : .isButton)
+        .accessibilityIdentifier("look-trend-seven-day")
+    }
+
+    /// Trailing seven-day mean over the whole series (so the first days of the window are not cut short), clipped
+    /// to the window.
+    private func sevenDayLine(_ metric: LookTrendMetric, _ window: LookTrendWindow) -> [LookPoint] {
+        let all = LookTrendStats.trailingAverage(metric.points, days: 7, calendar: calendar)
+        return LookSeries.within(all, from: window.start, to: window.end)
     }
 
     private func header(_ metric: LookTrendMetric, _ window: LookTrendWindow) -> some View {
@@ -266,6 +310,8 @@ struct LookTrendChart: View {
     let window: LookTrendWindow
     let metric: LookTrendMetric
     let calendar: Calendar
+    /// The 7-day average line, empty when the switch is off.
+    var sevenDay: [LookPoint] = []
 
     private var xFormat: Date.FormatStyle {
         switch window.range {
@@ -282,6 +328,7 @@ struct LookTrendChart: View {
         Chart {
             bandMarks
             seriesMarks
+            averageMarks
             segmentMarks
         }
         .chartYScale(domain: window.yDomain)
@@ -321,7 +368,8 @@ struct LookTrendChart: View {
         switch metric.style {
         case .line:
             ForEach(window.points, id: \.date) { p in
-                LineMark(x: .value("Day", p.date), y: .value("Value", p.value))
+                LineMark(x: .value("Day", p.date), y: .value("Value", p.value),
+                         series: .value("Series", "daily"))
                     .lineStyle(StrokeStyle(lineWidth: 1.4, lineJoin: .round))
                     .foregroundStyle(NoopLook.trendLine)
             }
@@ -330,6 +378,15 @@ struct LookTrendChart: View {
                 BarMark(x: .value("Day", p.date, unit: .day), y: .value("Value", p.value))
                     .foregroundStyle(NoopLook.effort)
             }
+        }
+    }
+
+    @ChartContentBuilder private var averageMarks: some ChartContent {
+        ForEach(sevenDay, id: \.date) { p in
+            LineMark(x: .value("Day", p.date), y: .value("7-day average", p.value),
+                     series: .value("Series", "average"))
+                .lineStyle(StrokeStyle(lineWidth: 2.4, lineJoin: .round))
+                .foregroundStyle(NoopLook.textPrimary)
         }
     }
 
