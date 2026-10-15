@@ -18,6 +18,7 @@ final class Phase4UITests: XCTestCase {
                                 "The synthetic fixture should be bundled with the UI tests.")
         app.launchEnvironment["PF_FIXTURE_JSON"] = String(decoding: try Data(contentsOf: url), as: UTF8.self)
         app.launch()
+        dumpHierarchyOnFailure(app)
         return app
     }
 
@@ -70,9 +71,10 @@ final class Phase4UITests: XCTestCase {
     func testStreakChipOnTheTopBarOpensHighlights() throws {
         let app = try launch()
         let chip = element(app, "look-streak-chip")
-        XCTAssertTrue(chip.waitForExistence(timeout: 30), "Today's top bar should carry the streak chip.")
-        XCTAssertTrue(chip.label.contains("6 day streak"), "The chip should speak the longest streak alive, six days in the fixture.")
+        let found = chip.waitForExistence(timeout: 30)
         attach(app, "Phase4 10 Today top bar with the streak chip")
+        XCTAssertTrue(found, "Today's top bar should carry the streak chip.")
+        XCTAssertTrue(chip.label.contains("6 day streak"), "The chip should speak the longest streak alive, six days in the fixture.")
         chip.tap()
         XCTAssertTrue(element(app, "pf-highlights-body").waitForExistence(timeout: 20), "The chip should open Highlights.")
         attach(app, "Phase4 11 Highlights opened from the chip")
