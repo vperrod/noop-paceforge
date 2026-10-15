@@ -473,9 +473,6 @@ struct LiquidTodayView: View {
         // Sticky mini dials: once the big dials have scrolled under the top edge, a slim strip of the same three
         // scores stays pinned to it. The dials are measured in the scroll view's own coordinate space, whose top
         // edge is 0, so the strip shows once their bottom edge goes negative.
-        #if DEBUG
-        .overlay(alignment: .bottomLeading) { Color.clear.frame(width: 1, height: 1).accessibilityLabel("hero-bottom \(Int(min(heroBottomY, 99999)))").accessibilityIdentifier("look-debug-hero-bottom") }
-        #endif
         .overlay(alignment: .top) {
             if LookSticky.isVisible(heroBottomY: Double(heroBottomY), topInset: 0) {
                 StickyMiniDials(items: lookMiniDialItems)
