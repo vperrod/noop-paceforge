@@ -84,8 +84,14 @@ final class LookComponentsUITests: XCTestCase {
         XCTAssertTrue(reveal(sixMonths, in: app), "The trend should offer the 6M range.")
         let label = element(app, "look-trend-range-label")
         let before = label.label
-        attach(app, "Look 10 trend 6M")
+        // The stepper sits at the screen's bottom edge, where the home indicator swallows taps; bring it up first.
         let prev = element(app, "look-trend-prev")
+        for _ in 0..<4 where prev.frame.maxY > app.frame.height - 120 {
+            app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.62))
+                .press(forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.42)),
+                       withVelocity: .slow, thenHoldForDuration: 0.1)
+        }
+        attach(app, "Look 10 trend 6M")
         prev.tap()
         // A tap that lands while the chart is still redrawing is lost; try once more.
         if label.label == before { prev.tap() }

@@ -62,7 +62,6 @@ struct LiquidTodayView: View {
     /// PaceForge's daily-intel.json: its Effort target range stands in for the dial's tick when NOOP has none of its own.
     @ObservedObject private var intelStore = PFDailyIntelStore.shared
     @State private var heroBottomY: CGFloat = .greatestFiniteMagnitude
-    @State private var scrollTopY: CGFloat = 0
     #endif
     @State private var fitnessAge: Double?         // exploreSeries("fitness_age").last
     @State private var vo2max: Double?             // exploreSeries("vo2max_est").last (#1391)
@@ -472,23 +471,18 @@ struct LiquidTodayView: View {
         // vertical pull-to-refresh gesture above.
         .scrollBounceBehavior(.basedOnSize, axes: .horizontal)
         // Sticky mini dials: once the big dials have scrolled under the top edge, a slim strip of the same three
-        // scores stays pinned to it.
-        .background(
-            GeometryReader { geo in
-                Color.clear.preference(key: LookScrollTopKey.self, value: geo.frame(in: .global).minY)
-            }
-        )
+        // scores stays pinned to it. The dials are measured in the scroll view's own coordinate space, whose top
+        // edge is 0, so the strip shows once their bottom edge goes negative.
         .onPreferenceChange(LookHeroBottomKey.self) { heroBottomY = $0 }
-        .onPreferenceChange(LookScrollTopKey.self) { scrollTopY = $0 }
         .overlay(alignment: .top) {
-            if LookSticky.isVisible(heroBottomY: Double(heroBottomY), topInset: Double(scrollTopY)) {
+            if LookSticky.isVisible(heroBottomY: Double(heroBottomY), topInset: 0) {
                 StickyMiniDials(items: lookMiniDialItems)
                     .hiddenWhenPrivate(.scores, name: String(localized: "Scores"))
                     .transition(.move(edge: .top).combined(with: .opacity))
             }
         }
         .animation(reduceMotion ? nil : .easeOut(duration: 0.2),
-                   value: LookSticky.isVisible(heroBottomY: Double(heroBottomY), topInset: Double(scrollTopY)))
+                   value: LookSticky.isVisible(heroBottomY: Double(heroBottomY), topInset: 0))
         #endif
         .onPreferenceChange(PullOffsetKey.self) { handlePull($0) }
         // The sky is a FIXED full-bleed backdrop drawn behind the scroll content, edge-to-edge under the
@@ -866,7 +860,7 @@ struct LiquidTodayView: View {
         .padding(.horizontal, 2)
         .background(
             GeometryReader { geo in
-                Color.clear.preference(key: LookHeroBottomKey.self, value: geo.frame(in: .global).maxY)
+                Color.clear.preference(key: LookHeroBottomKey.self, value: geo.frame(in: .named(Self.pullSpace)).maxY)
             }
         )
         .onAppear { refreshEffortReading() }
@@ -2660,15 +2654,9 @@ private struct HeroScoreCell: View {
 }
 
 #if os(iOS)
-/// Carries the big dials' bottom edge (global y) up to Today, which shows the sticky mini dials past it.
+/// Carries the big dials' bottom edge (y in the scroll view's space) up to Today, which shows the sticky mini dials past it.
 private struct LookHeroBottomKey: PreferenceKey {
     static var defaultValue: CGFloat = .greatestFiniteMagnitude
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = nextValue() }
-}
-
-/// Carries the scroll view's top edge (global y): the line the dials must pass.
-private struct LookScrollTopKey: PreferenceKey {
-    static var defaultValue: CGFloat = 0
     static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = nextValue() }
 }
 #endif

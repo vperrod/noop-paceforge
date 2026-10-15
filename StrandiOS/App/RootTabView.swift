@@ -499,6 +499,9 @@ struct RootTabView: View {
         // Drive this tab's root scroll-to-top on an at-root re-tap (#198 follow-up); read by ScreenScaffold
         // / LiquidTodayView inside. Only THIS tab's token changes on its reselect, so the others don't scroll.
         .environment(\.scrollToTopSignal, scrollSignal)
+        // The system bar is hidden from inside each tab's stack: on the TabView itself the modifier does nothing
+        // on iOS 26, and the glass bar showed behind the look's floating bar.
+        .toolbar(lookTabBar ? .hidden : .automatic, for: .tabBar)
         .tabItem { Label(title, systemImage: icon) }
     }
 
@@ -591,6 +594,7 @@ struct RootTabView: View {
         }
         // Scroll the More index to the top on an at-root re-tap (#198 follow-up); read by its ScreenScaffold.
         .environment(\.scrollToTopSignal, scrollSignal)
+        .toolbar(lookTabBar ? .hidden : .automatic, for: .tabBar)
         .tabItem { Label("More", systemImage: "ellipsis") }
     }
 

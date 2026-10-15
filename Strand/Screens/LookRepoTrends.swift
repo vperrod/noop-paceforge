@@ -22,7 +22,10 @@ struct LookRepoTrends: View {
     private var loadKey: String { "\(repo.refreshSeq)|\(effortScaleRaw)" }
 
     var body: some View {
-        Group {
+        // A ZStack with a zero-size anchor, not a bare Group: an empty Group has no view, so its .task never starts
+        // and the metrics would never load.
+        ZStack {
+            Color.clear.frame(width: 0, height: 0).accessibilityHidden(true)
             if !metrics.isEmpty {
                 LookTrendHost(metrics: metrics, initialMetricID: initialID, initialRange: .month,
                               footer: { AnyView(PFWhatMovedSection(metricID: $0.id)) })

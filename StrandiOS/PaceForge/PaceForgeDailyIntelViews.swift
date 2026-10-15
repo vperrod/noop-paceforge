@@ -781,7 +781,10 @@ struct PFWhatMovedSection: View {
     init(intelKey: String) { key = intelKey }
 
     var body: some View {
-        Group {
+        // A zero-size anchor keeps the view alive when there is no card: an empty Group has no view, so its .task
+        // would never refresh the store.
+        ZStack {
+            Color.clear.frame(width: 0, height: 0).accessibilityHidden(true)
             if let key, let intel = store.intel, let metric = intel.moved?.metric(key) {
                 PFWhatMovedCard(metric: metric, asOf: intel.asOf, isCurrent: intel.isCurrent(for: PFAPI.todayISO))
             }
