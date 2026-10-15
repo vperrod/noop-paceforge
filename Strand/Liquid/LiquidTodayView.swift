@@ -910,9 +910,6 @@ struct LiquidTodayView: View {
             lookTopBarRow(showsStreak: true)
             lookTopBarRow(showsStreak: false)
         }
-        #if DEBUG && os(iOS)
-        .overlay(alignment: .bottom) { PFDebugChipProbe(); PFDebugTopBarProbe(content: lookTopBarRow(showsStreak: true)) }
-        #endif
     }
 
     private func lookTopBarRow(showsStreak: Bool) -> some View {
@@ -3567,29 +3564,3 @@ private extension View {
         #endif
     }
 }
-
-#if DEBUG && os(iOS)
-/// TEMPORARY: names what the streak chip's store holds, for the simulator run.
-private struct PFDebugChipProbe: View {
-    @ObservedObject private var store = PFPhase4Store.shared
-    var body: some View {
-        Color.clear.frame(width: 1, height: 1)
-            .accessibilityLabel("probe chip=\(store.streakChip?.count ?? -1) loaded=\(store.didLoad) streaks=\(store.docs.highlights.value?.streaks.count ?? -1)")
-            .accessibilityIdentifier("look-debug-chip-probe")
-    }
-}
-#endif
-
-#if DEBUG && os(iOS)
-/// TEMPORARY: the ideal width of the top bar row with the chip, for the simulator run.
-private struct PFDebugTopBarProbe<Content: View>: View {
-    let content: Content
-    @State private var width: CGFloat = 0
-    var body: some View {
-        content.fixedSize().hidden()
-            .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width = $0 }
-            .frame(width: 0, height: 0)
-            .overlay { Color.clear.frame(width: 1, height: 1).accessibilityLabel("probe ideal=\(Int(width))").accessibilityIdentifier("look-debug-topbar-ideal") }
-    }
-}
-#endif
