@@ -913,7 +913,7 @@ struct LiquidTodayView: View {
     }
 
     private func lookTopBarRow(showsStreak: Bool) -> some View {
-        HStack(spacing: 8) {
+        HStack(spacing: 6) {
             Button { showSettings = true } label: {
                 Color.clear.frame(width: NoopMetrics.compactControlSize, height: NoopMetrics.compactControlSize)
             }
@@ -962,7 +962,7 @@ struct LiquidTodayView: View {
                     .foregroundStyle(NoopLook.textPrimary)
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
-                    .padding(.horizontal, 20)
+                    .padding(.horizontal, 14)
                     .frame(height: 30)
                     .background(Capsule(style: .continuous).fill(Color(light: "#C9D0D8", dark: "#4A5056")))
             }
