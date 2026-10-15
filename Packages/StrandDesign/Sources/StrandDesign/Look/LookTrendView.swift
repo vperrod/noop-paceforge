@@ -341,6 +341,8 @@ struct LookTrendChart: View {
             segmentMarks
         }
         .chartYScale(domain: window.yDomain)
+        // Room for the last date label, which the chart edge cut off ("1" for "14").
+        .chartXScale(range: .plotDimension(endPadding: 14))
         .chartYAxis {
             AxisMarks(position: .leading, values: window.yTicks) { value in
                 AxisGridLine(stroke: StrokeStyle(lineWidth: 1)).foregroundStyle(NoopLook.divider)

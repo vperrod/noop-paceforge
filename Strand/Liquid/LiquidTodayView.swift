@@ -473,7 +473,6 @@ struct LiquidTodayView: View {
         // Sticky mini dials: once the big dials have scrolled under the top edge, a slim strip of the same three
         // scores stays pinned to it. The dials are measured in the scroll view's own coordinate space, whose top
         // edge is 0, so the strip shows once their bottom edge goes negative.
-        .onPreferenceChange(LookHeroBottomKey.self) { heroBottomY = $0 }
         #if DEBUG
         .overlay(alignment: .bottomLeading) { Color.clear.frame(width: 1, height: 1).accessibilityLabel("hero-bottom \(Int(min(heroBottomY, 99999)))").accessibilityIdentifier("look-debug-hero-bottom") }
         #endif
@@ -861,11 +860,8 @@ struct LiquidTodayView: View {
                           detailRoute: .metric(HeroRingMetric.effort), target: target)
         }
         .padding(.horizontal, 2)
-        .background(
-            GeometryReader { geo in
-                Color.clear.preference(key: LookHeroBottomKey.self, value: geo.frame(in: .named(Self.pullSpace)).maxY)
-            }
-        )
+        // onGeometryChange, not a preference: the preference route never delivered a value from this scroll view.
+        .onGeometryChange(for: CGFloat.self) { $0.frame(in: .named(Self.pullSpace)).maxY } action: { heroBottomY = $0 }
         .onAppear { refreshEffortReading() }
         .onChangeCompat(of: effortReadingKey) { _ in refreshEffortReading() }
         .task { await intelStore.refreshIfStale() }
@@ -2656,13 +2652,6 @@ private struct HeroScoreCell: View {
     #endif
 }
 
-#if os(iOS)
-/// Carries the big dials' bottom edge (y in the scroll view's space) up to Today, which shows the sticky mini dials past it.
-private struct LookHeroBottomKey: PreferenceKey {
-    static var defaultValue: CGFloat = .greatestFiniteMagnitude
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = nextValue() }
-}
-#endif
 
 
 // MARK: - Scene controls (LiveState-isolated leaves)
