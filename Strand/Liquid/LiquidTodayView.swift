@@ -910,6 +910,9 @@ struct LiquidTodayView: View {
             lookTopBarRow(showsStreak: true)
             lookTopBarRow(showsStreak: false)
         }
+        #if DEBUG && os(iOS)
+        .overlay(alignment: .bottom) { PFDebugChipProbe() }
+        #endif
     }
 
     private func lookTopBarRow(showsStreak: Bool) -> some View {
@@ -3564,3 +3567,15 @@ private extension View {
         #endif
     }
 }
+
+#if DEBUG && os(iOS)
+/// TEMPORARY: names what the streak chip's store holds, for the simulator run.
+private struct PFDebugChipProbe: View {
+    @ObservedObject private var store = PFPhase4Store.shared
+    var body: some View {
+        Color.clear.frame(width: 1, height: 1)
+            .accessibilityLabel("probe chip=\(store.streakChip?.count ?? -1) loaded=\(store.didLoad) streaks=\(store.docs.highlights.value?.streaks.count ?? -1)")
+            .accessibilityIdentifier("look-debug-chip-probe")
+    }
+}
+#endif
