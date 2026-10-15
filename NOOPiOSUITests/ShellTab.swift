@@ -7,3 +7,12 @@ extension XCUIApplication {
         descendants(matching: .any).matching(identifier: "look-tab-\(title.lowercased())").firstMatch
     }
 }
+
+extension XCTestCase {
+    /// When a test fails, prints what the screen exposed to accessibility, so the log names the identifiers that were missing.
+    func dumpHierarchyOnFailure(_ app: XCUIApplication) {
+        addTeardownBlock { [self] in
+            if (testRun?.totalFailureCount ?? 0) > 0 { print("HIERARCHY \(name)\n\(app.debugDescription)") }
+        }
+    }
+}

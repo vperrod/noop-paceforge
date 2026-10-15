@@ -1017,7 +1017,7 @@ struct MetricDetailView: View {
         return LookTrendView(metrics: [item], metricID: .constant(metric.id), range: lookRangeBinding,
                              endDate: $lookEnd, today: Calendar.current.startOfDay(for: Date()), footer: whatMoved)
             .padding(.horizontal, -NoopMetrics.screenPadding)
-            .accessibilityIdentifier("look-metric-trend")
+            .containerIdentifier("look-metric-trend")
     }
     #endif
 

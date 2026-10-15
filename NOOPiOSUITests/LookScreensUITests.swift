@@ -20,6 +20,7 @@ final class LookScreensUITests: XCTestCase {
             app.launchEnvironment["PF_FIXTURE_JSON"] = String(decoding: try Data(contentsOf: url), as: UTF8.self)
         }
         app.launch()
+        dumpHierarchyOnFailure(app)
         return app
     }
 
@@ -110,7 +111,7 @@ final class LookScreensUITests: XCTestCase {
     func testNoopTrendsOffersTheMetricMenuAndTheSevenDayAverage() throws {
         let app = try launch(screen: "trends")
         let trends = element(app, "look-noop-trends")
-        XCTAssertTrue(trends.waitForExistence(timeout: 30), "Trends should show the look's trend view.")
+        XCTAssertTrue(reveal(trends, in: app), "Trends should show the look's trend view.")
         XCTAssertTrue(reveal(element(app, "look-trend-metric-menu"), in: app), "Trends should show the metric menu.")
         attach(app, "Look 72 Trends trend view")
         element(app, "look-trend-metric-menu").tap()
@@ -193,7 +194,7 @@ final class LookScreensUITests: XCTestCase {
         XCTAssertTrue(element(app, "look-coach").exists, "The floating bar should carry the coach button.")
         attach(app, "Look B0 floating tab bar on Today")
         trends.tap()
-        XCTAssertTrue(element(app, "look-noop-trends").waitForExistence(timeout: 30), "Trends should open from the floating bar.")
+        XCTAssertTrue(reveal(element(app, "look-noop-trends"), in: app), "Trends should open from the floating bar.")
         attach(app, "Look B1 floating tab bar on Trends")
         app.shellTab("Sleep").tap()
         XCTAssertTrue(reveal(element(app, "look-last-night"), in: app), "Sleep should open from the floating bar.")

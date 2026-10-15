@@ -18,6 +18,7 @@ final class MyDayUITests: XCTestCase {
             app.launchEnvironment["PF_FIXTURE_JSON"] = String(decoding: try Data(contentsOf: url), as: UTF8.self)
         }
         app.launch()
+        dumpHierarchyOnFailure(app)
         return app
     }
 
@@ -119,10 +120,13 @@ final class MyDayUITests: XCTestCase {
         let tab = app.shellTab("PaceForge")
         XCTAssertTrue(tab.waitForExistence(timeout: 20), "The PaceForge tab should be present.")
         tab.tap()
-        XCTAssertTrue(element(app, "pf-sofar-card").waitForExistence(timeout: 20), "PaceForge Today should open on the today-so-far strip.")
+        // Today's call leads PaceForge Today, so the today-so-far strip is further down.
+        let open = element(app, "pf-open-myday")
+        for _ in 0..<8 where !(open.exists && open.isHittable) { app.swipeUp() }
+        XCTAssertTrue(element(app, "pf-sofar-card").exists, "PaceForge Today should show the today-so-far strip.")
         XCTAssertTrue(label(app, "0 of 1 session done").exists, "One session is planned and none is done yet.")
         attach(app, "26 PaceForge today so far")
-        element(app, "pf-open-myday").tap()
+        open.tap()
         XCTAssertTrue(element(app, "myday-strip").waitForExistence(timeout: 20), "Open My Day should land on My Day.")
         attach(app, "26 PaceForge to My Day")
     }

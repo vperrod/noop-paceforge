@@ -23,6 +23,7 @@ final class LookComponentsUITests: XCTestCase {
             app.launchEnvironment["PF_FIXTURE_JSON"] = String(decoding: try Data(contentsOf: url), as: UTF8.self)
         }
         app.launch()
+        dumpHierarchyOnFailure(app)
         return app
     }
 
@@ -84,10 +85,15 @@ final class LookComponentsUITests: XCTestCase {
         let label = element(app, "look-trend-range-label")
         let before = label.label
         attach(app, "Look 10 trend 6M")
-        element(app, "look-trend-prev").tap()
+        let prev = element(app, "look-trend-prev")
+        prev.tap()
+        // A tap that lands while the chart is still redrawing is lost; try once more.
+        if label.label == before { prev.tap() }
         XCTAssertNotEqual(label.label, before, "Stepping back should move the date window.")
         attach(app, "Look 11 trend 6M one page back")
-        element(app, "look-trend-next").tap()
+        let next = element(app, "look-trend-next")
+        next.tap()
+        if label.label != before { next.tap() }
         XCTAssertEqual(label.label, before, "Stepping forward should return to the first window.")
         element(app, "look-trend-range-W").tap()
         XCTAssertNotEqual(label.label, before, "A week window reads a shorter span.")

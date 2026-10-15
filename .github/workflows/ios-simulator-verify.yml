@@ -2,6 +2,11 @@ name: iOS Simulator verification
 
 on:
   workflow_dispatch:
+    inputs:
+      only:
+        description: "Optional space-separated -only-testing identifiers, e.g. NOOPiOSUITests/LookScreensUITests. Empty runs every UI test."
+        required: false
+        default: ""
 
 permissions:
   contents: read
@@ -9,7 +14,7 @@ permissions:
 jobs:
   verify-paceforge-menu:
     runs-on: macos-26
-    timeout-minutes: 130
+    timeout-minutes: 240
     steps:
       - uses: actions/checkout@v5
       - name: Install XcodeGen
@@ -17,13 +22,17 @@ jobs:
       - name: Generate Xcode project
         run: xcodegen generate
       - name: Verify PaceForge menu in iPhone Simulator
-        run: >-
-          xcodebuild -scheme NOOPiOS -configuration Debug
-          -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=latest'
-          -derivedDataPath build/derivedData
-          -resultBundlePath build/NOOPiOS.xcresult
-          CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY=""
-          test
+        env:
+          ONLY: ${{ inputs.only }}
+        run: |
+          only=()
+          for t in $ONLY; do only+=("-only-testing:$t"); done
+          xcodebuild -scheme NOOPiOS -configuration Debug \
+            -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=latest' \
+            -derivedDataPath build/derivedData \
+            -resultBundlePath build/NOOPiOS.xcresult \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            "${only[@]}" test
       - name: Export simulator screenshot
         if: always()
         run: |

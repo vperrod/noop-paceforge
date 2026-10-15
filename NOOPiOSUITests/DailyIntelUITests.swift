@@ -18,6 +18,7 @@ final class DailyIntelUITests: XCTestCase {
                                 "The synthetic fixture should be bundled with the UI tests.")
         app.launchEnvironment["PF_FIXTURE_JSON"] = String(decoding: try Data(contentsOf: url), as: UTF8.self)
         app.launch()
+        dumpHierarchyOnFailure(app)
         return app
     }
 
@@ -187,7 +188,7 @@ final class DailyIntelUITests: XCTestCase {
 
     func testTrendsShowsWhatMovedItForTheSelectedMetric() throws {
         let app = try launch(screen: "trends")
-        XCTAssertTrue(element(app, "look-noop-trends").waitForExistence(timeout: 30), "Trends should show the trend view.")
+        XCTAssertTrue(reveal(element(app, "look-noop-trends"), in: app), "Trends should show the trend view.")
         attach(app, "Intel 52 Trends, first metric")
         _ = reveal(element(app, "pf-what-moved"), in: app)
         attach(app, "Intel 53 Trends, What moved it under the metric")

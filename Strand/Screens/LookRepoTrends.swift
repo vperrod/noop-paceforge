@@ -31,7 +31,7 @@ struct LookRepoTrends: View {
                              message: "Trends draw once a few days of readings are in. Import your history in Data Sources or wear the strap for a few nights.")
             }
         }
-        .accessibilityIdentifier(identifier)
+        .containerIdentifier(identifier)
         .task(id: loadKey) { await load() }
     }
 

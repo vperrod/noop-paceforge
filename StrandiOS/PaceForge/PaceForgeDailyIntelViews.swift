@@ -595,7 +595,7 @@ struct PFHealthMonitorBody: View {
             .padding(.horizontal, 16)
             .frame(maxWidth: .infinity)
             .background(RoundedRectangle(cornerRadius: NoopLook.Metric.tileRadius, style: .continuous).fill(NoopLook.card))
-            .accessibilityIdentifier("pf-vitals")
+            .containerIdentifier("pf-vitals")
             ForEach(item.base.actions) { action in
                 PFIntelActionCard(action: action, identifier: "pf-health-action-\(action.id)")
             }
