@@ -118,7 +118,9 @@ final class PlannerUITests: XCTestCase {
         let app = try launch(sleep: "ready")
         openPlanner(app)
         let before = element(app, "sleep-planner-bedtime").label
-        element(app, "sleep-planner-preset-peak").tap()
+        let peak = element(app, "sleep-planner-preset-peak")
+        for _ in 0..<8 where !(peak.exists && peak.isHittable) { app.swipeUp() }
+        peak.tap()
         XCTAssertNotEqual(element(app, "sleep-planner-bedtime").label, before, "Peak sleeps longer than Perform, so bed is earlier.")
         attach(app, "33 Sleep planner peak")
     }
