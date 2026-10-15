@@ -120,6 +120,11 @@ final class MyDayUITests: XCTestCase {
         let tab = app.shellTab("PaceForge")
         XCTAssertTrue(tab.waitForExistence(timeout: 20), "The PaceForge tab should be present.")
         tab.tap()
+        // The PaceForge segment is remembered between launches; make sure it is on Today.
+        let segments = app.segmentedControls["pf-segments"]
+        XCTAssertTrue(segments.waitForExistence(timeout: 15), "The PaceForge segmented control should load from the fixture.")
+        let today = segments.buttons["Today"]
+        for _ in 0..<3 where !today.isSelected { today.tap(); Thread.sleep(forTimeInterval: 1) }
         // Today's call leads PaceForge Today, so the today-so-far strip is further down.
         let open = element(app, "pf-open-myday")
         for _ in 0..<8 where !(open.exists && open.isHittable) { app.swipeUp() }

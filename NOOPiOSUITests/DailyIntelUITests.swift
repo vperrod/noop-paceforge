@@ -51,7 +51,8 @@ final class DailyIntelUITests: XCTestCase {
         let segments = app.segmentedControls["pf-segments"]
         XCTAssertTrue(segments.waitForExistence(timeout: 15), "The PaceForge segmented control should load from the fixture.")
         let button = segments.buttons["Today"]
-        if !button.isSelected { button.tap() }
+        // A tap that lands while the remembered segment is still being restored is lost; look again before moving on.
+        for _ in 0..<3 where !button.isSelected { button.tap(); Thread.sleep(forTimeInterval: 1) }
     }
 
     // MARK: Today's call on NOOP Today

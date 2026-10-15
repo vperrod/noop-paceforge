@@ -56,7 +56,8 @@ final class LookComponentsUITests: XCTestCase {
         XCTAssertTrue(segments.waitForExistence(timeout: 15), "The PaceForge segmented control should load from the fixture.")
         let button = segments.buttons[title]
         // The segment is remembered between launches; a tap that lands while the previous one is restored is lost.
-        if !button.isSelected { button.tap() }
+        // A tap that lands while the remembered segment is still being restored is lost; look again before moving on.
+        for _ in 0..<3 where !button.isSelected { button.tap(); Thread.sleep(forTimeInterval: 1) }
     }
 
     // MARK: Gallery
@@ -138,6 +139,7 @@ final class LookComponentsUITests: XCTestCase {
         XCTAssertFalse(element(app, "look-mini-dials").exists, "The mini dials stay hidden while the big dials show.")
         app.swipeUp()
         app.swipeUp()
+        attach(app, "Look 23 Today after two swipes")
         XCTAssertTrue(element(app, "look-mini-dials").waitForExistence(timeout: 10), "The mini dials should pin once the dials scroll away.")
         attach(app, "Look 23 Today sticky mini dials")
     }
