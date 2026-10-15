@@ -911,12 +911,12 @@ struct LiquidTodayView: View {
             lookTopBarRow(showsStreak: false)
         }
         #if DEBUG && os(iOS)
-        .overlay(alignment: .bottom) { PFDebugChipProbe() }
+        .overlay(alignment: .bottom) { PFDebugChipProbe(); PFDebugTopBarProbe(content: lookTopBarRow(showsStreak: true)) }
         #endif
     }
 
     private func lookTopBarRow(showsStreak: Bool) -> some View {
-        HStack(spacing: 6) {
+        HStack(spacing: 4) {
             Button { showSettings = true } label: {
                 Color.clear.frame(width: NoopMetrics.compactControlSize, height: NoopMetrics.compactControlSize)
             }
@@ -965,7 +965,7 @@ struct LiquidTodayView: View {
                     .foregroundStyle(NoopLook.textPrimary)
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
-                    .padding(.horizontal, 14)
+                    .padding(.horizontal, 8)
                     .frame(height: 30)
                     .background(Capsule(style: .continuous).fill(Color(light: "#C9D0D8", dark: "#4A5056")))
             }
@@ -3576,6 +3576,20 @@ private struct PFDebugChipProbe: View {
         Color.clear.frame(width: 1, height: 1)
             .accessibilityLabel("probe chip=\(store.streakChip?.count ?? -1) loaded=\(store.didLoad) streaks=\(store.docs.highlights.value?.streaks.count ?? -1)")
             .accessibilityIdentifier("look-debug-chip-probe")
+    }
+}
+#endif
+
+#if DEBUG && os(iOS)
+/// TEMPORARY: the ideal width of the top bar row with the chip, for the simulator run.
+private struct PFDebugTopBarProbe<Content: View>: View {
+    let content: Content
+    @State private var width: CGFloat = 0
+    var body: some View {
+        content.fixedSize().hidden()
+            .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width = $0 }
+            .frame(width: 0, height: 0)
+            .overlay { Color.clear.frame(width: 1, height: 1).accessibilityLabel("probe ideal=\(Int(width))").accessibilityIdentifier("look-debug-topbar-ideal") }
     }
 }
 #endif

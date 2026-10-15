@@ -25,7 +25,7 @@ struct PFStreakChipView: View {
                             .font(LookFont.numeral(15))
                             .foregroundStyle(NoopLook.textPrimary)
                     }
-                    .padding(.horizontal, 9)
+                    .padding(.horizontal, 6)
                     .frame(height: NoopMetrics.compactControlSize)
                     .background(Capsule(style: .continuous).fill(Color(light: "#DDE2E8", dark: "#35393E")))
                 }
