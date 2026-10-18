@@ -42,6 +42,25 @@ jobs:
             -resultBundlePath build/NOOPiOS.xcresult \
             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
             "${flags[@]}" "${only[@]}" test
+      - name: Summarize test results
+        if: always()
+        run: |
+          if [ -d build/NOOPiOS.xcresult ]; then
+            xcrun xcresulttool get test-results summary --path build/NOOPiOS.xcresult --compact > build/test-summary.json || true
+            xcrun xcresulttool get test-results tests --path build/NOOPiOS.xcresult --compact > build/test-tree.json || true
+            python3 - <<'PY'
+          import json
+          try:
+              s = json.load(open("build/test-summary.json"))
+          except Exception as e:
+              print("no summary:", e); raise SystemExit
+          print("RESULT", {k: s.get(k) for k in ("result", "totalTestCount", "passedTests", "failedTests", "skippedTests", "expectedFailures")})
+          for f in s.get("testFailures", []):
+              print("FAILED", f.get("testIdentifierString") or f.get("testName"), "|", (f.get("failureText") or "")[:600])
+          PY
+          else
+            echo "No simulator result bundle was produced."
+          fi
       - name: Export simulator screenshot
         if: always()
         run: |
@@ -59,6 +78,15 @@ jobs:
           name: noop-ios-simulator-screenshot
           path: build/simulator-screenshot
           if-no-files-found: warn
+      - name: Upload test summary
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: noop-ios-test-summary
+          path: |
+            build/test-summary.json
+            build/test-tree.json
+          if-no-files-found: ignore
       - name: Print crash reports
         if: always()
         run: |
