@@ -204,6 +204,8 @@ targets:
       - StrandiOS/PaceForge/PaceForgeDailyIntel.swift
       # Phase 4 intel: healthspan, journal impact, highlights, monthly report and my plan parsing, the age range and pace wording, the driver bar, the streak chip.
       - StrandiOS/PaceForge/PaceForgeIntelDocs.swift
+      # Daily movement: movement.json parsing, the chip, the range-bar positions, the week bars and the wording.
+      - StrandiOS/PaceForge/PaceForgeMovement.swift
       # Bike rides: ride-metrics.json, the stream file, 600-point downsampling and the ride formats.
       - StrandiOS/PaceForge/PaceForgeRide.swift
       # Hiding a card: the FNV-1a hash, hide-until-it-changes / snooze rules and the storage helpers.

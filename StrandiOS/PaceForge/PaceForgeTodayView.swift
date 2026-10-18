@@ -93,6 +93,8 @@ struct PFTodayView: View {
                     slot(card, ids: ids, visible: visible, layout: layout)
                 }
             }
+            // Outside the arrangeable cards: steps are a separate signal and the card is simply absent until PaceForge publishes it.
+            PFMovementCard()
             PFHiddenCardsRow(snapshot: snapshot)
         }
     }

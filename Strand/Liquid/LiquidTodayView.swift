@@ -61,6 +61,8 @@ struct LiquidTodayView: View {
     @State private var effortReading: EffortTargetReading?
     /// PaceForge's daily-intel.json: its Effort target range stands in for the dial's tick when NOOP has none of its own.
     @ObservedObject private var intelStore = PFDailyIntelStore.shared
+    /// The streak chip only needs to know whether a streak is alive (it draws itself), so the top bar can make room for it.
+    @ObservedObject private var phase4Store = PFPhase4Store.shared
     @State private var heroBottomY: CGFloat = .greatestFiniteMagnitude
     #endif
     @State private var fitnessAge: Double?         // exploreSeries("fitness_age").last
@@ -904,12 +906,16 @@ struct LiquidTodayView: View {
     }
 
     /// Top bar: profile, the streak chip, the ‹ TODAY › day pill, the strap battery / sync control and the customise button.
-    /// The chip is the first thing dropped when the row is too wide for it (a long day name on a narrow phone), so nothing is ever
-    /// squeezed or clipped.
+    /// At 402 pt the day pill, battery and customise button leave no room for the chip beside them, and a squeezed or clipped
+    /// control is worse than a moved one: when the row cannot hold it, the chip sits on its own line under the bar. The
+    /// identifier is the same either way.
     private var lookTopBar: some View {
         ViewThatFits(in: .horizontal) {
             lookTopBarRow(showsStreak: true)
-            lookTopBarRow(showsStreak: false)
+            VStack(alignment: .leading, spacing: 10) {
+                lookTopBarRow(showsStreak: false)
+                if phase4Store.streakChip != nil { PFStreakChipView() }
+            }
         }
     }
 
