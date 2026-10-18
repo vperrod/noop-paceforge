@@ -31,6 +31,15 @@ enum AppleDemoSeeder {
     /// launch … --demo-seed`).
     static var requested: Bool { CommandLine.arguments.contains("--demo-seed") }
 
+    /// UI-test fixture for the steps source label: with `--demo-seed --demo-garmin-steps`, Apple Health steps stop
+    /// `garminOnlyDays` days ago and a `paceforge-garmin` row carries the steps for those days, so Today's steps
+    /// tile must show the Garmin count labelled "Garmin". The strap rows never carry steps.
+    static var garminStepsRequested: Bool { CommandLine.arguments.contains("--demo-garmin-steps") }
+    static let garminDeviceId = "paceforge-garmin"
+    static let garminOnlyDays = 14
+    /// Steps the fixture gives the newest day, so a test can assert the exact figure.
+    static let garminFixtureTodaySteps = 9_119
+
     /// Seed only if requested AND the store is empty. Safe to call on every launch.
     static func seedIfRequested(into store: WhoopStore) async {
         guard requested else { return }
@@ -70,6 +79,7 @@ enum AppleDemoSeeder {
         var sleeps: [CachedSleepSession] = []
         var series: [MetricPoint] = []
         var appleRows: [AppleDaily] = []
+        var garminRows: [DailyMetric] = []
         var workouts: [WorkoutRow] = []
         var journal: [JournalEntry] = []
 
@@ -157,8 +167,17 @@ enum AppleDemoSeeder {
 
             // --- Apple Health daily aggregate ---
             let steps = Int(gauss(&rng, 8500.0, 2600.0).clamped(1200.0, 19000.0))
+            let garminOnly = garminStepsRequested && i >= DAYS - garminOnlyDays
+            if garminOnly {
+                // Garmin counted these days; Apple Health stopped (below), as in a real phone-sync gap.
+                garminRows.append(DailyMetric(
+                    day: day, totalSleepMin: nil, efficiency: nil, deepMin: nil, remMin: nil, lightMin: nil,
+                    disturbances: nil, restingHr: nil, avgHrv: nil, recovery: nil, strain: nil,
+                    exerciseCount: nil, spo2Pct: nil, skinTempDevC: nil, respRateBpm: nil,
+                    steps: garminFixtureTodaySteps - (DAYS - 1 - i) * 100))
+            }
             appleRows.append(AppleDaily(
-                day: day, steps: steps,
+                day: day, steps: garminOnly ? nil : steps,
                 activeKcal: round1((Double(steps) * 0.045 + Double(nWorkouts) * 220).clamped(120.0, 1400.0)),
                 basalKcal: round1(gauss(&rng, 1650.0, 40.0)),
                 vo2max: round1((46 + fitness * 0.3 + gauss(&rng, 0.0, 0.5)).clamped(38.0, 56.0)),
@@ -226,6 +245,7 @@ enum AppleDemoSeeder {
         _ = try await store.upsertSleepSessions(sleeps, deviceId: whoop)
         _ = try await store.upsertMetricSeries(series, deviceId: whoop)
         _ = try await store.upsertAppleDaily(appleRows, deviceId: apple)
+        if !garminRows.isEmpty { _ = try await store.upsertDailyMetrics(garminRows, deviceId: garminDeviceId) }
         if !workouts.isEmpty { _ = try await store.upsertWorkouts(workouts, deviceId: whoop) }
         if !journal.isEmpty { _ = try await store.upsertJournal(journal, deviceId: whoop) }
         NSLog("AppleDemoSeeder: seeded \(daily.count) days, \(workouts.count) workouts.")

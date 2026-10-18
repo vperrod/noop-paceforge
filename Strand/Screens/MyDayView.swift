@@ -22,6 +22,7 @@ enum MyDayRideScreen {
 struct MyDayView: View {
     @EnvironmentObject private var repo: Repository
     @EnvironmentObject private var intelligence: IntelligenceEngine
+    @EnvironmentObject private var profile: ProfileStore
     @ObservedObject private var caffeineLog = CaffeineLogStore.shared
 
     @AppStorage("noop.myday.showStress") private var showStress = false
@@ -29,6 +30,7 @@ struct MyDayView: View {
     @AppStorage("noop.myday.showEnergy") private var showEnergy = false
     @AppStorage("noop.myday.showGarminStress") private var showGarminStress = false
     @AppStorage(HydrationStore.enabledKey) private var hydrationEnabled = false
+    @AppStorage(MyDayWalkPrefs.autoSaveKey) private var autoSaveWalks = false
     @AppStorage(UnitPrefs.systemKey) private var unitSystemRaw = UnitSystem.metric.rawValue
     @AppStorage(UnitPrefs.distanceSystemKey) private var distanceSystemRaw = ""
 
@@ -37,6 +39,9 @@ struct MyDayView: View {
     @State private var scrubDate: Date?
     @State private var highlightedId: String?
     @State private var sheet: Sheet?
+    /// Suggestions dismissed on this screen, hidden at once (the dismissal itself is stored by the repository).
+    @State private var dismissedIds: Set<String> = []
+    @State private var isAutoSaving = false
 
     private enum Sheet: Identifiable {
         case addWorkout
@@ -105,7 +110,7 @@ struct MyDayView: View {
     // MARK: Loading
 
     private var loadKey: String {
-        "\(Int(dayStart.timeIntervalSince1970))|\(repo.refreshSeq)|\(repo.hydrationSeq)|\(caffeineLog.intakes.count)|\(showStress)"
+        "\(Int(dayStart.timeIntervalSince1970))|\(repo.refreshSeq)|\(repo.hydrationSeq)|\(caffeineLog.intakes.count)|\(showStress)|\(autoSaveWalks)"
     }
 
     private func reload() async {
@@ -115,9 +120,20 @@ struct MyDayView: View {
             return
         }
         #endif
-        let result = await DayTimelineLoader.load(repo: repo, day: dayStart,
-                                                  options: DayTimelineLoader.Options(includeStress: showStress))
+        let options = DayTimelineLoader.Options(includeStress: showStress, segmentProfile: profile.segmentProfile)
+        var result = await DayTimelineLoader.load(repo: repo, day: dayStart, options: options)
         guard !Task.isCancelled else { return }
+        // Opt-in: calm walks of 15 minutes or more are saved as Walk workouts, then the day is read again.
+        if autoSaveWalks, !isAutoSaving {
+            isAutoSaving = true
+            let savedCount = await DayTimelineLoader.autoSaveWalks(repo: repo, loaded: result)
+            isAutoSaving = false
+            if savedCount > 0 {
+                await repo.refresh()
+                result = await DayTimelineLoader.load(repo: repo, day: dayStart, options: options)
+                guard !Task.isCancelled else { return }
+            }
+        }
         loaded = result
         // The widget reads the same day, so a fresh load of today refreshes its file.
         if isToday { MyDayWidgetBridge.publish(result.timeline) }
@@ -360,17 +376,32 @@ struct MyDayView: View {
     @ViewBuilder
     private func eventList(_ timeline: DayTimeline) -> some View {
         // A day with no heart rate at all is one whole-day gap; the empty-state card above already says so.
-        let events = timeline.hasHeartRate ? timeline.events : timeline.events.filter { $0.kind != .noData }
+        let shown = timeline.hasHeartRate ? timeline.events : timeline.events.filter { $0.kind != .noData }
+        let events = shown.filter { !dismissedIds.contains($0.id) }
+        let walkIds = Self.openWalkIds(in: events)
         if !events.isEmpty {
             VStack(alignment: .leading, spacing: NoopMetrics.gap) {
                 SectionHeader("Timeline", overline: "Newest first", trailing: "\(events.count)")
+                if !walkIds.isEmpty {
+                    HStack {
+                        Spacer(minLength: 0)
+                        Button { dismissAllWalks(walkIds) } label: {
+                            Label(walkIds.count == 1 ? String(localized: "Dismiss the walk")
+                                  : String(localized: "Dismiss all walks (\(walkIds.count))"),
+                                  systemImage: "figure.walk")
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                        .accessibilityIdentifier("myday-dismiss-walks")
+                    }
+                }
                 NoopCard(padding: NoopMetrics.space3) {
                     VStack(spacing: 0) {
                         ForEach(Array(events.enumerated()), id: \.element.id) { index, event in
                             MyDayRow(event: event, text: rowText(event), isHighlighted: event.id == highlightedId,
                                      opens: opens(event),
                                      onOpen: { open(event) },
-                                     onSave: { save(event) }, onDismiss: { dismiss(event) })
+                                     onSave: { choice in save(event, as: choice) }, onDismiss: { dismiss(event) })
                                 .id(event.id)
                             if index < events.count - 1 { Divider().overlay(StrandPalette.hairline) }
                         }
@@ -419,17 +450,35 @@ struct MyDayView: View {
 
     // MARK: Detected workouts
 
-    private func save(_ event: DayTimeline.Event) {
+    /// Saves the suggestion as `choice`, or, with no choice, as what the classifier guessed: Walk for a calm
+    /// stretch, the generic "Workout" otherwise.
+    private func save(_ event: DayTimeline.Event, as choice: DetectedSportChoice?) {
         guard let suggestion = loaded?.detected[event.id] else { return }
+        let sport = choice?.sportName ?? (event.suggestion?.guess == .walk ? DetectedSportChoice.walk.sportName : "Workout")
         Task {
-            _ = await repo.saveDetectedWorkout(suggestion)
+            _ = await repo.saveDetectedWorkout(suggestion, sport: sport)
             await repo.refresh()
         }
     }
 
     private func dismiss(_ event: DayTimeline.Event) {
+        dismissedIds.insert(event.id)
         guard let suggestion = loaded?.detected[event.id] else { return }
         repo.dismissDetectedSuggestion(suggestion)
+        Task { await reload() }
+    }
+
+    /// Suggestions guessed as walks that nobody has recorded yet: what "Dismiss all walks" removes.
+    static func openWalkIds(in events: [DayTimeline.Event]) -> [String] {
+        events.filter { $0.kind == .detected && $0.suggestion?.guess == .walk && $0.suggestion?.isRecorded == false }
+            .map(\.id)
+    }
+
+    private func dismissAllWalks(_ ids: [String]) {
+        for id in ids {
+            dismissedIds.insert(id)
+            if let suggestion = loaded?.detected[id] { repo.dismissDetectedSuggestion(suggestion) }
+        }
         Task { await reload() }
     }
 
@@ -551,7 +600,8 @@ private struct MyDayRow: View {
     let isHighlighted: Bool
     let opens: Bool
     let onOpen: () -> Void
-    let onSave: () -> Void
+    /// Nil saves as the guessed type; a choice saves as that type.
+    let onSave: (DetectedSportChoice?) -> Void
     let onDismiss: () -> Void
 
     private var tint: Color { MyDayStyle.color(event.kind) }
@@ -608,18 +658,7 @@ private struct MyDayRow: View {
     @ViewBuilder private var actions: some View {
         switch event.kind {
         case .detected:
-            HStack(spacing: NoopMetrics.space2) {
-                Button(action: onSave) { Label("Save as workout", systemImage: "checkmark") }
-                    .buttonStyle(.borderedProminent)
-                    .tint(StrandPalette.accent)
-                    .controlSize(.small)
-                    .accessibilityIdentifier("myday-save-\(event.id)")
-                Button("Dismiss", action: onDismiss)
-                    .buttonStyle(.bordered)
-                    .controlSize(.small)
-                    .accessibilityIdentifier("myday-dismiss-\(event.id)")
-            }
-            .padding(.top, 2)
+            detectedActions
         case .nap:
             Button(action: onOpen) { Label("Open", systemImage: "arrow.up.right") }
                 .buttonStyle(.bordered)
@@ -627,6 +666,58 @@ private struct MyDayRow: View {
                 .padding(.top, 2)
         default:
             EmptyView()
+        }
+    }
+
+    /// Save is a split button: tap saves as the guessed type, the chevron (or a long press) picks the type.
+    /// A suggestion a recorded workout already covers has nothing to save and says so.
+    @ViewBuilder private var detectedActions: some View {
+        let guess = event.suggestion?.guess ?? .workout
+        let recorded = event.suggestion?.isRecorded ?? false
+        let saveTitle = guess == .walk ? String(localized: "Save as walk") : String(localized: "Save as workout")
+        LookFlowLayout(spacing: NoopMetrics.space2, lineSpacing: NoopMetrics.space2) {
+            if recorded {
+                Label("Already recorded", systemImage: "checkmark.seal.fill")
+                    .font(StrandFont.footnote.weight(.semibold))
+                    .foregroundStyle(StrandPalette.textSecondary)
+                    .accessibilityIdentifier("myday-recorded-\(event.id)")
+            } else {
+                HStack(spacing: 2) {
+                    Button { onSave(nil) } label: {
+                        Label(saveTitle, systemImage: "checkmark")
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(StrandPalette.accent)
+                    .controlSize(.small)
+                    .contextMenu { typeButtons }
+                    .accessibilityIdentifier("myday-save-\(event.id)")
+                    Menu { typeButtons } label: {
+                        Image(systemName: "chevron.down")
+                            .font(StrandFont.caption.weight(.bold))
+                            .padding(.horizontal, 4)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(StrandPalette.accent)
+                    .controlSize(.small)
+                    .menuIndicator(.hidden)
+                    .accessibilityLabel("Choose the workout type")
+                    .accessibilityIdentifier("myday-type-\(event.id)")
+                }
+            }
+            Button("Dismiss", action: onDismiss)
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+                .accessibilityIdentifier("myday-dismiss-\(event.id)")
+        }
+        .padding(.top, 2)
+    }
+
+    @ViewBuilder private var typeButtons: some View {
+        ForEach(DetectedSportChoice.allCases) { choice in
+            Button { onSave(choice) } label: {
+                Label(choice.label, systemImage: sportSymbol(choice.sportName))
+            }
+            .accessibilityIdentifier("myday-type-\(choice.rawValue)-\(event.id)")
         }
     }
 

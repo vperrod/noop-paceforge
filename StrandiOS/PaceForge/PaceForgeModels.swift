@@ -308,6 +308,7 @@ struct PFInsights {
     var races: [PFRace] = []
     var goalPrognosis: PFGoalPrognosis?
     var hyrox: PFHyrox?
+    var hyroxFinish: PFHyroxFinishCard?
 }
 struct PFLoadPoint: Identifiable {
     var date: String; var ctl: Double; var atl: Double; var tsb: Double

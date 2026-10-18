@@ -42,6 +42,8 @@ enum DayTimelineLoader {
         var includeStress = false
         /// Detector suggestions, step buckets and battery. Off for a surface that only wants the events.
         var includeContext = true
+        /// Max HR and zone 3 start from the profile; the loader adds the resting HR. Decides walk or workout.
+        var segmentProfile = DetectedSegmentClassifier.Profile()
     }
 
     struct Loaded {
@@ -100,13 +102,22 @@ enum DayTimelineLoader {
         }
         input.sameWorkoutPairs = pairs(from: external.canonicalOf, rows: rows)
 
-        // Opt-in detector suggestions.
-        let saved = rows.map { SavedWorkoutSpan(startSec: $0.startTs, endSec: $0.endTs) }
+        // Opt-in detector suggestions. Saved workouts are NOT passed to the detector: the builder compares each
+        // window with them, so one a recorded workout covers shows as "Already recorded" instead of vanishing.
         let suggestions = options.includeContext
-            ? await repo.autoDetectCandidates(from: startTs, to: horizon, savedSpans: saved) : []
-        input.detected = suggestions.map {
-            DayTimeline.Input.Detected(startTs: $0.startSec, endTs: $0.endSec, avgBpm: $0.avgBpm, peakBpm: $0.peakBpm)
+            ? await repo.autoDetectCandidates(from: startTs, to: horizon, savedSpans: []) : []
+        var profile = options.segmentProfile
+        if profile.restingHr == nil {
+            profile.restingHr = repo.days.last(where: { $0.restingHr != nil })?.restingHr.map(Double.init)
         }
+        input.segmentProfile = profile
+        var detectedInputs: [DayTimeline.Input.Detected] = []
+        for d in suggestions {
+            let gait = await repo.gaitMix(from: d.startSec, to: d.endSec)
+            detectedInputs.append(DayTimeline.Input.Detected(startTs: d.startSec, endTs: d.endSec, avgBpm: d.avgBpm,
+                                                             peakBpm: d.peakBpm, gait: gait))
+        }
+        input.detected = detectedInputs
         var detectedByEvent: [String: DetectedWorkout] = [:]
         for d in suggestions { detectedByEvent["detected-\(d.startSec)-\(d.endSec)"] = d }
 
@@ -151,6 +162,25 @@ enum DayTimelineLoader {
         }
 
         return Loaded(timeline: DayTimeline.build(input), workoutRows: rowsByKey, detected: detectedByEvent)
+    }
+
+    /// Saves, as Walk workouts, the walks the user asked to have saved by themselves (Settings, off by default):
+    /// calm stretches classified as walks, 15 minutes or longer, finished, that no recorded workout covers.
+    /// Returns how many were saved; the caller then reloads, where they show as ordinary Walk entries.
+    static func autoSaveWalks(repo: Repository, loaded: Loaded, now: Date = Date()) async -> Int {
+        let enabled = MyDayWalkPrefs.autoSaveEnabled
+        guard enabled else { return 0 }
+        let nowTs = Int(now.timeIntervalSince1970)
+        var count = 0
+        for event in loaded.timeline.events where event.kind == .detected {
+            guard let suggestion = event.suggestion, let found = loaded.detected[event.id] else { continue }
+            let length = found.endSec - found.startSec
+            guard DetectedSegmentClassifier.shouldAutoSave(
+                guess: suggestion.guess, isRecorded: suggestion.isRecorded, durationSec: length,
+                endTs: found.endSec, nowTs: nowTs, enabled: enabled) else { continue }
+            if await repo.saveDetectedWorkout(found, sport: DetectedSportChoice.walk.sportName) { count += 1 }
+        }
+        return count
     }
 
     /// True when the day being loaded is the logical day of `now` (it rolls over at the user's rollover hour,
@@ -257,6 +287,18 @@ enum DayTimelineLoader {
 // MARK: - Detector suggestions for a window
 
 extension Repository {
+    /// The strap's gait ticks (stepSample.activityClass: 0 still, 1 walk, 2 run) inside `[from, to]`, read from
+    /// the first id that has classed ticks, active strap first. Nil when the strap classed nothing there (a 4.0
+    /// strap, a window not offloaded yet), and the heart rate alone then decides walk or workout.
+    func gaitMix(from: Int, to: Int) async -> DetectedSegmentClassifier.GaitMix? {
+        guard to > from, let store = await storeHandle() else { return nil }
+        for id in importedReadIds {
+            let samples = (try? await store.stepSamples(deviceId: id, from: from, to: to, limit: 200_000)) ?? []
+            if let mix = DetectedSegmentClassifier.GaitMix.from(classes: samples.map(\.activityClass)) { return mix }
+        }
+        return nil
+    }
+
     /// Every sustained-effort window the opt-in detector finds in `[from, to)` that no saved workout covers
     /// and the user has not dismissed. `autoDetectCandidate` returns only the newest; My Day lists them all.
     /// A pure read: nothing is saved, and the toggle that gates the detector gates this too.

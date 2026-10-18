@@ -21,7 +21,7 @@ settings:
     # iOS build number (CFBundleVersion). GLOBAL so the iOS app AND its widget extension inherit the
     # SAME value — they must match or iOS warns "extension version must match parent app" (#416).
     # macOS sets its own CFBundleVersion on the Strand target and is unaffected by this.
-    CURRENT_PROJECT_VERSION: "467"
+    CURRENT_PROJECT_VERSION: "468"
     SWIFT_VERSION: "5.0"
     # Emit localizable strings so Xcode auto-extracts every LocalizedStringKey into the
     # String Catalog on build (the English (US) base entries).
@@ -198,6 +198,8 @@ targets:
       - StrandiOS/PaceForge/PaceForgeStanding.swift
       # Insights v2: insights-v2.json parsing, the card order, status and effort wording, the finish bar and sleep clock maths.
       - StrandiOS/PaceForge/PaceForgeInsightsV2.swift
+      # The HYROX prognosis card: the race_countdown finish beside the goal, the last races and the personal best; a running prognosis only for a road-race goal.
+      - StrandiOS/PaceForge/PaceForgeHyroxPrognosis.swift
       # Daily intel: daily-intel.json parsing, the verdict and Health monitor tile wording, bedtime from a wake time, range bands and the evening switch.
       - StrandiOS/PaceForge/PaceForgeDailyIntel.swift
       # Phase 4 intel: healthspan, journal impact, highlights, monthly report and my plan parsing, the age range and pace wording, the driver bar, the streak chip.

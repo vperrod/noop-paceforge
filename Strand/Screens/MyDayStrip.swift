@@ -74,7 +74,9 @@ enum MyDayStyle {
         case .workout:
             if case .ride = event.route { return "bicycle" }
             return sportSymbol(event.title)
-        case .detected: return "waveform.path.ecg"
+        case .detected:
+            if let recorded = event.suggestion?.recordedAs { return sportSymbol(recorded) }
+            return event.suggestion?.guess == .walk ? "figure.walk" : "waveform.path.ecg"
         case .planned:
             switch event.status {
             case .done: return "checkmark.circle.fill"
@@ -93,6 +95,8 @@ enum MyDayStyle {
     /// The kinds drawn as bands on the strip.
     static func isBand(_ event: DayTimeline.Event) -> Bool {
         guard !event.isUntimed else { return false }
+        // A suggestion a recorded workout already covers adds no band of its own.
+        if event.suggestion?.isRecorded == true { return false }
         switch event.kind {
         case .sleep, .nap, .workout, .detected, .planned: return true
         default: return false

@@ -1,6 +1,7 @@
 #if os(iOS)
 import SwiftUI
 import StrandDesign
+import StrandAnalytics
 
 // MARK: - My Dashboard (Today)
 //
@@ -104,7 +105,21 @@ struct LookMyDashboardSection: View {
         for id in ids {
             let parts = id.split(separator: ":", maxSplits: 1).map(String.init)
             guard parts.count == 2, let metric = MetricCatalog.metric(key: parts[1], source: parts[0]) else { continue }
-            let series = await repo.exploreSeries(key: metric.key, source: metric.source, days: 120)
+            // Steps resolve across Apple Health, the Garmin mirror and the strap, so the row never goes empty while
+            // any of them has a count, and it names the source of the latest day.
+            var rowLabel = metric.title
+            let series: [(day: String, value: Double)]
+            if metric.key == "steps", metric.source == "my-whoop" {
+                let from = calendar.date(byAdding: .day, value: -120, to: endOfDay) ?? endOfDay
+                let resolution = await repo.resolvedSteps(from: Repository.dayString(from),
+                                                          to: Repository.dayString(endOfDay))
+                series = resolution.values
+                if let latest = resolution.points.last {
+                    rowLabel += " \u{00B7} " + StepsSourceResolver.label(for: StepsSourceResolver.source(forStoredId: latest.source))
+                }
+            } else {
+                series = await repo.exploreSeries(key: metric.key, source: metric.source, days: 120)
+            }
             let points = LookSeries.points(series, calendar: calendar).filter { $0.date < endOfDay }
             let scaled = metric.key == HeroRingMetric.effort
                 ? points.map { LookPoint(date: $0.date, value: UnitFormatter.effortValue($0.value, scale: effortScale)) }
@@ -114,7 +129,7 @@ struct LookMyDashboardSection: View {
                                                   calendar: calendar) else { continue }
             let hidden = HideScoresPrefs.hides(key: metric.key, scores: hideScores, body: hideBody)
             built.append(LookCompareRow(
-                id: id, icon: metric.icon, label: metric.title,
+                id: id, icon: metric.icon, label: rowLabel,
                 valueText: hidden ? HideScoresPrefs.placeholder : format(metric, c.value),
                 baselineText: hidden ? nil : c.baseline.map { format(metric, $0) },
                 mark: hidden ? nil : c.mark))

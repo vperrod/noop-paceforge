@@ -26,6 +26,13 @@ import WhoopProtocol
 //      sex-independent 7200 ceiling), Banister its own sex-dependent ceiling + 1. See
 //      `logMapDenominator(method:sex:)` — reusing one for the other silently rescales the axis (#1545).
 //
+// Effort v2 (`Method.allDay`, the default): the day's Effort also counts all-day movement. Edwards pays nothing
+// below 50 % of reserve, so a long brisk walk at about a third of reserve scored ~0 although WHOOP's Day Strain (US 9,750,415) is the
+// integral of weighted heart-rate reserve over the WHOLE day. Per awake sample: >= 50 % keeps its Edwards weight;
+// between `allDayFloorHRR` and 50 % it pays `allDayLowWeight * (%HRR - floor)` per minute; sleep is skipped.
+// Same log map and denominator as v1, so a hard-session day keeps its number. Steps are never used. Python twin:
+// PaceForge `paceforge/effort_v2.py` (shared fixtures `effort_v2_cases.json`); constants fitted in docs/EFFORT-V2.md.
+//
 // References: Karvonen 1957 (%HRR); Edwards 1993 (5-zone TRIMP); Banister 1991
 // (exponential TRIMP, b = 1.92 men / 1.67 women); Tanaka 2001 (HRmax = 208 − 0.7×age).
 
@@ -95,6 +102,21 @@ public enum StrainScorer {
     /// closes. Treat it as calibratable, not as physiology.
     public static let banisterSedentaryHRR: Double = 0.10
 
+    /// Effort recipe version stored beside every scored day (`metricSeries` key `effort_version`): 1 = classic
+    /// (Edwards or Banister), 2 = all-day. Days keep the version they were scored with until recomputed.
+    public static let effortVersionKey = "effort_version"
+    public static let classicEffortVersion: Int = 1
+    public static let allDayEffortVersion: Int = 2
+
+    /// Effort v2: the share of heart-rate reserve below which an awake body counts for nothing (about the
+    /// heart rate of standing, chores and a slow stroll). A judgement fitted on one wearer's quiet hours, not
+    /// physiology: high enough that a desk day nets ~0, low enough that a long walk counts.
+    public static let allDayFloorHRR: Double = 0.25
+    /// Effort v2: TRIMP per minute per unit of reserve above the floor, for the band under Edwards' zone 1.
+    /// Anchored to the public-export fit (Day Strain ~ workout Edwards + ~1 per 10 kcal of non-workout energy,
+    /// kcal/min ~ 0.15 per bpm of heart rate) and rounded; it reaches 0.5 at the 50 % edge, half Edwards' step.
+    public static let allDayLowWeight: Double = 2.0
+
     /// TRIMP per minute at `banisterSedentaryHRR` — the rate subtracted from every day.
     static func banisterBaselineRatePerMinute(b: Double) -> Double {
         banisterScale * banisterSedentaryHRR * exp(b * banisterSedentaryHRR)
@@ -114,7 +136,7 @@ public enum StrainScorer {
     /// theoretical maximum day maps to exactly `maxStrain` under either method.
     public static func logMapDenominator(method: Method, sex: String) -> Double {
         switch method {
-        case .edwards:
+        case .edwards, .allDay:
             return strainDenominator
         case .banister:
             let b = sex.lowercased().hasPrefix("f") ? banisterBWomen : banisterBMen
@@ -146,7 +168,16 @@ public enum StrainScorer {
     ]
 
     /// TRIMP accumulation method.
-    public enum Method: Sendable, Hashable { case edwards, banister }
+    public enum Method: Sendable, Hashable {
+        case edwards, banister
+        /// Effort v2: Edwards above 50 % of reserve plus a continuous low-intensity term, sleep excluded.
+        case allDay
+
+        /// The recipe a single WORKOUT is scored with. A workout's own score stays the classic Edwards figure
+        /// under `.allDay`: the day integrates the heart rate once, so adding or re-scoring the workout on top
+        /// would count it twice, and every stored workout score would move.
+        public var workoutRecipe: Method { self == .allDay ? .edwards : self }
+    }
 
     // MARK: - HRmax helpers
 
@@ -330,6 +361,36 @@ public enum StrainScorer {
         return acc
     }
 
+    /// Effort v2 weight for one awake reading (TRIMP per minute): the Edwards zone weight from 50 % of reserve
+    /// up, else `allDayLowWeight * (%HRR - allDayFloorHRR)` above the floor, else 0. Python twin:
+    /// `effort_v2.sample_weight`.
+    static func allDaySampleWeight(_ bpm: Double, restingHR: Double, hrReserve: Double) -> Double {
+        let zone = zoneWeight(bpm, restingHR: restingHR, hrReserve: hrReserve)
+        if zone > 0 { return Double(zone) }
+        let x = pctHRR(bpm, restingHR: restingHR, hrReserve: hrReserve) / 100.0
+        return x > allDayFloorHRR ? allDayLowWeight * (x - allDayFloorHRR) : 0.0
+    }
+
+    /// True when `ts` falls in any `[start, end)` window. Linear scan: a day has a handful of windows.
+    static func inWindow(_ ts: Int, _ windows: [(start: Int, end: Int)]) -> Bool {
+        for w in windows where ts >= w.start && ts < w.end { return true }
+        return false
+    }
+
+    /// Effort v2 TRIMP over the awake readings: one integral over the whole series (a workout is counted once,
+    /// inside it, never added on top), sleep windows skipped. Each reading covers the gap to the next, at most
+    /// `maxSampleGapMin`, so a strap-off gap adds no load.
+    static func allDayTRIMP(_ hr: [HRSample], restingHR: Double, hrReserve: Double,
+                            durations: [Double], sleepWindows: [(start: Int, end: Int)]) -> Double {
+        var acc = 0.0
+        for i in hr.indices {
+            if !sleepWindows.isEmpty && inWindow(hr[i].ts, sleepWindows) { continue }
+            acc += allDaySampleWeight(Double(hr[i].bpm), restingHR: restingHR, hrReserve: hrReserve)
+                * durations[i]
+        }
+        return acc
+    }
+
     // MARK: - Logarithmic map
 
     /// Map accumulated TRIMP onto [0, 100] via 100 × ln(TRIMP+1) / ln(D), 2 dp.
@@ -396,6 +457,11 @@ public enum StrainScorer {
                               method: Method = .edwards,
                               sex: String = "male",
                               denominator: Double? = nil,
+                              // Effort v2 only: `[start, end)` windows (unix seconds) of sleep, skipped by the
+                              // all-day integral. Ignored by Edwards and Banister. Empty (the default) skips
+                              // nothing; sleeping heart rate sits under the floor anyway, so a caller that
+                              // does not know the sleep spans (the live ring) is off by ~0, not by a night.
+                              sleepWindows: [(start: Int, end: Int)] = [],
                               // Optional diagnostic sink. Nil by default and the line is built ONLY when
                               // one is supplied, so a pass nobody is watching pays nothing.
                               //
@@ -414,7 +480,8 @@ public enum StrainScorer {
         let key = StrainKey(
             hr: StreamFingerprint.of(hr, ts: { $0.ts }, quant: { Int($0.bpm) }),
             maxHR: maxHR, restingHR: restingHR, method: method,
-            sexF: sex.lowercased().hasPrefix("f"), denom: resolvedDenominator)
+            sexF: sex.lowercased().hasPrefix("f"), denom: resolvedDenominator,
+            sleep: method == .allDay ? sleepWindows.map { SleepWindowKey(start: $0.start, end: $0.end) } : [])
         // A diagnostic request BYPASSES the memo, and must. The Today view re-reads this on every
         // live-HR tick with no sink, so by the time the scoring pass asks with one the answer is already
         // cached — and a cache hit never reaches the code that emits, so the line would simply never
@@ -422,11 +489,13 @@ public enum StrainScorer {
         // one. Kotlin has no memo here and always emits; this keeps the two behaving the same.
         guard diag == nil else {
             return strainUncached(hr, maxHR: maxHR, restingHR: restingHR, method: method, sex: sex,
-                                  denominator: resolvedDenominator, diag: diag, day: day)
+                                  denominator: resolvedDenominator, sleepWindows: sleepWindows,
+                                  diag: diag, day: day)
         }
         return strainCache.value(key) {
             strainUncached(hr, maxHR: maxHR, restingHR: restingHR, method: method, sex: sex,
-                           denominator: resolvedDenominator, diag: nil, day: day)
+                           denominator: resolvedDenominator, sleepWindows: sleepWindows,
+                           diag: nil, day: day)
         }
     }
 
@@ -594,10 +663,12 @@ public enum StrainScorer {
     }
 
     /// Key folds `sex` to the single bit the recipe reads (`hasPrefix("f")`) so "female"/"f"/"F" all hit.
+    private struct SleepWindowKey: Hashable { let start: Int; let end: Int }
     private struct StrainKey: Hashable {
         let hr: StreamFingerprint
         let maxHR: Double?; let restingHR: Double; let method: Method
         let sexF: Bool; let denom: Double
+        let sleep: [SleepWindowKey]
     }
     private static let strainCache = AnalyticsMemoCache<StrainKey, Double?>(capacity: 48)
 
@@ -613,8 +684,12 @@ public enum StrainScorer {
 
     /// The TRIMP for a method. Shared by `strain` and `breakdown`.
     static func trimpFor(_ hr: [HRSample], restingHR: Double, hrReserve: Double, durations: [Double],
-                      method: Method, sex: String) -> Double {
+                      method: Method, sex: String,
+                      sleepWindows: [(start: Int, end: Int)] = []) -> Double {
         switch method {
+        case .allDay:
+            return allDayTRIMP(hr, restingHR: restingHR, hrReserve: hrReserve, durations: durations,
+                               sleepWindows: sleepWindows)
         case .banister:
             let b = sex.lowercased().hasPrefix("f") ? banisterBWomen : banisterBMen
             // Excess over the sedentary baseline for the SAME span, floored at zero. Without this a desk
@@ -629,6 +704,7 @@ public enum StrainScorer {
 
     private static func strainUncached(_ hr: [HRSample], maxHR: Double?, restingHR: Double,
                                        method: Method, sex: String, denominator: Double,
+                                       sleepWindows: [(start: Int, end: Int)] = [],
                                        diag: ((String) -> Void)? = nil, day: String = "") -> Double? {
         let effMax = maxHR ?? Double(defaultMaxHR())
         // Enough data to trust the score: a dense stream (≥ minReadings) OR a sparse-but-sustained
@@ -647,7 +723,7 @@ public enum StrainScorer {
         let hrReserve = effMax - restingHR
 
         let trimp = trimpFor(hr, restingHR: restingHR, hrReserve: hrReserve, durations: durations,
-                             method: method, sex: sex)
+                             method: method, sex: sex, sleepWindows: sleepWindows)
         let scored = trimpToStrain(trimp, denominator: denominator)
         // Walked only when a sink is attached. It is a second O(n) pass over the day's samples, and
         // `analyzeRecent`'s prep is already the expensive half of a scoring run, so a normal pass must

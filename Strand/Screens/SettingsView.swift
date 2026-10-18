@@ -62,6 +62,10 @@ struct SettingsView: View {
     /// [PuffinExperiment.banisterEffortKey].
     @AppStorage(PuffinExperiment.banisterEffortKey) private var banisterEffortEnabled = false
 
+    /// Effort v2 is the default (all-day movement counts). ON keeps the classic recipe: time above half of
+    /// your heart-rate reserve only. See [PuffinExperiment.effortClassicKey].
+    @AppStorage(PuffinExperiment.effortClassicKey) private var effortClassicEnabled = false
+
     /// Opt-in "Continuous HRV capture" (off by default) — holds the dense realtime stream armed 24/7 so
     /// the strap banks beat-to-beat R-R for better overnight HRV/recovery/sleep, at a battery cost.
     /// See [PuffinExperiment.keepRealtimeForDataKey].
@@ -158,6 +162,7 @@ struct SettingsView: View {
     /// sustained-elevated window and offers — via a single dismissible card — to save it as a workout.
     /// Nothing is ever created automatically. Mirrors the Android `NoopPrefs.KEY_AUTO_DETECT_WORKOUTS`.
     @AppStorage(PuffinExperiment.autoDetectWorkoutsKey) private var autoDetectWorkoutsEnabled = false
+    @AppStorage(MyDayWalkPrefs.autoSaveKey) private var autoSaveWalks = false
 
     /// "Journal reminder" (#627, default ON). When ON, Today shows the persistent journal widget
     /// (last-7-days strip + tap-through). Mirrors the Android `NoopPrefs.KEY_JOURNAL_REMINDER_ENABLED`.
@@ -1029,6 +1034,39 @@ struct SettingsView: View {
                     .font(StrandFont.caption)
                     .foregroundStyle(StrandPalette.textTertiary)
                     .fixedSize(horizontal: false, vertical: true)
+
+                // MARK: Effort v2 — all-day movement. The default; this row keeps the classic recipe selectable.
+                Divider().overlay(StrandPalette.hairline)
+
+                Toggle(isOn: $effortClassicEnabled) {
+                    Text("Effort (classic)")
+                        .font(StrandFont.subhead)
+                        .foregroundStyle(StrandPalette.textPrimary)
+                }
+                .toggleStyle(.switch)
+                .tint(StrandPalette.accent)
+                .onChangeCompat(of: effortClassicEnabled) { _ in
+                    // Same reason as the toggle above: the recipe changes stored Effort for every day, so
+                    // re-score the last 60 days now instead of leaving the old figures on screen.
+                    Task { await model.intelligence.recomputeEffort(); await model.repo.refresh() }
+                }
+                Text("Effort includes all-day movement (heart rate above your resting level), not steps. Turn this on to score Effort only from time above half of your heart-rate reserve, as earlier versions did. Re-scores your last 60 days. Off by default.")
+                    .font(StrandFont.caption)
+                    .foregroundStyle(StrandPalette.textTertiary)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                Button {
+                    Task { await model.intelligence.recomputeEffort(); await model.repo.refresh() }
+                } label: {
+                    Text("Recompute Effort (last 60 days)")
+                        .font(StrandFont.subhead)
+                        .foregroundStyle(StrandPalette.accent)
+                }
+                .buttonStyle(.plain)
+                Text("Days without recorded heart rate keep the figure they have. Each day stores which Effort version scored it.")
+                    .font(StrandFont.caption)
+                    .foregroundStyle(StrandPalette.textTertiary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
     }
@@ -1721,6 +1759,24 @@ struct SettingsView: View {
                     .fixedSize(horizontal: false, vertical: true)
 
                 Text("Skips sessions that overlap a saved or imported workout, including workouts from Apple Health.")
+                    .font(StrandFont.caption)
+                    .foregroundStyle(StrandPalette.textTertiary)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                rowDivider
+
+                Toggle(isOn: $autoSaveWalks) {
+                    Text("My Day: auto-save walks")
+                        .font(StrandFont.subhead)
+                        .foregroundStyle(StrandPalette.textPrimary)
+                }
+                .toggleStyle(.switch)
+                .tint(StrandPalette.accent)
+                .disabled(!autoDetectWorkoutsEnabled)
+                .accessibilityIdentifier("settings-autosave-walks")
+                .accessibilityHint("Saves calm stretches that look like a walk as Walk workouts")
+
+                Text("My Day shows a calm, steady stretch as a walk instead of a workout. With this on, a walk of 15 minutes or more is saved by itself as a Walk workout once it is over, the next time you open My Day. You can edit or delete it like any other workout. Off by default, and it needs Auto-detect workouts above.")
                     .font(StrandFont.caption)
                     .foregroundStyle(StrandPalette.textTertiary)
                     .fixedSize(horizontal: false, vertical: true)

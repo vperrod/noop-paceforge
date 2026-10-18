@@ -118,6 +118,7 @@ enum PFBuilder {
             .filter { $0.date == today && $0.status != "optional" }
             .sorted { ($0.name ?? "") < ($1.name ?? "") }
 
+        let insightsV2 = PFInsightsV2Parse.document(raw.insightsV2)
         var snapshot = PFSnapshot(
             generatedAt: state["generated_at"].string,
             todayISO: today,
@@ -125,7 +126,9 @@ enum PFBuilder {
             coach: coach(state: state, fitness: raw.fitness),
             weeks: weeks.list,
             currentWeekIndex: weeks.currentIndex,
-            insights: insights(fitness: raw.fitness, projection: raw.projection, hyrox: raw.hyrox, today: today)
+            insights: insights(fitness: raw.fitness, projection: raw.projection, hyrox: raw.hyrox,
+                               raceFinish: insightsV2?.item(PFInsightID.raceCountdown)?.race?.finish,
+                               today: today)
         )
         snapshot.body = body(raw.body)
         snapshot.bodyProgress = bodyProgress(raw.bodyProgress)
@@ -143,7 +146,7 @@ enum PFBuilder {
         snapshot.muscle = PFWave3Parse.muscleCheck(raw.muscle)
         snapshot.tape = PFWave3Parse.tape(raw.tape)
         snapshot.standing = PFStandingParse.standing(raw.standing)
-        snapshot.insightsV2 = PFInsightsV2Parse.document(raw.insightsV2)
+        snapshot.insightsV2 = insightsV2
         snapshot.dailyIntel = PFDailyIntelParse.document(raw.dailyIntel)
         snapshot.intelDocs = PFIntelDocsParse.docs(healthspan: raw.healthspan, journalImpact: raw.journalImpact,
                                                    highlights: raw.highlights, monthlyReport: raw.monthlyReport, myPlan: raw.myPlan)
@@ -543,7 +546,8 @@ enum PFBuilder {
 
     // MARK: Insights
 
-    private static func insights(fitness: PFJ, projection: PFJ, hyrox: PFJ, today: String) -> PFInsights {
+    private static func insights(fitness: PFJ, projection: PFJ, hyrox: PFJ, raceFinish: PFFinishRange?,
+                                 today: String) -> PFInsights {
         let pmc = fitness["load"]["ctl_atl_tsb"]
         var out = PFInsights(ctl: pmc["ctl"].double ?? 0, atl: pmc["atl"].double ?? 0, tsb: pmc["tsb"].double ?? 0)
         out.formBand = pmc["friel_band"].string
@@ -569,12 +573,13 @@ enum PFBuilder {
             return PFRace(name: name, date: date, daysOut: days, headline: c["headline"].string ?? "",
                           readiness: c["readiness"].string ?? "", taperOk: c["taper_ok"].bool)
         }
-        let prognosis = fitness["prognosis"]
-        if let sec = prognosis["prognosis_time_sec"].double, let goal = prognosis["goal_time_sec"].double {
-            out.goalPrognosis = PFGoalPrognosis(prognosisSec: sec, goalSec: goal,
-                                                verdict: prognosis["goal_verdict"].string ?? "",
+        // Only a road-race goal has a running prognosis; a HYROX goal's server prognosis is `available: false`.
+        if let running = PFHyroxPrognosisParse.runningAgainstGoal(fitness["prognosis"]) {
+            out.goalPrognosis = PFGoalPrognosis(prognosisSec: running.prognosisSec, goalSec: running.goalSec,
+                                                verdict: running.verdict,
                                                 sentence: projection["sentences"]["running"].text)
         }
+        out.hyroxFinish = PFHyroxPrognosisParse.card(finish: raceFinish, hyrox: hyrox)
         let prediction = hyrox["prediction"]
         if let predicted = prediction["predicted_display"].string {
             let stations: [PFStation] = hyrox["priorities"].array

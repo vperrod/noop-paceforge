@@ -187,6 +187,47 @@ enum WorkoutSource: Equatable {
         return a
     }
 
+    // MARK: - PaceForge (Garmin mirror) is canonical
+    //
+    // PaceForge mirrors each Garmin session into NOOP under the `paceforge` source, and the strap or the phone
+    // usually recorded the same bout too, under a different sport token (a strap's generic "Workout" next to a
+    // Garmin "indoor_cardio"). `sameActivity` needs matching sports, so it never collapsed that pair and the
+    // coach and My Day listed it twice. PaceForge's own matcher (`paceforge/workout_match.py`) ignores sport:
+    // two records are one workout when they overlap by at least half of the shorter one AND start within ten
+    // minutes of each other, and the Garmin record is canonical. This mirrors those numbers exactly.
+    // Imported lifting sessions and activity files are not dropped: they carry sets and routes the mirror lacks.
+
+    /// Share of the shorter session that must overlap (workout_match.py `OVERLAP_MIN`).
+    static let mirrorOverlapMin = 0.5
+    /// How far apart the two starts may be, in seconds (workout_match.py `START_TOLERANCE_S`).
+    static let mirrorStartToleranceS = 600
+
+    /// True when `other` is the same workout as the PaceForge row `mirror`, whatever either row's sport.
+    static func isMirrorDuplicate(_ other: WorkoutRow, of mirror: WorkoutRow) -> Bool {
+        let overlap = min(mirror.endTs, other.endTs) - max(mirror.startTs, other.startTs)
+        guard overlap > 0 else { return false }
+        let shorter = max(1, min(mirror.endTs - mirror.startTs, other.endTs - other.startTs))
+        return Double(overlap) / Double(shorter) >= mirrorOverlapMin
+            && abs(mirror.startTs - other.startTs) <= mirrorStartToleranceS
+    }
+
+    /// The mirror row that makes `row` redundant, if any. A PaceForge, lifting or activity-file row is never
+    /// redundant; everything else (strap, detected, manual, Apple Health) is when a mirror matches it.
+    private static func mirrorCanonical(for row: WorkoutRow, in mirrors: [WorkoutRow]) -> WorkoutRow? {
+        switch classify(row.source) {
+        case .paceforge, .lifting, .activityFile: return nil
+        case .whoop, .apple, .detected, .manual: return mirrors.first { isMirrorDuplicate(row, of: $0) }
+        }
+    }
+
+    /// Drop every row a PaceForge mirror row duplicates, keeping the Garmin record. Order-stable; a list with
+    /// no PaceForge row passes through unchanged. Runs first in `dedupCrossSource`.
+    static func dropMirroredDuplicates(_ rows: [WorkoutRow]) -> [WorkoutRow] {
+        let mirrors = rows.filter { classify($0.source) == .paceforge }
+        guard !mirrors.isEmpty else { return rows }
+        return rows.filter { mirrorCanonical(for: $0, in: mirrors) == nil }
+    }
+
     // MARK: - Detected-vs-real overlap collapse (#975)
     //
     // Grandfathered generic detections can overlap a real workout logged later. `sameActivity` cannot collapse
@@ -224,7 +265,7 @@ enum WorkoutSource: Equatable {
     /// #975: a DETECTED bout that shadows a real logged session is dropped FIRST so the transient
     /// live+detected duplicate never shows and can't pollute the Effort/HR read-out.
     static func dedupCrossSource(_ rows: [WorkoutRow]) -> [WorkoutRow] {
-        collapseCrossSource(dropDetectedShadows(rows))
+        collapseCrossSource(dropDetectedShadows(dropMirroredDuplicates(rows)))
     }
 
     /// The shared cross-source collapse walk behind `dedupCrossSource` and `dedupCrossSourceTrace`. Byte-
@@ -287,11 +328,24 @@ enum WorkoutSource: Equatable {
     /// exactly which detected twin was suppressed to keep the live/manual session single.
     static func dedupCrossSourceTrace(_ rows: [WorkoutRow]) -> (kept: [WorkoutRow], trace: [String]) {
         var lines: [String] = []
-        // Detected-shadow drop first (byte-identical to dedupCrossSource's `dropDetectedShadows`), tracing each.
-        let reals = rows.filter { classify($0.source) != .detected }
-        var input: [WorkoutRow] = []
-        input.reserveCapacity(rows.count)
+        // PaceForge-mirror drop first (byte-identical to dedupCrossSource's `dropMirroredDuplicates`), tracing each.
+        let mirrors = rows.filter { classify($0.source) == .paceforge }
+        var unmirrored: [WorkoutRow] = []
+        unmirrored.reserveCapacity(rows.count)
         for row in rows {
+            if let mirror = mirrorCanonical(for: row, in: mirrors) {
+                lines.append(WorkoutsTrace.dedupLine(
+                    sportKey: traceSportKey(mirror.sport), keptSource: sourceLabel(mirror),
+                    droppedSource: sourceLabel(row), keptRichness: richness(mirror), droppedRichness: richness(row)))
+                continue
+            }
+            unmirrored.append(row)
+        }
+        // Detected-shadow drop next (byte-identical to dedupCrossSource's `dropDetectedShadows`), tracing each.
+        let reals = unmirrored.filter { classify($0.source) != .detected }
+        var input: [WorkoutRow] = []
+        input.reserveCapacity(unmirrored.count)
+        for row in unmirrored {
             if classify(row.source) == .detected,
                let hit = reals.first(where: { detectedShadowsReal(row, $0) }) {
                 let durMin = max(0, (row.endTs - row.startTs) / 60)
