@@ -35,6 +35,8 @@ final class NavRouter: ObservableObject {
         /// Also the K5 scheduled morning-brief notification's tap-through target.
         case coach
         case alarms
+        /// The Sleep tab (iPhone) / Sleep row (macOS): a score detail's "explore your sleep" link switches to it.
+        case sleep
 
         var id: String { rawValue }
 
@@ -72,6 +74,8 @@ final class NavRouter: ObservableObject {
     func openAlarms() { requestedDestination = .alarms }
     /// Open the v5 Insights hub (the n-of-1 "what moves your Charge" surface).
     func openInsightsHub() { requestedDestination = .insightsHub }
+    /// Open Sleep as a top-level destination (the Sleep tab on iPhone), not as a screen pushed over another tab.
+    func openSleep() { requestedDestination = .sleep }
     /// Open the Lab Book (private health-records logbook).
     func openLabBook() { requestedDestination = .labBook }
     /// Open the "Your Data, Fused" multi-device record.

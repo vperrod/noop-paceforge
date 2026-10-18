@@ -7,40 +7,9 @@ import Foundation
 
 // MARK: - Effort: why this number
 //
-// Opened from the Effort detail screen. It re-reads today's heart rate over the SAME window and with the
+// Shown inline at the foot of the Effort detail screen (`embedded`), so there is no third screen between Today and the explanation. It re-reads today's heart rate over the SAME window and with the
 // SAME inputs the Today views score Effort with, then lets `StrainScorer.breakdown` (which shares the
 // scorer's own functions) explain the result, so nothing here re-derives the formula.
-
-/// The row on the Effort detail screen that opens the breakdown.
-struct EffortBreakdownLink: View {
-    var body: some View {
-        NavigationLink {
-            EffortBreakdownView()
-        } label: {
-            NoopCard {
-                HStack(spacing: 12) {
-                    Image(systemName: "questionmark.circle")
-                        .font(StrandFont.headline)
-                        .foregroundStyle(StrandPalette.accent)
-                        .accessibilityHidden(true)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Why this number")
-                            .font(StrandFont.headline).foregroundStyle(StrandPalette.textPrimary)
-                        Text("See what built today's Effort, minute by minute.")
-                            .font(StrandFont.footnote).foregroundStyle(StrandPalette.textSecondary)
-                    }
-                    Spacer(minLength: 8)
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(StrandPalette.textTertiary)
-                        .accessibilityHidden(true)
-                }
-            }
-        }
-        .buttonStyle(.plain)
-        .accessibilityIdentifier("effort-why-link")
-    }
-}
 
 /// Everything the screen shows, resolved once per load.
 private struct EffortWhy {
@@ -69,29 +38,44 @@ struct EffortBreakdownView: View {
     @State private var why: EffortWhy?
     @State private var loaded = false
 
+    /// True when the Effort detail screen hosts this view in its own column: no scaffold of its own, a section title instead.
+    var embedded = false
+
     private var effortScale: EffortScale { UnitPrefs.resolveEffortScale(effortScaleRaw) }
 
     var body: some View {
-        ScreenScaffold(title: "Why this number", subtitle: "Effort, step by step") {
-            if let why {
-                content(why)
-            } else if loaded {
-                card {
-                    Text("There is no heart rate for today yet, so there is nothing to explain.")
-                        .font(StrandFont.body).foregroundStyle(StrandPalette.textSecondary)
-                        .fixedSize(horizontal: false, vertical: true)
+        Group {
+            if embedded {
+                VStack(alignment: .leading, spacing: 20) {
+                    Text("WHY THIS NUMBER").font(StrandFont.overline).foregroundStyle(StrandPalette.textTertiary)
+                    sections
                 }
+                .containerIdentifier("effort-why-inline")
             } else {
-                card {
-                    HStack(spacing: 8) {
-                        ProgressView().controlSize(.small)
-                        Text("Reading today's heart rate…")
-                            .font(StrandFont.body).foregroundStyle(StrandPalette.textSecondary)
-                    }
-                }
+                ScreenScaffold(title: "Why this number", subtitle: "Effort, step by step") { sections }
             }
         }
         .task(id: "\(dayCycleModeRaw)-\(repo.refreshSeq)") { await load() }
+    }
+
+    @ViewBuilder private var sections: some View {
+        if let why {
+            content(why)
+        } else if loaded {
+            card {
+                Text("There is no heart rate for today yet, so there is nothing to explain.")
+                    .font(StrandFont.body).foregroundStyle(StrandPalette.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        } else {
+            card {
+                HStack(spacing: 8) {
+                    ProgressView().controlSize(.small)
+                    Text("Reading today's heart rate…")
+                        .font(StrandFont.body).foregroundStyle(StrandPalette.textSecondary)
+                }
+            }
+        }
     }
 
     // MARK: Sections

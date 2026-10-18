@@ -48,6 +48,7 @@ struct LookScoreDetailView: View {
     let kind: LookScoreKind
 
     @EnvironmentObject private var repo: Repository
+    @EnvironmentObject private var router: NavRouter
     @AppStorage(UnitPrefs.effortScaleKey) private var effortScaleRaw = EffortScale.hundred.rawValue
 
     @State private var series: [String: [LookPoint]] = [:]
@@ -305,17 +306,13 @@ struct LookScoreDetailView: View {
             LookInsightCard(insightText, linkTitle: "Break down my Charge", action: { showGuide = true })
                 .accessibilityIdentifier("look-score-insight")
         case .effort:
-            NavigationLink { EffortBreakdownView() } label: {
-                LookInsightCard(insightText, linkTitle: "Explore my Effort")
-            }
-            .buttonStyle(.plain)
-            .accessibilityIdentifier("look-score-insight")
+            // The breakdown sits right below on this same screen (MetricDetailView), so the card carries no link.
+            LookInsightCard(insightText)
+                .accessibilityIdentifier("look-score-insight")
         case .rest:
-            NavigationLink(value: TabRoute.sleep) {
-                LookInsightCard(insightText, linkTitle: "Explore your sleep insights")
-            }
-            .buttonStyle(.plain)
-            .accessibilityIdentifier("look-score-insight")
+            // Sleep is a tab: switch to it rather than pushing a second Sleep screen over this tab's root.
+            LookInsightCard(insightText, linkTitle: "Explore your sleep insights", action: { router.openSleep() })
+                .accessibilityIdentifier("look-score-insight")
         }
     }
 

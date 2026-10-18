@@ -1038,7 +1038,7 @@ struct MetricDetailView: View {
                     LookScoreDetailView(kind: scoreKind)
                 }
                 #endif
-                if metric.key == HeroRingMetric.effort { EffortBreakdownLink() }
+                if metric.key == HeroRingMetric.effort { EffortBreakdownView(embedded: true) }
                 if loaded && win.isEmpty {
                     // No data in the entire history — keep the range bar for context, then the
                     // honest empty state (no scenic hero floating over nothing). Deliberately
