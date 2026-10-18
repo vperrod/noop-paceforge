@@ -21,7 +21,7 @@ struct DataHubView: View {
             // PaceForge's one-way push of NOOP's metrics (NOOP's own numbers, sent as NOOP's, never merged with Garmin's).
             case .paceForge: return "PaceForge sync"
             // #155: HealthKit-free Apple Health path for sideloaded installs (a Siri Shortcut reads the opt-in drop file).
-            case .shortcuts: return "Shortcuts Export"
+            case .shortcuts: return "Shortcuts"
             // The plain 4.0 vs 5.0/MG capability grid: what NOOP reads live off each strap.
             case .limitations: return "Limitations"
             }
