@@ -5,13 +5,13 @@ import StrandAnalytics
 
 // MARK: - Stress monitor (the look)
 //
-// The Stress monitor tile opens here: the latest reading on the 0 to 3 scale with its word (LOW, MEDIUM, HIGH), a line through the
-// day's scored hours, the day's average, the peak and the time in the high band, and a link to the full Stress screen that
-// still holds everything it had. The readings are NOOP's own daytime stress (heart rate and beat-to-beat intervals from the
+// The top of the one Stress screen (the Stress monitor tile opens StressView): the latest reading on the 0 to 3 scale with its word
+// (LOW, MEDIUM, HIGH), a line through the day's scored hours, the day's average, the peak and the time in the high band, with the
+// rest of the Stress screen, which still holds everything it had, directly below. The readings are NOOP's own daytime stress (heart rate and beat-to-beat intervals from the
 // strap); an hour with no signal, or taken out because you were moving, is a gap in the line and never a value. With nothing
 // scored the screen says so and what it needs, instead of drawing a made-up day.
 
-struct LookStressMonitorScreen: View {
+struct LookStressMonitorSection: View {
     @EnvironmentObject private var repo: Repository
 
     @State private var result: DaytimeStress.Result?
@@ -25,36 +25,20 @@ struct LookStressMonitorScreen: View {
     }
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                if StressMonitorLogic.hasData(hours) {
-                    reading
-                    chart
-                    summary
-                } else if loaded {
-                    empty
-                } else {
-                    Text("Reading the day")
-                        .font(LookFont.text(15, weight: .medium))
-                        .foregroundStyle(NoopLook.textTertiary)
-                }
-                NavigationLink(value: TabRoute.stress) {
-                    InsightLink("Open the full Stress screen")
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.vertical, 6)
-                }
-                .buttonStyle(.plain)
-                .accessibilityIdentifier("look-stress-full")
+        VStack(alignment: .leading, spacing: 16) {
+            if StressMonitorLogic.hasData(hours) {
+                reading
+                chart
+                summary
+            } else if loaded {
+                empty
+            } else {
+                Text("Reading the day")
+                    .font(LookFont.text(15, weight: .medium))
+                    .foregroundStyle(NoopLook.textTertiary)
             }
-            .padding(.horizontal, NoopLook.Metric.screenInset)
-            .padding(.top, 8)
-            .padding(.bottom, NoopMetrics.tabBarClearance)
         }
-        .scrollBounceBehavior(.basedOnSize, axes: .horizontal)
-        .lookScreenBackground()
-        .navigationTitle("Stress monitor")
-        .navigationBarTitleDisplayMode(.inline)
-        .accessibilityIdentifier("look-stress-monitor")
+        .containerIdentifier("look-stress-monitor")
         .task(id: loadKey) { await load() }
     }
 
@@ -231,8 +215,9 @@ struct LookStressMonitorScreen: View {
 
 #if DEBUG
 #Preview("Stress monitor") {
-    NavigationStack {
-        LookStressMonitorScreen()
+    ScrollView {
+        LookStressMonitorSection()
+            .padding(16)
             .environmentObject(Repository(deviceId: "preview"))
     }
     .preferredColorScheme(.dark)

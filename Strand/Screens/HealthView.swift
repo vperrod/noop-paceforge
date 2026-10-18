@@ -34,6 +34,10 @@ struct HealthView: View {
                        // The day-of-sky liquid backdrop, matching Today / Sleep / Trends: a fixed,
                        // full-bleed time-of-day sky behind the scroll content (does not scroll).
                        topBackground: liquidScaffoldSky()) {
+            #if os(iOS)
+            // PaceForge's Health monitor (each vital against its own 30-day range) leads the one Health screen.
+            PFHealthMonitorSection()
+            #endif
             if repo.days.isEmpty {
                 // First run / no history: whether to show the empty state or the full live stack depends
                 // on whether a strap is streaming live HR — a `live`-dependent choice. It's isolated to

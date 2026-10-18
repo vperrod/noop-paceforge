@@ -531,40 +531,22 @@ struct PFVitalRow: View {
     }
 }
 
-/// The Health monitor screen: the summary, each vital against its 30-day range, and the alert with what to do.
-struct PFHealthMonitorScreen: View {
+/// The Health monitor as the top of the one Health screen: each vital against its own 30-day range from PaceForge's daily-intel.json.
+/// With PaceForge not set up, or no vitals published, it draws nothing, and the rest of Health stands on the strap's own data.
+struct PFHealthMonitorSection: View {
     @ObservedObject private var store = PFDailyIntelStore.shared
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 14) {
-                content
-            }
-            .padding(.horizontal, NoopLook.Metric.screenInset)
-            .padding(.top, 8)
-            .padding(.bottom, NoopMetrics.tabBarClearance)
-        }
-        .scrollBounceBehavior(.basedOnSize, axes: .horizontal)
-        .lookScreenBackground()
-        .navigationTitle("Health monitor")
-        .navigationBarTitleDisplayMode(.inline)
-        .accessibilityIdentifier("pf-health-monitor")
-        .task { await store.refreshIfStale() }
+        content
+            .task { await store.refreshIfStale() }
     }
 
     @ViewBuilder private var content: some View {
         if let intel = store.intel, let health = intel.health, let item = intel.healthItem {
             PFHealthMonitorBody(health: health, item: item, isCurrent: intel.isCurrent(for: PFAPI.todayISO), asOf: intel.asOf)
+                .containerIdentifier("pf-health-monitor")
         } else if let reason = store.intel?.unavailableReason(PFIntelID.healthMonitor) {
             PFIntelNote(title: "Health monitor", icon: "waveform.path.ecg", text: reason, identifier: "pf-health-monitor-unavailable")
-        } else if store.didLoad {
-            PFIntelNote(title: "Health monitor", icon: "waveform.path.ecg",
-                        text: "The Health monitor needs PaceForge. It is not reachable or has not published the vitals yet.",
-                        identifier: "pf-health-monitor-empty")
-        } else {
-            Text("Reading your vitals")
-                .font(LookFont.text(15, weight: .medium))
-                .foregroundStyle(NoopLook.textTertiary)
         }
     }
 }

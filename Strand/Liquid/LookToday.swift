@@ -12,9 +12,9 @@ import StrandAnalytics
 // MARK: Health monitor
 
 /// Health monitor tile. With PaceForge's daily-intel.json it reads each vital against its own 30-day range:
-/// "WITHIN RANGE · 4/4 metrics", or the worst vital ("VERY ELEVATED · Respiratory rate") in red, and opens the Health
-/// monitor screen. Without it (PaceForge not set up or not reachable) it keeps to what the illness early-warning
-/// already knows: red when it has raised an alert, calm otherwise, opening the Health screen.
+/// "WITHIN RANGE · 4/4 metrics", or the worst vital ("VERY ELEVATED · Respiratory rate") in red. Without it (PaceForge not
+/// set up or not reachable) it keeps to what the illness early-warning already knows: red when it has raised an alert, calm
+/// otherwise. Either way it opens the one Health screen, which carries the monitor at its top.
 /// Its own leaf, because it observes AppModel (see HealthAlertBanner for why that is kept out of Today's body).
 struct LookHealthTile: View {
     @EnvironmentObject private var model: AppModel
@@ -24,7 +24,7 @@ struct LookHealthTile: View {
     private var monitorTile: PFHealthTile? { intelStore.current?.health?.tile }
 
     var body: some View {
-        NavigationLink(value: monitorTile == nil ? TabRoute.health : TabRoute.healthMonitor) { tile }
+        NavigationLink(value: TabRoute.health) { tile }
             .buttonStyle(.plain)
             .accessibilityIdentifier("look-health-tile")
             .task { await intelStore.refreshIfStale() }
@@ -54,8 +54,8 @@ struct LookStressTile: View {
     let score: Double?
 
     var body: some View {
-        // The monitor (reading, day line, honest empty state); the full Stress screen is one tap further.
-        NavigationLink(value: TabRoute.stressMonitor) { tile }
+        // The one Stress screen, which leads with the monitor (reading, day line, honest empty state).
+        NavigationLink(value: TabRoute.stress) { tile }
             .buttonStyle(.plain)
             .accessibilityIdentifier("look-stress-tile")
     }

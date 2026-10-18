@@ -82,6 +82,10 @@ struct StressView: View {
                        // fixed, full-bleed time-of-day sky behind the scroll content (does not scroll), so the
                        // Stress screen sits in the same liquid atmosphere as every other tab.
                        topBackground: liquidScaffoldSky()) {
+            #if os(iOS)
+            // The monitor (latest reading, the day line, average / peak / time in high) leads the one Stress screen.
+            LookStressMonitorSection()
+            #endif
             if let model {
                 content(model)
             } else if !loaded {
