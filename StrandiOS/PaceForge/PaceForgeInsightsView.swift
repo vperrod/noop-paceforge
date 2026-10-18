@@ -130,18 +130,22 @@ struct PFInsightsView: View {
     // MARK: Prognosis
 
     @ViewBuilder private var prognosisCard: some View {
-        if let hyrox = insights.hyrox {
+        if insights.hyrox != nil || insights.hyroxFinish != nil {
             PFCard("HYROX prognosis", icon: "target") {
                 VStack(alignment: .leading, spacing: 12) {
-                    HStack(alignment: .firstTextBaseline, spacing: 8) {
-                        Text(hyrox.predicted)
-                            .font(StrandFont.rounded(34))
-                            .foregroundStyle(StrandPalette.textPrimary)
-                        Text("predicted finish")
-                            .font(StrandFont.caption)
-                            .foregroundStyle(StrandPalette.textTertiary)
+                    if let card = insights.hyroxFinish {
+                        finishBlock(card)
+                    } else if let hyrox = insights.hyrox {
+                        HStack(alignment: .firstTextBaseline, spacing: 8) {
+                            Text(hyrox.predicted)
+                                .font(StrandFont.rounded(34))
+                                .foregroundStyle(StrandPalette.textPrimary)
+                            Text("predicted finish")
+                                .font(StrandFont.caption)
+                                .foregroundStyle(StrandPalette.textTertiary)
+                        }
                     }
-                    if let basis = hyrox.basis {
+                    if let hyrox = insights.hyrox, let basis = hyrox.basis, insights.hyroxFinish == nil {
                         PFParagraph(basis + (hyrox.trend.map { " Trend: \($0)." } ?? ""))
                     }
                     if let goal = insights.goalPrognosis {
@@ -152,27 +156,79 @@ struct PFInsightsView: View {
                                 .foregroundStyle(StrandPalette.textSecondary)
                         }
                     }
-                    if let stations = hyrox.stations, !stations.isEmpty {
-                        Text("Where the time is").strandOverline()
-                        ForEach(stations) { s in
-                            HStack(alignment: .firstTextBaseline) {
-                                Text(s.name)
-                                    .font(StrandFont.subhead)
-                                    .foregroundStyle(StrandPalette.textPrimary)
-                                Spacer(minLength: 8)
-                                Text("\(s.athlete) vs \(s.top3)")
-                                    .font(StrandFont.caption)
-                                    .foregroundStyle(StrandPalette.textTertiary)
-                                Text("+\(Int(s.gapSec)) s")
-                                    .font(StrandFont.caption.weight(.semibold))
-                                    .foregroundStyle(PFColor.warning)
-                                    .frame(minWidth: 50, alignment: .trailing)
-                            }
-                        }
+                    if let hyrox = insights.hyrox {
+                        stationsBlock(hyrox)
                     }
-                    if let sentence = hyrox.sentence { PFParagraph(sentence) }
                 }
             }
+        }
+    }
+
+    /// The predicted finish with its range, the goal and the gap, then the last races with the personal best.
+    private func finishBlock(_ card: PFHyroxFinishCard) -> some View {
+        let finish = card.finish
+        return VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Text(finish.central ?? "\u{2014}")
+                    .font(StrandFont.rounded(34))
+                    .foregroundStyle(StrandPalette.textPrimary)
+                Text("predicted finish")
+                    .font(StrandFont.caption)
+                    .foregroundStyle(StrandPalette.textTertiary)
+            }
+            if let low = finish.low, let high = finish.high {
+                Text("Range \(low) to \(high)")
+                    .font(StrandFont.caption)
+                    .foregroundStyle(StrandPalette.textSecondary)
+            }
+            if let goal = finish.goal {
+                PFChip(text: "Goal \(goal)" + (finish.gapText.map { " \u{00B7} \($0)" } ?? ""), color: PFColor.warning)
+            }
+            if let method = finish.method { PFParagraph(method.prefix(1).uppercased() + method.dropFirst() + ".") }
+            if !card.races.isEmpty {
+                Text("Your last \(card.races.count) races").strandOverline()
+                ForEach(card.races.reversed()) { race in
+                    HStack(alignment: .firstTextBaseline, spacing: 8) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(race.label)
+                                .font(StrandFont.subhead)
+                                .foregroundStyle(StrandPalette.textPrimary)
+                            Text(race.date)
+                                .font(StrandFont.caption)
+                                .foregroundStyle(StrandPalette.textTertiary)
+                        }
+                        Spacer(minLength: 8)
+                        if race.isPersonalBest { PFChip(text: "PB", color: PFColor.positive) }
+                        Text(race.display)
+                            .font(StrandFont.caption.weight(.semibold))
+                            .foregroundStyle(StrandPalette.textPrimary)
+                    }
+                }
+            }
+        }
+    }
+
+    @ViewBuilder private func stationsBlock(_ hyrox: PFHyrox) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            if let stations = hyrox.stations, !stations.isEmpty {
+                Text("Where the time is").strandOverline()
+                ForEach(stations) { s in
+                    HStack(alignment: .firstTextBaseline) {
+                        Text(s.name)
+                            .font(StrandFont.subhead)
+                            .foregroundStyle(StrandPalette.textPrimary)
+                        Spacer(minLength: 8)
+                        Text("\(s.athlete) vs \(s.top3)")
+                            .font(StrandFont.caption)
+                            .foregroundStyle(StrandPalette.textTertiary)
+                        Text("+\(Int(s.gapSec)) s")
+                            .font(StrandFont.caption.weight(.semibold))
+                            .foregroundStyle(PFColor.warning)
+                            .frame(minWidth: 50, alignment: .trailing)
+                    }
+                }
+            }
+            if let sentence = hyrox.sentence { PFParagraph(sentence) }
         }
     }
 }

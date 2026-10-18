@@ -190,6 +190,8 @@ targets:
       - StrandiOS/PaceForge/PaceForgeStanding.swift
       # Insights v2: insights-v2.json parsing, the card order, status and effort wording, the finish bar and sleep clock maths.
       - StrandiOS/PaceForge/PaceForgeInsightsV2.swift
+      # The HYROX prognosis card: the race_countdown finish beside the goal, the last races and the personal best; a running prognosis only for a road-race goal.
+      - StrandiOS/PaceForge/PaceForgeHyroxPrognosis.swift
       # Daily intel: daily-intel.json parsing, the verdict and Health monitor tile wording, bedtime from a wake time, range bands and the evening switch.
       - StrandiOS/PaceForge/PaceForgeDailyIntel.swift
       # Phase 4 intel: healthspan, journal impact, highlights, monthly report and my plan parsing, the age range and pace wording, the driver bar, the streak chip.
