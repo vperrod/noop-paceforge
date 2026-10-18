@@ -219,7 +219,7 @@ struct MyDayView: View {
                     }
                 }
                 MyDayStrip(timeline: timeline, showStress: showStress, showSteps: showSteps, showEnergy: showEnergy,
-                           showGarminStress: showGarminStress, scrubDate: $scrubDate)
+                           showGarminStress: showGarminStress, hiddenEventIds: dismissedIds, scrubDate: $scrubDate)
                     .accessibilityIdentifier("myday-strip")
                 chips(timeline)
                 outsideNotes(timeline)

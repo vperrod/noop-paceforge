@@ -111,6 +111,8 @@ struct MyDayStrip: View {
     /// Garmin's Body Battery and stress, from PaceForge. Each is its own curve with its own switch.
     var showEnergy = false
     var showGarminStress = false
+    /// Suggestions the reader just dismissed: gone from the strip at once, like the list below it, not after the next reload.
+    var hiddenEventIds: Set<String> = []
     /// The time the finger is on, or nil. Owned by the screen, which scrolls its list to it.
     @Binding var scrubDate: Date?
 
@@ -121,7 +123,7 @@ struct MyDayStrip: View {
     private static let axisHeight: CGFloat = 18
     static let totalHeight: CGFloat = plotHeight + laneHeight + axisHeight + 6
 
-    private var bands: [DayTimeline.Event] { timeline.events.filter(MyDayStyle.isBand) }
+    private var bands: [DayTimeline.Event] { timeline.events.filter { MyDayStyle.isBand($0) && !hiddenEventIds.contains($0.id) } }
 
     var body: some View {
         GeometryReader { geo in
