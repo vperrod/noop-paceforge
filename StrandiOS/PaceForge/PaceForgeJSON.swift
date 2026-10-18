@@ -30,8 +30,12 @@ struct PFJ {
 
     var double: Double? { (raw as? NSNumber)?.doubleValue }
 
+    /// Whole numbers beyond +-1e15 (millisecond timestamps are 1.7e12) read as missing: no count, minute or id the screens show
+    /// is that large, and adding or subtracting two of them would overflow `Int`, which traps.
     var int: Int? {
         guard let number = raw as? NSNumber else { return nil }
+        let value = number.doubleValue
+        guard value.isFinite, abs(value) <= 1e15 else { return nil }
         return number.intValue
     }
 

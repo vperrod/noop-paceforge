@@ -7,6 +7,10 @@ on:
         description: "Optional space-separated -only-testing identifiers, e.g. NOOPiOSUITests/LookScreensUITests. Empty runs every UI test."
         required: false
         default: ""
+      optimized:
+        description: "true builds the Debug configuration with Release's optimizer (-O, whole-module), so a crash only the optimizer exposes shows here while the DEBUG-only test fixtures still work."
+        required: false
+        default: "false"
 
 permissions:
   contents: read
@@ -24,15 +28,20 @@ jobs:
       - name: Verify PaceForge menu in iPhone Simulator
         env:
           ONLY: ${{ inputs.only }}
+          OPTIMIZED: ${{ inputs.optimized }}
         run: |
           only=()
           for t in $ONLY; do only+=("-only-testing:$t"); done
+          flags=()
+          if [ "$OPTIMIZED" = "true" ]; then
+            flags+=(SWIFT_OPTIMIZATION_LEVEL=-O SWIFT_COMPILATION_MODE=wholemodule GCC_OPTIMIZATION_LEVEL=s)
+          fi
           xcodebuild -scheme NOOPiOS -configuration Debug \
             -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=latest' \
             -derivedDataPath build/derivedData \
             -resultBundlePath build/NOOPiOS.xcresult \
             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
-            "${only[@]}" test
+            "${flags[@]}" "${only[@]}" test
       - name: Export simulator screenshot
         if: always()
         run: |

@@ -899,7 +899,7 @@ struct LiquidTodayView: View {
     private static func miniText(_ value: Double?, decimals: Int) -> String {
         guard let value else { return "\u{2013}" }
         if decimals > 0 { return String(format: "%.\(decimals)f", locale: AppLanguage.activeLocale, value) }
-        return String(Int(value.rounded()))
+        return String(Safe.int(value))
     }
 
     /// Top bar: profile, the streak chip, the ‹ TODAY › day pill, the strap battery / sync control and the customise button.
@@ -2546,7 +2546,7 @@ private struct HeroScoreCell: View {
     private var lookValueText: String {
         guard let score else { return "\u{2013}" }
         return decimals > 0 ? String(format: "%.\(decimals)f", locale: AppLanguage.activeLocale, score)
-                            : String(Int(score.rounded()))
+                            : String(Safe.int(score))
     }
 
     /// The thin dial (no vessel, no splash): same score, same tap target.

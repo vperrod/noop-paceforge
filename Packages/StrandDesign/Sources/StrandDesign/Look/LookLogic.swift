@@ -283,6 +283,8 @@ public enum LookTrendStats {
         guard values.count >= 3, let mean = average(values) else { return nil }
         let variance = values.reduce(0) { $0 + ($1 - mean) * ($1 - mean) } / Double(values.count)
         let sd = variance.squareRoot()
+        // A NaN or infinite reading makes both edges NaN, and a range with NaN edges traps.
+        guard mean.isFinite, sd.isFinite else { return nil }
         return (mean - sd)...(mean + sd)
     }
 

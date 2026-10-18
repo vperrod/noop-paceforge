@@ -75,13 +75,13 @@ final class PFPhase4Store: ObservableObject {
     /// The server's copy, else (offline) the one the last good fetch left on the phone. A fixture never reads the cache.
     nonisolated private static func read(_ path: String) async -> Data? {
         let data = await PFAPI.fetchOptional(path)
-        if data == nil, !PFAPI.isFixture { return PFStore.read(path: path) }
+        if data == nil, PFAPI.usesPhoneState { return PFStore.read(path: path) }
         return data
     }
 
     /// Keeps this week's body age and pace so the week stepper and the trend card have something to step through.
     private func rememberWeek() {
-        if PFAPI.isFixture {
+        if !PFAPI.usesPhoneState {
             Task { await loadFixtureWeeks() }
             return
         }

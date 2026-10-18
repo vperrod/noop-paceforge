@@ -183,7 +183,7 @@ final class PFDismissStore: ObservableObject {
     init(defaults: UserDefaults? = nil) {
         if let defaults {
             self.defaults = defaults
-        } else if PFAPI.isFixture, let suite = UserDefaults(suiteName: "noop.paceforge.dismissed.fixture") {
+        } else if !PFAPI.usesPhoneState, let suite = UserDefaults(suiteName: "noop.paceforge.dismissed.fixture") {
             suite.removePersistentDomain(forName: "noop.paceforge.dismissed.fixture")
             self.defaults = suite
         } else {

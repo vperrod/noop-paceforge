@@ -232,4 +232,47 @@ final class PaceForgeCrashGuardTests: XCTestCase {
     func testPaceRangeServedSensiblyIsKept() throws {
         XCTAssertEqual(try healthspan(paceRange: [-2.0, 4.0]).pace?.rangeHigh, 4)
     }
+
+    // MARK: Integers served far out of range
+
+    func testIntegerBeyondAQuadrillionReadsAsMissing() {
+        XCTAssertNil(PFJ(NSNumber(value: Int64.max)).int)
+    }
+
+    func testNegativeIntegerBeyondAQuadrillionReadsAsMissing() {
+        XCTAssertNil(PFJ(NSNumber(value: Int64.min)).int)
+    }
+
+    func testDoubleServedAsAnIntegerFieldFarOutOfRangeReadsAsMissing() {
+        XCTAssertNil(PFJ(1e300).int)
+    }
+
+    func testMillisecondTimestampStillReadsAsAnInteger() {
+        XCTAssertEqual(PFJ(NSNumber(value: 1_760_000_000_000 as Int64)).int, 1_760_000_000_000)
+    }
+
+    func testSleepNeedWithAnEnormousTimeInBedHasNoTierAndNoNightPlan() throws {
+        let need = try XCTUnwrap(PFDailyIntelParse.sleepNeed(PFJ([
+            "need_min": 480, "tiers": [["id": "perform", "sleep_min": 400, "time_in_bed_min": NSNumber(value: Int64.min)]],
+        ]), status: nil))
+        XCTAssertNil(need.nightPlan(tierID: "perform", userWake: 420))
+    }
+
+    func testSleepNeedWithRowsThatWouldOverflowWhenAddedStillSumsWithoutTrapping() throws {
+        let need = try XCTUnwrap(PFDailyIntelParse.sleepNeed(PFJ([
+            "need_min": 480,
+            "breakdown": [["key": "a", "minutes": NSNumber(value: Int64.max)], ["key": "b", "minutes": NSNumber(value: Int64.max)]],
+        ]), status: nil))
+        XCTAssertEqual(need.rows.reduce(0) { $0 + $1.minutes }, 0)
+    }
+
+    func testSavedWakeTimeOutsideADayIsIgnoredByTheNightPlan() throws {
+        let need = try XCTUnwrap(PFDailyIntelParse.sleepNeed(PFJ([
+            "need_min": 480, "wake": ["time": "07:00"],
+            "tiers": [["id": "perform", "sleep_min": 400, "time_in_bed_min": 440, "bedtime": "23:40"]],
+        ]), status: nil))
+        for saved in [-1, 1440, 100_000, Int.max, Int.min] {
+            XCTAssertEqual(need.nightPlan(tierID: "perform", userWake: saved)?.usesPhoneWake, false, "\(saved)")
+        }
+    }
 }

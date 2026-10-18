@@ -4,7 +4,7 @@ import SwiftUI
 /// UI tests run without a server: `-PaceForgeFixture` serves the files from `PF_FIXTURE_JSON` instead.
 enum PFAPI {
     /// Path (relative to the PaceForge root) -> JSON value or markdown text, for the UI-test fixture.
-    private static let fixture: [String: Any]? = {
+    static let fixture: [String: Any]? = {
         #if DEBUG
         guard ProcessInfo.processInfo.arguments.contains("-PaceForgeFixture"),
               let text = ProcessInfo.processInfo.environment["PF_FIXTURE_JSON"],
@@ -17,6 +17,11 @@ enum PFAPI {
     }()
 
     static var isFixture: Bool { fixture != nil }
+
+    /// Whether the saved copies on the phone (the last good documents, the Today arrangement, the hidden cards, the Healthspan
+    /// weeks) are in play. They always are on a real run; a fixture run ignores them so every UI test starts clean, unless a UI
+    /// test asks to start from saved state (`PFSavedStateSeed`).
+    static var usesPhoneState: Bool { !isFixture || PFSavedStateSeed.isRequested }
 
     /// DEBUG UI-test switch that shows the widget gallery in place of the PaceForge screens.
     static var showsWidgetGallery: Bool {
@@ -94,6 +99,10 @@ enum PFAPI {
 
     static func fetch(_ path: String) async throws -> Data {
         if let files = fixture {
+            #if DEBUG
+            // Offline: every request fails, so the tab keeps showing what it read from the phone.
+            if ProcessInfo.processInfo.arguments.contains("-PaceForgeFetchFails") { throw URLError(.notConnectedToInternet) }
+            #endif
             guard let value = files[fixtureKey(path)] else { throw CocoaError(.fileNoSuchFile) }
             if let text = value as? String { return Data(text.utf8) }
             return try JSONSerialization.data(withJSONObject: value)
@@ -259,48 +268,20 @@ enum PFStore {
         return try? Data(contentsOf: url)
     }
 
+    #if DEBUG
+    static func remove(path: String) {
+        guard let url = file(path) else { return }
+        try? FileManager.default.removeItem(at: url)
+    }
+    #endif
+
     static func savedAt(path: String) -> Date? {
         guard let url = file(path),
               let attrs = try? FileManager.default.attributesOfItem(atPath: url.path) else { return nil }
         return attrs[.modificationDate] as? Date
     }
 
-    static func cachedBundle() -> PFRawBundle? {
-        guard let state = read(path: "api/state"), let fitness = read(path: "data/fitness.json") else { return nil }
-        var raw = PFRawBundle()
-        raw.state = PFJ(data: state)
-        raw.fitness = PFJ(data: fitness)
-        raw.projection = PFJ(data: read(path: "data/projection.json"))
-        raw.body = PFJ(data: read(path: "data/body.json"))
-        raw.hyrox = PFJ(data: read(path: "data/hyrox_analysis.json"))
-        raw.activities = PFJ(data: read(path: "data/activities.json"))
-        raw.analysesIndex = PFJ(data: read(path: "data/analyses/index.json"))
-        raw.bodyProgress = PFJ(data: read(path: "data/body-progress.json"))
-        raw.alerts = PFJ(data: read(path: "data/alerts.json"))
-        raw.readiness = PFJ(data: read(path: "data/readiness-explained.json"))
-        raw.feelSummary = PFJ(data: read(path: "data/feel-summary.json"))
-        raw.whatChanged = PFJ(data: read(path: "data/what-changed.json"))
-        raw.explainers = PFJ(data: read(path: "data/metric-explainers.json"))
-        raw.behaviour = PFJ(data: read(path: "data/behaviour-impact.json"))
-        raw.raceWeek = PFJ(data: read(path: "data/race-week.json"))
-        raw.hyroxSims = PFJ(data: read(path: "data/hyrox-sims.json"))
-        raw.hyroxSimAnalysis = PFJ(data: read(path: "data/hyrox-sim-analysis.json"))
-        raw.easyMode = PFJ(data: read(path: "data/easy-mode.json"))
-        raw.muscle = PFJ(data: read(path: "data/muscle-check.json"))
-        raw.tape = PFJ(data: read(path: "data/tape.json"))
-        raw.standing = PFJ(data: read(path: "data/standing.json"))
-        raw.insightsV2 = PFJ(data: read(path: "data/insights-v2.json"))
-        raw.dailyIntel = PFJ(data: read(path: "data/daily-intel.json"))
-        raw.healthspan = PFJ(data: read(path: PFDocPath.healthspan))
-        raw.journalImpact = PFJ(data: read(path: PFDocPath.journalImpact))
-        raw.highlights = PFJ(data: read(path: PFDocPath.highlights))
-        raw.monthlyReport = PFJ(data: read(path: PFDocPath.monthlyReport))
-        raw.myPlan = PFJ(data: read(path: PFDocPath.myPlan))
-        raw.rideMetrics = PFJ(data: read(path: "data/ride-metrics.json"))
-        raw.dismissed = PFJ(data: read(path: "data/dismissed.json"))
-        raw.todayLayout = PFJ(data: read(path: "data/today-layout.json"))
-        return raw
-    }
+    static func cachedBundle() -> PFRawBundle? { PFRawBundle.cached(read: { read(path: $0) }) }
 }
 
 /// What the tab shows: nothing yet, a first load, the "set up sync" prompt, an error or data.
@@ -362,7 +343,7 @@ final class PFModel: ObservableObject {
             phase = .notSetUp
             return
         }
-        if snapshot == nil, !PFAPI.isFixture, let cached = PFStore.cachedBundle(),
+        if snapshot == nil, PFAPI.usesPhoneState, let cached = PFStore.cachedBundle(),
            let built = PFBuilder.snapshot(from: cached, today: PFAPI.todayISO) {
             snapshot = built
             savedAt = PFStore.savedAt(path: "api/state")
@@ -453,6 +434,6 @@ final class PFModel: ObservableObject {
 
     private static func fetchWithCache(_ path: String) async -> Data? {
         if let data = await PFAPI.fetchOptional(path) { return data }
-        return PFAPI.isFixture ? nil : PFStore.read(path: path)
+        return PFAPI.usesPhoneState ? PFStore.read(path: path) : nil
     }
 }

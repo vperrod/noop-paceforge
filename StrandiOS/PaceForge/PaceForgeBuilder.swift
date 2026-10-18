@@ -36,6 +36,47 @@ struct PFRawBundle {
     var todayLayout = PFJ(nil)
 }
 
+extension PFRawBundle {
+    /// The bundle the last good fetches left on the phone, so the tab opens at once offline. `read` returns the saved bytes of one
+    /// document path. A cache written by an older build holds only the documents that build fetched; every other one reads as missing.
+    static func cached(read: (String) -> Data?) -> PFRawBundle? {
+        guard let state = read("api/state"), let fitness = read("data/fitness.json") else { return nil }
+        var raw = PFRawBundle()
+        raw.state = PFJ(data: state)
+        raw.fitness = PFJ(data: fitness)
+        raw.projection = PFJ(data: read("data/projection.json"))
+        raw.body = PFJ(data: read("data/body.json"))
+        raw.hyrox = PFJ(data: read("data/hyrox_analysis.json"))
+        raw.activities = PFJ(data: read("data/activities.json"))
+        raw.analysesIndex = PFJ(data: read("data/analyses/index.json"))
+        raw.bodyProgress = PFJ(data: read("data/body-progress.json"))
+        raw.alerts = PFJ(data: read("data/alerts.json"))
+        raw.readiness = PFJ(data: read("data/readiness-explained.json"))
+        raw.feelSummary = PFJ(data: read("data/feel-summary.json"))
+        raw.whatChanged = PFJ(data: read("data/what-changed.json"))
+        raw.explainers = PFJ(data: read("data/metric-explainers.json"))
+        raw.behaviour = PFJ(data: read("data/behaviour-impact.json"))
+        raw.raceWeek = PFJ(data: read("data/race-week.json"))
+        raw.hyroxSims = PFJ(data: read("data/hyrox-sims.json"))
+        raw.hyroxSimAnalysis = PFJ(data: read("data/hyrox-sim-analysis.json"))
+        raw.easyMode = PFJ(data: read("data/easy-mode.json"))
+        raw.muscle = PFJ(data: read("data/muscle-check.json"))
+        raw.tape = PFJ(data: read("data/tape.json"))
+        raw.standing = PFJ(data: read("data/standing.json"))
+        raw.insightsV2 = PFJ(data: read("data/insights-v2.json"))
+        raw.dailyIntel = PFJ(data: read("data/daily-intel.json"))
+        raw.healthspan = PFJ(data: read(PFDocPath.healthspan))
+        raw.journalImpact = PFJ(data: read(PFDocPath.journalImpact))
+        raw.highlights = PFJ(data: read(PFDocPath.highlights))
+        raw.monthlyReport = PFJ(data: read(PFDocPath.monthlyReport))
+        raw.myPlan = PFJ(data: read(PFDocPath.myPlan))
+        raw.rideMetrics = PFJ(data: read("data/ride-metrics.json"))
+        raw.dismissed = PFJ(data: read("data/dismissed.json"))
+        raw.todayLayout = PFJ(data: read("data/today-layout.json"))
+        return raw
+    }
+}
+
 /// Derives the screens' view models from the server's JSON, the way the PaceForge web app derives
 /// its own Today / Body / Calendar views.
 enum PFBuilder {

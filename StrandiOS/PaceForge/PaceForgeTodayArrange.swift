@@ -19,7 +19,7 @@ final class PFTodayLayoutStore: ObservableObject {
     init(defaults: UserDefaults? = nil) {
         if let defaults {
             self.defaults = defaults
-        } else if PFAPI.isFixture, let suite = UserDefaults(suiteName: "noop.paceforge.todayLayout.fixture") {
+        } else if !PFAPI.usesPhoneState, let suite = UserDefaults(suiteName: "noop.paceforge.todayLayout.fixture") {
             suite.removePersistentDomain(forName: "noop.paceforge.todayLayout.fixture")
             self.defaults = suite
         } else {

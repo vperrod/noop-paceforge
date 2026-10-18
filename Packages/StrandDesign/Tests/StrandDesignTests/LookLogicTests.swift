@@ -455,4 +455,12 @@ final class LookLogicTests: XCTestCase {
     func testChipOfNaNReadsAsZero() {
         XCTAssertEqual(LookDelta.chip(percent: .nan)?.text, "0 %")
     }
+
+    func testTypicalRangeOfAReadingSetWithNaNIsNilNotATrap() {
+        XCTAssertNil(LookTrendStats.typicalRange(of: [1, .nan, 3, 4]))
+    }
+
+    func testTypicalRangeOfAReadingSetWithInfinityIsNilNotATrap() {
+        XCTAssertNil(LookTrendStats.typicalRange(of: [1, .infinity, 3, 4]))
+    }
 }

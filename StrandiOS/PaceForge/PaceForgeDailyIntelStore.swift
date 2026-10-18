@@ -72,7 +72,7 @@ final class PFDailyIntelStore: ObservableObject {
         }
         var data = await PFAPI.fetchOptional(Self.path)
         // Offline: the copy the last good fetch left on the phone. A fixture never reads it.
-        if data == nil, !PFAPI.isFixture { data = PFStore.read(path: Self.path) }
+        if data == nil, PFAPI.usesPhoneState { data = PFStore.read(path: Self.path) }
         intel = PFDailyIntelParse.document(PFJ(data: data))
         lastFetch = Date()
         didLoad = true

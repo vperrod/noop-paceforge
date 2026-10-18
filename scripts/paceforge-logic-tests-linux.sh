@@ -13,11 +13,15 @@ export PF_FIXTURE_FILE="$root/NOOPiOSUITests/PaceForgeFixture.json"
 # The crash-guard tests also read the live documents' shapes with every value replaced.
 export PF_REAL_SHAPES_FILE="$root/StrandTests/LiveShapes/PaceForgeRealShapes.json"
 pf="$root/StrandiOS/PaceForge"
-tests=("$@"); [ ${#tests[@]} -gt 0 ] || tests=(PaceForgeLogTests PaceForgeTodayLayoutTests PaceForgeDismissTests PaceForgeHRRGarminTests PaceForgeRedactTests WidgetSnapshotHideTests PaceForgeGlanceTests LiftFiltersTests PaceForgeInsightsV2Tests PaceForgeDailyIntelTests PaceForgeIntelDocsTests MyDashboardPrefsTests JournalFlowLogicTests StressMonitorLogicTests PaceForgeCrashGuardTests)
+tests=("$@"); [ ${#tests[@]} -gt 0 ] || tests=(PaceForgeLogTests PaceForgeTodayLayoutTests PaceForgeDismissTests PaceForgeHRRGarminTests PaceForgeRedactTests WidgetSnapshotHideTests PaceForgeGlanceTests LiftFiltersTests PaceForgeInsightsV2Tests PaceForgeDailyIntelTests PaceForgeIntelDocsTests MyDashboardPrefsTests JournalFlowLogicTests StressMonitorLogicTests PaceForgeCrashGuardTests PaceForgeSavedStateTests)
 sources=("$root/StrandiOSShared/SafeNumber.swift" "$pf/PaceForgeFormat.swift" "$pf/PaceForgeModels.swift" "$pf/PaceForgeBuilder.swift" "$pf/PaceForgeWave2.swift" "$pf/PaceForgeLocalExplainers.swift" "$pf/PaceForgeDayMerge.swift" "$pf/PaceForgeJSON.swift" "$pf/PaceForgeWave3.swift" "$pf/PaceForgeDismiss.swift" "$pf/PaceForgeLog.swift" "$pf/PaceForgeTodayLayout.swift" "$pf/PaceForgeHRRGarmin.swift" "$root/StrandiOSShared/PaceForgeRedact.swift" "$root/Strand/Data/HideScores.swift"
          "$pf/PaceForgeStanding.swift" "$pf/PaceForgeInsightsV2.swift" "$pf/PaceForgeDailyIntel.swift" "$pf/PaceForgeIntelDocs.swift" "$pf/PaceForgeRide.swift" "$root/Strand/Data/MyDashboardPrefs.swift" "$root/Strand/Data/JournalFlowLogic.swift" "$root/Strand/Data/StressMonitorLogic.swift" "$pf/PaceForgeGlanceBuilder.swift" "$root/StrandiOSShared/PaceForgeGlance.swift"
          "$root/StrandiOSShared/WidgetSnapshot.swift" "$root/StrandiOSShared/HrTrace.swift" "$root/StrandiOSShared/StressTrace.swift"
          "$root/Strand/Data/LiftFilters.swift" "$root/Packages/WhoopStore/Sources/WhoopStore/LiftMuscle.swift")
+# TodayLayoutPrefs imports SwiftUI for nothing it uses here and localises its titles; the Linux Foundation has no
+# `String(localized:)`, so the staged copy drops the import and reads the key as the title.
+sed -e '/^import SwiftUI$/d' -e 's/String(localized: /String(/g' "$root/Strand/Data/TodayLayoutPrefs.swift" > "$work/TodayLayoutPrefs.swift"
+sources+=("$work/TodayLayoutPrefs.swift")
 entries=""
 for t in "${tests[@]}"; do
   sed '/^@testable import Strand$/d' "$root/StrandTests/$t.swift" > "$work/$t.swift"
