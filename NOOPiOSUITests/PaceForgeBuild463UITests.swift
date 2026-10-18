@@ -180,12 +180,8 @@ final class PaceForgeBuild463UITests: XCTestCase {
         let more = app.shellTab("More")
         XCTAssertTrue(more.waitForExistence(timeout: 30))
         more.tap()
-        let body = app.buttons["Body"]
-        if body.waitForExistence(timeout: 10), (body.value as? String) != "Expanded" {
-            _ = reveal(body, in: app, maxSwipes: 8)
-            body.tap()
-        }
-        let lift = app.staticTexts["Lift Log"]
+        // More is flat since build 468: no group has to be opened before a row shows.
+        let lift = app.descendants(matching: .any).matching(identifier: "more-row-liftlog").firstMatch
         XCTAssertTrue(reveal(lift, in: app, maxSwipes: 10), "More should list Lift Log.")
         lift.tap()
         let newProgram = app.buttons["New program"]

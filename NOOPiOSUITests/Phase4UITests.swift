@@ -75,6 +75,8 @@ final class Phase4UITests: XCTestCase {
         attach(app, "Phase4 10 Today top bar with the streak chip")
         XCTAssertTrue(found, "Today's top bar should carry the streak chip.")
         XCTAssertTrue(chip.label.contains("6 day streak"), "The chip should speak the longest streak alive, six days in the fixture.")
+        XCTAssertTrue(chip.isHittable, "The chip should be on screen and tappable, not clipped behind the bar.")
+        assertFits(chip, in: app, "The streak chip")
         chip.tap()
         XCTAssertTrue(element(app, "pf-highlights-body").waitForExistence(timeout: 20), "The chip should open Highlights.")
         attach(app, "Phase4 11 Highlights opened from the chip")
@@ -323,26 +325,27 @@ final class Phase4UITests: XCTestCase {
         attach(app, "Phase4 84 Journal flow, yesterday")
     }
 
-    // MARK: Stress monitor
+    // MARK: Stress (the monitor is the top of the one Stress screen)
 
-    func testStressTileOpensTheMonitor() throws {
+    func testStressTileOpensTheOneStressScreenWithTheMonitorOnTop() throws {
         let app = try launch()
         let tile = element(app, "look-stress-tile")
         XCTAssertTrue(reveal(tile, in: app), "Today should show the Stress monitor tile.")
         attach(app, "Phase4 90 Today, Stress monitor tile")
         tile.tap()
-        XCTAssertTrue(element(app, "look-stress-monitor").waitForExistence(timeout: 20), "The tile should open the monitor.")
+        XCTAssertTrue(element(app, "look-stress-monitor").waitForExistence(timeout: 20), "The tile should open the Stress screen with the monitor on top.")
         let hasReading = element(app, "look-stress-reading").waitForExistence(timeout: 10)
         let hasEmpty = element(app, "look-stress-empty").exists
         XCTAssertTrue(hasReading || hasEmpty, "The monitor shows either a real reading or the honest no-data state, never a made-up one.")
-        attach(app, "Phase4 91 Stress monitor")
-        XCTAssertTrue(element(app, "look-stress-full").exists, "The full Stress screen stays one tap away.")
+        attach(app, "Phase4 91 Stress screen, monitor on top")
+        XCTAssertTrue(app.staticTexts["Autonomic load across your waking day"].exists, "The rest of the Stress screen is the same screen, not a second tap away.")
+        XCTAssertFalse(element(app, "look-stress-full").exists, "There is no gateway hop to a second Stress screen any more.")
     }
 
     func testStressMonitorOnItsOwn() throws {
         let app = try launch(screen: "stressmonitor")
-        XCTAssertTrue(element(app, "look-stress-monitor").waitForExistence(timeout: 30), "The monitor should render.")
-        attach(app, "Phase4 92 Stress monitor, own screen")
+        XCTAssertTrue(element(app, "look-stress-monitor").waitForExistence(timeout: 30), "The monitor should render at the top of Stress.")
+        attach(app, "Phase4 92 Stress screen, own screen")
     }
 
     // MARK: Light

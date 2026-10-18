@@ -135,12 +135,8 @@ final class WhoopGapsUITests: XCTestCase {
         let more = app.shellTab("More")
         XCTAssertTrue(more.waitForExistence(timeout: 30))
         more.tap()
-        let body = app.buttons["Body"]
-        if body.waitForExistence(timeout: 10), (body.value as? String) != "Expanded" {
-            _ = reveal(body, in: app, maxSwipes: 8)
-            body.tap()
-        }
-        let health = app.staticTexts["Health"]
+        // More is flat since build 468: no group has to be opened before a row shows.
+        let health = element(app, "more-row-health")
         XCTAssertTrue(reveal(health, in: app, maxSwipes: 10), "More should list Health.")
         health.tap()
         let card = element(app, "pace-of-aging-card")
