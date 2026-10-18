@@ -37,20 +37,33 @@ struct InsightsHubView: View {
     /// The currently-selected outcome for the ranked feed (Charge / HRV / Rest / RHR).
     @State private var outcome: InsightsHubViewModel.Outcome = .recovery
 
+    /// True when the unified Insights screen hosts this one as a section: no scaffold, no title.
+    var embedded = false
+
+    @ViewBuilder private var screenContent: some View {
+        if !model.loaded {
+            ComingSoon(what: "Reading your journal and outcomes…")
+        } else {
+            VStack(alignment: .leading, spacing: NoopMetrics.sectionSpacing) {
+                moversSection
+                doseSection
+                methodNote
+            }
+        }
+    }
+
     var body: some View {
-        ScreenScaffold(title: "Insights",
-                       subtitle: "Patterns in your own data: association, not cause.",
-                       // PERF (scroll): lazy column — byte-identical layout (LazyVStack == eager VStack
-                       // alignment/spacing/header). The content is one inner eager VStack, so the staggered
-                       // mover reveal is unchanged; this only defers building that stack until it scrolls in.
-                       lazy: true) {
-            if !model.loaded {
-                ComingSoon(what: "Reading your journal and outcomes…")
+        Group {
+            if embedded {
+                LazyVStack(alignment: .leading, spacing: 20) { screenContent }
             } else {
-                VStack(alignment: .leading, spacing: NoopMetrics.sectionSpacing) {
-                    moversSection
-                    doseSection
-                    methodNote
+                ScreenScaffold(title: "Insights",
+                               subtitle: "Patterns in your own data: association, not cause.",
+                               // PERF (scroll): lazy column — byte-identical layout (LazyVStack == eager VStack
+                               // alignment/spacing/header). The content is one inner eager VStack, so the staggered
+                               // mover reveal is unchanged; this only defers building that stack until it scrolls in.
+                               lazy: true) {
+                    screenContent
                 }
             }
         }

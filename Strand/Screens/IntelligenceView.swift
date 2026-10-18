@@ -23,72 +23,85 @@ struct IntelligenceView: View {
     @AppStorage(UnitPrefs.effortScaleKey) private var effortScaleRaw = EffortScale.hundred.rawValue
     private var effortScale: EffortScale { UnitPrefs.resolveEffortScale(effortScaleRaw) }
 
-    var body: some View {
-        // `lazy` so the trailing By-Day `ForEach` renders day cards on demand. With an 800+ day
-        // imported history, an eager VStack built every card up-front on the main thread and froze
-        // the app when ALL was tapped (#345); LazyVStack only materialises what's on screen.
-        ScreenScaffold(title: "Intelligence",
-                       subtitle: "NOOP scores your charge, effort and rest itself: on-device, no cloud.",
-                       lazy: true,
-                       // Liquid finish: the same full-bleed day-of-sky backdrop Today + the other liquid
-                       // tabs carry, so Intelligence sits in one atmosphere. Static + non-interactive; the
-                       // frosted cards below sit on the opaque canvas and stay legible.
-                       topBackground: liquidScaffoldSky()) {
-            if let f = forecast { forecastCard(f) }
-            explainerCard
-            if intelligence.computing {
-                NoopCard(padding: 20, tint: StrandPalette.chargeColor) {
-                    HStack(spacing: NoopMetrics.rowSpacing) {
-                        ProgressView().controlSize(.small)
-                        Text("Crunching your raw streams…").font(StrandFont.subhead)
-                            .foregroundStyle(StrandPalette.textSecondary)
-                    }
+    /// True when the unified Insights screen hosts this one as a section: no scaffold, no title. The By-Day list stays lazy.
+    var embedded = false
+
+    @ViewBuilder private var screenContent: some View {
+        if let f = forecast { forecastCard(f) }
+        explainerCard
+        if intelligence.computing {
+            NoopCard(padding: 20, tint: StrandPalette.chargeColor) {
+                HStack(spacing: NoopMetrics.rowSpacing) {
+                    ProgressView().controlSize(.small)
+                    Text("Crunching your raw streams…").font(StrandFont.subhead)
+                        .foregroundStyle(StrandPalette.textSecondary)
                 }
-            } else if let note = intelligence.note {
-                NoopCard(padding: 20, tint: StrandPalette.chargeColor) {
-                    HStack(alignment: .top, spacing: NoopMetrics.rowSpacing) {
-                        Image(systemName: "moon.zzz.fill").foregroundStyle(StrandPalette.chargeColor)
-                            .accessibilityHidden(true)
-                        Text(note).font(StrandFont.subhead).foregroundStyle(StrandPalette.textSecondary)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
+            }
+        } else if let note = intelligence.note {
+            NoopCard(padding: 20, tint: StrandPalette.chargeColor) {
+                HStack(alignment: .top, spacing: NoopMetrics.rowSpacing) {
+                    Image(systemName: "moon.zzz.fill").foregroundStyle(StrandPalette.chargeColor)
+                        .accessibilityHidden(true)
+                    Text(note).font(StrandFont.subhead).foregroundStyle(StrandPalette.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
-            } else if intelligence.results.isEmpty {
-                // While the strap is mid-offload, say so — "no days" reads as final otherwise (#77). The
-                // note owns the `LiveState` observation in its own leaf so the chunk count ticks without
-                // re-rendering Intelligence (identical output to the prior inline check).
-                IntelSyncingNote()
-                DataPendingNote(
-                    title: "Building from your strap",
-                    message: "This builds from the strap as it syncs. Effort and rest appear after you have worn it and slept a night. Charge needs about four nights of sleep to learn your baseline (you'll see \"Calibrating\" until then), and keeps sharpening over your first couple of weeks. On a WHOOP 5 or MG the strap banks little history, so the night count can climb slowly or sit at 0 of 4 until you have worn it across a few nights. That's its sync limit, not a fault. Import your WHOOP export to skip the wait.",
-                    symbol: "brain.head.profile"
-                )
+            }
+        } else if intelligence.results.isEmpty {
+            // While the strap is mid-offload, say so — "no days" reads as final otherwise (#77). The
+            // note owns the `LiveState` observation in its own leaf so the chunk count ticks without
+            // re-rendering Intelligence (identical output to the prior inline check).
+            IntelSyncingNote()
+            DataPendingNote(
+                title: "Building from your strap",
+                message: "This builds from the strap as it syncs. Effort and rest appear after you have worn it and slept a night. Charge needs about four nights of sleep to learn your baseline (you'll see \"Calibrating\" until then), and keeps sharpening over your first couple of weeks. On a WHOOP 5 or MG the strap banks little history, so the night count can climb slowly or sit at 0 of 4 until you have worn it across a few nights. That's its sync limit, not a fault. Import your WHOOP export to skip the wait.",
+                symbol: "brain.head.profile"
+            )
+        } else {
+            // Header row: section label left, range control right. Narrows the per-day
+            // list to a recent window (lexicographic yyyy-MM-dd compare == chronological).
+            HStack(alignment: .center) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Recent").strandOverline()
+                    Text("By Day").font(StrandFont.title2).foregroundStyle(StrandPalette.textPrimary)
+                }
+                Spacer()
+                SegmentedPillControl(IntelRange.allCases, selection: $range) { $0.label }
+            }
+            // Whole-phrase variants per count so translators never see a stitched plural.
+            Text(filtered.count == 1 ? "1 day" : "\(filtered.count) days")
+                .font(StrandFont.footnote).foregroundStyle(StrandPalette.textTertiary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            if filtered.isEmpty {
+                NoopCard(padding: 18, tint: StrandPalette.chargeColor) {
+                    Text("No scored days in this window. Widen the range or import more history.")
+                        .font(StrandFont.subhead).foregroundStyle(StrandPalette.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             } else {
-                // Header row: section label left, range control right. Narrows the per-day
-                // list to a recent window (lexicographic yyyy-MM-dd compare == chronological).
-                HStack(alignment: .center) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Recent").strandOverline()
-                        Text("By Day").font(StrandFont.title2).foregroundStyle(StrandPalette.textPrimary)
-                    }
-                    Spacer()
-                    SegmentedPillControl(IntelRange.allCases, selection: $range) { $0.label }
+                ForEach(Array(filtered.enumerated()), id: \.element.id) { index, day in
+                    dayCard(day)
+                        .staggeredAppear(index: index)
                 }
-                // Whole-phrase variants per count so translators never see a stitched plural.
-                Text(filtered.count == 1 ? "1 day" : "\(filtered.count) days")
-                    .font(StrandFont.footnote).foregroundStyle(StrandPalette.textTertiary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                if filtered.isEmpty {
-                    NoopCard(padding: 18, tint: StrandPalette.chargeColor) {
-                        Text("No scored days in this window. Widen the range or import more history.")
-                            .font(StrandFont.subhead).foregroundStyle(StrandPalette.textSecondary)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                } else {
-                    ForEach(Array(filtered.enumerated()), id: \.element.id) { index, day in
-                        dayCard(day)
-                            .staggeredAppear(index: index)
-                    }
+            }
+        }
+    }
+
+    var body: some View {
+        Group {
+            if embedded {
+                LazyVStack(alignment: .leading, spacing: 20) { screenContent }
+            } else {
+                // `lazy` so the trailing By-Day `ForEach` renders day cards on demand. With an 800+ day
+                // imported history, an eager VStack built every card up-front on the main thread and froze
+                // the app when ALL was tapped (#345); LazyVStack only materialises what's on screen.
+                ScreenScaffold(title: "Intelligence",
+                               subtitle: "NOOP scores your charge, effort and rest itself: on-device, no cloud.",
+                               lazy: true,
+                               // Liquid finish: the same full-bleed day-of-sky backdrop Today + the other liquid
+                               // tabs carry, so Intelligence sits in one atmosphere. Static + non-interactive; the
+                               // frosted cards below sit on the opaque canvas and stay legible.
+                               topBackground: liquidScaffoldSky()) {
+                    screenContent
                 }
             }
         }

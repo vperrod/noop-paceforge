@@ -147,7 +147,8 @@ struct PaceForgeTabView: View {
             case .today: PFTodayView(snapshot: snapshot)
             case .coach: PFCoachView(snapshot: snapshot)
             case .week: PFWeekView(snapshot: snapshot)
-            case .insights: PFInsightsView(snapshot: snapshot)
+            // The same sections as the Insights screen in More, with PaceForge's Training first.
+            case .insights: PFInsightsHost(snapshot: snapshot)
             case .body:
                 if hiding.hides(.body) {
                     PFCard("Body", icon: "figure.stand") {
