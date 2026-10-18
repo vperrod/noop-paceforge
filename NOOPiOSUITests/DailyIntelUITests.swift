@@ -114,7 +114,7 @@ final class DailyIntelUITests: XCTestCase {
 
     // MARK: Health monitor
 
-    func testHealthTileWithinRangeOpensTheMonitor() throws {
+    func testHealthTileWithinRangeOpensTheHealthScreenWithTheMonitorOnTop() throws {
         let app = try launch()
         let tile = element(app, "look-health-tile")
         XCTAssertTrue(reveal(tile, in: app), "Today should show the Health monitor tile.")
@@ -122,9 +122,9 @@ final class DailyIntelUITests: XCTestCase {
         XCTAssertTrue(tile.label.contains("4/4 metrics"), "The tile should count the vitals within range.")
         attach(app, "Intel 30 Health monitor tile within range")
         tile.tap()
-        XCTAssertTrue(element(app, "pf-health-monitor").waitForExistence(timeout: 20), "The tile should open the Health monitor.")
+        XCTAssertTrue(element(app, "pf-health-monitor").waitForExistence(timeout: 20), "The tile should open the one Health screen, with the Health monitor on top.")
         XCTAssertTrue(element(app, "pf-vital-hrv").waitForExistence(timeout: 10), "Each vital should have a row.")
-        attach(app, "Intel 31 Health monitor screen")
+        attach(app, "Intel 31 Health screen, monitor on top")
         XCTAssertTrue(reveal(element(app, "pf-vital-skin_temp"), in: app), "Skin temperature should have a row.")
         attach(app, "Intel 32 Health monitor vitals")
     }

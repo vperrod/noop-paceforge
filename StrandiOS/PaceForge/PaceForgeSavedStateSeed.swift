@@ -50,6 +50,11 @@ enum PFSavedStateSeed {
         "noop.paceforge.segment": "insights",
         "theme.appearance": "system",
         "noop.showDayCycleBackground": true,
+        // Choices a 464 phone can hold that build 468 stopped reading: the classic Today, the More groups left open or closed, and a
+        // Your Cards list that still names the Coach card the iPhone no longer has.
+        "noop.liquidTodayEnabled": false,
+        MoreSectionPrefs.storageKey: "Insights,Body",
+        DashboardCardPrefs.selectionKey: #"["stress","coach","hrv"]"#,
         PFTodayLayoutStorage.defaultsKey: Data(#"{"order":["race-week","brief","today-so-far","session","next-best-action","easy","feel","alerts","daily","what-changed","readiness","standing","next-race"],"pinned":["brief","alerts"]}"#.utf8),
         PFDismissStorage.defaultsKey: Data(#"[{"key":"brief","text_hash":"f55c314b","dismissed_at":"2030-03-01T04:00:00Z"},{"dismissed_at":"2030-03-01T04:00:00Z","until":"2099-01-01","key":"what-changed","text_hash":"12aa51d3"}]"#.utf8),
     ]
@@ -61,6 +66,9 @@ enum PFSavedStateSeed {
         "noop.paceforge.segment": "no-such-segment",
         "theme.appearance": "sepia",
         "noop.showDayCycleBackground": "maybe",
+        "noop.liquidTodayEnabled": "maybe",
+        MoreSectionPrefs.storageKey: 7,
+        DashboardCardPrefs.selectionKey: 42,
         "noop.myDashboard.metrics": "my-whoop:hrv,,nope,my-whoop:hrv, ,x:y:z",
         PFTodayLayoutStorage.defaultsKey: Data("{\"order\":[1,2,".utf8),
         PFDismissStorage.defaultsKey: "not data at all",
