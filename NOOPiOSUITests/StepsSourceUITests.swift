@@ -4,6 +4,10 @@ import XCTest
 /// account's Apple Health steps stop 14 days ago while a Garmin daily row carries the steps for those days, so
 /// Today's steps tile has no Apple count and must show the Garmin one, labelled "Garmin", instead of going
 /// blank. Nothing here is real data.
+///
+/// Needs a fresh app container: `--demo-seed` only seeds an EMPTY store, so after another class has launched the app with
+/// `--demo-seed` the Apple Health steps are already there and `--demo-garmin-steps` changes nothing. Run it as its own
+/// job (`only: NOOPiOSUITests/StepsSourceUITests`), as the simulator verification does.
 final class StepsSourceUITests: XCTestCase {
 
     private func launch() -> XCUIApplication {

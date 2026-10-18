@@ -244,7 +244,8 @@ final class ScreenCleanupUITests: XCTestCase {
 
     func testTheRestDetailLinksToTheSleepTabNotASecondSleepScreen() throws {
         let app = try launch()
-        let ring = app.descendants(matching: .any).matching(NSPredicate(format: "label BEGINSWITH %@", "Rest ")).firstMatch
+        // The ring's button reads "Rest, 87"; the sticky mini dial ("Rest 87") and the "See how it is scored" button are other elements.
+        let ring = app.buttons.matching(NSPredicate(format: "label MATCHES %@", "Rest, [0-9]+")).firstMatch
         XCTAssertTrue(reveal(ring, in: app, maxSwipes: 6), "Today should show the Rest ring.")
         ring.tap()
         XCTAssertTrue(element(app, "look-score-detail-rest").waitForExistence(timeout: 30), "The Rest ring should open the Rest detail.")

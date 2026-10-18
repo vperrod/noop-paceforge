@@ -79,7 +79,10 @@ final class MyDayWalksUITests: XCTestCase {
         let app = launch()
         openTimeline(app)
         element(app, "myday-dismiss-walks").tap()
-        XCTAssertFalse(labelContaining(app, "Looks like a walk").waitForExistence(timeout: 3), "No walk should be left.")
+        // The rows go at once, but the 24 h strip's own labels follow the reload that stores the dismissal: wait for them to go.
+        let walk = labelContaining(app, "Looks like a walk")
+        let gone = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: walk)
+        XCTAssertEqual(XCTWaiter().wait(for: [gone], timeout: 20), .completed, "No walk should be left.")
         XCTAssertTrue(labelContaining(app, "Looks like a workout").exists, "The hard stretch stays.")
         XCTAssertFalse(element(app, "myday-dismiss-walks").exists, "The header action goes with the walks.")
         attach(app, "33 My Day walks dismissed")
