@@ -55,7 +55,7 @@ struct PFRaceWeek: Equatable {
                 parts.append(PFNumber.trimmed(single) + " g/kg a day")
             }
             if let grams = gramsPerDay {
-                var text = "about \(Int(grams.rounded())) g a day"
+                var text = "about \(Safe.int(grams)) g a day"
                 if let weightKg { text += " at " + PFNumber.trimmed(weightKg) + " kg" }
                 parts.append(text)
             }
@@ -135,7 +135,7 @@ struct PFRaceWeek: Equatable {
     var summaryLine: String {
         var parts = [phaseTitle]
         if let days = daysText { parts.append(days) }
-        if let pct = volumeTargetPct { parts.append("volume \(Int(pct.rounded())) %") }
+        if let pct = volumeTargetPct { parts.append("volume \(Safe.int(pct)) %") }
         return parts.joined(separator: " \u{00B7} ")
     }
 }
@@ -246,14 +246,14 @@ struct PFHyroxSims: Equatable {
 enum PFSimFormat {
     /// 4:32, or 1:04:32 from an hour up.
     static func clock(_ seconds: Double) -> String {
-        let total = Int(seconds.rounded())
+        let total = Safe.int(seconds)
         let h = total / 3600, m = (total % 3600) / 60, s = total % 60
         return h > 0 ? String(format: "%d:%02d:%02d", h, m, s) : String(format: "%d:%02d", m, s)
     }
 
     /// +0:12, \u{2212}0:05, or 0:00. Neutral: no colour is chosen from the sign.
     static func signed(_ seconds: Double) -> String {
-        let rounded = Int(seconds.rounded())
+        let rounded = Safe.int(seconds)
         if rounded == 0 { return "0:00" }
         return (rounded < 0 ? "\u{2212}" : "+") + clock(Double(abs(rounded)))
     }
@@ -445,8 +445,8 @@ struct PFHeat: Equatable {
     var chipText: String {
         var parts: [String] = []
         if let temp = tempC {
-            var text = "\(Int(temp.rounded()))\u{00B0}"
-            if let feels = feelsC, Int(feels.rounded()) != Int(temp.rounded()) { text += " (feels \(Int(feels.rounded()))\u{00B0})" }
+            var text = "\(Safe.int(temp))\u{00B0}"
+            if let feels = feelsC, Safe.int(feels) != Safe.int(temp) { text += " (feels \(Safe.int(feels))\u{00B0})" }
             parts.append(text)
         }
         if let level, !level.isEmpty { parts.append(level.replacingOccurrences(of: "_", with: " ")) }
@@ -554,7 +554,7 @@ enum PFStamp {
 enum PFNumber {
     /// 8 or 8.5, never 8.0.
     static func trimmed(_ value: Double) -> String {
-        value.rounded() == value ? String(Int(value)) : String(format: "%.1f", value)
+        value.rounded() == value ? String(Safe.int(value)) : String(format: "%.1f", value)
     }
 
     /// 62.1, always one decimal.
@@ -807,11 +807,11 @@ enum PFWave3Parse {
         }
         let protein = j["protein_g"]
         if let single = protein.double {
-            out.proteinText = "\(Int(single.rounded())) g"
+            out.proteinText = "\(Safe.int(single)) g"
         } else if let low = protein["low"].double, let high = protein["high"].double {
-            out.proteinText = "\(Int(low.rounded()))\u{2013}\(Int(high.rounded())) g"
+            out.proteinText = "\(Safe.int(low))\u{2013}\(Safe.int(high)) g"
         } else if let low = protein[0].double, let high = protein[1].double {
-            out.proteinText = "\(Int(low.rounded()))\u{2013}\(Int(high.rounded())) g"
+            out.proteinText = "\(Safe.int(low))\u{2013}\(Safe.int(high)) g"
         }
         return out
     }
@@ -878,8 +878,8 @@ enum PFWave3Parse {
         out.stress = points(j["stress"], minimum: 0)
         let recharge = j["last_recharge"]
         if recharge.exists {
-            let start = recharge["start"].double.map { Int($0 / 1000) }
-            let end = recharge["time"].double.map { Int($0 / 1000) }
+            let start = recharge["start"].double.map { Safe.int($0 / 1000, .towardZero) }
+            let end = recharge["time"].double.map { Safe.int($0 / 1000, .towardZero) }
             let r = PFRecharge(startTs: start, endTs: end, from: recharge["from"].double, to: recharge["to"].double,
                                minutes: recharge["minutes"].int)
             if r.startTs != nil || r.endTs != nil || r.to != nil { out.lastRecharge = r }
@@ -890,7 +890,7 @@ enum PFWave3Parse {
     private static func points(_ list: PFJ, minimum: Double) -> [PFIntradayPoint] {
         list.array.compactMap { pair in
             guard let ms = pair[0].double, let value = pair[1].double, value >= minimum else { return nil }
-            return PFIntradayPoint(ts: Int(ms / 1000), value: value)
+            return PFIntradayPoint(ts: Safe.int(ms / 1000, .towardZero), value: value)
         }.sorted { $0.ts < $1.ts }
     }
 
@@ -905,8 +905,8 @@ enum PFWave3Parse {
             let timed = !(e["all_day"].bool ?? false)
             var out = PFDayEvent(kind: kind, date: date)
             out.id = e["id"].idString
-            out.startTs = timed ? start.map { Int($0.timeIntervalSince1970) } : nil
-            out.endTs = timed ? end.map { Int($0.timeIntervalSince1970) } : nil
+            out.startTs = timed ? start.map { Safe.int($0.timeIntervalSince1970, .towardZero) } : nil
+            out.endTs = timed ? end.map { Safe.int($0.timeIntervalSince1970, .towardZero) } : nil
             out.title = e["title"].text
             out.state = e["state"].text
             out.sessionId = e["session_id"].idString

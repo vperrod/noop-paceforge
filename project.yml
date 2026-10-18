@@ -21,7 +21,7 @@ settings:
     # iOS build number (CFBundleVersion). GLOBAL so the iOS app AND its widget extension inherit the
     # SAME value — they must match or iOS warns "extension version must match parent app" (#416).
     # macOS sets its own CFBundleVersion on the Strand target and is unaffected by this.
-    CURRENT_PROJECT_VERSION: "465"
+    CURRENT_PROJECT_VERSION: "466"
     SWIFT_VERSION: "5.0"
     # Emit localizable strings so Xcode auto-extracts every LocalizedStringKey into the
     # String Catalog on build (the English (US) base entries).
@@ -91,6 +91,8 @@ targets:
       # The stress screen is shared with iOS and prints levels through the widget's parity formatter,
       # so its Foundation-only trace model belongs to the macOS app module as well.
       - StrandiOSShared/StressTrace.swift
+      # The trap-free Double to Int conversion the Look screens use (the iOS targets get it through StrandiOSShared).
+      - StrandiOSShared/SafeNumber.swift
     # Oura BYO-app OAuth credentials. OuraConfig.xcconfig is a tracked wrapper that optionally
     # includes the untracked, gitignored Strand/Oura/OuraSecrets.xcconfig (template at
     # OuraSecrets.example.xcconfig) — absent secrets leave the $(OURA_*) references in the
@@ -180,6 +182,12 @@ targets:
       - StrandiOSShared/WidgetTelemetry.swift
       # PaceForge's wave-2 documents (feel, what changed, answers, trust, explainers, behaviour): the
       # lenient JSON reader and the Foundation-only parsing, compiled into the test bundle for the same reason.
+      # Safe.int: the trap-free Double to Int conversion every PaceForge number format goes through.
+      - StrandiOSShared/SafeNumber.swift
+      - StrandiOS/PaceForge/PaceForgeFormat.swift
+      # The builder and its models: the crash-guard tests build a whole snapshot from the live documents' shapes.
+      - StrandiOS/PaceForge/PaceForgeModels.swift
+      - StrandiOS/PaceForge/PaceForgeBuilder.swift
       - StrandiOS/PaceForge/PaceForgeJSON.swift
       - StrandiOS/PaceForge/PaceForgeWave2.swift
       # Wave 3 (race week, race simulations, easy mode, muscle check, tape, heat, privacy, intraday, day events).
@@ -410,6 +418,8 @@ targets:
     deploymentTarget: "17.0"
     sources:
       - NOOPiOSUITests
+      # The live documents' shapes with every value replaced (PaceForgeRealShapesUITests).
+      - StrandTests/LiveShapes/PaceForgeRealShapes.json
     settings:
       base:
         GENERATE_INFOPLIST_FILE: YES

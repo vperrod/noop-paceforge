@@ -79,9 +79,9 @@ struct PFProgressCard: View {
         var out: [Row] = []
         if let fuel = progress.fuel {
             var value: [String] = []
-            if let kcal = fuel.trainingDayKcal { value.append("\(Int(kcal.rounded())) kcal on a training day") }
+            if let kcal = fuel.trainingDayKcal { value.append("\(Safe.int(kcal)) kcal on a training day") }
             if let lo = fuel.proteinLow, let hi = fuel.proteinHigh {
-                value.append("protein \(Int(lo.rounded()))\u{2013}\(Int(hi.rounded())) g")
+                value.append("protein \(Safe.int(lo))\u{2013}\(Safe.int(hi)) g")
             }
             if !value.isEmpty {
                 out.append(Row(title: "Fuel", value: value.joined(separator: " \u{00B7} "),

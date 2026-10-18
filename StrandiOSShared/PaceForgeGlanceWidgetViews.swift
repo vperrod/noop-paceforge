@@ -322,9 +322,9 @@ struct PFRideWidgetFace: View {
     static func numbers(_ last: PFRideGlance.Last) -> String {
         var bits: [String] = []
         if let seconds = last.durationS, seconds > 0 { bits.append(PFWidgetFormat.hoursMinutes(seconds / 60)) }
-        if let power = last.avgPower { bits.append("\(Int(power.rounded())) W avg") }
-        if let tss = last.tss { bits.append("TSS \(Int(tss.rounded()))") }
-        if let hr = last.avgHr { bits.append("\(Int(hr.rounded())) bpm") }
+        if let power = last.avgPower { bits.append("\(Safe.int(power)) W avg") }
+        if let tss = last.tss { bits.append("TSS \(Safe.int(tss))") }
+        if let hr = last.avgHr { bits.append("\(Safe.int(hr)) bpm") }
         return bits.joined(separator: " \u{00B7} ")
     }
 }

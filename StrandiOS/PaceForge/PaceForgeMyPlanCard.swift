@@ -87,7 +87,7 @@ struct PFMyPlanCard: View {
         .frame(height: 6)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Plan progress")
-        .accessibilityValue("\(plan.pctAccomplished ?? Int((plan.progress * 100).rounded())) percent")
+        .accessibilityValue("\(plan.pctAccomplished ?? Safe.int((plan.progress * 100))) percent")
         .accessibilityIdentifier("pf-plan-progress")
     }
 

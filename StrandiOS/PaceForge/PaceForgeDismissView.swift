@@ -95,9 +95,9 @@ enum PFCardText {
     }
 
     static func scores(_ t: PFToday) -> String {
-        let recovery = t.recovery.map { String(Int($0.score.rounded())) } ?? ""
+        let recovery = t.recovery.map { String(Safe.int($0.score)) } ?? ""
         let strain = t.strain.map { PFFormat.oneDecimal($0.value) } ?? ""
-        let sleep = t.sleep.map { String(Int($0.score.rounded())) } ?? ""
+        let sleep = t.sleep.map { String(Safe.int($0.score)) } ?? ""
         return "\(recovery)|\(strain)|\(sleep)"
     }
 

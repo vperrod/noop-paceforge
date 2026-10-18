@@ -63,7 +63,7 @@ struct PFWidgetRing: View {
 enum PFWidgetFormat {
     /// `hidden` is Settings > Hide numbers: the placeholder takes the number's place.
     static func whole(_ v: Double?, hidden: Bool = false) -> String {
-        hidden ? PFRedact.placeholder : (v.map { String(Int($0.rounded())) } ?? "\u{2013}")
+        hidden ? PFRedact.placeholder : (v.map { String(Safe.int($0)) } ?? "\u{2013}")
     }
     static func one(_ v: Double?, hidden: Bool = false) -> String {
         hidden ? PFRedact.placeholder : (v.map { String(format: "%.1f", $0) } ?? "\u{2013}")
@@ -534,6 +534,6 @@ struct PFGaugeWidgetFace: View {
 
     private func targetText(_ s: PFSummary) -> String {
         guard let lo = s.strainLow, let hi = s.strainHigh else { return "STR" }
-        return "\(Int(lo))-\(Int(hi))"
+        return "\(Safe.int(lo, .towardZero))-\(Safe.int(hi, .towardZero))"
     }
 }

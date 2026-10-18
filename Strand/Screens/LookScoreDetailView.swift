@@ -138,7 +138,7 @@ struct LookScoreDetailView: View {
         let target: (start: Double, end: Double)?
         switch kind {
         case .charge:
-            valueText = latest.map { String(Int($0.value.rounded())) } ?? "\u{2013}"
+            valueText = latest.map { String(Safe.int($0.value)) } ?? "\u{2013}"
             unit = latest == nil ? nil : "%"
             color = latest.map { NoopLook.chargeColor($0.value) } ?? NoopLook.chargeHigh
             target = nil
@@ -149,7 +149,7 @@ struct LookScoreDetailView: View {
             let band = effortReading?.progress
             target = LookDial.targetArc(low: band?.lowFraction, high: band?.highFraction, max: 1)
         case .rest:
-            valueText = latest.map { String(Int($0.value.rounded())) } ?? "\u{2013}"
+            valueText = latest.map { String(Safe.int($0.value)) } ?? "\u{2013}"
             unit = latest == nil ? nil : "%"
             color = NoopLook.rest
             target = nil
@@ -185,9 +185,9 @@ struct LookScoreDetailView: View {
 
     // MARK: Rows
 
-    private func number(_ value: Double) -> String { String(Int(value.rounded())) }
-    private func percent(_ value: Double) -> String { "\(Int(value.rounded()))%" }
-    private func clock(_ minutes: Double) -> String { LookFormat.hoursMinutes(minutes: Int(minutes.rounded())) }
+    private func number(_ value: Double) -> String { String(Safe.int(value)) }
+    private func percent(_ value: Double) -> String { "\(Safe.int(value))%" }
+    private func clock(_ minutes: Double) -> String { LookFormat.hoursMinutes(minutes: Safe.int(minutes)) }
     private func grouped(_ value: Double) -> String {
         let f = NumberFormatter()
         f.numberStyle = .decimal
@@ -283,7 +283,7 @@ struct LookScoreDetailView: View {
             return "Effort is the cardiovascular load of the day."
         case .rest:
             if let hours = LookSeries.latest(points("hours_vs_needed_pct"))?.value {
-                return "You slept \(Int(hours.rounded())) % of the sleep you needed. Rest also weighs efficiency, depth and timing."
+                return "You slept \(Safe.int(hours)) % of the sleep you needed. Rest also weighs efficiency, depth and timing."
             }
             return "Rest is how restorative your sleep was: duration, efficiency, deep and REM, and timing."
         }
@@ -322,7 +322,7 @@ struct LookScoreDetailView: View {
             let scale = effortScale
             return { UnitFormatter.effortDisplay($0, scale: scale) }
         }
-        return { String(Int($0.rounded())) }
+        return { String(Safe.int($0)) }
     }
 
     private struct LineCard {

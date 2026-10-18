@@ -21,7 +21,7 @@ private struct PFLegendDot: View {
 
 private func wattsText(_ watts: Double?) -> String {
     guard let watts else { return "\u{2014}" }
-    return "\(Int(watts.rounded())) W"
+    return "\(Safe.int(watts)) W"
 }
 
 // MARK: - Power curve and FTP
@@ -513,7 +513,7 @@ struct PFWeightGoalDetail: View {
                     .accessibilityIdentifier("pf-weight-trend")
                 Divider().overlay(StrandPalette.hairline)
                 PFInsightRow(label: "Target", value: kg(weight.targetKg),
-                             caption: weight.targetDate.map { "By \(PFFormat.shortDate($0))" + (weight.weeksLeft.map { ", \(Int($0.rounded())) weeks left" } ?? "") })
+                             caption: weight.targetDate.map { "By \(PFFormat.shortDate($0))" + (weight.weeksLeft.map { ", \(Safe.int($0)) weeks left" } ?? "") })
                     .accessibilityIdentifier("pf-weight-target")
                 if let toGo = weight.kgToGo {
                     Divider().overlay(StrandPalette.hairline)
@@ -522,7 +522,7 @@ struct PFWeightGoalDetail: View {
                 Divider().overlay(StrandPalette.hairline)
                 pace
                 if let deficit = weight.deficitKcalPerDay {
-                    PFParagraph("The needed pace is about \(Int(deficit.rounded())) kcal a day below maintenance (an estimate: 7700 kcal per kg, and this app does not log food).")
+                    PFParagraph("The needed pace is about \(Safe.int(deficit)) kcal a day below maintenance (an estimate: 7700 kcal per kg, and this app does not log food).")
                 }
                 if weight.aggressive == true {
                     PFChip(text: "Faster than \(weight.safeKgPerWeek.map { PFNumber.trimmed($0) } ?? "the safe") kg/week", color: PFColor.warning)
@@ -793,7 +793,7 @@ struct PFEfficiencyDetail: View {
                         }
                         PFZoneBar(split: split)
                         if let shares = split.shares {
-                            Text("Easy \(Int(shares.easy.rounded())) %, middle \(Int(shares.mid.rounded())) %, hard \(Int(shares.hard.rounded())) %"
+                            Text("Easy \(Safe.int(shares.easy)) %, middle \(Safe.int(shares.mid)) %, hard \(Safe.int(shares.hard)) %"
                                  + (split.perWeekMin.map { " of about \($0) min a week" } ?? ""))
                                 .font(StrandFont.caption)
                                 .foregroundStyle(StrandPalette.textTertiary)
@@ -876,7 +876,7 @@ struct PFSleepDetail: View {
     }
 
     private func spread(_ minutes: Double?) -> String? {
-        minutes.map { "spread \(Int($0.rounded())) min" }
+        minutes.map { "spread \(Safe.int($0)) min" }
     }
 
     private var consistencyCard: some View {
@@ -890,7 +890,7 @@ struct PFSleepDetail: View {
                         .accessibilityIdentifier("pf-sleep-wake")
                     if let index = sleep.regularityIndex {
                         Divider().overlay(StrandPalette.hairline)
-                        PFInsightRow(label: "Regularity", value: "\(Int(index.rounded())) / 100",
+                        PFInsightRow(label: "Regularity", value: "\(Safe.int(index)) / 100",
                                      caption: "100 means the same hours every night; an approximation from your sleep windows.")
                     }
                 } else {

@@ -23,9 +23,9 @@ struct PFRideZone: Identifiable, Equatable {
     /// "150\u{2013}200", "250+" or nil.
     var rangeText: String? {
         switch (low, high) {
-        case let (low?, high?): return "\(Int(low.rounded()))\u{2013}\(Int(high.rounded()))"
-        case let (low?, nil): return "\(Int(low.rounded()))+"
-        case let (nil, high?): return "up to \(Int(high.rounded()))"
+        case let (low?, high?): return "\(Safe.int(low))\u{2013}\(Safe.int(high))"
+        case let (low?, nil): return "\(Safe.int(low))+"
+        case let (nil, high?): return "up to \(Safe.int(high))"
         default: return nil
         }
     }
@@ -125,10 +125,10 @@ struct PFRide: Identifiable {
     var rowLine: String {
         var bits: [String] = []
         if let durationS, durationS > 0 { bits.append(PFRideFormat.minutes(durationS)) }
-        if let avgPower { bits.append("avg \(Int(avgPower.rounded())) W") }
-        if let np { bits.append("NP \(Int(np.rounded())) W") }
-        if let tss { bits.append("TSS \(Int(tss.rounded()))") }
-        if let avgHr { bits.append("avg HR \(Int(avgHr.rounded())) bpm") }
+        if let avgPower { bits.append("avg \(Safe.int(avgPower)) W") }
+        if let np { bits.append("NP \(Safe.int(np)) W") }
+        if let tss { bits.append("TSS \(Safe.int(tss))") }
+        if let avgHr { bits.append("avg HR \(Safe.int(avgHr)) bpm") }
         return bits.joined(separator: " \u{00B7} ")
     }
 }
@@ -176,14 +176,14 @@ struct PFRideStream {
 enum PFRideFormat {
     /// 3725 -> "1:02:05", 125 -> "2:05".
     static func clock(_ seconds: Double) -> String {
-        let total = max(0, Int(seconds.rounded()))
+        let total = max(0, Safe.int(seconds))
         let h = total / 3600, m = (total % 3600) / 60, s = total % 60
         return h > 0 ? String(format: "%d:%02d:%02d", h, m, s) : String(format: "%d:%02d", m, s)
     }
 
     /// 3600 -> "60 min", 5400 -> "90 min", 40 -> "40 s".
     static func minutes(_ seconds: Double) -> String {
-        seconds < 60 ? "\(Int(seconds.rounded())) s" : "\(Int((seconds / 60).rounded())) min"
+        seconds < 60 ? "\(Safe.int(seconds)) s" : "\(Safe.int((seconds / 60))) min"
     }
 
     /// The label of a mean-maximal-power duration: 5 -> "5 s", 60 -> "1 min", 1200 -> "20 min", 3600 -> "1 h".
@@ -198,7 +198,7 @@ enum PFRideFormat {
 
     /// +3 %, \u{2212}2 %, 0 %. Neutral: no colour is chosen from the sign.
     static func signedPercent(_ value: Double) -> String {
-        let rounded = Int(value.rounded())
+        let rounded = Safe.int(value)
         if rounded == 0 { return "0 %" }
         return (rounded < 0 ? "\u{2212}" : "+") + "\(abs(rounded)) %"
     }
@@ -240,7 +240,7 @@ enum PFRideChart {
         let n = min(t.count, values.count)
         guard n > 0, maxPoints > 0 else { return [] }
         if n <= maxPoints { return (0..<n).map { PFRidePoint(t: t[$0], v: values[$0]) } }
-        let bucket = Int((Double(n) / Double(maxPoints)).rounded(.up))
+        let bucket = Safe.int((Double(n) / Double(maxPoints)), .up)
         var out: [PFRidePoint] = []
         out.reserveCapacity(n / bucket + 1)
         var start = 0
@@ -458,8 +458,8 @@ enum PFRideParse {
                   e["activity_id"].idString == nil, let date = e["date"].text else { return nil }
             let timed = !(e["all_day"].bool ?? false)
             var out = PFRideEvent(rideId: rideId, date: String(date.prefix(10)))
-            out.startTs = timed ? PFStamp.parse(e["start"].text).map { Int($0.timeIntervalSince1970) } : nil
-            out.endTs = timed ? PFStamp.parse(e["end"].text).map { Int($0.timeIntervalSince1970) } : nil
+            out.startTs = timed ? PFStamp.parse(e["start"].text).map { Safe.int($0.timeIntervalSince1970, .towardZero) } : nil
+            out.endTs = timed ? PFStamp.parse(e["end"].text).map { Safe.int($0.timeIntervalSince1970, .towardZero) } : nil
             out.title = e["title"].text
             out.avgPower = e["avg_power"].double
             out.np = e["np"].double

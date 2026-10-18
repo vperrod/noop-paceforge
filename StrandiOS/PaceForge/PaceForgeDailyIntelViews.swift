@@ -255,7 +255,7 @@ struct PFTodaysCallCard: View {
         if let target = call.effortTarget {
             let hidden = hiding.hides(.scores)
             PFCallDial(fraction: hidden ? 0 : (target.effortFraction ?? 0), color: NoopLook.effort,
-                       valueText: hiding.shown(target.effortNow.map { String(Int($0.rounded())) } ?? "\u{2013}", .scores),
+                       valueText: hiding.shown(target.effortNow.map { String(Safe.int($0)) } ?? "\u{2013}", .scores),
                        target: target.arc, caption: "Effort target \(hiding.shown(target.rangeText, .scores))",
                        sub: target.effortSource, name: "Effort", identifier: "pf-call-effort")
         } else {

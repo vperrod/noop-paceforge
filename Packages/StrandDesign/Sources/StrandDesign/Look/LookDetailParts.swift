@@ -52,7 +52,7 @@ public struct LookWeekCard: View {
 
     /// `usesBands` colours by the hard Charge bands (red under 34, yellow 34-66, green 67+); otherwise every bar is `color`.
     public init(title: String, items: [WeeklyBarItem], maxValue: Double = 100, usesBands: Bool,
-                color: Color = NoopLook.effort, valueText: @escaping (Double) -> String = { String(Int($0.rounded())) }) {
+                color: Color = NoopLook.effort, valueText: @escaping (Double) -> String = { String(LookSafe.int($0)) }) {
         self.title = title
         self.items = items
         self.maxValue = maxValue

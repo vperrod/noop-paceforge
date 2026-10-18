@@ -50,3 +50,19 @@ jobs:
           name: noop-ios-simulator-screenshot
           path: build/simulator-screenshot
           if-no-files-found: warn
+      - name: Print crash reports
+        if: always()
+        run: |
+          shopt -s nullglob
+          for f in ~/Library/Logs/DiagnosticReports/NOOP*.ips ~/Library/Logs/DiagnosticReports/Retired/NOOP*.ips; do
+            echo "=== $f"
+            head -c 80000 "$f"
+            echo
+          done
+      - name: Upload crash reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: noop-ios-crash-reports
+          path: ~/Library/Logs/DiagnosticReports
+          if-no-files-found: ignore

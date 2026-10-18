@@ -371,4 +371,88 @@ final class LookLogicTests: XCTestCase {
     func testMiniDialsShowOnceTheHeroPassesTheTopInset() {
         XCTAssertTrue(LookSticky.isVisible(heroBottomY: 40, topInset: 59))
     }
+
+    // MARK: Crash guards (a flat or single-point trend, non-finite numbers)
+
+    // A window with one reading (or the same reading every day) once gave one tick, or the same tick twice, and a
+    // value axis of 0...1 with the data far outside it.
+    func testNiceTicksOfAFlatRangeAreAtLeastTwo() {
+        XCTAssertGreaterThanOrEqual(LookTrendStats.niceTicks(min: 112, max: 112, count: 6).count, 2)
+    }
+
+    func testNiceTicksOfAFlatRangeSurroundTheValue() {
+        let t = LookTrendStats.niceTicks(min: 41.3, max: 41.3, count: 6)
+        XCTAssertTrue(t.first! < 41.3 && t.last! > 41.3)
+    }
+
+    func testNiceTicksOfAFlatRangeNeverRepeat() {
+        let t = LookTrendStats.niceTicks(min: 41.3, max: 41.3, count: 6)
+        XCTAssertEqual(t, t.sorted().reduce(into: [Double]()) { if $0.last != $1 { $0.append($1) } })
+    }
+
+    func testNiceTicksOfAFlatZeroRangeAreAtLeastTwo() {
+        XCTAssertGreaterThanOrEqual(LookTrendStats.niceTicks(min: 0, max: 0, count: 6).count, 2)
+    }
+
+    func testNiceTicksOfAReversedRangeStillCoverBothEnds() {
+        let t = LookTrendStats.niceTicks(min: 20, max: 10, count: 6)
+        XCTAssertTrue(t.first! <= 10 && t.last! >= 20)
+    }
+
+    func testNiceTicksOfAnInfiniteEdgeAreEmpty() {
+        XCTAssertEqual(LookTrendStats.niceTicks(min: 0, max: .infinity, count: 6), [])
+    }
+
+    func testNiceTicksOfATinyNonZeroRangeStayDistinct() {
+        let t = LookTrendStats.niceTicks(min: 59, max: 59.000000001, count: 6)
+        XCTAssertEqual(Set(t).count, t.count)
+    }
+
+    func testYDomainOfASinglePointContainsThePoint() {
+        let pts = [LookPoint(date: day(2026, 10, 10), value: 1.486)]
+        let w = LookTrendWindow.make(points: pts, range: .month, endingOn: day(2026, 10, 10), calendar: utc)
+        XCTAssertTrue(w.yDomain.contains(1.486))
+    }
+
+    func testYDomainOfAFlatSeriesContainsTheSeries() {
+        let pts = dailyPoints(from: day(2026, 10, 1), days: 10, value: { _ in 13 })
+        let w = LookTrendWindow.make(points: pts, range: .month, endingOn: day(2026, 10, 10), calendar: utc)
+        XCTAssertTrue(w.yDomain.contains(13))
+    }
+
+    func testTicksOfAFlatSeriesAreAtLeastTwo() {
+        let pts = dailyPoints(from: day(2026, 10, 1), days: 10, value: { _ in 13 })
+        let w = LookTrendWindow.make(points: pts, range: .month, endingOn: day(2026, 10, 10), calendar: utc)
+        XCTAssertGreaterThanOrEqual(w.yTicks.count, 2)
+    }
+
+    func testTicksOfASeriesWithTwoReadingsOnTheSameDayAreDistinct() {
+        let pts = [LookPoint(date: day(2026, 10, 10), value: 5), LookPoint(date: day(2026, 10, 10), value: 5)]
+        let w = LookTrendWindow.make(points: pts, range: .week, endingOn: day(2026, 10, 10), calendar: utc)
+        XCTAssertEqual(Set(w.yTicks).count, w.yTicks.count)
+    }
+
+    func testLookSafeReadsNaNAsZero() {
+        XCTAssertEqual(LookSafe.int(.nan), 0)
+    }
+
+    func testLookSafeClampsInfinity() {
+        XCTAssertEqual(LookSafe.int(.infinity), Int(LookSafe.limit))
+    }
+
+    func testBandOfNaNIsLow() {
+        XCTAssertEqual(LookBand.forScore(.nan), .low)
+    }
+
+    func testBandOfInfinityIsHigh() {
+        XCTAssertEqual(LookBand.forScore(.infinity), .high)
+    }
+
+    func testChipOfAnInfinitePercentDoesNotTrap() {
+        XCTAssertNotNil(LookDelta.chip(percent: .infinity))
+    }
+
+    func testChipOfNaNReadsAsZero() {
+        XCTAssertEqual(LookDelta.chip(percent: .nan)?.text, "0 %")
+    }
 }

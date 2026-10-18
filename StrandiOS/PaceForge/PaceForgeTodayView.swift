@@ -219,7 +219,7 @@ struct PFTodayView: View {
                 HStack(alignment: .top, spacing: 8) {
                     if let recovery = today.recovery {
                         PFRing(value: hideScores ? 0 : recovery.score, maxValue: 100, color: hideScores ? NoopLook.textTertiary : NoopLook.chargeColor(recovery.score),
-                               display: HideScoresPrefs.shown(String(Int(recovery.score.rounded())), hidden: hideScores),
+                               display: HideScoresPrefs.shown(String(Safe.int(recovery.score)), hidden: hideScores),
                                title: "Recovery", caption: hideScores ? nil : recovery.confidence, info: PFExplainerID.recovery)
                     } else if let line = recoveryCalibration {
                         PFRing(value: 0, maxValue: 100, color: NoopLook.chargeHigh, display: "\u{2013}",
@@ -236,7 +236,7 @@ struct PFTodayView: View {
                     }
                     if let sleep = today.sleep {
                         PFRing(value: hideScores ? 0 : sleep.score, maxValue: 100, color: NoopLook.rest,
-                               display: HideScoresPrefs.shown(String(Int(sleep.score.rounded())), hidden: hideScores),
+                               display: HideScoresPrefs.shown(String(Safe.int(sleep.score)), hidden: hideScores),
                                title: "Sleep", caption: hideScores ? nil : sleepNeed(sleep), info: PFExplainerID.sleepScore)
                     }
                 }
@@ -247,7 +247,7 @@ struct PFTodayView: View {
 
     private func strainTarget(_ strain: PFStrain) -> String? {
         guard let lo = strain.targetLow, let hi = strain.targetHigh else { return nil }
-        return "target \(Int(lo))\u{2013}\(Int(hi))"
+        return "target \(Safe.int(lo, .towardZero))\u{2013}\(Safe.int(hi, .towardZero))"
     }
 
     private func sleepNeed(_ sleep: PFSleep) -> String? {

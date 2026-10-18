@@ -42,8 +42,8 @@ struct PFInsightsView: View {
         PFCard("Fitness, fatigue and form", icon: "chart.xyaxis.line", info: PFExplainerID.load) {
             VStack(alignment: .leading, spacing: 12) {
                 HStack(spacing: 8) {
-                    PFFigure(value: String(Int(insights.ctl.rounded())), unit: nil, label: "Fitness (CTL)")
-                    PFFigure(value: String(Int(insights.atl.rounded())), unit: nil, label: "Fatigue (ATL)")
+                    PFFigure(value: String(Safe.int(insights.ctl)), unit: nil, label: "Fitness (CTL)")
+                    PFFigure(value: String(Safe.int(insights.atl)), unit: nil, label: "Fatigue (ATL)")
                     PFFigure(value: signed(insights.tsb), unit: nil, label: "Form (TSB)")
                 }
                 PFLoadChart(insights: insights)
@@ -70,7 +70,7 @@ struct PFInsightsView: View {
     }
 
     private func signed(_ v: Double) -> String {
-        let r = Int(v.rounded())
+        let r = Safe.int(v)
         return r > 0 ? "+\(r)" : "\(r)"
     }
 
@@ -163,7 +163,7 @@ struct PFInsightsView: View {
                                 Text("\(s.athlete) vs \(s.top3)")
                                     .font(StrandFont.caption)
                                     .foregroundStyle(StrandPalette.textTertiary)
-                                Text("+\(Int(s.gapSec)) s")
+                                Text("+\(Safe.int(s.gapSec, .towardZero)) s")
                                     .font(StrandFont.caption.weight(.semibold))
                                     .foregroundStyle(PFColor.warning)
                                     .frame(minWidth: 50, alignment: .trailing)

@@ -152,7 +152,7 @@ private struct PFResultsHeader: View {
             PFChip(text: heat.chipText, color: heat.isHot ? PFColor.warning : PFColor.sky)
                 .accessibilityIdentifier("pf-heat-chip")
             if let humidity = heat.humidity {
-                Text("humidity \(Int(humidity.rounded())) %")
+                Text("humidity \(Safe.int(humidity)) %")
                     .font(StrandFont.caption)
                     .foregroundStyle(StrandPalette.textTertiary)
             }
@@ -174,7 +174,7 @@ private struct PFResultsHeader: View {
         var bits: [String] = []
         if let activity { bits.append(PFSport.label(activity.type)) }
         if let temp = weather?.tempC {
-            bits.append("\(Int(temp.rounded()))\u{00B0}" + (weather?.desc.map { " " + $0 } ?? ""))
+            bits.append("\(Safe.int(temp))\u{00B0}" + (weather?.desc.map { " " + $0 } ?? ""))
         }
         return bits.joined(separator: " \u{00B7} ")
     }
@@ -210,7 +210,7 @@ private struct PFStatTiles: View {
 
     private var tiles: [PFStatTile] {
         let a = activity
-        func whole(_ v: Double?) -> String? { v.map { String(Int($0.rounded())) } }
+        func whole(_ v: Double?) -> String? { v.map { String(Safe.int($0)) } }
         func positive(_ v: Double?) -> Double? { (v ?? 0) > 0 ? v : nil }
 
         let km = positive(a.distanceM).map { $0 / 1000 }
@@ -280,7 +280,7 @@ private struct PFHeartRateCard: View {
     var body: some View {
         PFCard(title: "Heart rate", icon: "heart.fill", trailing: {
             if let avgHr {
-                Text("avg \(Int(avgHr.rounded()))")
+                Text("avg \(Safe.int(avgHr))")
                     .font(StrandFont.caption)
                     .foregroundStyle(StrandPalette.textTertiary)
             }
@@ -306,7 +306,7 @@ private struct PFHeartRateCard: View {
                     AxisMarks { value in
                         AxisGridLine().foregroundStyle(StrandPalette.hairline)
                         AxisValueLabel {
-                            if let m = value.as(Double.self) { Text("\(Int(m)) min") }
+                            if let m = value.as(Double.self) { Text("\(Safe.int(m, .towardZero)) min") }
                         }
                         .foregroundStyle(StrandPalette.textTertiary)
                     }
@@ -380,7 +380,7 @@ private struct PFPaceCard: View {
                     AxisMarks { value in
                         AxisGridLine().foregroundStyle(StrandPalette.hairline)
                         AxisValueLabel {
-                            if let m = value.as(Double.self) { Text("\(Int(m)) min") }
+                            if let m = value.as(Double.self) { Text("\(Safe.int(m, .towardZero)) min") }
                         }
                         .foregroundStyle(StrandPalette.textTertiary)
                     }
@@ -421,7 +421,7 @@ private struct PFZonesCard: View {
     var body: some View {
         if total > 0 {
             PFCard(title: "Heart-rate zones", icon: "chart.bar.fill", trailing: {
-                Text("\(Int((total / 60).rounded())) min in zone")
+                Text("\(Safe.int((total / 60))) min in zone")
                     .font(StrandFont.caption)
                     .foregroundStyle(StrandPalette.textTertiary)
             }) {
@@ -447,7 +447,7 @@ private struct PFZonesCard: View {
                                     Circle().fill(Self.colors[zone - 1]).frame(width: 7, height: 7)
                                     Text("Z\(zone)").font(StrandFont.overline).foregroundStyle(StrandPalette.textTertiary)
                                 }
-                                Text("\(Int((secs(zone) / total * 100).rounded()))%")
+                                Text("\(Safe.int((secs(zone) / total * 100)))%")
                                     .font(StrandFont.subhead.weight(.semibold))
                                     .foregroundStyle(StrandPalette.textPrimary)
                                 Text(minutes(secs(zone)))
@@ -469,7 +469,7 @@ private struct PFZonesCard: View {
     }
 
     private func minutes(_ seconds: Double) -> String {
-        if seconds >= 30 { return "\(Int((seconds / 60).rounded())) m" }
+        if seconds >= 30 { return "\(Safe.int((seconds / 60))) m" }
         return seconds > 0 ? "<1 m" : "0 m"
     }
 }
@@ -508,7 +508,7 @@ private struct PFEffortCard: View {
                 if let trimp {
                     HStack(alignment: .firstTextBaseline, spacing: 6) {
                         Text("TRIMP").font(StrandFont.overline).foregroundStyle(StrandPalette.textTertiary)
-                        Text(String(Int(trimp.rounded())))
+                        Text(String(Safe.int(trimp)))
                             .font(StrandFont.rounded(18))
                             .foregroundStyle(StrandPalette.textPrimary)
                         Text("training impulse from heart rate")
@@ -547,7 +547,7 @@ private struct PFPlanVersusActual: View {
                     }
                     if let analysis, let percentile = analysis.vsTypicalPercentile {
                         HStack(alignment: .firstTextBaseline, spacing: 8) {
-                            Text("\(ordinal(Int(percentile.rounded())))")
+                            Text("\(ordinal(Safe.int(percentile)))")
                                 .font(StrandFont.rounded(24))
                                 .foregroundStyle(PFColor.sky)
                             Text("vs typical " + (analysis.vsTypicalLabel ?? ""))
@@ -599,8 +599,8 @@ private struct PFSplitsCard: View {
                         row(String(s.n),
                             s.distanceM.map { String(format: "%.2f", $0 / 1000) } ?? "\u{2014}",
                             s.paceSec.map { PFFormat.pace($0) } ?? "\u{2014}",
-                            s.avgHr.map { String(Int($0.rounded())) } ?? "\u{2014}",
-                            s.elevGain.map { "\(Int($0.rounded())) m" } ?? "\u{2014}",
+                            s.avgHr.map { String(Safe.int($0)) } ?? "\u{2014}",
+                            s.elevGain.map { "\(Safe.int($0)) m" } ?? "\u{2014}",
                             header: false)
                     }
                 }

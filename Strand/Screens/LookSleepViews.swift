@@ -43,7 +43,7 @@ struct LookLastNightSleepCard: View {
         AppClock.hourMinuteFormatter().string(from: Date(timeIntervalSince1970: TimeInterval(ts)))
     }
 
-    private func minutesText(_ minutes: Double) -> String { LookFormat.hoursMinutes(minutes: Int(minutes.rounded())) }
+    private func minutesText(_ minutes: Double) -> String { LookFormat.hoursMinutes(minutes: Safe.int(minutes)) }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -102,7 +102,7 @@ struct LookLastNightSleepCard: View {
         func row(_ id: String, _ title: String, _ color: Color, _ minutes: Double, _ typical: ClosedRange<Double>?) -> LookStageRow {
             let share = minutes / total
             return LookStageRow(id: id, title: title, color: color, fraction: share,
-                                percentText: "\(Int((share * 100).rounded()))%", durationText: minutesText(minutes),
+                                percentText: "\(Safe.int((share * 100)))%", durationText: minutesText(minutes),
                                 typical: typical)
         }
         return [

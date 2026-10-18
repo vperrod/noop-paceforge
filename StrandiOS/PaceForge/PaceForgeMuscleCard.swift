@@ -138,7 +138,7 @@ struct PFMuscleCheckCard: View {
         if let weight = split.weightKg { bits.append("weight \(PFNumber.signed(weight)) kg") }
         if let lean = split.leanKg { bits.append("lean \(PFNumber.signed(lean)) kg") }
         if let fat = split.fatKg { bits.append("fat \(PFNumber.signed(fat)) kg") }
-        if let share = split.leanSharePct { bits.append("lean share \(Int(share.rounded())) %") }
+        if let share = split.leanSharePct { bits.append("lean share \(Safe.int(share)) %") }
         return bits.joined(separator: " \u{00B7} ")
     }
 

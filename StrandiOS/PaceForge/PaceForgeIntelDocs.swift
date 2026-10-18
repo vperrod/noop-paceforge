@@ -255,10 +255,10 @@ enum PFHealthspanFormat {
     /// whole years around it.
     static func rangeText(low: Double, high: Double) -> String {
         let lo = min(low, high), hi = max(low, high)
-        var a = Int(lo.rounded()), b = Int(hi.rounded())
+        var a = Safe.int(lo), b = Safe.int(hi)
         if a >= b {
-            a = Int(lo.rounded(.down))
-            b = Int(hi.rounded(.up))
+            a = Safe.int(lo, .down)
+            b = Safe.int(hi, .up)
         }
         if a >= b { b = a + 1 }
         return "\(a)\u{2013}\(b)"
@@ -283,10 +283,10 @@ enum PFHealthspanFormat {
         let younger = hi <= 0
         let near = younger ? abs(hi) : lo
         let far = younger ? abs(lo) : hi
-        var a = Int(near.rounded()), b = Int(far.rounded())
+        var a = Safe.int(near), b = Safe.int(far)
         if a >= b {
-            a = Int(near.rounded(.down))
-            b = Int(far.rounded(.up))
+            a = Safe.int(near, .down)
+            b = Safe.int(far, .up)
         }
         if a >= b { b = a + 1 }
         return AgeVerdict(direction: younger ? .younger : .older,
@@ -380,7 +380,7 @@ struct PFDriverBar: Equatable {
     static func make(years6m: Double?, years30d: Double?, scale: Double) -> PFDriverBar {
         let six = years6m.map { position(years: $0, scale: scale) }
         let thirty = years30d.map { position(years: $0, scale: scale) }
-        let filled = six.map { min(max(Int(($0 * Double(segments)).rounded()), 0), segments) } ?? 0
+        let filled = six.map { min(max(Safe.int(($0 * Double(segments))), 0), segments) } ?? 0
         return PFDriverBar(filled: filled, marker6m: six, marker30d: thirty)
     }
 
@@ -489,7 +489,7 @@ struct PFJournalImpact: Equatable {
 enum PFImpactFormat {
     /// "\u{2212}21 %", "+8 %".
     static func pctText(_ pct: Double) -> String {
-        let whole = Int(pct.rounded())
+        let whole = Safe.int(pct)
         if whole == 0 { return "0 %" }
         return (whole < 0 ? "\u{2212}" : "+") + "\(abs(whole)) %"
     }
@@ -1006,7 +1006,10 @@ enum PFIntelDocsParse {
         }
         let p = m["pace"]
         if p.exists, p.raw is [String: Any] {
-            let range = p["range"].array.compactMap { $0.double }
+            // The ruler draws a tick every 0.1x, so a reversed, infinite or enormous range falls back to the usual -1x to 3x.
+            let served = p["range"].array.compactMap { $0.double }
+            let range = served.count == 2 && served[0].isFinite && served[1].isFinite && served[0] < served[1]
+                && served[1] - served[0] <= 20 ? served : []
             out.pace = PFPaceOfAging(
                 available: p["available"].bool ?? (p["value"].double != nil), reason: p["reason"].text,
                 week: p["week"].text, computedOn: p["computed_on"].text, carried: p["carried"].bool ?? false,

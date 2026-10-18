@@ -25,7 +25,7 @@ struct PFStreakChipView: View {
                             .font(LookFont.numeral(15))
                             .foregroundStyle(NoopLook.textPrimary)
                     }
-                    .padding(.horizontal, 6)
+                    .padding(.horizontal, 9)
                     .frame(height: NoopMetrics.compactControlSize)
                     .background(Capsule(style: .continuous).fill(Color(light: "#DDE2E8", dark: "#35393E")))
                 }
@@ -125,7 +125,7 @@ struct PFHighlightsBody: View {
         let color: Color
         switch record.id {
         case "charge":
-            valueText = strap.map { String(Int($0.value.rounded())) } ?? "\u{2013}"
+            valueText = strap.map { String(Safe.int($0.value)) } ?? "\u{2013}"
             unit = strap == nil ? nil : "%"
             color = strap.map { NoopLook.chargeColor($0.value) } ?? NoopLook.chargeHigh
         case "effort":
@@ -133,7 +133,7 @@ struct PFHighlightsBody: View {
             unit = nil
             color = NoopLook.effort
         default:
-            valueText = strap.map { String(Int($0.value.rounded())) } ?? "\u{2013}"
+            valueText = strap.map { String(Safe.int($0.value)) } ?? "\u{2013}"
             unit = strap == nil ? nil : "%"
             color = NoopLook.rest
         }

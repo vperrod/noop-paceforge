@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # Rejects staged files that could carry real PaceForge/health data: this repo is PUBLIC.
-# The app reads live data; the only allowed bundled JSON is the synthetic UI-test fixture.
+# The app reads live data; the only allowed bundled JSON is the synthetic fixtures: the UI-test fixture, and the
+# unit-test "real shapes" file (the live documents' structure with every value replaced, see its _synthetic note).
 set -u
-fixture="NOOPiOSUITests/PaceForgeFixture.json"
+fixtures="NOOPiOSUITests/PaceForgeFixture.json StrandTests/LiveShapes/PaceForgeRealShapes.json"
 bad=0
 while IFS= read -r f; do
   case "$f" in
@@ -10,7 +11,7 @@ while IFS= read -r f; do
   esac
   [ "${f##*.}" = json ] || continue
   blob=$(git show ":$f")
-  if [ "$f" = "$fixture" ]; then
+  if [[ " $fixtures " == *" $f "* ]]; then
     grep -q Synthetic <<<"$blob" || { echo "guard: $f must stay synthetic"; bad=1; }
   elif grep -qE '"(daily_brief|hrv_ms|rhr_bpm|readiness_score)"|HYROX Dublin' <<<"$blob"; then
     echo "guard: $f contains health/race data markers"; bad=1

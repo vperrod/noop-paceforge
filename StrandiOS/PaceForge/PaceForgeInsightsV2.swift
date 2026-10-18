@@ -556,13 +556,13 @@ enum PFSleepClock {
 
     /// 310 gives "23:10"; the inverse of `sinceEvening`.
     static func clock(sinceEvening value: Double) -> String {
-        let total = (Int(value.rounded()) + eveningOffsetMin) % 1440
+        let total = (Safe.int(value) + eveningOffsetMin) % 1440
         return String(format: "%02d:%02d", total / 60, total % 60)
     }
 
     /// 450 gives "07:30".
     static func clock(minutesOfDay value: Double) -> String {
-        let total = ((Int(value.rounded()) % 1440) + 1440) % 1440
+        let total = ((Safe.int(value) % 1440) + 1440) % 1440
         return String(format: "%02d:%02d", total / 60, total % 60)
     }
 }
@@ -706,7 +706,7 @@ struct PFInsightItem: Identifiable, Equatable {
             guard let watts = power?.estimateW else { return nil }
             var caption = "FTP estimate"
             if let pct = power?.vsInUsePct { caption += ", \(PFNumber.signed(pct, decimals: 0)) % against the FTP in use" }
-            return PFInsightHeadline(value: "\(Int(watts.rounded())) W", caption: caption)
+            return PFInsightHeadline(value: "\(Safe.int(watts)) W", caption: caption)
         case PFInsightID.raceCountdown:
             guard let race, let days = race.daysTo else { return nil }
             return PFInsightHeadline(value: days > 1 ? "\(days) days" : (race.countdownText ?? "\(days) days"),
@@ -723,7 +723,7 @@ struct PFInsightItem: Identifiable, Equatable {
                 return PFInsightHeadline(value: "\(PFNumber.signed(change)) %", caption: "Bike, \(bike.verdict ?? "steady")")
             }
             if let split = efficiency?.zoneSplit, let low = split.lowPct {
-                return PFInsightHeadline(value: "\(Int(low.rounded())) %", caption: "easy running time, \(split.weeks) weeks")
+                return PFInsightHeadline(value: "\(Safe.int(low)) %", caption: "easy running time, \(split.weeks) weeks")
             }
             return nil
         case PFInsightID.sleep:
@@ -731,7 +731,7 @@ struct PFInsightItem: Identifiable, Equatable {
                 return PFInsightHeadline(value: "\(PFNumber.trimmedOne(debt)) h", caption: "owed over 7 nights")
             }
             if let bed = sleep?.bedtimeSdMin, let wake = sleep?.wakeSdMin {
-                return PFInsightHeadline(value: "\(Int(max(bed, wake).rounded())) min", caption: "bed and wake spread")
+                return PFInsightHeadline(value: "\(Safe.int(max(bed, wake))) min", caption: "bed and wake spread")
             }
             return nil
         case PFInsightID.nextBestAction:

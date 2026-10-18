@@ -190,7 +190,7 @@ enum PFSummaryWriter {
     static func detail(_ w: PFWorkout) -> String? {
         var bits: [String] = []
         if let km = w.distanceKm { bits.append("\(PFFormat.oneDecimal(km)) km") }
-        if let min = w.durationMin { bits.append("\(Int(min.rounded())) min") }
+        if let min = w.durationMin { bits.append("\(Safe.int(min)) min") }
         return bits.isEmpty ? nil : bits.joined(separator: " \u{00B7} ")
     }
 
@@ -221,12 +221,12 @@ enum PFSummaryWriter {
         if let m = s.distanceM {
             if m >= 1000 {
                 let km = m / 1000
-                return (km.rounded() == km ? String(Int(km)) : String(format: "%.1f", km)) + " km"
+                return (km.rounded() == km ? String(Safe.int(km)) : String(format: "%.1f", km)) + " km"
             }
-            return "\(Int(m.rounded())) m"
+            return "\(Safe.int(m)) m"
         }
         if let secs = s.durationSec {
-            let total = Int(secs.rounded())
+            let total = Safe.int(secs)
             return total < 60 ? "\(total) s" : "\(total / 60) min"
         }
         return nil
@@ -238,9 +238,9 @@ enum PFSummaryWriter {
         let range = high != nil && high != low
         switch s.targetType ?? "" {
         case "heart_rate":
-            return "HR \(Int(low.rounded()))" + (range ? "\u{2013}\(Int((high ?? low).rounded()))" : "")
+            return "HR \(Safe.int(low))" + (range ? "\u{2013}\(Safe.int((high ?? low)))" : "")
         case "power":
-            return "\(Int(low.rounded()))" + (range ? "\u{2013}\(Int((high ?? low).rounded()))" : "") + " W"
+            return "\(Safe.int(low))" + (range ? "\u{2013}\(Safe.int((high ?? low)))" : "") + " W"
         default:
             let a = min(low, high ?? low), b = max(low, high ?? low)
             return PFFormat.pace(a) + (a != b ? "\u{2013}\(PFFormat.pace(b))" : "") + "/km"

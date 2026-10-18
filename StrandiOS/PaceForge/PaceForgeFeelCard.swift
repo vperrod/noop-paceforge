@@ -299,7 +299,7 @@ struct PFWhatChangedCard: View {
     // MARK: Formatting
 
     static func number(_ value: Double) -> String {
-        if value.rounded() == value || abs(value) >= 100 { return String(Int(value.rounded())) }
+        if value.rounded() == value || abs(value) >= 100 { return String(Safe.int(value)) }
         return PFFormat.oneDecimal(value)
     }
 

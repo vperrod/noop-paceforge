@@ -84,14 +84,14 @@ struct LookMyDashboardSection: View {
         if metric.key == HeroRingMetric.effort { return LookFormat.number(value, decimals: effortScale == .whoop ? 1 : 0) }
         if metric.key == "weight" { return UnitFormatter.massFromKilograms(value, system: unitSystem) }
         switch metric.unit {
-        case "min": return LookFormat.hoursMinutes(minutes: Int(value.rounded()))
-        case "%": return "\(Int(value.rounded()))%"
+        case "min": return LookFormat.hoursMinutes(minutes: Safe.int(value))
+        case "%": return "\(Safe.int(value))%"
         default:
             if metric.key == "steps" {
                 let f = NumberFormatter()
                 f.numberStyle = .decimal
                 f.maximumFractionDigits = 0
-                return f.string(from: NSNumber(value: value.rounded())) ?? String(Int(value.rounded()))
+                return f.string(from: NSNumber(value: value.rounded())) ?? String(Safe.int(value))
             }
             return LookFormat.number(value, decimals: metric.decimals)
         }

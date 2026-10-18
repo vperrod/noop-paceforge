@@ -164,7 +164,7 @@ struct PFWorkoutBadges: View {
                     .accessibilityIdentifier("pf-easy-changed-\(workout.id)")
             }
             if let heat = hotHeat {
-                Label(heat.tempC.map { "\(Int($0.rounded()))\u{00B0}" } ?? "Hot", systemImage: "thermometer.sun")
+                Label(heat.tempC.map { "\(Safe.int($0))\u{00B0}" } ?? "Hot", systemImage: "thermometer.sun")
                     .font(StrandFont.caption)
                     .foregroundStyle(PFColor.warning)
                     .accessibilityLabel("Hot day")

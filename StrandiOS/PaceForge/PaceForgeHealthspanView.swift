@@ -125,8 +125,8 @@ struct PFPaceRuler: View {
                 }
             }
             // Ticks every 0.1x; whole numbers are tall, halves medium.
-            let steps = Int(((rangeHigh - rangeLow) * 10).rounded())
-            for step in 0...max(steps, 1) {
+            let steps = Safe.int(((rangeHigh - rangeLow) * 10))
+            for step in 0...min(max(steps, 1), 400) {
                 let pace = rangeLow + Double(step) / 10
                 let isWhole = abs(pace - pace.rounded()) < 0.001
                 let isHalf = abs(pace * 2 - (pace * 2).rounded()) < 0.001
@@ -352,7 +352,7 @@ struct PFDriverRow: View {
                 HStack(spacing: 6) {
                     PFSourceTag(source: driver.source)
                     if let coverage = driver.coverage, coverage < 0.9 {
-                        Text("\(Int((coverage * 100).rounded())) % of the six months has a reading")
+                        Text("\(Safe.int((coverage * 100))) % of the six months has a reading")
                             .font(LookFont.text(12, weight: .medium))
                             .foregroundStyle(NoopLook.textTertiary)
                     }
@@ -686,7 +686,7 @@ struct PFHealthspanBody: View {
     /// "Worked out for age 40, male, from 9 of 9 metrics over 182 days."
     private var workedOutLine: String? {
         guard let age = healthspan.age else { return nil }
-        var who = "age \(Int(age.rounded()))"
+        var who = "age \(Safe.int(age))"
         if let sex = healthspan.sex { who += ", \(sex)" }
         let have = healthspan.inputsAvailable ?? 0
         let total = healthspan.inputsTotal ?? 9

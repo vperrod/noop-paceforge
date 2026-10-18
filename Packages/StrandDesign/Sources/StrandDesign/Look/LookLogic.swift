@@ -6,6 +6,20 @@ import Foundation
 // tests (`scripts/look-logic-tests-linux.sh`) and so a component never has to guess which side of a band a
 // number is on. Foundation only: no UIKit, no Color, no Date.now.
 
+// MARK: Safe conversion
+
+/// `Int(Double)` traps on NaN, infinity and out-of-range values, so every place the look turns a score, duration or percent
+/// into whole numbers goes through this. (The app targets have the same helper as `Safe.int`; a package cannot see them.)
+public enum LookSafe {
+    public static let limit: Double = 9_007_199_254_740_992
+
+    /// `value` rounded (to nearest by default) as an `Int`. NaN reads as 0 and out-of-range values clamp to `limit`.
+    public static func int(_ value: Double, _ rule: FloatingPointRoundingRule = .toNearestOrAwayFromZero) -> Int {
+        guard !value.isNaN else { return 0 }
+        return Int(min(max(value.rounded(rule), -limit), limit))
+    }
+}
+
 // MARK: Score bands
 
 /// The three hard bands the Charge dial and the weekly bars colour by. A score is banded on its ROUNDED
@@ -18,7 +32,7 @@ public enum LookBand: String, Sendable, Equatable, CaseIterable {
 
     /// Band for a 0-100 score. Out-of-range input clamps to the nearest band.
     public static func forScore(_ score: Double) -> LookBand {
-        let s = Int(score.rounded())
+        let s = LookSafe.int(score)
         if s >= highFloor { return .high }
         if s >= mediumFloor { return .medium }
         return .low
@@ -82,7 +96,7 @@ public enum LookDelta {
     /// neutral "0 %". `higherIsBetter` nil keeps every non-zero change neutral.
     public static func chip(percent: Double?, higherIsBetter: Bool? = true) -> LookChip? {
         guard let percent else { return nil }
-        let whole = Int(percent.rounded())
+        let whole = LookSafe.int(percent)
         if whole == 0 { return LookChip(text: "0 %", tone: .neutral) }
         let text = (whole > 0 ? "+" : "-") + "\(abs(whole)) %"
         guard let higherIsBetter else { return LookChip(text: text, tone: .neutral) }
@@ -292,21 +306,35 @@ public enum LookTrendStats {
         return out
     }
 
-    /// Axis tick values covering min...max with `count` ticks on a 1/2/5 step, lowest first.
-    public static func niceTicks(min lo: Double, max hi: Double, count: Int = 6) -> [Double] {
-        guard lo.isFinite, hi.isFinite, count >= 2 else { return [] }
-        let span = Swift.max(hi - lo, 1e-9)
+    /// Axis tick values covering min...max with `count` ticks on a 1/2/5 step, lowest first. Always strictly increasing,
+    /// and at least two ticks for finite input: a flat series (one reading, or the same value every day) is padded
+    /// either side first, because a zero-height range produced one tick or the same tick repeated, which left the chart
+    /// with a collapsed value axis.
+    public static func niceTicks(min inLow: Double, max inHigh: Double, count: Int = 6) -> [Double] {
+        guard inLow.isFinite, inHigh.isFinite, count >= 2 else { return [] }
+        var lo = Swift.min(inLow, inHigh)
+        var hi = Swift.max(inLow, inHigh)
+        if hi - lo < 1e-9 * Swift.max(1, Swift.abs(hi)) {
+            let pad = Swift.max(Swift.abs(hi) * 0.05, 1)
+            lo -= pad
+            hi += pad
+        }
+        let span = hi - lo
         let rough = span / Double(count - 1)
         let magnitude = pow(10.0, floor(log10(rough)))
         let residual = rough / magnitude
         let nice: Double = residual <= 1 ? 1 : residual <= 2 ? 2 : residual <= 5 ? 5 : 10
         let step = nice * magnitude
+        guard step.isFinite, step > 0 else { return [] }
         let first = floor(lo / step) * step
         var ticks: [Double] = []
-        var v = first
-        while v < hi + step * 0.999 && ticks.count < count + 2 {
-            ticks.append((v * 1e9).rounded() / 1e9)
-            v += step
+        var index = 0.0
+        while ticks.count < count + 2 {
+            let v = ((first + index * step) * 1e9).rounded() / 1e9
+            if v >= hi + step * 0.999 { break }
+            if let last = ticks.last, v <= last { break }
+            ticks.append(v)
+            index += 1
         }
         return ticks
     }

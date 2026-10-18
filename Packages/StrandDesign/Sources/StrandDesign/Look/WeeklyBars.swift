@@ -31,7 +31,7 @@ public struct WeeklyBars: View {
 
     public init(items: [WeeklyBarItem], maxValue: Double = 100, showsBandLines: Bool = true, height: CGFloat = 150,
                 colorFor: @escaping (Double) -> Color = { NoopLook.chargeColor($0) },
-                valueText: @escaping (Double) -> String = { String(Int($0.rounded())) }) {
+                valueText: @escaping (Double) -> String = { String(LookSafe.int($0)) }) {
         self.items = items
         self.maxValue = maxValue
         self.showsBandLines = showsBandLines

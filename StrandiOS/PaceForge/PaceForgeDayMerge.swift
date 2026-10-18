@@ -56,7 +56,7 @@ enum PFDayMerge {
             if event.niggleSite != nil || event.niggleId != nil {
                 let place = [event.niggleSide, event.niggleSite].compactMap { $0 }.joined(separator: " ")
                 var bits = [place.isEmpty ? "Niggle" : place.prefix(1).uppercased() + place.dropFirst()]
-                if let severity = event.niggleSeverity { bits.append("severity \(Int(severity.rounded()))") }
+                if let severity = event.niggleSeverity { bits.append("severity \(Safe.int(severity))") }
                 if !event.niggleMovements.isEmpty { bits.append(event.niggleMovements.joined(separator: ", ")) }
                 if event.niggleResolved { bits.append("resolved") }
                 out.append(Note(id: "niggle-" + (event.niggleId ?? event.id ?? "\(index)"), ts: event.startTs,

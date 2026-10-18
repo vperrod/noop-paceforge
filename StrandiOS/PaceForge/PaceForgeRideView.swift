@@ -237,7 +237,7 @@ struct PFRideSheet: View {
                 }
                 if let line = ride.summaryLine { PFParagraph(line) }
                 if let ftp = ride.ftp {
-                    Text("FTP \(Int(ftp.rounded())) W")
+                    Text("FTP \(Safe.int(ftp)) W")
                         .font(StrandFont.caption)
                         .foregroundStyle(StrandPalette.textTertiary)
                 }
@@ -262,7 +262,7 @@ struct PFRideSheet: View {
         func add(_ label: String, _ value: Double?, _ unit: String?, kind: PFRedact.Kind? = nil, _ format: (Double) -> String) {
             if let value { out.append(Tile(label: label, value: format(value), unit: unit, kind: kind)) }
         }
-        func whole(_ v: Double) -> String { String(Int(v.rounded())) }
+        func whole(_ v: Double) -> String { String(Safe.int(v)) }
         add("Avg power", ride.avgPower, "W", whole)
         add("Normalized power", ride.np, "W", whole)
         add("Intensity factor", ride.intensityFactor, nil, PFRideFormat.twoDecimals)
@@ -348,7 +348,7 @@ struct PFRideSheet: View {
             LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: 3),
                       alignment: .leading, spacing: 14) {
                 ForEach(ride.mmp, id: \.seconds) { entry in
-                    PFFigure(value: String(Int(entry.watts.rounded())), unit: "W", label: PFRideFormat.duration(entry.seconds))
+                    PFFigure(value: String(Safe.int(entry.watts)), unit: "W", label: PFRideFormat.duration(entry.seconds))
                 }
             }
         }
@@ -389,11 +389,11 @@ struct PFRideSheet: View {
 
     private func lapLine(_ lap: PFRideLap) -> String {
         var bits: [String] = []
-        if let power = lap.avgPower { bits.append("\(Int(power.rounded())) W") }
-        if let pct = lap.pctFtp { bits.append("\(Int(pct.rounded())) % of FTP") }
-        if let target = lap.targetPower { bits.append("target \(Int(target.rounded())) W") }
+        if let power = lap.avgPower { bits.append("\(Safe.int(power)) W") }
+        if let pct = lap.pctFtp { bits.append("\(Safe.int(pct)) % of FTP") }
+        if let target = lap.targetPower { bits.append("target \(Safe.int(target)) W") }
         if let versus = lap.vsTargetPct { bits.append("vs target " + PFRideFormat.signedPercent(versus)) }
-        if let hr = lap.avgHr { bits.append("\(Int(hr.rounded())) bpm") }
+        if let hr = lap.avgHr { bits.append("\(Safe.int(hr)) bpm") }
         return bits.joined(separator: " \u{00B7} ")
     }
 
@@ -494,7 +494,7 @@ struct PFRideZonesCard: View {
     }
 
     private func valueText(_ zone: PFRideZone, fraction: Double) -> String {
-        let percent = Int((fraction * 100).rounded())
+        let percent = Safe.int((fraction * 100))
         return zone.secs > 0 ? "\(PFRideFormat.clock(zone.secs)) \u{00B7} \(percent) %" : "\(percent) %"
     }
 
@@ -528,7 +528,7 @@ struct PFRidePanel: View {
                 Text(title).strandOverline()
                 Spacer()
                 if let range {
-                    Text("\(Int(range.lowerBound.rounded()))\u{2013}\(Int(range.upperBound.rounded())) \(unit)")
+                    Text("\(Safe.int(range.lowerBound))\u{2013}\(Safe.int(range.upperBound)) \(unit)")
                         .font(StrandFont.caption)
                         .foregroundStyle(StrandPalette.textTertiary)
                 }
@@ -545,7 +545,7 @@ struct PFRidePanel: View {
 
     private var accessibilityText: String {
         guard let range else { return "\(title) chart, no readings." }
-        return "\(title) chart from \(Int(range.lowerBound.rounded())) to \(Int(range.upperBound.rounded())) \(unit) over \(PFRideFormat.clock(duration))."
+        return "\(title) chart from \(Safe.int(range.lowerBound)) to \(Safe.int(range.upperBound)) \(unit) over \(PFRideFormat.clock(duration))."
     }
 
     private var canvas: some View {

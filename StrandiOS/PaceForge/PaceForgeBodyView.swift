@@ -288,7 +288,7 @@ private struct PFScoreCard: View {
                 Divider().overlay(StrandPalette.hairline)
                 HStack(alignment: .top, spacing: 8) {
                     stat("Age", doc.age.map { String($0) }, "yrs")
-                    stat("Metabolic age", doc.latest["metabolic_age"].map { String(Int($0.rounded())) }, "yrs")
+                    stat("Metabolic age", doc.latest["metabolic_age"].map { String(Safe.int($0)) }, "yrs")
                     stat("Height", doc.heightCm.map { PFFormat.trimmed($0) }, "cm")
                 }
             }
@@ -318,7 +318,7 @@ private struct PFScoreCard: View {
             }
             VStack(spacing: 2) {
                 Text("Body score").strandOverline()
-                Text(doc.score.map { String(Int($0.rounded())) } ?? "\u{2014}")
+                Text(doc.score.map { String(Safe.int($0)) } ?? "\u{2014}")
                     .font(StrandFont.rounded(46))
                     .foregroundStyle(StrandPalette.textPrimary)
                 if let band = doc.band { PFChip(text: band, color: PFColor.positive) }
@@ -573,7 +573,7 @@ private struct PFGoalRow: View {
                 Text(goal.reached ? "Target reached"
                      : (goal.remaining.map { "\(format(abs($0))) \(goal.unit) to go" } ?? ""))
                 Spacer()
-                Text(goal.progress.map { "\(Int(($0 * 100).rounded()))%" } ?? "")
+                Text(goal.progress.map { "\(Safe.int(($0 * 100)))%" } ?? "")
                     + Text(goal.targetDate.map { " \u{00B7} by \($0)" } ?? "")
             }
             .font(StrandFont.caption)

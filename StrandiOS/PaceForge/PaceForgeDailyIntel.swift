@@ -70,7 +70,7 @@ struct PFCallScore: Equatable {
     var carriedFrom: String?
     var reason: String?
 
-    var rounded: Int { Int(score.rounded()) }
+    var rounded: Int { Safe.int(score) }
 
     /// "NOOP Charge" / "PaceForge Readiness": the owner and the name, as the card captions the dial.
     var caption: String {
@@ -157,7 +157,7 @@ struct PFEffortTarget: Equatable {
     }
 
     /// "67\u{2013}86".
-    var rangeText: String { "\(Int(low.rounded()))\u{2013}\(Int(high.rounded()))" }
+    var rangeText: String { "\(Safe.int(low))\u{2013}\(Safe.int(high))" }
 }
 
 struct PFTodaysCall: Equatable {
@@ -261,7 +261,7 @@ struct PFSleepNeed: Equatable {
 
     /// "Plans on 97 % sleep efficiency": how the time in bed is worked out, in the server's terms.
     var efficiencyText: String? {
-        efficiency.map { "time in bed = sleep \u{00F7} your typical sleep efficiency (\(Int(($0 * 100).rounded())) %)" }
+        efficiency.map { "time in bed = sleep \u{00F7} your typical sleep efficiency (\(Safe.int(($0 * 100))) %)" }
     }
 
     /// Hours and minutes, 514 gives "8:34".
@@ -608,8 +608,8 @@ struct PFDayReview: Equatable {
     /// "54 of 67\u{2013}86", or nil without a scored Effort and a range.
     var effortText: String? {
         guard let effort, let value = effort.effort else { return nil }
-        guard let low = effort.low, let high = effort.high else { return "\(Int(value.rounded()))" }
-        return "\(Int(value.rounded())) of \(Int(low.rounded()))\u{2013}\(Int(high.rounded()))"
+        guard let low = effort.low, let high = effort.high else { return "\(Safe.int(value))" }
+        return "\(Safe.int(value)) of \(Safe.int(low))\u{2013}\(Safe.int(high))"
     }
 }
 

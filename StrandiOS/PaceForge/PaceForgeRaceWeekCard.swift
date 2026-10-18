@@ -79,8 +79,8 @@ struct PFRaceWeekCard: View {
 
     private var volumeLine: String? {
         guard let target = week.volumeTargetPct else { return nil }
-        var line = "Volume target \(Int(target.rounded())) %"
-        if let cut = week.weekVolumeCutPct, cut > 0 { line += " \u{00B7} week cut \(Int(cut.rounded())) %" }
+        var line = "Volume target \(Safe.int(target)) %"
+        if let cut = week.weekVolumeCutPct, cut > 0 { line += " \u{00B7} week cut \(Safe.int(cut)) %" }
         return line
     }
 

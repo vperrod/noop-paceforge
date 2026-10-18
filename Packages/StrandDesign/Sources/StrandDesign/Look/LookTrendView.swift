@@ -378,14 +378,14 @@ struct LookTrendChart: View {
     @ChartContentBuilder private var seriesMarks: some ChartContent {
         switch metric.style {
         case .line:
-            ForEach(window.points, id: \.date) { p in
+            ForEach(Array(window.points.enumerated()), id: \.offset) { _, p in
                 LineMark(x: .value("Day", p.date), y: .value("Value", p.value),
                          series: .value("Series", "daily"))
                     .lineStyle(StrokeStyle(lineWidth: 1.4, lineJoin: .round))
                     .foregroundStyle(NoopLook.trendLine)
             }
         case .bars:
-            ForEach(window.points, id: \.date) { p in
+            ForEach(Array(window.points.enumerated()), id: \.offset) { _, p in
                 BarMark(x: .value("Day", p.date, unit: .day), y: .value("Value", p.value))
                     .foregroundStyle(NoopLook.effort)
             }
@@ -393,7 +393,7 @@ struct LookTrendChart: View {
     }
 
     @ChartContentBuilder private var averageMarks: some ChartContent {
-        ForEach(sevenDay, id: \.date) { p in
+        ForEach(Array(sevenDay.enumerated()), id: \.offset) { _, p in
             LineMark(x: .value("Day", p.date), y: .value("7-day average", p.value),
                      series: .value("Series", "average"))
                 .lineStyle(StrokeStyle(lineWidth: 2.4, lineJoin: .round))
@@ -402,7 +402,7 @@ struct LookTrendChart: View {
     }
 
     @ChartContentBuilder private var segmentMarks: some ChartContent {
-        ForEach(window.spans, id: \.from) { span in
+        ForEach(Array(window.spans.enumerated()), id: \.offset) { _, span in
             RuleMark(xStart: .value("From", span.from), xEnd: .value("To", span.to),
                      y: .value("Average", span.segment.average))
                 .lineStyle(StrokeStyle(lineWidth: 3.2, lineCap: .round))

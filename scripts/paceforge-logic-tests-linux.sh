@@ -10,9 +10,11 @@ command -v swiftc >/dev/null || { echo "swiftc not found (looked in PATH and ~/.
 work="$(mktemp -d)"; trap 'rm -rf "$work"' EXIT
 # The Insights v2 tests read the synthetic UI-test fixture; the copied test files no longer sit next to it.
 export PF_FIXTURE_FILE="$root/NOOPiOSUITests/PaceForgeFixture.json"
+# The crash-guard tests also read the live documents' shapes with every value replaced.
+export PF_REAL_SHAPES_FILE="$root/StrandTests/LiveShapes/PaceForgeRealShapes.json"
 pf="$root/StrandiOS/PaceForge"
-tests=("$@"); [ ${#tests[@]} -gt 0 ] || tests=(PaceForgeLogTests PaceForgeTodayLayoutTests PaceForgeDismissTests PaceForgeHRRGarminTests PaceForgeRedactTests WidgetSnapshotHideTests PaceForgeGlanceTests LiftFiltersTests PaceForgeInsightsV2Tests PaceForgeDailyIntelTests PaceForgeIntelDocsTests MyDashboardPrefsTests JournalFlowLogicTests StressMonitorLogicTests)
-sources=("$pf/PaceForgeJSON.swift" "$pf/PaceForgeWave3.swift" "$pf/PaceForgeDismiss.swift" "$pf/PaceForgeLog.swift" "$pf/PaceForgeTodayLayout.swift" "$pf/PaceForgeHRRGarmin.swift" "$root/StrandiOSShared/PaceForgeRedact.swift" "$root/Strand/Data/HideScores.swift"
+tests=("$@"); [ ${#tests[@]} -gt 0 ] || tests=(PaceForgeLogTests PaceForgeTodayLayoutTests PaceForgeDismissTests PaceForgeHRRGarminTests PaceForgeRedactTests WidgetSnapshotHideTests PaceForgeGlanceTests LiftFiltersTests PaceForgeInsightsV2Tests PaceForgeDailyIntelTests PaceForgeIntelDocsTests MyDashboardPrefsTests JournalFlowLogicTests StressMonitorLogicTests PaceForgeCrashGuardTests)
+sources=("$root/StrandiOSShared/SafeNumber.swift" "$pf/PaceForgeFormat.swift" "$pf/PaceForgeModels.swift" "$pf/PaceForgeBuilder.swift" "$pf/PaceForgeWave2.swift" "$pf/PaceForgeLocalExplainers.swift" "$pf/PaceForgeDayMerge.swift" "$pf/PaceForgeJSON.swift" "$pf/PaceForgeWave3.swift" "$pf/PaceForgeDismiss.swift" "$pf/PaceForgeLog.swift" "$pf/PaceForgeTodayLayout.swift" "$pf/PaceForgeHRRGarmin.swift" "$root/StrandiOSShared/PaceForgeRedact.swift" "$root/Strand/Data/HideScores.swift"
          "$pf/PaceForgeStanding.swift" "$pf/PaceForgeInsightsV2.swift" "$pf/PaceForgeDailyIntel.swift" "$pf/PaceForgeIntelDocs.swift" "$pf/PaceForgeRide.swift" "$root/Strand/Data/MyDashboardPrefs.swift" "$root/Strand/Data/JournalFlowLogic.swift" "$root/Strand/Data/StressMonitorLogic.swift" "$pf/PaceForgeGlanceBuilder.swift" "$root/StrandiOSShared/PaceForgeGlance.swift"
          "$root/StrandiOSShared/WidgetSnapshot.swift" "$root/StrandiOSShared/HrTrace.swift" "$root/StrandiOSShared/StressTrace.swift"
          "$root/Strand/Data/LiftFilters.swift" "$root/Packages/WhoopStore/Sources/WhoopStore/LiftMuscle.swift")

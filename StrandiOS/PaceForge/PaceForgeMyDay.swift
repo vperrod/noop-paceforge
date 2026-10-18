@@ -50,7 +50,7 @@ enum PFMyDay {
         var weighIns: [PFDayMerge.WeighIn] = []
         for reading in snapshot.body?.series ?? [] where reading.date.hasPrefix(dayISO) {
             guard let kg = reading.values["weight_kg"] else { continue }
-            let stamp = reading.date.count > 10 ? parse(reading.date).map { Int($0.timeIntervalSince1970) } : nil
+            let stamp = reading.date.count > 10 ? parse(reading.date).map { Safe.int($0.timeIntervalSince1970, .towardZero) } : nil
             weighIns.append(PFDayMerge.WeighIn(ts: stamp, kg: kg))
         }
         out.weighIns = PFDayMerge.mergeWeighIns(existing: weighIns, events: PFDayMerge.weighIns(events, day: dayISO))
@@ -78,13 +78,13 @@ enum PFMyDay {
         let matched: [String] = attachedId.map { [$0] } ?? (done ? ["pf-done"] : [])
         let minutes = w.durationMin ?? slot?.durationMin
         return DayTimeline.Input.Planned(id: w.id, title: w.name ?? "Workout", detail: PFSummaryWriter.detail(w),
-                                         startTs: slot?.startTs, durationMin: minutes.map { Int($0.rounded()) },
+                                         startTs: slot?.startTs, durationMin: minutes.map { Safe.int($0) },
                                          matchedActivityIds: matched)
     }
 
     /// A planned session known only from day-events.json.
     private static func plannedFromEvent(_ event: PFDayEvent) -> DayTimeline.Input.Planned {
-        let minutes = event.durationMin.map { Int($0.rounded()) }
+        let minutes = event.durationMin.map { Safe.int($0) }
         let done = event.state == "done"
         let matched = event.matchedActivityId.map { [$0] } ?? (done ? ["pf-done"] : [])
         return DayTimeline.Input.Planned(id: event.sessionId ?? event.id ?? "plan", title: event.title ?? "Workout",
@@ -94,8 +94,8 @@ enum PFMyDay {
 
     private static func planActivity(_ a: PFActivity) -> DayTimeline.Input.PlanActivity? {
         guard let start = a.startTime.flatMap(parse), let seconds = a.durationS, seconds > 0 else { return nil }
-        let startTs = Int(start.timeIntervalSince1970)
-        return DayTimeline.Input.PlanActivity(id: a.id, startTs: startTs, endTs: startTs + Int(seconds))
+        let startTs = Safe.int(start.timeIntervalSince1970, .towardZero)
+        return DayTimeline.Input.PlanActivity(id: a.id, startTs: startTs, endTs: startTs + Safe.int(seconds, .towardZero))
     }
 
     /// `canonical_of` from PaceForge's workout-matches.json: "noop:<device>:<startTs>:<sport>" -> Garmin id.
@@ -125,13 +125,13 @@ enum PFMyDay {
             out.append(DayTimeline.Input.Ride(
                 id: event.rideId, title: event.title ?? known?.title ?? "Ride",
                 detail: figures.rowLine.isEmpty ? nil : figures.rowLine,
-                startTs: event.startTs, endTs: event.endTs, durationSec: seconds.map { Int($0) },
-                avgHr: figures.avgHr.map { Int($0.rounded()) }))
+                startTs: event.startTs, endTs: event.endTs, durationSec: seconds.map { Safe.int($0, .towardZero) },
+                avgHr: figures.avgHr.map { Safe.int($0) }))
         }
         for ride in snapshot.rides(on: dayISO) where seen.insert(ride.id).inserted {
             out.append(DayTimeline.Input.Ride(
                 id: ride.id, title: ride.title, detail: ride.rowLine.isEmpty ? nil : ride.rowLine,
-                durationSec: ride.durationS.map { Int($0) }, avgHr: ride.avgHr.map { Int($0.rounded()) }))
+                durationSec: ride.durationS.map { Safe.int($0, .towardZero) }, avgHr: ride.avgHr.map { Safe.int($0) }))
         }
         return out
     }

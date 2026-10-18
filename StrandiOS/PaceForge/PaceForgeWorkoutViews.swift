@@ -79,7 +79,7 @@ struct PFWorkoutRow: View {
     private var targetLine: String {
         var bits: [String] = []
         if let km = workout.distanceKm { bits.append("\(PFFormat.oneDecimal(km)) km") }
-        if let min = workout.durationMin { bits.append("\(Int(min.rounded())) min") }
+        if let min = workout.durationMin { bits.append("\(Safe.int(min)) min") }
         if let rpe = workout.targetRpe { bits.append("RPE \(PFFormat.trimmed(rpe))") }
         return bits.joined(separator: " \u{00B7} ")
     }
@@ -193,7 +193,7 @@ struct PFStepList: View {
     @ViewBuilder private var totals: some View {
         let bits: [String] = [
             workout.distanceKm.map { "Total \(PFFormat.oneDecimal($0)) km" },
-            workout.durationMin.map { "~\(Int($0.rounded())) min" },
+            workout.durationMin.map { "~\(Safe.int($0)) min" },
             workout.cadenceTarget.map { "Cadence \(PFFormat.trimmed($0)) spm" },
         ].compactMap { $0 }
         if !bits.isEmpty {
@@ -259,12 +259,12 @@ struct PFStepRow: View {
         if let m = step.distanceM {
             if m >= 1000 {
                 let km = m / 1000
-                return (km.rounded() == km ? String(Int(km)) : String(format: "%.2f", km)) + " km"
+                return (km.rounded() == km ? String(Safe.int(km)) : String(format: "%.2f", km)) + " km"
             }
-            return "\(Int(m.rounded())) m"
+            return "\(Safe.int(m)) m"
         }
         if let s = step.durationSec {
-            let secs = Int(s.rounded())
+            let secs = Safe.int(s)
             if secs < 60 { return "\(secs) s" }
             return secs % 60 == 0 ? "\(secs / 60) min" : String(format: "%d:%02d min", secs / 60, secs % 60)
         }
@@ -277,9 +277,9 @@ struct PFStepRow: View {
         let hasRange = high != nil && high != low
         switch step.targetType ?? "" {
         case "heart_rate":
-            return "\(Int(low.rounded()))" + (hasRange ? "\u{2013}\(Int((high ?? low).rounded()))" : "") + " bpm"
+            return "\(Safe.int(low))" + (hasRange ? "\u{2013}\(Safe.int((high ?? low)))" : "") + " bpm"
         case "power":
-            return "\(Int(low.rounded()))" + (hasRange ? "\u{2013}\(Int((high ?? low).rounded()))" : "") + " W"
+            return "\(Safe.int(low))" + (hasRange ? "\u{2013}\(Safe.int((high ?? low)))" : "") + " W"
         default:
             let a = min(low, high ?? low), b = max(low, high ?? low)
             return PFFormat.pace(a) + (a != b ? "\u{2013}\(PFFormat.pace(b))" : "") + "/km"
@@ -314,7 +314,7 @@ struct PFExerciseRow: View {
 
     private var prescription: String {
         var bits: [String] = []
-        if let sets = exercise.sets, let reps = exercise.reps { bits.append("\(Int(sets)) \u{00D7} \(reps)") }
+        if let sets = exercise.sets, let reps = exercise.reps { bits.append("\(Safe.int(sets, .towardZero)) \u{00D7} \(reps)") }
         else if let reps = exercise.reps { bits.append(reps) }
         if let rpe = exercise.rpe { bits.append("RPE \(PFFormat.trimmed(rpe))") }
         return bits.joined(separator: " \u{00B7} ")
@@ -355,7 +355,7 @@ struct PFComplianceView: View {
     }
 
     private var chipText: String {
-        if let ratio = compliance.ratio { return "\(Int((ratio * 100).rounded()))% \u{00B7} \(label)" }
+        if let ratio = compliance.ratio { return "\(Safe.int((ratio * 100)))% \u{00B7} \(label)" }
         return label
     }
 

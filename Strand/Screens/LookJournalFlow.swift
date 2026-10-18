@@ -249,7 +249,7 @@ struct LookJournalFlow: View {
                     .foregroundStyle(NoopLook.textPrimary)
                     .fixedSize(horizontal: false, vertical: true)
                 Spacer(minLength: 8)
-                Text(value.map { $0 == $0.rounded() ? String(Int($0)) : String(format: "%.1f", $0) } ?? "\u{2013}")
+                Text(value.map { $0 == $0.rounded() ? String(Safe.int($0)) : String(format: "%.1f", $0) } ?? "\u{2013}")
                     .font(LookFont.numeral(20))
                     .foregroundStyle(NoopLook.textPrimary)
                 if let unit = item.kind.unitLabel, !unit.isEmpty {

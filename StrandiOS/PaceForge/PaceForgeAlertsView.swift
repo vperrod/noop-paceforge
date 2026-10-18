@@ -129,7 +129,7 @@ private struct PFReadinessColumn: View {
                 Text(source.source).strandOverline()
                 if source.source != "PaceForge" { PFInfoButton(id: PFExplainerID.forReadinessSource(source.source)) }
             }
-            Text(hiding.shown(source.score.map { String(Int($0.rounded())) } ?? "\u{2013}", .scores))
+            Text(hiding.shown(source.score.map { String(Safe.int($0)) } ?? "\u{2013}", .scores))
                 .font(StrandFont.rounded(28))
                 .foregroundStyle(StrandPalette.textPrimary)
             if let band = source.band {

@@ -70,7 +70,7 @@ struct PFCoachView: View {
     @ViewBuilder private func readinessChip(_ take: PFTake) -> some View {
         if let score = take.readinessScore {
             let band = take.readinessBand ?? ""
-            PFChip(text: "Readiness \(Int(score.rounded())) \u{00B7} \(band)",
+            PFChip(text: "Readiness \(Safe.int(score)) \u{00B7} \(band)",
                    color: band == "low" ? PFColor.critical : band == "moderate" ? PFColor.warning : PFColor.positive)
         }
     }
