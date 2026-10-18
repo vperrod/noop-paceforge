@@ -249,7 +249,7 @@ final class ScreenCleanupUITests: XCTestCase {
         XCTAssertTrue(reveal(ring, in: app, maxSwipes: 6), "Today should show the Rest ring.")
         ring.tap()
         XCTAssertTrue(element(app, "look-score-detail-rest").waitForExistence(timeout: 30), "The Rest ring should open the Rest detail.")
-        let link = app.buttons["Explore your sleep insights"]
+        let link = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Explore your sleep insights")).firstMatch  // the label ends with an arrow
         XCTAssertTrue(reveal(link, in: app), "The Rest insight card should link to sleep.")
         link.tap()
         XCTAssertTrue(reveal(element(app, "look-last-night"), in: app), "The link should land on the Sleep tab.")
