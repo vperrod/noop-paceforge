@@ -21,6 +21,9 @@ enum MyDayFixture {
         case empty
         /// The full day plus a PaceForge bike ride (a day-events row with a ride id), which opens the ride screen.
         case ride
+        /// The full day with the walk-or-workout suggestions: five calm walks, one hard stretch, and one stretch
+        /// a recorded run already covers ("Already recorded").
+        case walks
     }
 
     static let variant: Variant? = {
@@ -84,6 +87,19 @@ enum MyDayFixture {
                                      startTs: ts(11, 30), endTs: ts(11, 42), durationSec: 720, avgHr: 131)]
             }
             input.detected = [.init(startTs: ts(12, 20), endTs: ts(12, 50), avgBpm: 128, peakBpm: 141)]
+            if variant == .walks {
+                // A person with HRmax 185 and resting 52, so calm means anything under 130 bpm.
+                input.segmentProfile = .init(maxHr: 185, restingHr: 52, zone3LowerBpm: 130)
+                input.detected = [
+                    .init(startTs: ts(7, 14), endTs: ts(7, 44), avgBpm: 150, peakBpm: 174),
+                    .init(startTs: ts(9, 12), endTs: ts(9, 26), avgBpm: 101, peakBpm: 114),
+                    .init(startTs: ts(10, 0), endTs: ts(10, 14), avgBpm: 86, peakBpm: 99),
+                    .init(startTs: ts(11, 10), endTs: ts(11, 30), avgBpm: 93, peakBpm: 108),
+                    .init(startTs: ts(12, 20), endTs: ts(12, 45), avgBpm: 138, peakBpm: 156),
+                    .init(startTs: ts(14, 0), endTs: ts(14, 18), avgBpm: 98, peakBpm: 112),
+                    .init(startTs: ts(14, 40), endTs: ts(14, 55), avgBpm: 88, peakBpm: 101),
+                ]
+            }
             input.weighIns = [.init(ts: nil, kg: 90.8, source: .apple), .init(ts: ts(6, 45), kg: 78.7, source: .paceforge)]
             input.notes = [.init(id: "n1", ts: ts(9, 10), title: "Niggle",
                                  subtitle: "Left calf \u{00B7} severity 2 \u{00B7} running")]
@@ -127,7 +143,7 @@ enum MyDayFixture {
     /// Stretches with no heart rate, as (from, to) seconds.
     private static func holes(for variant: Variant, ts: (Int, Int) -> Int) -> [(Int, Int)] {
         switch variant {
-        case .full, .ride: return [(ts(10, 20), ts(11, 5))]
+        case .full, .ride, .walks: return [(ts(10, 20), ts(11, 5))]
         case .gap: return [(ts(2, 10), ts(3, 0)), (ts(10, 20), ts(11, 5)), (ts(14, 0), ts(15, 30))]
         case .empty: return []
         }

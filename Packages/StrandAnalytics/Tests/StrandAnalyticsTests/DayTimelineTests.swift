@@ -315,11 +315,74 @@ final class DayTimelineTests: XCTestCase {
         XCTAssertEqual(notes.map { [$0.isUntimed.description, $0.subtitle] }, [["true", "Caffeine, Late meal"]])
     }
 
-    func testADetectedWindowOverlappingASavedWorkoutIsDropped() {
+    func testADetectedWindowMostlyInsideASavedWorkoutIsMarkedAlreadyRecordedWithItsSport() {
         var i = input()
-        i.workouts = [.init(key: "s", startTs: at(18), endTs: at(18, 40), title: "Workout", sources: [.strap])]
+        i.workouts = [.init(key: "s", startTs: at(18), endTs: at(18, 40), title: "Running", sources: [.strap])]
         i.detected = [.init(startTs: at(18, 2), endTs: at(18, 38), avgBpm: 150, peakBpm: 170)]
+        let e = events(DayTimeline.build(i), .detected).first
+        XCTAssertEqual([e?.title, e?.suggestion?.recordedAs, e?.subtitle],
+                       ["Running", "Running", "Already recorded \u{00B7} 36 min \u{00B7} avg 150 bpm"])
+    }
+
+    func testADetectedWindowJustOverHalfCoveredByAGarminActivityIsAlreadyRecorded() {
+        var i = input()
+        i.workouts = [.init(key: "g", startTs: at(9), endTs: at(9, 31), title: "Walking", sources: [.garmin])]
+        i.detected = [.init(startTs: at(9, 15), endTs: at(9, 45), avgBpm: 100, peakBpm: 115)]
+        XCTAssertEqual(events(DayTimeline.build(i), .detected).first?.suggestion?.isRecorded, true)
+    }
+
+    func testADetectedWindowHalfCoveredByALongerWorkoutIsDropped() {
+        var i = input()
+        i.workouts = [.init(key: "g", startTs: at(9), endTs: at(9, 30), title: "Walking", sources: [.garmin])]
+        i.detected = [.init(startTs: at(9, 15), endTs: at(9, 45), avgBpm: 100, peakBpm: 115)]
         XCTAssertTrue(events(DayTimeline.build(i), .detected).isEmpty)
+    }
+
+    func testASmallSavedWorkoutInsideALongWindowStillHidesIt() {
+        var i = input()
+        i.workouts = [.init(key: "s", startTs: at(9, 10), endTs: at(9, 20), title: "Workout", sources: [.strap])]
+        i.detected = [.init(startTs: at(9), endTs: at(9, 50), avgBpm: 100, peakBpm: 115)]
+        XCTAssertTrue(events(DayTimeline.build(i), .detected).isEmpty)
+    }
+
+    func testADetectedWindowInsideAnApproximateSleepIsDropped() {
+        var i = input()
+        i.sleeps = [.init(startTs: at(13), endTs: at(14), isNap: true)]
+        i.detected = [.init(startTs: at(13, 5), endTs: at(13, 40), avgBpm: 95, peakBpm: 105)]
+        XCTAssertTrue(events(DayTimeline.build(i), .detected).isEmpty)
+    }
+
+    func testACalmDetectedWindowIsOfferedAsAWalk() {
+        var i = input()
+        i.segmentProfile = .init(maxHr: 185, restingHr: 52)
+        i.detected = [.init(startTs: at(12), endTs: at(12, 14), avgBpm: 101, peakBpm: 116)]
+        let e = events(DayTimeline.build(i), .detected).first
+        XCTAssertEqual([e?.title, e?.suggestion?.guess.rawValue], ["Looks like a walk", "walk"])
+    }
+
+    func testAHardDetectedWindowStaysAWorkout() {
+        var i = input()
+        i.segmentProfile = .init(maxHr: 185, restingHr: 52)
+        i.detected = [.init(startTs: at(12), endTs: at(12, 25), avgBpm: 135, peakBpm: 152)]
+        let e = events(DayTimeline.build(i), .detected).first
+        XCTAssertEqual([e?.title, e?.suggestion?.guess.rawValue], ["Looks like a workout", "workout"])
+    }
+
+    func testTheDaysHeartRateSeriesDecidesSteadiness() {
+        var i = input()
+        i.hrSampleSpanSec = 60
+        i.segmentProfile = .init(maxHr: 185, restingHr: 52)
+        i.hr = (0..<25).map { .init(ts: at(12) + $0 * 60, bpm: $0 % 2 == 0 ? 75 : 125) }
+        i.detected = [.init(startTs: at(12), endTs: at(12, 25), avgBpm: 100, peakBpm: 125)]
+        XCTAssertEqual(events(DayTimeline.build(i), .detected).first?.suggestion?.guess, .workout)
+    }
+
+    func testStrapRunTicksTurnACalmWindowIntoAWorkout() {
+        var i = input()
+        i.segmentProfile = .init(maxHr: 185, restingHr: 52)
+        i.detected = [.init(startTs: at(12), endTs: at(12, 25), avgBpm: 110, peakBpm: 120,
+                            gait: .init(walkShare: 0.1, runShare: 0.8, classedTicks: 300))]
+        XCTAssertEqual(events(DayTimeline.build(i), .detected).first?.suggestion?.guess, .workout)
     }
 
     func testADetectedWindowNobodyHasSavedIsKeptAsASuggestion() {

@@ -21,6 +21,9 @@ import Foundation
 //  - A stretch with no heart rate for 10 minutes or more becomes a no-data event while the day is not
 //    over. The heart-rate curve lifts the pen across it; nothing is ever interpolated.
 //  - Journal answers are one untimed day note.
+//  - A detected stretch is offered as a Walk (not a workout) when `DetectedSegmentClassifier` says so, and
+//    is marked "Already recorded", with that workout's sport, when a recorded workout covers more than
+//    half of it. A saved workout that explains less than half of it still hides it (the old rule).
 
 public struct DayTimeline: Equatable, Sendable {
 
@@ -110,16 +113,31 @@ public struct DayTimeline: Equatable, Sendable {
         /// the strip clips them to the day.
         public let continuesFromPreviousDay: Bool
         public let continuesToNextDay: Bool
+        /// Set on `.detected` rows only: what the suggestion looks like and whether it is already recorded.
+        public let suggestion: Suggestion?
 
         public init(id: String, kind: Kind, start: Date, end: Date? = nil, isUntimed: Bool = false,
                     title: String, subtitle: String = "", sources: [Source] = [], status: Status = .none,
                     route: Route = .none, metrics: Metrics = Metrics(), noDataReason: NoDataReason? = nil,
-                    continuesFromPreviousDay: Bool = false, continuesToNextDay: Bool = false) {
+                    continuesFromPreviousDay: Bool = false, continuesToNextDay: Bool = false,
+                    suggestion: Suggestion? = nil) {
             self.id = id; self.kind = kind; self.start = start; self.end = end; self.isUntimed = isUntimed
             self.title = title; self.subtitle = subtitle; self.sources = sources; self.status = status
             self.route = route; self.metrics = metrics; self.noDataReason = noDataReason
             self.continuesFromPreviousDay = continuesFromPreviousDay
             self.continuesToNextDay = continuesToNextDay
+            self.suggestion = suggestion
+        }
+    }
+
+    /// A detected, unsaved stretch. `guess` says walk or workout; `recordedAs` is the sport of the recorded
+    /// workout that already covers it (more than half of it), in which case there is nothing to save.
+    public struct Suggestion: Equatable, Sendable {
+        public let guess: DetectedSegmentClassifier.Guess
+        public let recordedAs: String?
+        public var isRecorded: Bool { recordedAs != nil }
+        public init(guess: DetectedSegmentClassifier.Guess, recordedAs: String? = nil) {
+            self.guess = guess; self.recordedAs = recordedAs
         }
     }
 

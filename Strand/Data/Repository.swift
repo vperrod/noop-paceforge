@@ -3432,12 +3432,15 @@ final class Repository: ObservableObject {
     /// didn't classify). Built through the same `WorkoutSource.buildManualRow` the manual sheet uses, so
     /// it persists exactly like a hand-entered session under the strap source. After saving, the screen
     /// re-queries (the new saved span now excludes this window from re-suggestion).
+    ///
+    /// `sport` is "Workout" unless the user (or the walk guess) named a type, so an unclassified window never
+    /// claims a sport nobody chose.
     @discardableResult
-    func saveDetectedWorkout(_ w: DetectedWorkout) async -> Bool {
+    func saveDetectedWorkout(_ w: DetectedWorkout, sport: String = "Workout") async -> Bool {
         let durationMin = max(1, w.durationMin)
         let start = Date(timeIntervalSince1970: TimeInterval(w.startSec))
         guard let row = WorkoutSource.buildManualRow(start: start, durationMin: durationMin,
-                                                     sport: "Workout", avgHr: w.avgBpm,
+                                                     sport: sport, avgHr: w.avgBpm,
                                                      energyKcal: nil) else { return false }
         await saveManualWorkout(row)
         return true

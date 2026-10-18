@@ -158,6 +158,7 @@ struct SettingsView: View {
     /// sustained-elevated window and offers — via a single dismissible card — to save it as a workout.
     /// Nothing is ever created automatically. Mirrors the Android `NoopPrefs.KEY_AUTO_DETECT_WORKOUTS`.
     @AppStorage(PuffinExperiment.autoDetectWorkoutsKey) private var autoDetectWorkoutsEnabled = false
+    @AppStorage(MyDayWalkPrefs.autoSaveKey) private var autoSaveWalks = false
 
     /// "Journal reminder" (#627, default ON). When ON, Today shows the persistent journal widget
     /// (last-7-days strip + tap-through). Mirrors the Android `NoopPrefs.KEY_JOURNAL_REMINDER_ENABLED`.
@@ -1721,6 +1722,24 @@ struct SettingsView: View {
                     .fixedSize(horizontal: false, vertical: true)
 
                 Text("Skips sessions that overlap a saved or imported workout, including workouts from Apple Health.")
+                    .font(StrandFont.caption)
+                    .foregroundStyle(StrandPalette.textTertiary)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                rowDivider
+
+                Toggle(isOn: $autoSaveWalks) {
+                    Text("My Day: auto-save walks")
+                        .font(StrandFont.subhead)
+                        .foregroundStyle(StrandPalette.textPrimary)
+                }
+                .toggleStyle(.switch)
+                .tint(StrandPalette.accent)
+                .disabled(!autoDetectWorkoutsEnabled)
+                .accessibilityIdentifier("settings-autosave-walks")
+                .accessibilityHint("Saves calm stretches that look like a walk as Walk workouts")
+
+                Text("My Day shows a calm, steady stretch as a walk instead of a workout. With this on, a walk of 15 minutes or more is saved by itself as a Walk workout once it is over, the next time you open My Day. You can edit or delete it like any other workout. Off by default, and it needs Auto-detect workouts above.")
                     .font(StrandFont.caption)
                     .foregroundStyle(StrandPalette.textTertiary)
                     .fixedSize(horizontal: false, vertical: true)

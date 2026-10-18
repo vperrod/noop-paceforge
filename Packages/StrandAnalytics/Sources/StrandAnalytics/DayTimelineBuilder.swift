@@ -88,8 +88,12 @@ extension DayTimeline {
             public let endTs: Int
             public let avgBpm: Int
             public let peakBpm: Int
-            public init(startTs: Int, endTs: Int, avgBpm: Int, peakBpm: Int) {
+            /// The strap's gait ticks inside the window, when it has any (see `DetectedSegmentClassifier`).
+            public let gait: DetectedSegmentClassifier.GaitMix?
+            public init(startTs: Int, endTs: Int, avgBpm: Int, peakBpm: Int,
+                        gait: DetectedSegmentClassifier.GaitMix? = nil) {
                 self.startTs = startTs; self.endTs = endTs; self.avgBpm = avgBpm; self.peakBpm = peakBpm
+                self.gait = gait
             }
         }
         public struct Planned: Sendable {
@@ -169,6 +173,8 @@ extension DayTimeline {
         public var rides: [Ride] = []
         public var sameWorkoutPairs: [WorkoutPair] = []
         public var detected: [Detected] = []
+        /// Max / resting heart rate and zone 3 start, for the walk-or-workout call on a detected stretch.
+        public var segmentProfile = DetectedSegmentClassifier.Profile()
         public var planned: [Planned] = []
         public var planActivities: [PlanActivity] = []
         public var weighIns: [WeighIn] = []
@@ -256,21 +262,37 @@ extension DayTimeline {
                 route: .ride(id: ride.id), metrics: Metrics(durationSec: ride.durationSec, avgHr: ride.avgHr)))
         }
 
-        // Detected, unsaved suggestions that no saved workout or sleep already explains.
+        // Detected, unsaved suggestions. A recorded workout covering more than half of one marks it "Already
+        // recorded" (kept, with that sport, no Save); a workout or sleep that merely explains it is dropped.
         let saved = events.filter { $0.kind == .workout || $0.kind == .sleep || $0.kind == .nap }
+        let recorded = events.compactMap { e -> DetectedSegmentClassifier.Recorded? in
+            guard e.kind == .workout, let end = e.end else { return nil }
+            return .init(startTs: Int(e.start.timeIntervalSince1970), endTs: Int(end.timeIntervalSince1970), sport: e.title)
+        }
+        let hrSeries = hrSamples.map { (ts: $0.ts, bpm: $0.bpm) }
         for d in input.detected where d.endTs > d.startTs && d.endTs >= dayStartTs && d.startTs < dayEndTs {
-            let covered = saved.contains { e in
-                guard let end = e.end else { return false }
-                return overlapsEnough(aStart: d.startTs, aEnd: d.endTs,
-                                      bStart: Int(e.start.timeIntervalSince1970), bEnd: Int(end.timeIntervalSince1970))
-            }
-            if covered { continue }
             let length = d.endTs - d.startTs
+            let match = DetectedSegmentClassifier.recordedMatch(startTs: d.startTs, endTs: d.endTs, in: recorded)
+            if match == nil {
+                let covered = saved.contains { e in
+                    guard let end = e.end else { return false }
+                    return overlapsEnough(aStart: d.startTs, aEnd: d.endTs,
+                                          bStart: Int(e.start.timeIntervalSince1970), bEnd: Int(end.timeIntervalSince1970))
+                }
+                if covered { continue }
+            }
+            let guess = DetectedSegmentClassifier.classify(
+                durationSec: length, avgBpm: d.avgBpm, peakBpm: d.peakBpm,
+                minuteBpm: DetectedSegmentClassifier.minuteMeans(samples: hrSeries, start: d.startTs, end: d.endTs),
+                gait: d.gait, profile: input.segmentProfile)
+            let figures = "\(durationText(length)) \u{00B7} avg \(d.avgBpm) bpm"
             events.append(Event(
                 id: "detected-\(d.startTs)-\(d.endTs)", kind: .detected, start: date(d.startTs), end: date(d.endTs),
-                title: "Looks like a workout", subtitle: "\(durationText(length)) \u{00B7} avg \(d.avgBpm) bpm",
+                title: match?.sport ?? (guess == .walk ? "Looks like a walk" : "Looks like a workout"),
+                subtitle: match == nil ? figures : "Already recorded \u{00B7} \(figures)",
                 sources: [.strap],
-                metrics: Metrics(durationSec: length, avgHr: d.avgBpm, maxHr: d.peakBpm)))
+                metrics: Metrics(durationSec: length, avgHr: d.avgBpm, maxHr: d.peakBpm),
+                suggestion: Suggestion(guess: guess, recordedAs: match?.sport)))
         }
 
         // Planned sessions not already shown as the workout they became.
