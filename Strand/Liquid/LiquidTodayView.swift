@@ -115,6 +115,7 @@ struct LiquidTodayView: View {
     // drag-to-reorder rows); every section always renders (decode inserts a missing one at its default spot).
     @AppStorage(TodayLayoutPrefs.orderKey) private var sectionOrderRaw = ""
     /// Settings > Hide numbers: the three scores, and body weight, read "Hidden" on this screen.
+    @AppStorage(StepsSourceResolver.appleStepsUnavailableKey) private var appleStepsUnavailable = false
     @AppStorage(HideScoresPrefs.scoresKey) private var hideScoresOn = false
     @AppStorage(HideScoresPrefs.bodyKey) private var hideBodyOn = false
     @AppStorage(TodayLayoutPrefs.hiddenKey) private var hiddenSectionsRaw = ""
@@ -1283,7 +1284,8 @@ struct LiquidTodayView: View {
             // Route by the EXACT (key, source) the tile chose to display — measured my-whoop, imported
             // apple-health, or the my-whoop estimate — NOT by bare key (bare "steps" resolves to
             // apple-health and would mismatch a WHOOP-measured value). Order-independent.
-            cardLink(.metricSourced(key: stepsDetailKey, source: stepsDetailSource), title: card.title, sub: card.subtitle,
+            cardLink(.metricSourced(key: stepsDetailKey, source: stepsDetailSource), title: card.title,
+                     sub: stepsCaption ?? card.subtitle,
                      value: stepsText, tint: StrandPalette.metricCyan, frac: fracOver(stepCount, 10000))
         case .bloodOxygen:
             // #1627: these two were the last cards still on the "not wired yet" placeholder, so on iOS 26 —
@@ -1687,7 +1689,8 @@ struct LiquidTodayView: View {
             ktile(String(localized: "Respiratory"), icon: keyMetricIcon(metric), resp.map { String(format: "%.1f", locale: AppLanguage.activeLocale, $0) } ?? "—", "rpm", StrandPalette.accent, fracOver(resp, 24), key: "resp_rate")
         case .steps:
             ktile(String(localized: "Steps"), icon: keyMetricIcon(metric), stepsText, "", StrandPalette.chargeColor,
-                  fracOver(stepCount, 10000), key: stepsDetailKey, detailMetric: stepsDetailMetric)
+                  fracOver(stepCount, 10000), key: stepsDetailKey, detailMetric: stepsDetailMetric,
+                  caption: stepsCaption)
         case .weight:
             let (val, cap) = weightTile(weightKg)
             ktile(String(localized: "Weight"), icon: keyMetricIcon(metric), val, "", StrandPalette.metricAmber, nil, key: "weight", caption: cap)
@@ -2081,8 +2084,8 @@ struct LiquidTodayView: View {
         // `.last` value) instead of that day's. Mirrors the classic Today's stepsEstByDay[selectedDayKey].
         let stepsByDay = Dictionary(stepsSeries.map { ($0.day, $0.value) }, uniquingKeysWith: { _, last in last })
         stepsEst = stepsByDay[selectedDayKey] ?? (selectedDayOffset == 0 ? stepsSeries.last?.value : nil)
-        // Imported Apple Health steps for the SELECTED day (max across rows). They follow the merged
-        // WHOOP/Garmin daily count and precede the motion estimate.
+        // Imported Apple Health steps for the SELECTED day (max across rows). `resolvedStepsToday` ranks them
+        // first, ahead of the Garmin mirror and the strap's own estimate.
         importedStepsDay = (await appleA).filter { $0.day == selectedDayKey }.compactMap { $0.steps }.max()
         // #616: same-day imported active energy — the calorie fallback when the strap banked no on-device
         // HR estimate for the day, so the tile/card/detail agree (imported-first, mirrors steps).
@@ -2256,14 +2259,25 @@ struct LiquidTodayView: View {
             : String(localized: "Good evening")
     }
 
-    // Merged WHOOP/Garmin count ?: Apple Health count ?: motion estimate; detail routing uses the same order.
-    private var stepCount: Double? {
-        displayDay?.steps.map(Double.init) ?? importedStepsDay.map(Double.init) ?? stepsEst
+    /// The selected day's step count and who counted it: Apple Health, then the Garmin mirror, then the strap's
+    /// own estimate (`StepsSourceResolver`). The tile shows this for as long as any source has a value.
+    private var resolvedStepsToday: ResolvedSteps? {
+        repo.daySteps(day: selectedDayKey, apple: importedStepsDay,
+                      merged: displayDay?.day == selectedDayKey ? displayDay?.steps : nil,
+                      estimate: stepsEst)
+    }
+
+    private var stepCount: Double? { resolvedStepsToday?.value }
+
+    /// Under the count: the source it came from, or why Apple Health's count is missing.
+    private var stepsCaption: String? {
+        StepsSourceResolver.unavailableNotice(appleUnavailable: appleStepsUnavailable, resolved: resolvedStepsToday)
+            ?? resolvedStepsToday?.label
     }
 
     private var stepsDetailMetric: MetricDescriptor? {
-        MetricCatalog.todayStepsMetric(hasMeasuredSteps: displayDay?.steps != nil,
-                                       hasImportedSteps: importedStepsDay != nil)
+        MetricCatalog.todayStepsMetric(source: resolvedStepsToday?.source,
+                                       hasStrapCount: displayDay?.steps != nil)
     }
 
     private var stepsDetailKey: String { stepsDetailMetric?.key ?? "steps_est" }

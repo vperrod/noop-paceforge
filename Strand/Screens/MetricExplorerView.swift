@@ -1768,10 +1768,15 @@ struct MetricDetailView: View {
     /// the source words. Swift twin of Android's `VitalReadingsTable`.
     @ViewBuilder
     private func readingsTable(windowed: [(day: String, value: Double)]) -> some View {
-        let readings = windowed.map {
-            VitalReading(day: $0.day, value: $0.value,
-                         source: sourceByDay[$0.day]
-                             ?? (metric.key == "skin_temp" ? FusionSource.localCache.rawValue : metric.source))
+        let readings = windowed.map { point -> VitalReading in
+            let source = sourceByDay[point.day]
+                ?? (metric.key == "skin_temp" ? FusionSource.localCache.rawValue : metric.source)
+            // Steps name their source the way every other steps surface does ("Garmin", "Apple Health",
+            // "strap estimate"). `provenanceDisplayLabel` passes an unknown source id through unchanged.
+            return VitalReading(day: point.day, value: point.value,
+                                source: isStepsDetail
+                                    ? StepsSourceResolver.label(for: StepsSourceResolver.source(forStoredId: source))
+                                    : source)
         }
         // The unit is passed EMPTY on purpose (#1942). `vitalReadingRows` appends its `unit` to whatever
         // the formatter returns, and every `MetricDescriptor.format` overload already ends in the unit —

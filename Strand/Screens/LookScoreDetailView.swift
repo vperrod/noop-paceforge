@@ -81,7 +81,7 @@ struct LookScoreDetailView: View {
                     ("sleep_performance", Self.whoop)]
         case .effort:
             return [("strain", Self.whoop), ("hr_zones13_min", Self.whoop), ("hr_zones45_min", Self.whoop),
-                    ("strength_min", Self.whoop), ("steps", Self.garmin), ("steps", Self.whoop), ("steps", Self.apple)]
+                    ("strength_min", Self.whoop), ("steps", Self.apple), ("steps", Self.garmin), ("steps", Self.whoop)]
         case .rest:
             return [("sleep_performance", Self.whoop), ("hours_vs_needed_pct", Self.whoop),
                     ("sleep_consistency", Self.whoop), ("sleep_efficiency", Self.whoop),
@@ -92,12 +92,22 @@ struct LookScoreDetailView: View {
     private var mainPoints: [LookPoint] { points(kind.metricKey) }
     private var latest: LookPoint? { LookSeries.latest(mainPoints) }
 
-    /// Steps come from Garmin first, then the strap, then Apple Health; the row says which.
+    /// Steps come from whichever source reaches the latest day, in the order Apple Health, Garmin, then the
+    /// strap's own estimate (`StepsSourceResolver`); the row names it. A phone whose sync stopped weeks ago
+    /// therefore cannot hide a current Garmin count.
     private var stepsSource: (source: String, label: String)? {
-        for candidate in [(Self.garmin, "STEPS \u{00B7} GARMIN"), (Self.whoop, "STEPS"), (Self.apple, "STEPS \u{00B7} APPLE HEALTH")] {
-            if !points("steps", candidate.0).isEmpty { return (candidate.0, candidate.1) }
+        let candidates: [(id: String, source: FusionSource)] = [
+            (Self.apple, .appleHealth), (Self.garmin, .paceforgeGarmin), (Self.whoop, .noopComputed),
+        ]
+        var latestDay: [FusionSource: String] = [:]
+        for candidate in candidates {
+            if let last = points("steps", candidate.id).last {
+                latestDay[candidate.source] = Repository.localDayKey(last.date)
+            }
         }
-        return nil
+        guard let winner = StepsSourceResolver.preferredSeriesSource(latestDayBySource: latestDay),
+              let id = candidates.first(where: { $0.source == winner })?.id else { return nil }
+        return (id, "STEPS \u{00B7} " + StepsSourceResolver.label(for: winner).uppercased())
     }
 
     // MARK: Body
@@ -416,7 +426,7 @@ private struct LookScoreInfoSheet: View {
                     ("Where the numbers come from", "NOOP's own weighting, openly documented in the scoring guide. It is calibrated to you, not to anyone else's scale.")]
         case .effort:
             return [("What is Effort?", "The cardiovascular load of your day, from how hard your heart worked. The grey arc and white tick on the ring are today's target range, taken from your Charge. The rows compare today's training time and steps with your last 30 days."),
-                    ("Steps", "Steps come from Garmin when it has them, then the strap, then Apple Health. The row says which.")]
+                    ("Steps", "Steps come from Apple Health when it has today's count, then Garmin, then the strap's own estimate. The row says which.")]
         case .rest:
             return [("What is Rest?", "How restorative your sleep was. The rows show hours against what you needed, how steady your sleep schedule was, how much of your time in bed you spent asleep and, from Garmin, how stressed your body was overnight."),
                     ("Poor, Sufficient, Optimal", "These three bands are NOOP's own cut-offs, not a published standard: hours vs. needed 70 and 100 %, consistency 60 and 80 %, efficiency 75 and 85 %, sleep stress under 40 and under 25.")]

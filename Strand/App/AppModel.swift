@@ -2321,6 +2321,7 @@ final class AppModel: ObservableObject {
             (.noopComputed, deviceId + "-noop"),
             (.appleHealth, appleDeviceId),
             (.xiaomiBand, FusionSource.xiaomiBand.rawValue),
+            (.paceforgeGarmin, FusionSource.paceforgeGarmin.rawValue),
         ]
 
         let now = Date()
@@ -2342,6 +2343,8 @@ final class AppModel: ObservableObject {
         for spec in specs {
             var inputs: [FusionInput] = []
             for (src, daily) in rowsBySource {
+                // The Garmin mirror is a steps source only: its other columns stay out of the fused record.
+                if src == .paceforgeGarmin && spec.key != "steps" { continue }
                 if let v = Self.fusionColumn(key: spec.key, day: daily) {
                     inputs.append(FusionInput(source: src, value: v))
                     contributingSources.insert(src)

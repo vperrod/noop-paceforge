@@ -270,12 +270,18 @@ enum MetricCatalog {
         return all.first { $0.key == key && $0.source == source }
     }
 
-    /// The source the Today steps tile taps through to, matching the displayed merged count. A measured
-    /// WHOOP or PaceForge Garmin daily count wins, then Apple Health, then the WHOOP motion estimate.
-    static func todayStepsMetric(hasMeasuredSteps: Bool, hasImportedSteps: Bool = false) -> MetricDescriptor? {
-        if hasMeasuredSteps { return metric(key: "steps", source: "my-whoop") }
-        if hasImportedSteps { return metric(key: "steps", source: "apple-health") }
-        return metric(key: "steps_est", source: "my-whoop")
+    /// The source the Today steps tile taps through to, matching the displayed count: the series of the source
+    /// `StepsSourceResolver` picked (Apple Health, Garmin, a Mi Band). A strap-class count taps through to the
+    /// strap's own steps when the day carries one, else to the motion estimate. `source` nil (nothing to show)
+    /// opens the estimate, as before.
+    static func todayStepsMetric(source: FusionSource?, hasStrapCount: Bool = false) -> MetricDescriptor? {
+        switch source {
+        case .appleHealth?, .healthConnect?: return metric(key: "steps", source: "apple-health")
+        case .paceforgeGarmin?: return metric(key: "steps", source: "paceforge-garmin")
+        case .xiaomiBand?: return metric(key: "steps", source: "xiaomi-band")
+        case .whoopImport?, .noopComputed?, .nutritionCsv?, .localCache?, nil:
+            return hasStrapCount ? metric(key: "steps", source: "my-whoop") : metric(key: "steps_est", source: "my-whoop")
+        }
     }
 
     /// #616: the calorie twin of `todayStepsMetric` — route the tapped detail to the source that MATCHES

@@ -198,6 +198,7 @@ struct TodayView: View {
     /// classification and tint selection stable when the app language changes.
     private static let whoopBrandName = "WHOOP"
     @EnvironmentObject var repo: Repository
+    @AppStorage(StepsSourceResolver.appleStepsUnavailableKey) private var appleStepsUnavailable = false
     // PERF (scroll stutter): TodayView deliberately does NOT observe `LiveState` directly. A connected
     // strap publishes `LiveState` ~1 Hz (heart rate + each R-R packet), and an `@EnvironmentObject live`
     // here would invalidate the ENTIRE Today `body` on every tick, re-evaluating the scene backdrop, the
@@ -951,6 +952,7 @@ struct TodayView: View {
         switch FusionSource(rawValue: rawSource) {
         case .healthConnect: return "Health Connect"
         case .xiaomiBand:    return "Mi Band"
+        case .paceforgeGarmin: return "Garmin via PaceForge"
         case .nutritionCsv:  return String(localized: "Nutrition")
         case .localCache:    return String(localized: "Cached")
         case .whoopImport:   return Self.whoopBrandName
@@ -2764,11 +2766,10 @@ struct TodayView: View {
         case .steps:
             // #843/#813, same-day real count only (strap @57 or same-day phone import); never the latest
             // imported row or the sparkline tail (both went stale). Else fall through to the estimate.
-            let appleStepsForDay = appleDays.last(where: { $0.day == selectedDayKey })?.steps
-            let real = (d?.steps).map { intString(Double($0)) }
-                ?? appleStepsForDay.map { intString(Double($0)) }
+            // Resolved across Apple Health, the Garmin mirror and the strap by `StepsSourceResolver`; only a
+            // day none of them counted falls through to the on-device estimate.
             let est = stepsEstByDay[selectedDayKey].map { intString(Double($0)) }
-            return real ?? est ?? "—"
+            return resolvedSteps(for: d).map { intString($0.value) } ?? est ?? "—"
         case .calories:
             return withUnit(caloriesValue(appleDays.last))
         case .stress:
@@ -4089,9 +4090,10 @@ struct TodayView: View {
             // Never the latest imported Apple-Health row (it can be days stale) or the sparkline tail (that
             // is the most-recent value, not this day's): both froze the tile on an old import. Otherwise
             // fall through to the on-device estimate ("est."). Mirrors Android stepsForDay (#276/#150).
-            let appleStepsForDay = appleDays.last(where: { $0.day == selectedDayKey })?.steps
-            let realSteps: String? = (d?.steps).map { intString(Double($0)) }
-                ?? appleStepsForDay.map { intString(Double($0)) }
+            // The resolver (Apple Health, then the Garmin mirror, then the strap's estimate) supplies the count
+            // and its source label; only a day with none of them falls through to the estimate caption below.
+            let resolved = resolvedSteps(for: d)
+            let realSteps: String? = resolved.map { intString($0.value) }
             let estSteps = stepsEstByDay[selectedDayKey]
             // H6, only an ESTIMATED day (no real strap/phone count, so the on-device estimate filled in)
             // gets the calibration entry; a real measured count needs no calibration.
@@ -4109,7 +4111,9 @@ struct TodayView: View {
                 // An estimated day reads "est." plus the calibration STATUS (k / days / confidence) so a
                 // frozen-looking estimate self-explains (#760/#792); a not-yet-calibrated day says how many
                 // more phone-counted days are needed (so a blank tile is never silently unexplained, #589).
-                caption: realSteps != nil ? String(localized: "today")
+                caption: realSteps != nil
+                    ? (StepsSourceResolver.unavailableNotice(appleUnavailable: appleStepsUnavailable, resolved: resolved)
+                       ?? resolved?.label ?? String(localized: "today"))
                     : (estSteps != nil ? stepsEstimateCaption
                        : (needsCalibration ? stepsCalibrationCaption : String(localized: "today"))),
                 accent: (realSteps != nil || estSteps != nil) ? StrandPalette.metricCyan : StrandPalette.textPrimary,
@@ -5434,6 +5438,14 @@ struct TodayView: View {
         guard w.endTs > w.startTs else { return "\(date) · \(Self.hrTimeFmt.string(from: start))" }
         let end = Date(timeIntervalSince1970: TimeInterval(w.endTs))
         return "\(date) · \(Self.hrTimeFmt.string(from: start))-\(Self.hrTimeFmt.string(from: end))"
+    }
+
+    /// The selected day's real step count (never the motion estimate) and the source that supplied it: Apple
+    /// Health, then the Garmin mirror, then the strap, via `StepsSourceResolver`. `d` is the day's merged row.
+    private func resolvedSteps(for d: DailyMetric?) -> ResolvedSteps? {
+        repo.daySteps(day: selectedDayKey,
+                      apple: appleDays.last(where: { $0.day == selectedDayKey })?.steps,
+                      merged: d?.steps, estimate: nil)
     }
 
     /// Thousands-grouped integer string (steps / calories).

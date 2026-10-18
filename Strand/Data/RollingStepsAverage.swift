@@ -1,6 +1,7 @@
 import Foundation
 import SwiftUI
 import StrandDesign
+import StrandAnalytics
 import WhoopStore
 
 /// Calendar-day window, never 30 observed rows. Missing observations are not zero.
@@ -33,12 +34,22 @@ struct RollingStepsAverage: Equatable {
 }
 
 extension Repository {
-    /// Shared by the detail and rolling tile: NOOP/WHOOP count, PaceForge Garmin, Apple Health, then estimate.
+    /// Shared by the detail and rolling tile, per day: a phone that counts steps (Apple Health, Health Connect),
+    /// then the PaceForge Garmin mirror, then the strap's own count, then its motion estimate. The order is the
+    /// steps column of `MetricArbitrationPolicy`, so a day never goes empty while any source has a count.
     func resolvedSteps(from: String, to: String) async -> MetricSeriesResolution {
+        async let phoneAll = resolvedSeries(key: "steps", source: "apple-health", from: from, to: to)
+        async let garmin = resolvedSeries(key: "steps", source: "paceforge-garmin", from: from, to: to)
         async let strap = resolvedSeries(key: "steps", source: Self.whoopSource, from: from, to: to)
-        async let phone = resolvedSeries(key: "steps", source: "apple-health", from: from, to: to)
         async let estimate = resolvedSeries(key: "steps_est", source: Self.whoopSource, from: from, to: to)
-        let resolutions = await [strap, phone, estimate]
+        // The phone read also appends the strap's computed steps as a gap-filler; those belong BELOW Garmin,
+        // so only the phone's own points count here.
+        let phone = await phoneAll
+        let phoneOnly = MetricSeriesResolution(
+            requestedSource: phone.requestedSource, candidates: phone.candidates,
+            points: phone.points.filter { StepsSourceResolver.source(forStoredId: $0.source) == .appleHealth
+                || StepsSourceResolver.source(forStoredId: $0.source) == .healthConnect })
+        let resolutions = await [phoneOnly, garmin, strap, estimate]
         var byDay: [String: ResolvedMetricPoint] = [:]
         for resolution in resolutions {
             for point in resolution.points where byDay[point.day] == nil { byDay[point.day] = point }
