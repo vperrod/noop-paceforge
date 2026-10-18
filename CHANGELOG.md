@@ -17,6 +17,21 @@ approximate; downloads are on the [Releases](https://github.com/NoopApp/noop/rel
 
 ---
 
+## 12.0.12 build 468 (PaceForge iPhone build): fewer screens, same content
+
+- **Two taps to anything.** More lists 11 rows (it was 33), all visible at rest: Insights, Explore, Compare, Lift Log, Health, Stress, Lab Book,
+  Rhythm, Alarms, Data and Settings. Live, Workouts, Breathe and Intervals are in the quick-action sheet; Test Centre, Automations, Siri & Shortcuts
+  and Power saving are under Settings > Tools.
+- **One Insights screen.** Journal, What moves you, Intelligence and Reports (Highlights, Healthspan, Monthly report, Journal impact) are sections of
+  it. The PaceForge tab's Insights segment is the same screen with PaceForge's Training section first. The streak chip on Today still opens Highlights.
+- **One Stress screen, one Health screen, one Data screen.** The Stress monitor and PaceForge's Health monitor are the top of Stress and Health; the eight data
+  rows (Data Sources, Apple Health, Mi Band, Fused, Backup & Sync, PaceForge sync, Shortcuts Export, Limitations) are sections of Data.
+- **Charge, Effort and Rest** open one detail: the Effort breakdown is its foot, and the Rest card's sleep link switches to the Sleep tab.
+- **One Today.** The classic layout and the Today Coach card are gone on iPhone; the centre button is NOOP Coach (PaceForge's Coach is its own segment).
+- **Daily movement** card on PaceForge Today (steps against your usual range, Garmin intensity minutes, last 7 days) once PaceForge publishes it.
+- The streak chip no longer disappears when the top bar is full; it sits on its own line.
+- Nothing was removed from the scores: NOOP's and PaceForge's numbers stay side by side and labelled, never merged.
+
 ## 12.0.0: Today your way, heart rate any app can read, and Italian (all platforms)
 
 A major release about choice and about honesty. Today can be drawn two different ways, a WHOOP 4.0 can
