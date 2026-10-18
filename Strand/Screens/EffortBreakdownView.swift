@@ -41,6 +41,9 @@ struct EffortBreakdownView: View {
     /// True when the Effort detail screen hosts this view in its own column: no scaffold of its own, a section title instead.
     var embedded = false
 
+    // Explicit, because the stored properties here are private and that would make the memberwise initializer private too.
+    init(embedded: Bool = false) { self.embedded = embedded }
+
     private var effortScale: EffortScale { UnitPrefs.resolveEffortScale(effortScaleRaw) }
 
     var body: some View {

@@ -216,6 +216,9 @@ struct InsightsView: View {
     /// (the sections are the way across). The loads and the day-rollover handling are unchanged.
     var embedded = false
 
+    // Explicit, because the stored properties below are private and that would make the memberwise initializer private too.
+    init(embedded: Bool = false) { self.embedded = embedded }
+
     @ViewBuilder private var screenContent: some View {
         if !loaded {
             ComingSoon(what: "Reading your journal and outcomes…")

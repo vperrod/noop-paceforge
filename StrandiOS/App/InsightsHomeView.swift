@@ -63,26 +63,8 @@ struct InsightsSections: View {
     }
 
     private var chips: some View {
-        LazyVGrid(columns: [GridItem(.adaptive(minimum: 104), spacing: 8)], alignment: .leading, spacing: 8) {
-            ForEach(available) { section in
-                let isOn = section == shown
-                Button { selection = section } label: {
-                    Text(section.title)
-                        .lookCaps(12)
-                        .foregroundStyle(isOn ? NoopLook.textPrimary : NoopLook.textSecondary)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.8)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 34)
-                        .background(RoundedRectangle(cornerRadius: 9, style: .continuous)
-                            .fill(isOn ? NoopLook.segmentOn : NoopLook.segmentOff))
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityAddTraits(isOn ? [.isButton, .isSelected] : .isButton)
-                .accessibilityIdentifier("insights-section-\(section.rawValue)")
-            }
-        }
+        SectionChips(options: available, selection: Binding(get: { shown }, set: { selection = $0 }),
+                     idPrefix: "insights-section", id: { $0.rawValue }, title: { $0.title })
     }
 }
 
@@ -160,6 +142,8 @@ struct InsightsHomeView: View {
 struct PFInsightsHost: View {
     let snapshot: PFSnapshot
     @State private var section = InsightsSection.training
+
+    init(snapshot: PFSnapshot) { self.snapshot = snapshot }
 
     var body: some View {
         InsightsSections(snapshot: snapshot, selection: $section)

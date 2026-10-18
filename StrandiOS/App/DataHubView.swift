@@ -2,55 +2,60 @@
 import SwiftUI
 import StrandDesign
 
-/// The one Data screen: where NOOP's numbers come from and where they go. It replaces eight rows of the More list (Your Data Fused,
-/// Apple Health, Mi Band, Data Sources, Backup & Sync, Shortcuts Export, PaceForge sync, NOOP Limitations); each opens the same
-/// screen it always did, one tap from here.
+/// The one Data screen: where NOOP's numbers come from and where they go. Eight rows of the old More list are sections of it (Data
+/// Sources, Apple Health, Mi Band, Your Data Fused, Backup & Sync, PaceForge sync, Shortcuts Export, NOOP Limitations), each the
+/// content of the screen it replaces, drawn under the section chips (they hand their scaffold's scrolling to this screen).
 struct DataHubView: View {
-    private enum Route: Hashable {
-        case dataSources, appleHealth, miBand, fused
-        case backupSync, selfHostedPush, shortcutsExport
-        case limitations
+    enum Part: String, CaseIterable, Identifiable {
+        case sources, appleHealth, miBand, fused, backup, paceForge, shortcuts, limitations
 
-        @ViewBuilder var destination: some View {
+        var id: String { rawValue }
+
+        var title: String {
             switch self {
-            case .dataSources: DataSourcesView()
-            case .appleHealth: AppleHealthView()
-            case .miBand: XiaomiBandView()
-            case .fused: FusedRecordHost()
-            case .backupSync: BackupSyncView()
-            case .selfHostedPush: SelfHostedPushSettingsView()
-            case .shortcutsExport: ShortcutExportSettingsView()
-            case .limitations: NoopLimitationsView()
+            case .sources: return "Data Sources"
+            case .appleHealth: return "Apple Health"
+            case .miBand: return "Mi Band"
+            case .fused: return "Fused"
+            case .backup: return "Backup & Sync"
+            // PaceForge's one-way push of NOOP's metrics (NOOP's own numbers, sent as NOOP's, never merged with Garmin's).
+            case .paceForge: return "PaceForge sync"
+            // #155: HealthKit-free Apple Health path for sideloaded installs (a Siri Shortcut reads the opt-in drop file).
+            case .shortcuts: return "Shortcuts Export"
+            // The plain 4.0 vs 5.0/MG capability grid: what NOOP reads live off each strap.
+            case .limitations: return "Limitations"
             }
         }
+    }
+
+    @State private var section: Part
+
+    init(initial: Part = .sources) {
+        _section = State(initialValue: initial)
     }
 
     var body: some View {
         ScreenScaffold(title: "Data", subtitle: "Sources, devices, backup and sync",
                        topBackground: liquidScaffoldSky()) {
-            IndexSection("Sources and devices") {
-                IndexRow("Data Sources", "externaldrive.fill", Route.dataSources, id: "data-row-sources")
-                IndexRow("Apple Health", "heart.fill", Route.appleHealth, id: "data-row-applehealth")
-                IndexRow("Mi Band", "figure.walk.motion", Route.miBand, id: "data-row-miband")
-                IndexRow("Your Data, Fused", "square.stack.3d.up.fill", Route.fused, id: "data-row-fused")
-            }
-            IndexSection("Backup and sync") {
-                IndexRow("Backup & Sync", "externaldrive.fill.badge.icloud", Route.backupSync, id: "data-row-backup")
-                // PaceForge's one-way push of NOOP's metrics (NOOP's own numbers, sent as NOOP's, never merged with Garmin's).
-                IndexRow("PaceForge sync", "arrow.left.arrow.right.circle.fill", Route.selfHostedPush, id: "data-row-paceforge-sync")
-                // #155: HealthKit-free Apple Health path for sideloaded installs (Siri Shortcut reads the opt-in drop file).
-                IndexRow("Shortcuts Export", "square.and.arrow.up.fill", Route.shortcutsExport, id: "data-row-shortcuts")
-            }
-            IndexSection("About the data") {
-                // The plain 4.0 vs 5.0/MG capability grid: what NOOP reads live off each strap.
-                IndexRow("NOOP Limitations", "list.bullet.rectangle", Route.limitations, id: "data-row-limitations")
+            VStack(alignment: .leading, spacing: 16) {
+                SectionChips(options: Part.allCases, selection: $section, idPrefix: "data-section",
+                             id: { $0.rawValue }, title: { $0.title })
+                content
+                    .environment(\.screenScaffoldEmbedded, true)
             }
         }
-        .navigationDestination(for: Route.self) { route in
-            route.destination
-                .background(StrandPalette.surfaceBase.ignoresSafeArea())
-                .navigationBarTitleDisplayMode(.inline)
-                .toolbarBackground(.hidden, for: .navigationBar)
+    }
+
+    @ViewBuilder private var content: some View {
+        switch section {
+        case .sources: DataSourcesView()
+        case .appleHealth: AppleHealthView()
+        case .miBand: XiaomiBandView()
+        case .fused: FusedRecordHost()
+        case .backup: BackupSyncView()
+        case .paceForge: SelfHostedPushSettingsView()
+        case .shortcuts: ShortcutExportSettingsView()
+        case .limitations: NoopLimitationsView()
         }
     }
 }

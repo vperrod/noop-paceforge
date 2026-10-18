@@ -38,7 +38,18 @@ struct ScreenScaffold<Content: View, Trailing: View>: View {
     /// non-tab screen keep their exact prior scroll behaviour.
     @Environment(\.scrollToTopSignal) private var scrollToTopSignal
 
+    /// See `EnvironmentValues.screenScaffoldEmbedded`.
+    @Environment(\.screenScaffoldEmbedded) private var isEmbedded
+
     var body: some View {
+        if isEmbedded {
+            column
+        } else {
+            scrollingBody
+        }
+    }
+
+    private var scrollingBody: some View {
         ScrollViewReader { proxy in
         ScrollView {
             // Scroll-to-top anchor (#198 follow-up): a zero-height marker pinned above the content so an
@@ -269,5 +280,19 @@ extension EnvironmentValues {
     var scrollToTopSignal: Int {
         get { self[ScrollToTopSignalKey.self] }
         set { self[ScrollToTopSignalKey.self] = newValue }
+    }
+}
+
+private struct ScreenScaffoldEmbeddedKey: EnvironmentKey {
+    static let defaultValue = false
+}
+
+extension EnvironmentValues {
+    /// True under a screen that hosts other screens as sections (the iPhone Data screen). A `ScreenScaffold` then draws only its
+    /// header and content column: the host already owns the scroll view, the backdrop and the refresh, and two nested scroll views
+    /// would fight over the gesture. Default false, so every screen that is not hosted behaves exactly as before.
+    var screenScaffoldEmbedded: Bool {
+        get { self[ScreenScaffoldEmbeddedKey.self] }
+        set { self[ScreenScaffoldEmbeddedKey.self] = newValue }
     }
 }

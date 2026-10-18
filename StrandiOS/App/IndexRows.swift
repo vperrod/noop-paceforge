@@ -2,8 +2,8 @@
 import SwiftUI
 import StrandDesign
 
-// The list idiom shared by the More tab and the Data screen: an UPPERCASE overline over one grouped card of rows, each row a
-// navigation link that pushes a VALUE (so a re-tap of the tab can pop it off the bound path, #135/#198).
+// The list idiom of the More tab (an UPPERCASE overline over one grouped card of rows, each row a navigation link that pushes a VALUE,
+// so a re-tap of the tab can pop it off the bound path, #135/#198) and the section chips the Insights and Data screens switch with.
 
 /// One titled group: the overline, then the rows in a single grouped card with hairline dividers.
 struct IndexSection<Rows: View>: View {
@@ -69,6 +69,39 @@ struct IndexRow<Route: Hashable>: View {
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier(identifier)
+    }
+}
+
+/// The sections of a screen as a wrapping grid of chips, one selected. Every chip is on screen at once (no sideways scroll to hunt
+/// for one) and carries `<prefix>-<id>` as its identifier.
+struct SectionChips<Option: Hashable>: View {
+    let options: [Option]
+    @Binding var selection: Option
+    let idPrefix: String
+    let id: (Option) -> String
+    let title: (Option) -> String
+
+    var body: some View {
+        LazyVGrid(columns: [GridItem(.adaptive(minimum: 104), spacing: 8)], alignment: .leading, spacing: 8) {
+            ForEach(options, id: \.self) { option in
+                let isOn = option == selection
+                Button { selection = option } label: {
+                    Text(title(option))
+                        .lookCaps(12)
+                        .foregroundStyle(isOn ? NoopLook.textPrimary : NoopLook.textSecondary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.75)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 34)
+                        .background(RoundedRectangle(cornerRadius: 9, style: .continuous)
+                            .fill(isOn ? NoopLook.segmentOn : NoopLook.segmentOff))
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityAddTraits(isOn ? [.isButton, .isSelected] : .isButton)
+                .accessibilityIdentifier("\(idPrefix)-\(id(option))")
+            }
+        }
     }
 }
 #endif

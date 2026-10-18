@@ -40,6 +40,9 @@ struct InsightsHubView: View {
     /// True when the unified Insights screen hosts this one as a section: no scaffold, no title.
     var embedded = false
 
+    // Explicit, because the stored properties here are private and that would make the memberwise initializer private too.
+    init(embedded: Bool = false) { self.embedded = embedded }
+
     @ViewBuilder private var screenContent: some View {
         if !model.loaded {
             ComingSoon(what: "Reading your journal and outcomes…")
