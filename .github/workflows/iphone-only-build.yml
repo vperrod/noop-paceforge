@@ -2,6 +2,11 @@ name: NOOP iPhone IPA
 
 on:
   workflow_dispatch:
+    inputs:
+      publish:
+        description: "false only builds and verifies the IPA (compile check) without creating or updating a release."
+        required: false
+        default: "true"
 
 permissions:
   contents: write
@@ -37,6 +42,7 @@ jobs:
       - name: Verify, package, and publish the iPhone IPA
         env:
           GH_TOKEN: ${{ github.token }}
+          PUBLISH: ${{ inputs.publish }}
         run: |
           set -euo pipefail
           APP="build/derived/Build/Products/Release-iphoneos/NOOP.app"
@@ -70,6 +76,11 @@ jobs:
           IPA="$GITHUB_WORKSPACE/NOOP-v${VERSION}-b${BUILD}.ipa"
           (cd build/ipa && zip -qry "$IPA" Payload)
           unzip -t "$IPA"
+
+          if [ "${PUBLISH}" != "true" ]; then
+            echo "publish=false: built and packaged $IPA, no release created"
+            exit 0
+          fi
 
           TAG="noop-ios-v${VERSION}-b${BUILD}"
           TITLE="NOOP iPhone v${VERSION} build ${BUILD}"
