@@ -549,7 +549,7 @@ public enum WorkoutDetector {
             let avg = bpms.reduce(0, +) / Double(bpms.count)
             let peak = Int(bpms.max()!.rounded())
             let strain = StrainScorer.strain(hrSamples, maxHR: effMaxHR, restingHR: restHR,
-                                             method: effortMethod, sex: profile?.sex ?? "male")
+                                             method: effortMethod.workoutRecipe, sex: profile?.sex ?? "male")
 
             sessions.append(ExerciseSession(
                 start: effStart, end: end, avgHR: avg, peakHR: peak, strain: strain,

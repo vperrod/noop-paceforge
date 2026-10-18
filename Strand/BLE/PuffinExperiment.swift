@@ -104,8 +104,23 @@ enum PuffinExperiment {
 
     static var banisterEffortEnabled: Bool { UserDefaults.standard.bool(forKey: banisterEffortKey) }
 
+    /// Effort v2 is the default: the day's Effort also counts all-day movement (heart rate above the resting
+    /// level, never steps; see `StrainScorer.Method.allDay`). This opt-in keeps the classic Edwards recipe
+    /// (time above half of the heart-rate reserve only). Banister, when chosen, still wins. Mirrors the
+    /// PaceForge server's `settings.effort_mode == "classic"`.
+    static let effortClassicKey = "noopEffortClassic"
+
+    static var effortClassicEnabled: Bool { UserDefaults.standard.bool(forKey: effortClassicKey) }
+
     /// The TRIMP recipe every Effort computation on this device should use.
-    static var effortMethod: StrainScorer.Method { banisterEffortEnabled ? .banister : .edwards }
+    static var effortMethod: StrainScorer.Method {
+        banisterEffortEnabled ? .banister : (effortClassicEnabled ? .edwards : .allDay)
+    }
+
+    /// The Effort version stored with every scored day (`metricSeries` `effort_version`).
+    static var effortVersion: Int {
+        effortMethod == .allDay ? StrainScorer.allDayEffortVersion : StrainScorer.classicEffortVersion
+    }
 
     /// Opt-in "Continuous HRV capture": hold the dense realtime HR stream armed even with no Live screen
     /// open, so the strap banks beat-to-beat R-R intervals 24/7 for far better overnight HRV/recovery/

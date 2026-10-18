@@ -290,7 +290,7 @@ struct LookScoreDetailView: View {
             return "Charge is how recovered you are, led by HRV against your own baseline."
         case .effort:
             if let text = effortReading?.progress.text, !text.isEmpty { return text }
-            return "Effort is the cardiovascular load of the day."
+            return "Effort is the cardiovascular load of the day. It includes all-day movement (heart rate above your resting level), not steps."
         case .rest:
             if let hours = LookSeries.latest(points("hours_vs_needed_pct"))?.value {
                 return "You slept \(Int(hours.rounded())) % of the sleep you needed. Rest also weighs efficiency, depth and timing."

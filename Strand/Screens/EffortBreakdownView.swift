@@ -182,11 +182,27 @@ struct EffortBreakdownView: View {
                         ? String(localized: "Today's stored resting heart rate.")
                         : String(localized: "A 60 bpm fallback, because no resting heart rate is stored for today yet."))
                 row("Reserve", "\(Int(b.reserve.rounded())) bpm", String(localized: "Max minus resting. Zones are shares of this."))
-                row("Method", b.method == .edwards ? "Edwards" : "Banister",
-                    b.method == .edwards
-                        ? String(localized: "Time in five zones above 50% of reserve, each weighted 1 to 5.")
-                        : String(localized: "Experimental: every minute above the sedentary floor counts, rising steeply with intensity."))
+                row("Method", Self.methodName(b.method), Self.methodLine(b.method))
             }
+        }
+    }
+
+    private static func methodName(_ method: StrainScorer.Method) -> String {
+        switch method {
+        case .edwards: return "Edwards"
+        case .banister: return "Banister"
+        case .allDay: return "All-day"
+        }
+    }
+
+    private static func methodLine(_ method: StrainScorer.Method) -> String {
+        switch method {
+        case .edwards:
+            return String(localized: "Time in five zones above 50% of reserve, each weighted 1 to 5.")
+        case .banister:
+            return String(localized: "Experimental: every minute above the sedentary floor counts, rising steeply with intensity.")
+        case .allDay:
+            return String(localized: "Zones 1 to 5 as before, plus easy movement above about 25% of reserve while awake. Includes all-day movement (heart rate above your resting level), not steps.")
         }
     }
 
@@ -203,7 +219,7 @@ struct EffortBreakdownView: View {
         return card {
             VStack(alignment: .leading, spacing: 10) {
                 sectionTitle("How it adds up")
-                if b.method == .edwards, let zones = b.zoneMinutes {
+                if b.method != .banister, let zones = b.zoneMinutes {
                     ForEach(1...5, id: \.self) { zone in
                         let pct = 40 + zone * 10
                         let low = b.restingHR + Double(pct) / 100.0 * b.reserve
@@ -216,10 +232,10 @@ struct EffortBreakdownView: View {
                         }
                     }
                     HStack {
-                        Text("Below 50%")
+                        Text(b.method == .allDay ? "Below 50% (above 25% adds a little)" : "Below 50%")
                             .font(StrandFont.footnote).foregroundStyle(StrandPalette.textTertiary)
                         Spacer()
-                        Text("\(duration(zones[0])) × 0")
+                        Text(b.method == .allDay ? duration(zones[0]) : "\(duration(zones[0])) × 0")
                             .font(StrandFont.captionNumber).foregroundStyle(StrandPalette.textTertiary)
                     }
                 }
@@ -244,6 +260,8 @@ struct EffortBreakdownView: View {
             return String(localized: "\(minutes) above 50% of your reserve (about \(bpm) bpm), weighted by zone, gave a training load (TRIMP) of \(t). That scores Effort \(effort).")
         case .banister:
             return String(localized: "\(minutes) above the sedentary floor (about \(bpm) bpm), weighted by intensity, gave a training load (TRIMP) of \(t). That scores Effort \(effort).")
+        case .allDay:
+            return String(localized: "\(minutes) of movement above about \(bpm) bpm, weighted by intensity, gave a training load (TRIMP) of \(t). That scores Effort \(effort). Effort includes all-day movement (heart rate above your resting level), not steps.")
         }
     }
 

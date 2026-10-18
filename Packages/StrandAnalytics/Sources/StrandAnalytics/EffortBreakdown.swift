@@ -34,7 +34,8 @@ public struct EffortBreakdown: Equatable, Sendable {
     public let restingHR: Double
     public let reserve: Double
     public let method: StrainScorer.Method
-    /// Share of the reserve above which a reading counts: 0.5 for Edwards, the sedentary floor for Banister.
+    /// Share of the reserve above which a reading counts: 0.5 for Edwards, the sedentary floor for Banister,
+    /// the all-day floor for Effort v2.
     public let thresholdFraction: Double
     public let thresholdBpm: Double
     /// nil when the window was refused (not enough data, or HRmax <= resting HR).
@@ -62,10 +63,16 @@ extension StrainScorer {
                                  maxHR: Double? = nil,
                                  restingHR: Double = defaultRestingHR,
                                  method: Method = .edwards,
-                                 sex: String = "male") -> EffortBreakdown {
+                                 sex: String = "male",
+                                 sleepWindows: [(start: Int, end: Int)] = []) -> EffortBreakdown {
         let effMax = maxHR ?? Double(defaultMaxHR())
         let reserve = effMax - restingHR
-        let fraction = method == .edwards ? 0.5 : banisterSedentaryHRR
+        let fraction: Double
+        switch method {
+        case .edwards: fraction = 0.5
+        case .banister: fraction = banisterSedentaryHRR
+        case .allDay: fraction = allDayFloorHRR
+        }
         let enough = hasEnoughData(hr)
         let tss = hr.map { $0.ts }
         let first = tss.min()
@@ -84,19 +91,23 @@ extension StrainScorer {
 
         let durations = sampleDurationsMinutes(hr)
         let trimp = trimpFor(hr, restingHR: restingHR, hrReserve: reserve, durations: durations,
-                             method: method, sex: sex)
+                             method: method, sex: sex, sleepWindows: sleepWindows)
         let effort = trimpToStrain(trimp, denominator: logMapDenominator(method: method, sex: sex))
         let zones = zoneMinutes(hr, restingHR: restingHR, hrReserve: reserve, durations: durations)
 
         // The same per-sample test the TRIMP sums use: Edwards pays from zone 1 up, Banister pays when
         // the rate beats the sedentary floor, which is exactly when %HRR exceeds that floor.
-        func counted(_ bpm: Int) -> Bool {
+        func counted(_ bpm: Int, _ ts: Int) -> Bool {
             switch method {
             case .edwards:
                 return zoneWeight(Double(bpm), restingHR: restingHR, hrReserve: reserve) >= 1
             case .banister:
                 return pctHRR(Double(bpm), restingHR: restingHR, hrReserve: reserve) / 100.0
                     > banisterSedentaryHRR
+            case .allDay:
+                // Pays exactly when the all-day weight is positive, and never while asleep.
+                if !sleepWindows.isEmpty && inWindow(ts, sleepWindows) { return false }
+                return allDaySampleWeight(Double(bpm), restingHR: restingHR, hrReserve: reserve) > 0
             }
         }
 
@@ -110,7 +121,7 @@ extension StrainScorer {
             inRun = false
         }
         for i in hr.indices {
-            guard counted(hr[i].bpm) else { close(); continue }
+            guard counted(hr[i].bpm, hr[i].ts) else { close(); continue }
             // A dropout longer than one credited sample ends the run: it is not continuous effort.
             if inRun, i > 0, Double(hr[i].ts - hr[i - 1].ts) / 60.0 > maxSampleGapMin { close() }
             if !inRun {

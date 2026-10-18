@@ -1775,7 +1775,7 @@ final class HealthKitBridge: ObservableObject {
               samples.count >= effortMinimumSamples,
               last.ts - first.ts >= effortMinimumSpanSeconds else { return nil }
         return StrainScorer.strain(samples, maxHR: profile.hrMax,
-                                   method: PuffinExperiment.effortMethod,
+                                   method: PuffinExperiment.effortMethod.workoutRecipe,
                                    sex: profile.sex)
     }
 

@@ -62,6 +62,10 @@ struct SettingsView: View {
     /// [PuffinExperiment.banisterEffortKey].
     @AppStorage(PuffinExperiment.banisterEffortKey) private var banisterEffortEnabled = false
 
+    /// Effort v2 is the default (all-day movement counts). ON keeps the classic recipe: time above half of
+    /// your heart-rate reserve only. See [PuffinExperiment.effortClassicKey].
+    @AppStorage(PuffinExperiment.effortClassicKey) private var effortClassicEnabled = false
+
     /// Opt-in "Continuous HRV capture" (off by default) — holds the dense realtime stream armed 24/7 so
     /// the strap banks beat-to-beat R-R for better overnight HRV/recovery/sleep, at a battery cost.
     /// See [PuffinExperiment.keepRealtimeForDataKey].
@@ -1027,6 +1031,39 @@ struct SettingsView: View {
                     Task { await model.intelligence.analyzeRecent(); await model.repo.refresh() }
                 }
                 Text("Scores Effort on an exponential intensity curve (Banister TRIMP) instead of the default heart-rate zones (Edwards). The default earns nothing below half of your heart-rate reserve, so an hour of lifting — where hard sets average out against the rests — can score close to zero. The exponential curve has no floor and weights short, hard efforts far more heavily. Re-scores your history, and both scales reach the same maximum. Off by default.")
+                    .font(StrandFont.caption)
+                    .foregroundStyle(StrandPalette.textTertiary)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                // MARK: Effort v2 — all-day movement. The default; this row keeps the classic recipe selectable.
+                Divider().overlay(StrandPalette.hairline)
+
+                Toggle(isOn: $effortClassicEnabled) {
+                    Text("Effort (classic)")
+                        .font(StrandFont.subhead)
+                        .foregroundStyle(StrandPalette.textPrimary)
+                }
+                .toggleStyle(.switch)
+                .tint(StrandPalette.accent)
+                .onChangeCompat(of: effortClassicEnabled) { _ in
+                    // Same reason as the toggle above: the recipe changes stored Effort for every day, so
+                    // re-score the last 60 days now instead of leaving the old figures on screen.
+                    Task { await model.intelligence.recomputeEffort(); await model.repo.refresh() }
+                }
+                Text("Effort includes all-day movement (heart rate above your resting level), not steps. Turn this on to score Effort only from time above half of your heart-rate reserve, as earlier versions did. Re-scores your last 60 days. Off by default.")
+                    .font(StrandFont.caption)
+                    .foregroundStyle(StrandPalette.textTertiary)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                Button {
+                    Task { await model.intelligence.recomputeEffort(); await model.repo.refresh() }
+                } label: {
+                    Text("Recompute Effort (last 60 days)")
+                        .font(StrandFont.subhead)
+                        .foregroundStyle(StrandPalette.accent)
+                }
+                .buttonStyle(.plain)
+                Text("Days without recorded heart rate keep the figure they have. Each day stores which Effort version scored it.")
                     .font(StrandFont.caption)
                     .foregroundStyle(StrandPalette.textTertiary)
                     .fixedSize(horizontal: false, vertical: true)

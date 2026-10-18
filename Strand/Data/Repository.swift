@@ -3043,7 +3043,7 @@ final class Repository: ObservableObject {
                                                                       from: startTs, to: endTs,
                                                                       limit: 8000)) ?? []
                             strain = StrainScorer.strain(samples, maxHR: p.hrMax,
-                                                method: PuffinExperiment.effortMethod, sex: p.sex)
+                                                method: PuffinExperiment.effortMethod.workoutRecipe, sex: p.sex)
                         } else {
                             strain = nil
                         }

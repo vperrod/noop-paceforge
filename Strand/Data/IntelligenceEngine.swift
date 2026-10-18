@@ -755,6 +755,13 @@ final class IntelligenceEngine: ObservableObject {
         UserDefaults.standard.set(false, forKey: Self.timestampHealPendingKey)
     }
 
+    /// Re-score the last `days` (default 60) with the Effort recipe now in force, so older days pick up
+    /// Effort v2 (or go back to classic) and carry the new `effort_version`. Days with no raw heart rate keep
+    /// the figure they have: nothing is invented. Settings → Experiments → "Recompute Effort".
+    func recomputeEffort(days: Int = 60) async {
+        await analyzeRecent(maxDays: days, force: true)
+    }
+
     /// Compute on-device scores for each of the last `maxDays` that actually has raw HR data.
     /// Personal baselines (HRV / resting HR) are folded from the imported history, so even the first
     /// live night can be scored against your norm.
@@ -1043,6 +1050,9 @@ final class IntelligenceEngine: ObservableObject {
         // #1545: the Effort TRIMP recipe, read ONCE per pass. Global (same for every day), so it folds
         // into the config signature below rather than the per-day key.
         let effortMethodGlobal = PuffinExperiment.effortMethod
+        // Effort v2: every scored day carries the recipe version it was scored with, so a day keeps its v1
+        // figure until it is recomputed and the PaceForge server knows whether to rebuild it.
+        let effortVersionGlobal = PuffinExperiment.effortVersion
         let dayCycleMode = DayCycleMode.persisted(UserDefaults.standard.string(forKey: DayCycleMode.storageKey))
 
         // Zero the per-day probe counters so the line emitted after the steps phase describes THIS pass
@@ -2302,6 +2312,10 @@ final class IntelligenceEngine: ObservableObject {
             dailies.append(daily)
             if let rest = AnalyticsEngine.Rest.composite(daily: daily) {
                 restPoints.append(MetricPoint(day: daily.day, key: "sleep_performance", value: rest))
+            }
+            if daily.strain != nil {
+                restPoints.append(MetricPoint(day: daily.day, key: StrainScorer.effortVersionKey,
+                                              value: Double(effortVersionGlobal)))
             }
             if let onset = physiologicalSteps.onsetByWakeDay[daily.day] {
                 restPoints.append(MetricPoint(day: daily.day,
