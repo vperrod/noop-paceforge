@@ -62,23 +62,6 @@ struct RootTabView: View {
     /// a no-op). Threaded into each tab's root via `\.scrollToTopSignal`; ScreenScaffold / LiquidTodayView
     /// scroll to their top anchor when their tab's token changes.
     @State private var scrollTop: [Int] = Array(repeating: 0, count: 5)
-    /// Which More-tab groups are expanded (S2). Insights + Body stay open at rest; Data + App collapse to
-    /// just their header until tapped. Persisted (#860 item 2): the user's open/closed choice must SURVIVE
-    /// leaving and re-entering the More tab (and relaunch), not reset to the seed every visit. Backed by an
-    /// `@AppStorage` CSV string (keyed identically to the Android `MoreSectionPrefs`), bridged to a
-    /// `Set<String>` through `MoreSectionPrefs` so the section logic below is unchanged.
-    @AppStorage(MoreSectionPrefs.storageKey) private var expandedMoreSectionsCSV = MoreSectionPrefs.defaultCSV
-    private var expandedMoreSections: Set<String> { MoreSectionPrefs.decode(expandedMoreSectionsCSV) }
-
-    /// V8 liquid redesign is the default Today; the Settings toggle lets a user fall back to the classic
-    /// Today if they prefer it (keyed identically to the SettingsView toggle). Default ON.
-    @AppStorage("noop.liquidTodayEnabled") private var liquidTodayEnabled = true
-
-    /// The Today tab root, honouring the liquid/classic preference.
-    @ViewBuilder private var todayTabRoot: some View {
-        if liquidTodayEnabled { LiquidTodayView() } else { TodayView() }
-    }
-
     /// Native tab selection binding. SwiftUI sends taps on the already-selected item through the
     /// setter, which lets the system tab bar retain the app's refresh / pop-to-root / scroll-to-top
     /// convention without placing a custom hit-testing layer over the platform bar.
@@ -163,7 +146,7 @@ struct RootTabView: View {
         // its dynamic interaction with scrolling content automatically; older supported releases use
         // the corresponding system material and safe-area behaviour from the same TabView.
         TabView(selection: nativeTabSelection) {
-            tab(todayTabRoot, "Today", "square.grid.2x2", path: $tabPaths[0], scrollSignal: scrollTop[0]).tag(0)
+            tab(LiquidTodayView(), "Today", "square.grid.2x2", path: $tabPaths[0], scrollSignal: scrollTop[0]).tag(0)
             tab(TrendsView(), "Trends", "chart.line.uptrend.xyaxis", path: $tabPaths[1], scrollSignal: scrollTop[1]).tag(1)
             tab(SleepView(), "Sleep", "bed.double", path: $tabPaths[2], scrollSignal: scrollTop[2]).tag(2)
             // The PaceForge tab takes Coach's slot (tag 3) and is always present, whatever the Coach
@@ -285,8 +268,14 @@ struct RootTabView: View {
                 router.requestedDestination = nil
             case .journal:
                 // The #627 Today journal widget opens the journal through the quick-action Journal sheet
-                // (InsightsView), matching the FAB's "Log journal" action. Calm sheet easing.
+                // (the Insights screen on its Journal section), matching the "Log journal" action. Calm sheet easing.
                 withAnimation(Self.sheetEase) { quickAction = .journal }
+                router.requestedDestination = nil
+            case .sleep:
+                // Sleep is a tab: a link elsewhere switches to it (and leaves the tab it came from at its root) rather than
+                // pushing a second Sleep screen over that tab.
+                tabPaths[selectedTab] = NavigationPath()
+                withAnimation(.timingCurve(0.22, 1, 0.36, 1, duration: 0.24)) { selectedTab = 2 }
                 router.requestedDestination = nil
             case nil:
                 break
@@ -365,7 +354,7 @@ struct RootTabView: View {
         NavigationStack {
             Group {
                 switch dest {
-                case .insightsHub: InsightsHubView()
+                case .insightsHub: InsightsHomeView(initial: .moves)
                 case .labBook: LabBookView()
                 case .fusedRecord: FusedRecordHost()
                 case .rhythm: RhythmHost(onClose: { routedPillar = nil })
@@ -382,7 +371,9 @@ struct RootTabView: View {
                 case .liveSession: LiquidTodayView()
                 // .journal opens through the quick-action Journal sheet (handled above); this keeps the
                 // switch exhaustive and falls back to the journal's Insights host if it ever reaches here.
-                case .journal: InsightsView()
+                case .journal: InsightsHomeView(initial: .journal)
+                // .sleep switches to the Sleep tab (handled above); this keeps the switch exhaustive.
+                case .sleep: SleepView()
                 // .coach switches to the Coach tab (handled above — the morning-brief tap-through and the
                 // #1862 launcher both arrive that way, the launcher's question riding on
                 // `AICoachEngine.pendingPrompt`); this keeps the switch exhaustive and falls back to Coach if
@@ -426,16 +417,18 @@ struct RootTabView: View {
                     withAnimation(Self.sheetEase) { quickAction = picked }
                 }
             }
-            .presentationDetents([.height(344)])
+            .presentationDetents([.height(412)])
             .presentationDragIndicator(.hidden)
         case .live:
             quickScreen(LiveView())
         case .workout:
             quickScreen(WorkoutsView())
         case .journal:
-            quickScreen(InsightsView())
+            quickScreen(InsightsHomeView(initial: .journal))
         case .breathe:
             quickScreen(BreathingView())
+        case .intervals:
+            quickScreen(IntervalTimerView())
         }
     }
 
@@ -444,6 +437,8 @@ struct RootTabView: View {
     private func quickScreen<V: View>(_ view: V) -> some View {
         NavigationStack {
             view
+                // The Reports entries on the Insights screen push TabRoute values, which this sheet's own stack must resolve.
+                .tabRouteDestinations()
                 .background(StrandPalette.surfaceBase.ignoresSafeArea())
                 .navigationBarTitleDisplayMode(.inline)
                 // #1027: these screens draw a full-bleed liquid sky (ScreenScaffold topBackground) that runs
@@ -505,151 +500,57 @@ struct RootTabView: View {
         .tabItem { Label(title, systemImage: icon) }
     }
 
-    // The "More" tab is the app's catch-all index. It was a plain SwiftUI `List` with system large-title
-    // + system title-case section headers, so it didn't match any other page (which all use ScreenScaffold
-    // + SectionHeader's UPPERCASE overline + the 28pt section rhythm). Rebuilt on the shared page chrome:
-    // ScreenScaffold for the title1 "More" + subtitle, a `SectionHeader` overline per group, and the group's
-    // rows in a single grouped NoopCard with hairline dividers — the same row idiom Settings/Health use.
+    // The "More" tab is the app's index of everything that is not a tab. Eleven rows in three groups, all visible at rest: Insights
+    // (one screen with its sections, Reports among them), Explore and Compare; the body screens; and Data and Settings. Live, Workouts,
+    // Breathe and Intervals are in the quick-action sheet; Test Centre, Automations, Siri & Shortcuts and Power saving are in Settings;
+    // Fused, Apple Health, Mi Band, Data Sources, Backup & Sync, Shortcuts Export, PaceForge sync and NOOP Limitations are in Data.
     private func moreTab(path: Binding<NavigationPath>, scrollSignal: Int) -> some View {
         NavigationStack(path: path) {
-            ScreenScaffold(title: "More", subtitle: "Everything else, one tap away",
+            ScreenScaffold(title: "More", subtitle: "Everything else, two taps away",
                            onRefresh: { await repo.refresh() },
                            topBackground: liquidScaffoldSky()) {
-                moreSection("Insights") {
-                    MoreRow("What Moves You", "wand.and.sparkles", .insightsHub)
-                    MoreRow("Intelligence", "brain.head.profile", .intelligence)
-                    // K3: Coach promoted to a top-level tab — no longer listed under More.
-                    MoreRow("Insights", "lightbulb.fill", .insights)
-                    // Records and streaks, what helps and hurts the next morning's score, and the monthly report: PaceForge's
-                    // highlights, journal-impact and monthly-report documents in the look.
-                    MoreRow("Highlights", "star.fill", .highlights)
-                    MoreRow("Journal impact", "book.closed.fill", .journalImpact)
-                    MoreRow("Monthly report", "calendar", .monthlyReport)
-                    MoreRow("Explore", "square.grid.2x2.fill", .explore)
-                    MoreRow("Compare", "rectangle.split.2x1.fill", .compare)
+                IndexSection("Insights") {
+                    IndexRow("Insights", "lightbulb.fill", MoreDestination.insights, id: "more-row-insights")
+                    IndexRow("Explore", "square.grid.2x2.fill", MoreDestination.explore, id: "more-row-explore")
+                    IndexRow("Compare", "rectangle.split.2x1.fill", MoreDestination.compare, id: "more-row-compare")
                 }
-                moreSection("Body") {
-                    MoreRow("Live", "waveform.path.ecg", .live)
-                    MoreRow("Workouts", "figure.run", .workouts)
-                    MoreRow("Lift Log", "dumbbell.fill", .liftLog)
-                    MoreRow("Health", "heart.text.square.fill", .health)
-                    MoreRow("Healthspan", "hourglass", .healthspan)
-                    MoreRow("Lab Book", "books.vertical.fill", .labBook)
-                    MoreRow("Stress", "bolt.heart.fill", .stress)
-                    MoreRow("Stress monitor", "gauge.with.dots.needle.50percent", .stressMonitor)
-                    MoreRow("Breathe", "wind", .breathe)
-                    MoreRow("Intervals", "timer", .intervals)
-                    // Experimental beat-to-beat regularity visualization — self-gates on its own consent.
-                    MoreRow("Rhythm", "waveform.path", .rhythm)
+                IndexSection("Body") {
+                    IndexRow("Lift Log", "dumbbell.fill", MoreDestination.liftLog, id: "more-row-liftlog")
+                    IndexRow("Health", "heart.text.square.fill", MoreDestination.health, id: "more-row-health")
+                    IndexRow("Stress", "bolt.heart.fill", MoreDestination.stress, id: "more-row-stress")
+                    IndexRow("Lab Book", "books.vertical.fill", MoreDestination.labBook, id: "more-row-labbook")
+                    // Experimental beat-to-beat regularity visualization: self-gates on its own consent.
+                    IndexRow("Rhythm", "waveform.path", MoreDestination.rhythm, id: "more-row-rhythm")
+                    // #805/#811: Alarms is its own row (the single "Alarms" entry the v7.3.1 #766 consolidation made), routed to
+                    // SmartAlarmView, the cross-platform surface. Notifications is macOS-only (it picks which Mac apps tap your
+                    // wrist via NSWorkspace); iPhone's wrist-alert controls are on the Automations screen, now inside Settings.
+                    IndexRow("Alarms", "alarm.fill", MoreDestination.alarms, id: "more-row-alarms")
                 }
-                moreSection("Data") {
-                    MoreRow("Your Data, Fused", "square.stack.3d.up.fill", .fusedRecord)
-                    MoreRow("Apple Health", "heart.fill", .appleHealth)
-                    MoreRow("Mi Band", "figure.walk.motion", .miBand)
-                    MoreRow("Data Sources", "externaldrive.fill", .dataSources)
-                    MoreRow("Backup & Sync", "externaldrive.fill.badge.icloud", .backupSync)
-                    // #155: HealthKit-free Apple Health path for sideloaded installs (Siri Shortcut
-                    // reads the opt-in Documents/noop_sync.txt drop file).
-                    MoreRow("Shortcuts Export", "square.and.arrow.up.fill", .shortcutsExport)
-                    MoreRow("PaceForge sync", "arrow.left.arrow.right.circle.fill", .selfHostedPush)
-                    // The plain 4.0 vs 5.0/MG capability grid — what NOOP reads live off each strap.
-                    MoreRow("NOOP Limitations", "list.bullet.rectangle", .noopLimitations)
-                }
-                moreSection("App") {
-                    // #805/#811: the v7.3.1 #766 alarm consolidation moved Smart Alarm under a single
-                    // "Alarms" sidebar entry (RootView .smartAlarm) but the regression dropped the row
-                    // from the iPhone More list, leaving Alarms unreachable on iPhone. Restore it here
-                    // (route to SmartAlarmView, the cross-platform iOS/macOS surface).
-                    //
-                    // Notifications (RootView .notifications) is deliberately NOT added: that screen is
-                    // macOS-only (it picks which Mac apps tap your wrist via NSWorkspace, imports AppKit,
-                    // and project.yml excludes Screens/NotificationSettingsView.swift from the iOS target),
-                    // so it can't compile or apply on iPhone. iPhone's wrist-alert controls live on the
-                    // Automations screen instead. Its absence from the iPhone More list is correct.
-                    MoreRow("Alarms", "alarm.fill", .alarms)
-                    MoreRow("Automations", "wand.and.stars", .automations)
-                    // The Test Centre (the diagnostics + bug-report hub) gets a first-class home here, not
-                    // just buried in Settings, so the feedback loop is one tap from the More tab.
-                    MoreRow("Test Centre", "stethoscope", .testCentre)
-                    MoreRow("Siri & Shortcuts", "mic.fill", .siriShortcuts)
-                    // #477 lives here rather than inside Settings: the strap-battery levers are the
-                    // ones people reach for when a strap is running down, so they get their own row.
-                    MoreRow("Power saving", "battery.25", .powerSaving)
-                    MoreRow("Settings", "gearshape.fill", .settings)
+                IndexSection("App") {
+                    IndexRow("Data", "externaldrive.fill", MoreDestination.data, id: "more-row-data")
+                    IndexRow("Settings", "gearshape.fill", MoreDestination.settings, id: "more-row-settings")
                 }
             }
-            // The rows push MoreDestination VALUES so a re-tap of the More tab can pop them off the
-            // bound path (#135/#198). Each destination keeps the per-screen wrapper the rows used to
-            // apply inline (surfaceBase background, inline title bar, hidden bar background):
-            // #1027 — a pushed sky-scaffold screen (Live, Workouts, Health, …) draws a full-bleed liquid
-            // sky; an opaque surfaceBase nav-bar band sat over it and clipped the top on scroll. A hidden
-            // bar background keeps the sky edge-to-edge. On the flat (no-sky) screens this is visually
-            // identical at rest — the destination's own surfaceBase background shows through the bar.
+            // The rows push MoreDestination VALUES so a re-tap of the More tab can pop them off the bound path (#135/#198).
+            // Each destination keeps the per-screen wrapper the rows used to apply inline (surfaceBase background, inline title
+            // bar, hidden bar background): #1027, a pushed sky-scaffold screen draws a full-bleed liquid sky, and an opaque
+            // surfaceBase nav-bar band sat over it and clipped the top on scroll. The screen's own container identifier is
+            // `screen-<destination>`, which the navigation tests look for.
             .navigationDestination(for: MoreDestination.self) { route in
                 route.destination
+                    .containerIdentifier("screen-\(route.rawValue)")
                     .background(StrandPalette.surfaceBase.ignoresSafeArea())
                     .navigationBarTitleDisplayMode(.inline)
                     .toolbarBackground(.hidden, for: .navigationBar)
             }
+            // Screens pushed from inside a More destination (the Reports entries, the streak chip's Highlights) push TabRoute
+            // values, which this stack must resolve like every tab's.
+            .tabRouteDestinations()
         }
         // Scroll the More index to the top on an at-root re-tap (#198 follow-up); read by its ScreenScaffold.
         .environment(\.scrollToTopSignal, scrollSignal)
         .toolbar(lookTabBar ? .hidden : .automatic, for: .tabBar)
         .tabItem { Label("More", systemImage: "ellipsis") }
-    }
-
-    /// One titled, COLLAPSIBLE group in the More index (S2): the app's overline (UPPERCASE) becomes a
-    /// tappable header with a disclosure chevron; tapping it expands/collapses the grouped rows card.
-    /// Insights + Body default open, Data + App default collapsed (the `expandedMoreSections` seed) so the
-    /// list is shorter at rest without dropping a single row. The grouped card is unchanged: a single
-    /// `NoopCard` holding a `VStack(spacing: 0)` whose `MoreRow`s draw their own hairlines, clipped to the
-    /// card's rounded shape so the last divider is trimmed inside the corners. Same idiom Settings/Health use.
-    @ViewBuilder
-    private func moreSection<Rows: View>(_ title: String,
-                                         @ViewBuilder rows: @escaping () -> Rows) -> some View {
-        let isOpen = expandedMoreSections.contains(title)
-        VStack(alignment: .leading, spacing: 10) {
-            // Tappable overline header: the same ALL-CAPS tracked label as before, now with a trailing
-            // chevron that rotates open. A plain Button (not a SwiftUI DisclosureGroup) so the header keeps
-            // the exact strandOverline styling and the card layout below stays identical to before.
-            Button {
-                withAnimation(.timingCurve(0.22, 1, 0.36, 1, duration: 0.24)) {
-                    // Persist the toggle via the CSV-backed @AppStorage so the choice survives leaving and
-                    // re-entering the More tab and relaunch (#860 item 2). MoreSectionPrefs owns encode/decode.
-                    var open = expandedMoreSections
-                    if isOpen { open.remove(title) } else { open.insert(title) }
-                    expandedMoreSectionsCSV = MoreSectionPrefs.encode(open)
-                }
-            } label: {
-                HStack(spacing: 6) {
-                    Text(title).strandOverline()
-                    Spacer(minLength: 8)
-                    Image(systemName: "chevron.down")
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(StrandPalette.textTertiary)
-                        .rotationEffect(.degrees(isOpen ? 0 : -90))
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel(Text(title))
-            .accessibilityValue(Text(isOpen ? String(localized: "Expanded") : String(localized: "Collapsed")))
-            .accessibilityHint(Text(isOpen ? String(localized: "Double tap to collapse") : String(localized: "Double tap to expand")))
-
-            if isOpen {
-                // Zero internal padding so each MoreRow owns its own comfortable insets + height; the rows
-                // supply their own hairline separators (drawn at the bottom of every row but the last via the
-                // divider overlay) so the group reads as one continuous grouped list, matching Settings/Health.
-                NoopCard(padding: 0) {
-                    VStack(spacing: 0) { rows() }
-                        // Clip the rows column to the card's rounded shape so the last row's bottom hairline is
-                        // trimmed inside the corners (the card draws its surface in the BACKGROUND and doesn't
-                        // clip content itself, so without this the final divider would run past the rounded edge).
-                        .clipShape(RoundedRectangle(cornerRadius: NoopMetrics.cardRadius, style: .continuous))
-                }
-            }
-        }
     }
 }
 
@@ -657,99 +558,25 @@ struct RootTabView: View {
 /// (#198): a closure-destination push would bypass the path and be un-poppable on tab re-tap. The
 /// per-screen chrome the old inline links applied lives at the single `navigationDestination(for:)`
 /// registration in `moreTab`.
-private enum MoreDestination: Hashable {
-    case insightsHub, intelligence, coach, insights, explore, compare
-    case live, workouts, liftLog, health, labBook, stress, breathe, intervals, rhythm
-    case highlights, journalImpact, monthlyReport, healthspan, stressMonitor
-    case fusedRecord, appleHealth, miBand, dataSources, backupSync, shortcutsExport, selfHostedPush, noopLimitations
-    case alarms, automations, testCentre, siriShortcuts, powerSaving, settings
+private enum MoreDestination: String, Hashable {
+    case insights, explore, compare
+    case liftLog, health, stress, labBook, rhythm, alarms
+    case data, settings
 
     @ViewBuilder var destination: some View {
         switch self {
-        case .insightsHub:     InsightsHubView()
-        case .intelligence:    IntelligenceView()
-        case .coach:           CoachView()
-        case .insights:        InsightsView()
+        case .insights:        InsightsHomeView()
         case .explore:         MetricExplorerView()
         case .compare:         CompareView()
-        case .live:            LiveView()
-        case .workouts:        WorkoutsView()
         case .liftLog:         LiftLogView()
         case .health:          HealthView()
-        case .labBook:         LabBookView()
         case .stress:          StressView()
-        case .highlights:      PFHighlightsScreen()
-        case .journalImpact:   PFJournalImpactScreen()
-        case .monthlyReport:   PFMonthlyReportScreen()
-        case .healthspan:      PFHealthspanScreen()
-        case .stressMonitor:   LookStressMonitorScreen()
-        case .breathe:         BreathingView()
-        case .intervals:       IntervalTimerView()
+        case .labBook:         LabBookView()
         case .rhythm:          RhythmHost()
-        case .fusedRecord:     FusedRecordHost()
-        case .appleHealth:     AppleHealthView()
-        case .miBand:          XiaomiBandView()
-        case .dataSources:     DataSourcesView()
-        case .noopLimitations: NoopLimitationsView()
-        case .backupSync:      BackupSyncView()
-        case .shortcutsExport: ShortcutExportSettingsView()
-        case .selfHostedPush: SelfHostedPushSettingsView()
         case .alarms:          SmartAlarmView()
-        case .automations:     AutomationsView()
-        case .testCentre:      TestCentreView()
-        case .siriShortcuts:   SiriShortcutsSettingsView()
-        case .powerSaving:     PowerSavingView()
+        case .data:            DataHubView()
         case .settings:        SettingsView()
         }
-    }
-}
-
-
-/// One tappable destination row in the More index. A `NavigationLink` whose label is the standard app row:
-/// the SF Symbol icon tinted `StrandPalette.accent`, the title in the body text colour, a `Spacer`, and a
-/// trailing `chevron.right` in `textTertiary`. ~44pt min height + the card's row insets keep the whole row a
-/// comfortable tap target.
-private struct MoreRow: View {
-    let title: LocalizedStringKey
-    let icon: String
-    let route: MoreDestination
-
-    init(_ title: LocalizedStringKey, _ icon: String, _ route: MoreDestination) {
-        self.title = title; self.icon = icon; self.route = route
-    }
-
-    var body: some View {
-        NavigationLink(value: route) {
-            HStack(spacing: 14) {
-                // Pin the icon to the accent explicitly. A plain inherited tint gets re-resolved by iOS to
-                // its default blue a beat after first render — so the icons flashed green→blue (#184). The
-                // explicit foregroundStyle on the image overrides that; the title keeps the primary colour.
-                Image(systemName: icon)
-                    .font(.system(size: 17, weight: .regular))
-                    .foregroundStyle(StrandPalette.accent)
-                    .frame(width: 26, alignment: .center)
-                Text(title)
-                    .font(StrandFont.body)
-                    .foregroundStyle(StrandPalette.textPrimary)
-                Spacer(minLength: 8)
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(StrandPalette.textTertiary)
-            }
-            .padding(.horizontal, 16)
-            .frame(minHeight: 44)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .contentShape(Rectangle())
-            // Hairline under every row; the grouped container clips the last one's overflow so the bottom
-            // edge stays clean (the divider sits inside the card's rounded corners).
-            .overlay(alignment: .bottom) {
-                Rectangle()
-                    .fill(StrandPalette.hairline)
-                    .frame(height: 1)
-                    .padding(.leading, 16)
-            }
-        }
-        .buttonStyle(.plain)
     }
 }
 
@@ -758,7 +585,7 @@ private struct MoreRow: View {
 /// The destinations the centre FAB can present. `.menu` is the action sheet itself; the rest
 /// route to existing screens. `Identifiable` so it drives `.sheet(item:)`.
 private enum QuickAction: Int, Identifiable {
-    case menu, live, workout, journal, breathe
+    case menu, live, workout, journal, breathe, intervals
     var id: Int { rawValue }
 }
 
@@ -786,10 +613,11 @@ private struct QuickActionSheet: View {
                 .padding(.bottom, 10)
 
             VStack(spacing: 8) {
-                row("Live HR", icon: "waveform.path.ecg", tint: StrandPalette.metricRose) { onPick(.live) }
-                row("Start workout", icon: "figure.run", tint: StrandPalette.effortColor) { onPick(.workout) }
-                row("Log journal", icon: "square.and.pencil", tint: StrandPalette.accent) { onPick(.journal) }
-                row("Breathe", icon: "wind", tint: StrandPalette.restColor) { onPick(.breathe) }
+                row("Live HR", icon: "waveform.path.ecg", tint: StrandPalette.metricRose, id: "live") { onPick(.live) }
+                row("Start workout", icon: "figure.run", tint: StrandPalette.effortColor, id: "workout") { onPick(.workout) }
+                row("Log journal", icon: "square.and.pencil", tint: StrandPalette.accent, id: "journal") { onPick(.journal) }
+                row("Breathe", icon: "wind", tint: StrandPalette.restColor, id: "breathe") { onPick(.breathe) }
+                row("Intervals", icon: "timer", tint: StrandPalette.metricCyan, id: "intervals") { onPick(.intervals) }
             }
             .padding(.horizontal, 16)
 
@@ -809,7 +637,7 @@ private struct QuickActionSheet: View {
     }
 
     /// One flat action row: hued line-icon tile + title, inset surface, hairline border.
-    private func row(_ title: LocalizedStringKey, icon: String, tint: Color, action: @escaping () -> Void) -> some View {
+    private func row(_ title: LocalizedStringKey, icon: String, tint: Color, id: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             HStack(spacing: 13) {
                 Image(systemName: icon)
@@ -831,6 +659,7 @@ private struct QuickActionSheet: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .accessibilityIdentifier("quick-action-\(id)")
     }
 }
 

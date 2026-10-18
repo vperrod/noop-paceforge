@@ -602,12 +602,8 @@ enum DemoScreens {
         let args = CommandLine.arguments
         guard let i = args.firstIndex(of: "--demo-screen"), i + 1 < args.count else { return nil }
         switch args[i + 1].lowercased() {
-        case "today":    return AnyView(TodayView())
-        // The DEFAULT iOS Today (`noop.liquidTodayEnabled` ships true), so it needs its own entry — plain
-        // "today" renders the CLASSIC screen, which is exactly the screen whose behaviour Liquid was found
-        // to have diverged from. Without this, the default Today was the one screen the harness could not
-        // capture.
-        case "liquidtoday": return AnyView(LiquidTodayView())
+        // The iPhone has one Today (the classic layout is gone from iOS), so both names render it.
+        case "today", "liquidtoday": return AnyView(LiquidTodayView())
         // Every component of the dark look with made-up numbers, one section each (LookComponentsUITests).
         case "looklab":  return AnyView(LookGalleryScreen())
         // The Charge / Effort / Rest detail screens and the sleep planner in the look (LookScreensUITests).
@@ -622,7 +618,8 @@ enum DemoScreens {
         case "healthspan": return AnyView(PFHealthspanScreen())
         case "journalimpact": return AnyView(PFJournalImpactScreen())
         case "monthlyreport": return AnyView(PFMonthlyReportScreen())
-        case "stressmonitor": return AnyView(LookStressMonitorScreen())
+        // The Stress monitor is the top of the one Stress screen.
+        case "stressmonitor": return AnyView(StressView())
         case "dashboardeditor": return AnyView(LookDashboardEditor(initial: MyDashboardPrefs.defaultIDs, onSave: { _ in }, onCancel: {}))
         case "trends":   return AnyView(TrendsView())
         case "sleep":    return AnyView(SleepView())
@@ -630,7 +627,12 @@ enum DemoScreens {
         case "stress":   return AnyView(StressView())
         case "workouts": return AnyView(WorkoutsView())
         case "health":   return AnyView(HealthView())
-        case "insights": return AnyView(InsightsView())
+        // The one Insights screen, on its sections: journal (the default), what moves you, Intelligence, reports.
+        case "insights": return AnyView(InsightsHomeView())
+        case "insightsmoves": return AnyView(InsightsHomeView(initial: .moves))
+        case "insightsintelligence": return AnyView(InsightsHomeView(initial: .intelligence))
+        case "insightsreports": return AnyView(InsightsHomeView(initial: .reports))
+        case "data":     return AnyView(DataHubView())
         case "explore":  return AnyView(MetricExplorerView())
         case "compare":  return AnyView(CompareView())
         case "settings": return AnyView(SettingsView())

@@ -82,7 +82,8 @@ public struct FloatingTabBar: View {
             .frame(width: 64, height: NoopLook.Metric.tabBarHeight)
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("Coach")
+        // NOOP's own Coach, so it is told apart from PaceForge's Coach segment in the PaceForge tab.
+        .accessibilityLabel("NOOP Coach")
         .accessibilityIdentifier("look-coach")
     }
 }

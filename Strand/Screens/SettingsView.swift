@@ -277,6 +277,7 @@ struct SettingsView: View {
                 streakCard.staggeredAppear(index: 4)
                 featuresCard.staggeredAppear(index: 5)
                 #if os(iOS)
+                toolsCard.staggeredAppear(index: 5)
                 syncCard.staggeredAppear(index: 6)
                 #endif
 
@@ -291,7 +292,9 @@ struct SettingsView: View {
                 ) {
                     recoveryCard
                     hrvCard   // #518: Continuous HRV capture + HRV window moved here out of the always-visible Strap card
-                    testCentreCard
+                    #if os(macOS)
+                    testCentreCard   // on iPhone the Test Centre is a row of the Tools card, which is not behind a disclosure
+                    #endif
                     experimentalCard
                     backupCard
                 }
@@ -1710,6 +1713,54 @@ struct SettingsView: View {
         }
     }
 
+    // MARK: - Tools (iPhone)
+
+    #if os(iOS)
+    /// The four screens that had a row each in the More list: Test Centre, Automations, Siri & Shortcuts and Power saving. Always
+    /// visible, so none of them sits behind the Advanced disclosure.
+    private var toolsCard: some View {
+        SettingsSection(
+            icon: "wrench.and.screwdriver.fill",
+            title: "Tools",
+            blurb: "Diagnostics, automations, Siri and power saving."
+        ) {
+            VStack(spacing: 0) {
+                toolRow("Test Centre", icon: "stethoscope", id: "settings-tool-testcentre") { TestCentreView() }
+                toolRow("Automations", icon: "wand.and.stars", id: "settings-tool-automations") { AutomationsView() }
+                toolRow("Siri & Shortcuts", icon: "mic.fill", id: "settings-tool-siri") { SiriShortcutsSettingsView() }
+                toolRow("Power saving", icon: "battery.25", id: "settings-tool-powersaving") { PowerSavingView() }
+            }
+        }
+    }
+
+    private func toolRow<Destination: View>(_ title: LocalizedStringKey, icon: String, id: String,
+                                            @ViewBuilder destination: @escaping () -> Destination) -> some View {
+        NavigationLink {
+            destination()
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: icon)
+                    .font(.system(size: 16, weight: .regular))
+                    .foregroundStyle(StrandPalette.accent)
+                    .frame(width: 24)
+                    .accessibilityHidden(true)
+                Text(title)
+                    .font(StrandFont.body)
+                    .foregroundStyle(StrandPalette.textPrimary)
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(StrandPalette.textTertiary)
+                    .accessibilityHidden(true)
+            }
+            .frame(minHeight: 44)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(LiquidPressStyle())
+        .accessibilityIdentifier(id)
+    }
+    #endif
+
     // MARK: - Features (opt-in trackers)
 
     /// Opt-in, manual-first feature toggles (default OFF). Hydration tracking gates the water-log card on
@@ -1925,7 +1976,9 @@ struct SettingsView: View {
     /// model — a 4.0 owner still needs the export to share decoded streams. The SpO2 candidate card is
     /// split out the same way (see `spo2CandidateCard`'s comment) — it is NOT WHOOP-5/MG-specific.
     @ViewBuilder private var experimentalCard: some View {
-        liquidTodayCard
+        #if os(macOS)
+        liquidTodayCard   // the iPhone has one Today; the classic layout is only a Mac fallback
+        #endif
         liveSessionsCard
         // WHOOP 5/MG protocol research now lives in Test Centre. Everyday Settings no longer carries
         // a second copy; the persisted keys and reversible disable actions remain unchanged there.
@@ -1936,7 +1989,8 @@ struct SettingsView: View {
     }
 
     /// Opt-in liquid Today redesign (default ON in this build). Off falls back to the
-    /// classic dashboard immediately, no rebuild. Same data either way.
+    /// classic dashboard immediately, no rebuild. Same data either way. Mac only: the iPhone always shows the liquid Today.
+    #if os(macOS)
     @AppStorage("noop.liquidTodayEnabled") private var liquidTodayEnabled = true
     private var liquidTodayCard: some View {
         SettingsSection(
@@ -1959,6 +2013,7 @@ struct SettingsView: View {
             }
         }
     }
+    #endif
 
     /// Live Sessions (beta) — the silent-guardian in-workout coach. Default ON (the entry itself is
     /// BETA-labelled on the Liquid Today); off removes the Start-session control entirely. Same key the
