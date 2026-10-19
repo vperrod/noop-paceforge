@@ -292,6 +292,20 @@ struct TrendsView: View {
         #endif
     }
 
+    /// What the heavy history cards below are built from.
+    private struct HistoryKey: Equatable {
+        let seq: Int
+        let dayCount: Int
+        let range: Int
+        let isDark: Bool
+        let locale: String
+    }
+
+    private var historyKey: HistoryKey {
+        HistoryKey(seq: repo.refreshSeq, dayCount: repo.days.count, range: range.rawValue,
+                   isDark: colorScheme == .dark, locale: locale.identifier)
+    }
+
     private var scaffold: some View {
         ScreenScaffold(title: "Trends", subtitle: "The thread of you over time.",
                        // PERF (scroll): lazy column — byte-identical layout (LazyVStack == eager VStack
@@ -333,9 +347,14 @@ struct TrendsView: View {
                         // Long-horizon training load (CTL/ATL/TSB). Uses the FULL history, not the
                         // range window — chronic load is inherently a 42-day horizon. Self-hides its
                         // chart behind an honest "needs N more days" state until enough history exists.
-                        TrainingLoadCard(days: repo.days)
+                        // Both rebuild a chart or a year of cells from the whole history, so they re-evaluate only when the
+                        // history, the range or the appearance changes, not on every unrelated publish of the repository or
+                        // the tab shell (these tabs stay alive behind the one on screen).
+                        MemoizedByKey(key: historyKey) { TrainingLoadCard(days: repo.days) }
+                            .equatable()
                             .staggeredAppear(index: 5)
-                        yearStrip
+                        MemoizedByKey(key: historyKey) { yearStrip }
+                            .equatable()
                             .staggeredAppear(index: 6)
                         exportReportRow
                             .staggeredAppear(index: 7)
@@ -907,3 +926,15 @@ private func previewRepo() -> Repository {
         .preferredColorScheme(.dark)
 }
 #endif
+
+/// Re-evaluates `content` only when `key` changes. Wrap it in `.equatable()`: SwiftUI then compares keys and skips the body
+/// when they match, however often the parent was evaluated. The content closure of the skipped pass is dropped, so everything
+/// the content reads has to be part of the key (or be observed by the content itself).
+private struct MemoizedByKey<Key: Equatable, Content: View>: View, Equatable {
+    let key: Key
+    let content: () -> Content
+
+    static func == (lhs: Self, rhs: Self) -> Bool { lhs.key == rhs.key }
+
+    var body: some View { content() }
+}

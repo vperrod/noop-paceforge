@@ -217,10 +217,11 @@ public struct PFSummary: Codable, Equatable {
 
     public static let fileName = "paceforge-summary.json"
 
-    private static var fileURL: URL? {
-        FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: WidgetSnapshot.suiteName)?
-            .appendingPathComponent(fileName)
-    }
+    /// Resolved once: `containerURL(forSecurityApplicationGroupIdentifier:)` is a synchronous round trip to the container
+    /// daemon, and the summary writers called it on every read and write from the main actor.
+    private static let fileURL: URL? = FileManager.default
+        .containerURL(forSecurityApplicationGroupIdentifier: WidgetSnapshot.suiteName)?
+        .appendingPathComponent(fileName)
 
     public static func load() -> PFSummary? {
         guard let url = fileURL, let data = try? Data(contentsOf: url) else { return nil }

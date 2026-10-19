@@ -197,14 +197,21 @@ enum PFMyDay {
 
     private static var cached: (stamp: Date?, today: String, loaded: Loaded)?
 
+    /// The build in flight, so callers that arrive while it runs share it (at launch Today, My Day and the widget writer each asked
+    /// for it before the first had cached, and each built the whole snapshot: 30 builds in one launch).
+    private static var building: (stamp: Date?, today: String, task: Task<Loaded?, Never>)?
+
     private static func loadSnapshot() async -> Loaded? {
         let today = PFAPI.todayISO
         let stamp = PFStore.savedAt(path: "api/state")
         if let cached, cached.stamp == stamp, cached.today == today, !PFAPI.isFixture { return cached.loaded }
+        if let building, building.stamp == stamp, building.today == today, !PFAPI.isFixture {
+            return await building.task.value
+        }
         // Read, parsed and built off the main thread: NOOP Today's My Day section asks for this whenever the saved documents
         // changed (every PaceForge refresh rewrites them), and on the main thread it stalled Today.
         let isFixture = PFAPI.isFixture
-        let built = await Task.detached(priority: .userInitiated) { () -> Loaded? in
+        let task = Task.detached(priority: .userInitiated) { () -> Loaded? in
             let bundle: PFRawBundle?
             if isFixture {
                 bundle = try? await PFAPI.fetchBundle()
@@ -215,7 +222,10 @@ enum PFMyDay {
                   let snapshot = NoopDiag.measure("myday.pf.build", { PFBuilder.snapshot(from: bundle, today: today) })
             else { return nil }
             return Loaded(snapshot: snapshot, planActivities: snapshot.activities.values.compactMap(planActivity))
-        }.value
+        }
+        building = (stamp, today, task)
+        let built = await task.value
+        if building?.stamp == stamp, building?.today == today { building = nil }
         guard let built else { return nil }
         cached = (stamp, today, built)
         return built

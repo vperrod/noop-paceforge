@@ -41,10 +41,11 @@ public struct MyDaySummary: Codable, Equatable {
     /// Past this the heart-rate window is mostly empty, and the widget asks the user to open NOOP.
     public static let staleAfter: TimeInterval = 6 * 60 * 60
 
-    private static var fileURL: URL? {
-        FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: WidgetSnapshot.suiteName)?
-            .appendingPathComponent(fileName)
-    }
+    /// Resolved once: `containerURL(forSecurityApplicationGroupIdentifier:)` is a synchronous round trip to the container
+    /// daemon, and the summary writers called it on every read and write from the main actor.
+    private static let fileURL: URL? = FileManager.default
+        .containerURL(forSecurityApplicationGroupIdentifier: WidgetSnapshot.suiteName)?
+        .appendingPathComponent(fileName)
 
     public static func load() -> MyDaySummary? {
         guard let url = fileURL, let data = try? Data(contentsOf: url) else { return nil }
