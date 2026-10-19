@@ -367,22 +367,44 @@ final class NoopDiagStore {
 
 // MARK: - Main-thread watchdog
 
-/// A background thread that asks the main thread to answer every `tick`. A late answer is a stall: recorded with how
-/// long it lasted and the section or screen it happened in. A stall still going after a second is written at once and
-/// again every second, so a watchdog kill leaves its last seconds on disk.
+/// Finds stalls of the main thread without sending it anything: an observer on the main run loop stamps the start of
+/// every chunk of work (timers, sources, a wake-up) and clears the stamp when the run loop goes to sleep. A background
+/// thread reads the stamp every `tick`; a chunk older than `threshold` is a stall, recorded with how long it lasted and
+/// the section or screen it happened in, with samples of the main thread's stack. A stall still going after a second is
+/// written at once and again every second, so a watchdog kill leaves its last seconds on disk. (Posting a ping to the
+/// main queue instead kept the app from ever looking idle to XCUITest.)
 final class MainThreadWatchdog {
     static let shared = MainThreadWatchdog()
 
-    private struct Pong {
-        var seq = 0
-        var at: UInt64 = 0
+    private struct Busy {
+        /// When the current chunk of main-thread work started; 0 while the run loop sleeps.
+        var since: UInt64 = 0
+        /// Bumped at every chunk, so the watcher can tell one long chunk from several short ones.
+        var chunk: UInt64 = 0
     }
 
-    private let pong = OSAllocatedUnfairLock(uncheckedState: Pong())
+    private let busy = OSAllocatedUnfairLock(uncheckedState: Busy())
     private var thread: Thread?
+    private var observer: CFRunLoopObserver?
 
+    /// On the main thread.
     func start(tick: TimeInterval, threshold: TimeInterval) {
         guard thread == nil else { return }
+        let lock = busy
+        let observer = CFRunLoopObserverCreateWithHandler(kCFAllocatorDefault, CFRunLoopActivity.allActivities.rawValue,
+                                                          true, Int.min) { _, activity in
+            let now = DispatchTime.now().uptimeNanoseconds
+            lock.withLockUnchecked { state in
+                if activity == .beforeWaiting || activity == .exit {
+                    state.since = 0
+                } else {
+                    state.since = now
+                    state.chunk &+= 1
+                }
+            }
+        }
+        CFRunLoopAddObserver(CFRunLoopGetMain(), observer, .commonModes)
+        self.observer = observer
         let thread = Thread { [weak self] in self?.loop(tick: tick, threshold: threshold) }
         thread.name = "app.noop.watchdog"
         thread.qualityOfService = .userInteractive
@@ -391,55 +413,49 @@ final class MainThreadWatchdog {
     }
 
     private func loop(tick: TimeInterval, threshold: TimeInterval) {
-        var seq = 0
+        // The stall being watched: its chunk, its start, how long it had lasted when last seen, where it was.
+        var watched: (chunk: UInt64, since: UInt64, lastMs: Double, labels: (screen: String, section: String?))?
+        var samples = 0
+        var lastTop: String?
+        var lastOngoingReport = 0.0
         while true {
-            seq += 1
-            let sent = DispatchTime.now().uptimeNanoseconds
-            let mySeq = seq
-            let lock = pong
-            DispatchQueue.main.async {
-                lock.withLockUnchecked { $0 = Pong(seq: mySeq, at: DispatchTime.now().uptimeNanoseconds) }
-            }
-            var lastOngoingReport = 0.0
-            var ongoingLabels: (screen: String, section: String?)?
-            var stallSamples = 0
-            var lastTop: String?
-            while true {
-                Thread.sleep(forTimeInterval: tick)
-                let answer = pong.withLockUnchecked { $0 }
-                if answer.seq >= mySeq {
-                    let blocked = Double(answer.at &- sent) / 1e9
-                    if blocked >= threshold {
-                        let labels = ongoingLabels ?? NoopDiag.currentLabels
-                        NoopPerfStats.shared.stall(ms: blocked * 1000, screen: labels.screen, section: labels.section)
-                        // The NOOP function the main thread was in, when a sample caught it: code names only.
-                        let place = lastTop.map { " at \($0)" } ?? ""
-                        NoopDiagStore.shared.append(event: "stall \(labels.section ?? labels.screen)\(place)",
-                                                    fields: ["ms": (blocked * 1000).rounded(),
-                                                             "footprint_mb": NoopDiagSampler.footprintMB()])
-                    }
-                    break
-                }
-                let waited = Double(DispatchTime.now().uptimeNanoseconds &- sent) / 1e9
-                if waited >= threshold, ongoingLabels == nil { ongoingLabels = NoopDiag.currentLabels }
-                // Where the main thread is: a sample every tick of a stall, at most 40 per stall.
-                if waited >= threshold, stallSamples < 40 {
-                    stallSamples += 1
-                    let stack = MainThreadSampler.sample()
-                    MainThreadProfile.shared.add(stack, stallMs: waited * 1000, screen: NoopPerfStats.shared.currentKey)
-                    if let top = stack.lazy.map({ MainThreadSampler.frame($0) }).first(where: \.isApp) {
-                        lastTop = MainThreadSampler.short(top.symbol)
-                    }
-                }
-                if waited >= 1, waited - lastOngoingReport >= 1 {
-                    lastOngoingReport = waited
-                    let labels = ongoingLabels ?? NoopDiag.currentLabels
-                    NoopDiagStore.shared.appendNow(event: "stall ongoing \(labels.section ?? labels.screen)",
-                                                   fields: ["ms": (waited * 1000).rounded(),
-                                                            "footprint_mb": NoopDiagSampler.footprintMB()])
-                }
-            }
             Thread.sleep(forTimeInterval: tick)
+            let state = busy.withLockUnchecked { $0 }
+            let now = DispatchTime.now().uptimeNanoseconds
+            let ongoing = state.since != 0 ? Double(now &- state.since) / 1e9 : 0
+            if let stall = watched, state.since == 0 || state.chunk != stall.chunk {
+                // The stalled chunk has ended: it lasted at least as long as last seen, at most until now.
+                let ms = max(stall.lastMs, Double(now &- stall.since) / 1e6 - tick * 500)
+                NoopPerfStats.shared.stall(ms: ms, screen: stall.labels.screen, section: stall.labels.section)
+                let place = lastTop.map { " at \($0)" } ?? ""
+                NoopDiagStore.shared.append(event: "stall \(stall.labels.section ?? stall.labels.screen)\(place)",
+                                            fields: ["ms": ms.rounded(), "footprint_mb": NoopDiagSampler.footprintMB()])
+                watched = nil
+            }
+            guard state.since != 0, ongoing >= threshold else { continue }
+            if watched == nil {
+                watched = (state.chunk, state.since, ongoing * 1000, NoopDiag.currentLabels)
+                samples = 0
+                lastTop = nil
+                lastOngoingReport = 0
+            }
+            watched?.lastMs = ongoing * 1000
+            // Where the main thread is: a sample every tick of a stall, at most 40 per stall.
+            if samples < 40 {
+                samples += 1
+                let stack = MainThreadSampler.sample()
+                MainThreadProfile.shared.add(stack, stallMs: ongoing * 1000, screen: NoopPerfStats.shared.currentKey)
+                if let top = stack.lazy.map({ MainThreadSampler.frame($0) }).first(where: \.isApp) {
+                    lastTop = MainThreadSampler.short(top.symbol)
+                }
+            }
+            if ongoing >= 1, ongoing - lastOngoingReport >= 1, let labels = watched?.labels {
+                lastOngoingReport = ongoing
+                let place = lastTop.map { " at \($0)" } ?? ""
+                NoopDiagStore.shared.appendNow(event: "stall ongoing \(labels.section ?? labels.screen)\(place)",
+                                               fields: ["ms": (ongoing * 1000).rounded(),
+                                                        "footprint_mb": NoopDiagSampler.footprintMB()])
+            }
         }
     }
 }
