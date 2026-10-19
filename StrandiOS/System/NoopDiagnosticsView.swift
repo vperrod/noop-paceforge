@@ -48,16 +48,27 @@ struct NoopDiagnosticsView: View {
         reportText = String(decoding: built.json, as: UTF8.self)
     }
 
+    private static func previousHeadline(_ previous: [String: Any]) -> String {
+        let build = previous["build"] as? String ?? "?"
+        let started = time(previous["started_at"])
+        let found = time(previous["detected_at"])
+        return "Build \(build) ended while on screen, started \(started). Found at the next launch, \(found)."
+    }
+
+    private static func previousLines(_ previous: [String: Any]) -> [String] {
+        let crumbs = (previous["crumbs"] as? [[String: Any]]) ?? []
+        return crumbs.suffix(30).map { line($0) }
+    }
+
     @ViewBuilder private var previousRun: some View {
         if let previous {
-            let crumbs = (previous["crumbs"] as? [[String: Any]]) ?? []
             VStack(alignment: .leading, spacing: 6) {
-                Text("Build \(previous["build"] as? String ?? "?") ended while on screen, started \(Self.time(previous["started_at"])). Found at the next launch, \(Self.time(previous["detected_at"])).")
+                Text(Self.previousHeadline(previous))
                     .font(StrandFont.subhead)
                     .foregroundStyle(StrandPalette.textPrimary)
                     .fixedSize(horizontal: false, vertical: true)
-                ForEach(Array(crumbs.suffix(30).enumerated()), id: \.offset) { _, crumb in
-                    Text(Self.line(crumb))
+                ForEach(Array(Self.previousLines(previous).enumerated()), id: \.offset) { item in
+                    Text(item.element)
                         .font(.system(size: 12, design: .monospaced))
                         .foregroundStyle(StrandPalette.textSecondary)
                 }
@@ -71,38 +82,61 @@ struct NoopDiagnosticsView: View {
         }
     }
 
+    /// One crash, hang or exception report, flattened for the list.
+    private struct DiagnosticRow: Identifiable {
+        let id: Int
+        let title: String
+        let meta: String
+        let frames: [String]
+    }
+
+    private var diagnosticRows: [DiagnosticRow] {
+        var rows: [DiagnosticRow] = []
+        for payload in diagnostics.reversed() {
+            let end = payload["end"] as? String ?? ""
+            let entries = (payload["diagnostics"] as? [[String: Any]]) ?? []
+            for entry in entries {
+                let kind = entry["kind"] as? String ?? "?"
+                let meta = (entry["meta"] as? [String: Any]).map(Self.meta) ?? ""
+                let frames = Array(((entry["frames"] as? [String]) ?? []).prefix(8))
+                rows.append(DiagnosticRow(id: rows.count, title: "\(kind) \u{00B7} \(end)", meta: meta, frames: frames))
+            }
+        }
+        return rows
+    }
+
     @ViewBuilder private var metricKit: some View {
-        if diagnostics.isEmpty {
+        let rows = diagnosticRows
+        if rows.isEmpty {
             Text("None yet. iOS delivers a crash or hang report the day after it happens, at most once a day.")
                 .font(StrandFont.subhead)
                 .foregroundStyle(StrandPalette.textSecondary)
         } else {
-            ForEach(Array(diagnostics.reversed().enumerated()), id: \.offset) { _, payload in
-                ForEach(Array(((payload["diagnostics"] as? [[String: Any]]) ?? []).enumerated()), id: \.offset) { _, d in
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text("\(d["kind"] as? String ?? "?") \u{00B7} \(payload["end"] as? String ?? "")")
-                            .font(StrandFont.subhead.weight(.semibold))
-                            .foregroundStyle(StrandPalette.textPrimary)
-                        if let meta = d["meta"] as? [String: Any] {
-                            Text(Self.meta(meta))
-                                .font(.system(size: 12, design: .monospaced))
-                                .foregroundStyle(StrandPalette.textSecondary)
-                        }
-                        ForEach(Array(((d["frames"] as? [String]) ?? []).prefix(8).enumerated()), id: \.offset) { _, frame in
-                            Text(frame)
-                                .font(.system(size: 11, design: .monospaced))
-                                .foregroundStyle(StrandPalette.textTertiary)
-                        }
-                    }
-                }
+            ForEach(rows) { row in diagnosticRow(row) }
+        }
+    }
+
+    private func diagnosticRow(_ row: DiagnosticRow) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(row.title)
+                .font(StrandFont.subhead.weight(.semibold))
+                .foregroundStyle(StrandPalette.textPrimary)
+            if !row.meta.isEmpty {
+                Text(row.meta)
+                    .font(.system(size: 12, design: .monospaced))
+                    .foregroundStyle(StrandPalette.textSecondary)
+            }
+            ForEach(row.frames, id: \.self) { frame in
+                Text(frame)
+                    .font(.system(size: 11, design: .monospaced))
+                    .foregroundStyle(StrandPalette.textTertiary)
             }
         }
     }
 
     @ViewBuilder private var upload: some View {
         if let lastUpload {
-            let status = lastUpload["status"] as? Int ?? -1
-            Text("\(Self.time(lastUpload["at"])): \(status > 0 ? "HTTP \(status)" : "not sent"). \(lastUpload["message"] as? String ?? "")")
+            Text(Self.uploadLine(lastUpload))
                 .font(StrandFont.subhead)
                 .foregroundStyle(StrandPalette.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -129,6 +163,13 @@ struct NoopDiagnosticsView: View {
         return f
     }()
 
+    static func uploadLine(_ upload: [String: Any]) -> String {
+        let status = upload["status"] as? Int ?? -1
+        let outcome = status > 0 ? "HTTP \(status)" : "not sent"
+        let message = upload["message"] as? String ?? ""
+        return "\(time(upload["at"])): \(outcome). \(message)"
+    }
+
     static func time(_ value: Any?) -> String {
         guard let seconds = value as? Double else { return "?" }
         return clock.string(from: Date(timeIntervalSince1970: seconds))
@@ -150,9 +191,13 @@ struct NoopDiagnosticsView: View {
 
 /// "Send diagnostics now": builds the report, keeps it and posts it to PaceForge, then says what the server answered.
 struct NoopDiagSendButton: View {
-    var onDone: () -> Void = {}
+    var onDone: () -> Void
     @State private var isSending = false
     @State private var result: String?
+
+    init(onDone: @escaping () -> Void = {}) {
+        self.onDone = onDone
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
