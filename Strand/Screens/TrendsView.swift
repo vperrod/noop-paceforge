@@ -322,7 +322,8 @@ struct TrendsView: View {
                 // Reuse the resolved windows until the data, range, or loaded Rest series changes.
                 // An unrelated Repository publication must not re-filter five years of history.
                 let metrics = resolvedMetrics
-                VStack(alignment: .leading, spacing: NoopMetrics.sectionSpacing) {
+                // Lazy, so the charts below the fold are built when they scroll near (the scaffold's `lazy` only deferred this one child).
+                LazyVStack(alignment: .leading, spacing: NoopMetrics.sectionSpacing) {
                     // The main card list ripples in once on appear (Reduce-Motion safe).
                     Group {
                         // Week-in-review digest (#208) with prev/next week browsing (#710) — self-hides
