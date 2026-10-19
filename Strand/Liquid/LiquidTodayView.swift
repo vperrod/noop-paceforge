@@ -383,7 +383,7 @@ struct LiquidTodayView: View {
                     // sheet (the header's up/down button; native drag rows); the order persists under the
                     // byte-identical "today.sectionOrder" key Android uses. A gated-off Start-session renders
                     // nothing and keeps its slot in the saved order.
-                    ForEach(sectionOrder) { section in
+                    ForEach(sectionOrder.filter { !NoopPerfOmit.has($0.rawValue) }) { section in
                         switch section {
                         // The daily loop (PaceForge's daily-intel.json): the day's call above the dials, the evening
                         // wrap after 18:00. Today only; each says so itself when its item is unavailable.
@@ -413,15 +413,15 @@ struct LiquidTodayView: View {
                             EmptyView()
                             #endif
                         case .hero:
-                            heroCard
+                            if !NoopPerfOmit.has("hero-dials") { heroCard }
                             #if os(iOS)
                             // The dark look: monitor tiles under the dials, then My Day with today's activities.
                             // Everything the classic stack held is still here (the My Day entry became the header).
-                            lookMonitorRow
+                            if !NoopPerfOmit.has("hero-monitor") { lookMonitorRow }
                             if chargeLegacyRRGap { ChargeLegacyRRGapNote() }
                             if selectedDayOffset == 0 {
-                                LookMyDaySection(day: selectedLogicalDay)
-                                EffortTargetCard(); SleepPlannerEntryCard(); WeeklyGoalsCard()
+                                if !NoopPerfOmit.has("hero-myday") { LookMyDaySection(day: selectedLogicalDay) }
+                                if !NoopPerfOmit.has("hero-cards") { EffortTargetCard(); SleepPlannerEntryCard(); WeeklyGoalsCard() }
                             }
                             #else
                             if chargeLegacyRRGap { ChargeLegacyRRGapNote() }
@@ -485,7 +485,7 @@ struct LiquidTodayView: View {
         // its own .task, so Today starts the load.
         .task { await PFPhase4Store.shared.refreshIfStale() }
         .overlay(alignment: .top) {
-            if showsStickyDials {
+            if showsStickyDials, !NoopPerfOmit.has("sticky") {
                 StickyMiniDials(items: lookMiniDialItems)
                     .hiddenWhenPrivate(.scores, name: String(localized: "Scores"))
                     .transition(.move(edge: .top).combined(with: .opacity))
@@ -501,7 +501,7 @@ struct LiquidTodayView: View {
         .background(alignment: .top) {
             ZStack(alignment: .top) {
                 #if os(iOS)
-                LookScreenGradient()
+                if !NoopPerfOmit.has("gradient") { LookScreenGradient() }
                 #else
                 StrandPalette.surfaceBase
                 #endif
@@ -644,10 +644,12 @@ struct LiquidTodayView: View {
     @ViewBuilder private var scene: some View {
         #if os(iOS)
         VStack(alignment: .leading, spacing: 0) {
-            lookTopBar
-            LiquidWordmark()
-                .padding(.top, 22)
-                .padding(.bottom, 4)
+            if !NoopPerfOmit.has("topbar") { lookTopBar }
+            if !NoopPerfOmit.has("wordmark") {
+                LiquidWordmark()
+                    .padding(.top, 22)
+                    .padding(.bottom, 4)
+            }
         }
         #else
         classicScene

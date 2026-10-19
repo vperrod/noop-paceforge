@@ -28,6 +28,7 @@ final class PerfHarnessUITests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments += ["--demo-seed", "--demo-seed-days", "800", "--demo-seed-raw-hr-days", "7",
                                 "-theme.appearance", "dark", "-PaceForgeFixture", "-NoopPerf", "-NoopPerfAutopilot"]
+        if let omit = ProcessInfo.processInfo.environment["PERF_OMIT"], !omit.isEmpty { app.launchArguments += ["-NoopPerfOmit", omit] }
         // No "-noop.paceforge.segment" argument here: the argument domain would override the segments the autopilot picks.
         let url = try XCTUnwrap(Bundle(for: Self.self).url(forResource: "PaceForgeRealShapes", withExtension: "json"),
                                 "The synthetic real-shapes fixture should be bundled with the UI tests.")

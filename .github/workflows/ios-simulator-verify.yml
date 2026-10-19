@@ -7,6 +7,10 @@ on:
         description: "Optional space-separated -only-testing identifiers, e.g. NOOPiOSUITests/LookScreensUITests. Empty runs every UI test."
         required: false
         default: ""
+      omit:
+        description: "Perf probe: comma-separated Today pieces to leave out (-NoopPerfOmit)."
+        required: false
+        default: ""
       optimized:
         description: "true builds the Debug configuration with Release's optimizer (-O, whole-module), so a crash only the optimizer exposes shows here while the DEBUG-only test fixtures still work."
         required: false
@@ -40,6 +44,7 @@ jobs:
         env:
           ONLY: ${{ inputs.only }}
           OPTIMIZED: ${{ inputs.optimized }}
+          TEST_RUNNER_PERF_OMIT: ${{ inputs.omit }}
         run: |
           only=()
           for t in $ONLY; do only+=("-only-testing:$t"); done
