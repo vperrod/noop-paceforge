@@ -111,7 +111,9 @@ final class PerfHarnessUITests: XCTestCase {
         scroll(app)
         for (index, title) in ["Coach", "This week", "Insights", "Body"].enumerated() {
             let button = segments.buttons[title]
-            for _ in 0..<3 where !button.isSelected { button.tap(); Thread.sleep(forTimeInterval: 1) }
+            // A busy main thread drops taps: try again for up to about 20 s before measuring the segment.
+            for _ in 0..<10 where !button.isSelected { button.tap(); Thread.sleep(forTimeInterval: 2) }
+            XCTAssertTrue(button.isSelected, "The \(title) segment should open.")
             Thread.sleep(forTimeInterval: 2)
             attach(app, "Perf \(index + 2) PaceForge \(title)")
             scroll(app)

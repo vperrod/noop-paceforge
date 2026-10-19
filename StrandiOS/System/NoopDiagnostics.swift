@@ -46,6 +46,7 @@ enum NoopDiag {
         // foreground when it becomes active. A launch on screen counts from here, so a watchdog kill during launch is
         // still found.
         NoopDiagStore.shared.beginRun(launchedOnScreen: UIApplication.shared.applicationState != .background)
+        MainThreadSampler.captureMainThread()
         MainThreadWatchdog.shared.start(tick: isPerfMode ? 0.008 : 0.05, threshold: stallThreshold)
         NoopDiagSampler.shared.start(interval: isPerfMode ? 1 : 5)
         crumb("launch", ["footprint_mb": NoopDiagSampler.footprintMB()])
@@ -374,6 +375,8 @@ final class MainThreadWatchdog {
             }
             var lastOngoingReport = 0.0
             var ongoingLabels: (screen: String, section: String?)?
+            var stallSamples = 0
+            var lastTop: String?
             while true {
                 Thread.sleep(forTimeInterval: tick)
                 let answer = pong.withLockUnchecked { $0 }
@@ -382,7 +385,9 @@ final class MainThreadWatchdog {
                     if blocked >= threshold {
                         let labels = ongoingLabels ?? NoopDiag.currentLabels
                         NoopPerfStats.shared.stall(ms: blocked * 1000, screen: labels.screen, section: labels.section)
-                        NoopDiagStore.shared.append(event: "stall \(labels.section ?? labels.screen)",
+                        // The NOOP function the main thread was in, when a sample caught it: code names only.
+                        let place = lastTop.map { " at \($0)" } ?? ""
+                        NoopDiagStore.shared.append(event: "stall \(labels.section ?? labels.screen)\(place)",
                                                     fields: ["ms": (blocked * 1000).rounded(),
                                                              "footprint_mb": NoopDiagSampler.footprintMB()])
                     }
@@ -390,6 +395,15 @@ final class MainThreadWatchdog {
                 }
                 let waited = Double(DispatchTime.now().uptimeNanoseconds &- sent) / 1e9
                 if waited >= threshold, ongoingLabels == nil { ongoingLabels = NoopDiag.currentLabels }
+                // Where the main thread is: a sample every tick of a stall, at most 40 per stall.
+                if waited >= threshold, stallSamples < 40 {
+                    stallSamples += 1
+                    let stack = MainThreadSampler.sample()
+                    MainThreadProfile.shared.add(stack, stallMs: waited * 1000)
+                    if let top = stack.lazy.map({ MainThreadSampler.frame($0) }).first(where: \.isApp) {
+                        lastTop = MainThreadSampler.short(top.symbol)
+                    }
+                }
                 if waited >= 1, waited - lastOngoingReport >= 1 {
                     lastOngoingReport = waited
                     let labels = ongoingLabels ?? NoopDiag.currentLabels
@@ -554,7 +568,8 @@ final class NoopPerfStats {
             sections[name] = ["n": e.count, "total_ms": r(e.totalMs), "max_ms": r(e.maxMs), "main_ms": r(e.mainMs)]
         }
         let object: [String: Any] = ["peak_mb": r(max(snapshot.peakMB, NoopDiagSampler.footprintMB())),
-                                     "screens": screens, "sections": sections]
+                                     "screens": screens, "sections": sections,
+                                     "main_thread": MainThreadProfile.shared.summary()]
         guard let data = try? JSONSerialization.data(withJSONObject: object, options: [.sortedKeys]) else { return "{}" }
         return String(decoding: data, as: UTF8.self)
     }
