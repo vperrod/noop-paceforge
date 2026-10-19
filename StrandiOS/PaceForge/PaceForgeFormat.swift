@@ -62,18 +62,13 @@ enum PFFormat {
     /// local. nil when it cannot be parsed.
     static func timeOfDay(_ timestamp: String?) -> String? {
         guard let timestamp else { return nil }
-        guard let when = isoWithFraction.date(from: timestamp) ?? isoPlain.date(from: timestamp)
+        let withFraction = ISO8601DateFormatter()
+        withFraction.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let plain = ISO8601DateFormatter()
+        guard let when = withFraction.date(from: timestamp) ?? plain.date(from: timestamp)
                 ?? isoLocalSeconds.date(from: timestamp) else { return nil }
         return clockMinutes.string(from: when)
     }
-
-    /// Made once and shared: a formatter is costly to build and these run for every row of a list.
-    static let isoWithFraction: ISO8601DateFormatter = {
-        let f = ISO8601DateFormatter()
-        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        return f
-    }()
-    static let isoPlain = ISO8601DateFormatter()
 
     private static let clockMinutes: DateFormatter = {
         let f = DateFormatter()

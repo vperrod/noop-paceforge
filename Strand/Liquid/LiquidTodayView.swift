@@ -63,9 +63,7 @@ struct LiquidTodayView: View {
     @ObservedObject private var intelStore = PFDailyIntelStore.shared
     /// The streak chip only needs to know whether a streak is alive (it draws itself), so the top bar can make room for it.
     @ObservedObject private var phase4Store = PFPhase4Store.shared
-    /// Whether the big dials have scrolled under the top edge (the sticky mini dials show). A Bool, not the dials' position:
-    /// the position changes on every scroll frame, and writing it re-evaluated the whole dashboard each frame.
-    @State private var showsStickyDials = false
+    @State private var heroBottomY: CGFloat = .greatestFiniteMagnitude
     #endif
     @State private var fitnessAge: Double?         // exploreSeries("fitness_age").last
     @State private var vo2max: Double?             // exploreSeries("vo2max_est").last (#1391)
@@ -344,9 +342,6 @@ struct LiquidTodayView: View {
     private static let topAnchorID = "liquidToday.top"
 
     var body: some View {
-        #if os(iOS)
-        let _ = NoopDiag.body("LiquidTodayView")
-        #endif
         ScrollViewReader { proxy in
         ScrollView {
             VStack(spacing: 0) {
@@ -485,14 +480,14 @@ struct LiquidTodayView: View {
         // its own .task, so Today starts the load.
         .task { await PFPhase4Store.shared.refreshIfStale() }
         .overlay(alignment: .top) {
-            if showsStickyDials {
+            if LookSticky.isVisible(heroBottomY: Double(heroBottomY), topInset: 0) {
                 StickyMiniDials(items: lookMiniDialItems)
                     .hiddenWhenPrivate(.scores, name: String(localized: "Scores"))
                     .transition(.move(edge: .top).combined(with: .opacity))
             }
         }
         .animation(reduceMotion ? nil : .easeOut(duration: 0.2),
-                   value: showsStickyDials)
+                   value: LookSticky.isVisible(heroBottomY: Double(heroBottomY), topInset: 0))
         #endif
         .onPreferenceChange(PullOffsetKey.self) { handlePull($0) }
         // The sky is a FIXED full-bleed backdrop drawn behind the scroll content, edge-to-edge under the
@@ -868,11 +863,8 @@ struct LiquidTodayView: View {
                           detailRoute: .metric(HeroRingMetric.effort), target: target)
         }
         .padding(.horizontal, 2)
-        // onGeometryChange, not a preference: the preference route never delivered a value from this scroll view. It reports the
-        // Bool, so the action (and a re-render of the dashboard) runs only when the strip appears or goes, not every frame.
-        .onGeometryChange(for: Bool.self) {
-            LookSticky.isVisible(heroBottomY: Double($0.frame(in: .named(Self.pullSpace)).maxY), topInset: 0)
-        } action: { showsStickyDials = $0 }
+        // onGeometryChange, not a preference: the preference route never delivered a value from this scroll view.
+        .onGeometryChange(for: CGFloat.self) { $0.frame(in: .named(Self.pullSpace)).maxY } action: { heroBottomY = $0 }
         .onAppear { refreshEffortReading() }
         .onChangeCompat(of: effortReadingKey) { _ in refreshEffortReading() }
         .task { await intelStore.refreshIfStale() }
