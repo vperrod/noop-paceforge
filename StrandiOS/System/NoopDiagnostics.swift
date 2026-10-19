@@ -116,6 +116,12 @@ enum NoopDiag {
         return NoopDiagInterval(label: label, state: state, start: DispatchTime.now().uptimeNanoseconds)
     }
 
+    /// Perf mode only: counts one evaluation of a view's body, so an invalidation storm shows which view it hits.
+    static func body(_ name: StaticString) {
+        guard isPerfMode else { return }
+        NoopPerfStats.shared.body("\(name)")
+    }
+
     // MARK: Scene phase
 
     /// The scene is on screen: from now until it goes to the background, an exit is not a clean one.
@@ -503,6 +509,7 @@ final class NoopPerfStats {
         var screens: [String: Screen] = [:]
         var sections: [String: Section] = [:]
         var visits: [String: Int] = [:]
+        var bodies: [String: Int] = [:]
         var current = "launch#1"
         var enteredCPU = NoopDiagSampler.cpuSeconds()
         var peakMB = 0.0
@@ -547,6 +554,8 @@ final class NoopPerfStats {
         }
     }
 
+    func body(_ name: String) { state.withLockUnchecked { $0.bodies[name, default: 0] += 1 } }
+
     func footprint(_ mb: Double) { state.withLockUnchecked { $0.peakMB = max($0.peakMB, mb) } }
 
     /// Compact JSON: {"peak_mb":..., "screens":{name:{...}}, "sections":{name:{...}}}.
@@ -568,7 +577,7 @@ final class NoopPerfStats {
             sections[name] = ["n": e.count, "total_ms": r(e.totalMs), "max_ms": r(e.maxMs), "main_ms": r(e.mainMs)]
         }
         let object: [String: Any] = ["peak_mb": r(max(snapshot.peakMB, NoopDiagSampler.footprintMB())),
-                                     "screens": screens, "sections": sections,
+                                     "screens": screens, "sections": sections, "bodies": snapshot.bodies,
                                      "main_thread": MainThreadProfile.shared.summary()]
         guard let data = try? JSONSerialization.data(withJSONObject: object, options: [.sortedKeys]) else { return "{}" }
         return String(decoding: data, as: UTF8.self)

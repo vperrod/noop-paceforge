@@ -175,12 +175,22 @@ enum PFAPI {
     }
 
     /// One more attempt when the first was cancelled client-side (URLError.cancelled, code -999).
-    static func fetchBundleRetryingCancel() async throws -> PFRawBundle {
-        do { return try await fetchBundle() }
-        catch where isCancelled(error) { return try await fetchBundle() }
+    static func fetchBundleRetryingCancel() async throws -> Fetched {
+        do { return try await fetchDocuments() }
+        catch where isCancelled(error) { return try await fetchDocuments() }
     }
 
-    static func fetchBundle() async throws -> PFRawBundle {
+    static func fetchBundle() async throws -> PFRawBundle { try await fetchDocuments().raw }
+
+    /// The documents of one refresh, with a digest of their bytes: an unchanged digest means the snapshot built from the last
+    /// fetch is still current, so it need not be built and published again.
+    struct Fetched {
+        var raw: PFRawBundle
+        var digest: Int
+        var bytes: Int
+    }
+
+    static func fetchDocuments() async throws -> Fetched {
         async let projection = fetchOptional("data/projection.json")
         async let body = fetchOptional("data/body.json")
         async let hyrox = fetchOptional("data/hyrox_analysis.json")
@@ -215,40 +225,47 @@ enum PFAPI {
         async let state = fetch("api/state")
         async let fitness = fetch("data/fitness.json")
         let (stateData, fitnessData) = try await (state, fitness)
+        var hasher = Hasher()
+        var bytes = 0
+        func take(_ data: Data?) -> PFJ {
+            hasher.combine(data)
+            bytes += data?.count ?? 0
+            return PFJ(data: data)
+        }
         var raw = PFRawBundle()
-        raw.state = PFJ(data: stateData)
-        raw.fitness = PFJ(data: fitnessData)
-        raw.projection = PFJ(data: await projection)
-        raw.body = PFJ(data: await body)
-        raw.hyrox = PFJ(data: await hyrox)
-        raw.activities = PFJ(data: await activities)
-        raw.analysesIndex = PFJ(data: await analyses)
-        raw.bodyProgress = PFJ(data: await bodyProgress)
-        raw.alerts = PFJ(data: await alerts)
-        raw.readiness = PFJ(data: await readiness)
-        raw.feelSummary = PFJ(data: await feelSummary)
-        raw.whatChanged = PFJ(data: await whatChanged)
-        raw.explainers = PFJ(data: await explainers)
-        raw.behaviour = PFJ(data: await behaviour)
-        raw.raceWeek = PFJ(data: await raceWeek)
-        raw.hyroxSims = PFJ(data: await hyroxSims)
-        raw.hyroxSimAnalysis = PFJ(data: await hyroxSimAnalysis)
-        raw.easyMode = PFJ(data: await easyMode)
-        raw.muscle = PFJ(data: await muscle)
-        raw.tape = PFJ(data: await tape)
-        raw.standing = PFJ(data: await standing)
-        raw.insightsV2 = PFJ(data: await insightsV2)
-        raw.dailyIntel = PFJ(data: await dailyIntel)
-        raw.healthspan = PFJ(data: await healthspan)
-        raw.journalImpact = PFJ(data: await journalImpact)
-        raw.highlights = PFJ(data: await highlights)
-        raw.monthlyReport = PFJ(data: await monthlyReport)
-        raw.myPlan = PFJ(data: await myPlan)
-        raw.rideMetrics = PFJ(data: await rideMetrics)
-        raw.dismissed = PFJ(data: await dismissed)
-        raw.todayLayout = PFJ(data: await todayLayout)
+        raw.state = take(stateData)
+        raw.fitness = take(fitnessData)
+        raw.projection = take(await projection)
+        raw.body = take(await body)
+        raw.hyrox = take(await hyrox)
+        raw.activities = take(await activities)
+        raw.analysesIndex = take(await analyses)
+        raw.bodyProgress = take(await bodyProgress)
+        raw.alerts = take(await alerts)
+        raw.readiness = take(await readiness)
+        raw.feelSummary = take(await feelSummary)
+        raw.whatChanged = take(await whatChanged)
+        raw.explainers = take(await explainers)
+        raw.behaviour = take(await behaviour)
+        raw.raceWeek = take(await raceWeek)
+        raw.hyroxSims = take(await hyroxSims)
+        raw.hyroxSimAnalysis = take(await hyroxSimAnalysis)
+        raw.easyMode = take(await easyMode)
+        raw.muscle = take(await muscle)
+        raw.tape = take(await tape)
+        raw.standing = take(await standing)
+        raw.insightsV2 = take(await insightsV2)
+        raw.dailyIntel = take(await dailyIntel)
+        raw.healthspan = take(await healthspan)
+        raw.journalImpact = take(await journalImpact)
+        raw.highlights = take(await highlights)
+        raw.monthlyReport = take(await monthlyReport)
+        raw.myPlan = take(await myPlan)
+        raw.rideMetrics = take(await rideMetrics)
+        raw.dismissed = take(await dismissed)
+        raw.todayLayout = take(await todayLayout)
         _ = await workoutMatches
-        return raw
+        return Fetched(raw: raw, digest: hasher.finalize(), bytes: bytes)
     }
 }
 
@@ -318,6 +335,9 @@ final class PFModel: ObservableObject {
     @Published private(set) var savedAt: Date?
 
     private var lastSuccess: Date?
+    /// The digest of the documents the snapshot on screen was built from, and the day it was built for.
+    private var lastDigest: Int?
+    private var lastBuiltToday: String?
     /// The one load in flight. It runs in its own task so SwiftUI cancelling a caller (`.task` re-run,
     /// `.refreshable` ending, a tab switch) cannot cancel the network requests with URLError.cancelled.
     private var inFlight: Task<Void, Never>?
@@ -351,26 +371,40 @@ final class PFModel: ObservableObject {
             phase = .notSetUp
             return
         }
-        if snapshot == nil, PFAPI.usesPhoneState,
-           let cached = NoopDiag.measure("pf.cache.read", { PFStore.cachedBundle() }),
-           let built = NoopDiag.measure("pf.build.cached", { PFBuilder.snapshot(from: cached, today: PFAPI.todayISO) }) {
-            snapshot = built
-            savedAt = PFStore.savedAt(path: "api/state")
-            phase = .ready
+        let today = PFAPI.todayISO
+        if snapshot == nil, PFAPI.usesPhoneState {
+            // The saved documents (about 1.5 MB of JSON) are read, parsed and built off the main thread: on a phone that work
+            // blocked the tab for a noticeable time on every first open.
+            let cached = await Task.detached(priority: .userInitiated) { () -> PFSnapshot? in
+                guard let raw = NoopDiag.measure("pf.cache.read", { PFStore.cachedBundle() }) else { return nil }
+                return NoopDiag.measure("pf.build.cached") { PFBuilder.snapshot(from: raw, today: today) }
+            }.value
+            if snapshot == nil, let cached {
+                snapshot = cached
+                savedAt = PFStore.savedAt(path: "api/state")
+                phase = .ready
+            }
         }
         do {
             let fetch = NoopDiag.begin("pf.fetch")
-            let raw = try await PFAPI.fetchBundleRetryingCancel()
-            fetch.end()
-            guard let built = NoopDiag.measure("pf.build.fetched", { PFBuilder.snapshot(from: raw, today: PFAPI.todayISO) }) else {
-                throw CocoaError(.fileReadCorruptFile)
+            let fetched = try await PFAPI.fetchBundleRetryingCancel()
+            fetch.end(["bytes": Double(fetched.bytes)])
+            // The same bytes for the same day build the same snapshot: keep the one on screen, so neither the tab nor
+            // NOOP Today (which observes the shared stores) re-renders for nothing.
+            if fetched.digest != lastDigest || lastBuiltToday != today || snapshot == nil {
+                let built = await Task.detached(priority: .userInitiated) { () -> PFSnapshot? in
+                    NoopDiag.measure("pf.build.fetched") { PFBuilder.snapshot(from: fetched.raw, today: today) }
+                }.value
+                guard let built else { throw CocoaError(.fileReadCorruptFile) }
+                NoopDiag.measure("pf.apply") {
+                    snapshot = built
+                    PFDailyIntelStore.shared.update(built.dailyIntel)
+                    PFPhase4Store.shared.update(built.intelDocs)
+                }
+                NoopDiag.measure("pf.summary.publish") { PFSummaryWriter.publish(built) }
+                lastDigest = fetched.digest
+                lastBuiltToday = today
             }
-            NoopDiag.measure("pf.apply") {
-                snapshot = built
-                PFDailyIntelStore.shared.update(built.dailyIntel)
-                PFPhase4Store.shared.update(built.intelDocs)
-            }
-            NoopDiag.measure("pf.summary.publish") { PFSummaryWriter.publish(built) }
             savedAt = Date()
             lastSuccess = Date()
             offlineNote = nil

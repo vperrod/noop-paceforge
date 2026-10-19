@@ -142,6 +142,7 @@ struct RootTabView: View {
     }
 
     var body: some View {
+        let _ = NoopDiag.body("RootTabView")
         // The platform tab bar is intentionally left fully native. iOS 26 supplies Liquid Glass and
         // its dynamic interaction with scrolling content automatically; older supported releases use
         // the corresponding system material and safe-area behaviour from the same TabView.

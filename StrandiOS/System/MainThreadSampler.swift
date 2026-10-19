@@ -71,6 +71,7 @@ enum MainThreadSampler {
     struct Frame {
         let symbol: String
         let isApp: Bool
+        var image: String = "?"
     }
 
     private static var cache: [UInt: Frame] = [:]
@@ -91,10 +92,10 @@ enum MainThreadSampler {
             let isApp = image.hasPrefix(appImagePrefix)
             let imageName = (image as NSString).lastPathComponent
             if let name = info.dli_sname {
-                result = Frame(symbol: demangle(String(cString: name)), isApp: isApp)
+                result = Frame(symbol: demangle(String(cString: name)), isApp: isApp, image: imageName)
             } else {
                 let offset = address - UInt(bitPattern: info.dli_fbase)
-                result = Frame(symbol: "\(imageName)+0x\(String(offset, radix: 16))", isApp: isApp)
+                result = Frame(symbol: "\(imageName)+0x\(String(offset, radix: 16))", isApp: isApp, image: imageName)
             }
         }
         cacheLock.lock()
@@ -132,9 +133,16 @@ final class MainThreadProfile {
     private let lock = NSLock()
     private var inclusive: [String: Int] = [:]
     private var leaf: [String: Int] = [:]
+    /// Frameworks' own functions (SwiftUI, Charts, CoreText, UIKit) on the stack, and samples per binary.
+    private var system: [String: Int] = [:]
+    private var images: [String: Int] = [:]
     private(set) var samples = 0
     private var worstStack: [String] = []
     private var worstStallMs = 0.0
+
+    private static let interesting: Set<String> = ["SwiftUI", "SwiftUICore", "Charts", "CoreText", "UIKitCore",
+                                                   "AttributeGraph", "Foundation", "CoreFoundation", "libswiftCore.dylib",
+                                                   "QuartzCore", "CoreGraphics", "MarkdownUI"]
 
     /// One sample taken during a stall of `stallMs` so far.
     func add(_ addresses: [UInt], stallMs: Double) {
@@ -144,6 +152,9 @@ final class MainThreadProfile {
         lock.lock()
         samples += 1
         for name in Set(app) { inclusive[name, default: 0] += 1 }
+        let framework = frames.filter { !$0.isApp && Self.interesting.contains($0.image) }
+        for name in Set(framework.map { "\($0.image): \(MainThreadSampler.short($0.symbol))" }) { system[name, default: 0] += 1 }
+        for image in Set(frames.map(\.image)) { images[image, default: 0] += 1 }
         if let top = app.first { leaf[top, default: 0] += 1 }
         if stallMs > worstStallMs {
             worstStallMs = stallMs
@@ -156,10 +167,11 @@ final class MainThreadProfile {
     func summary(limit: Int = 25) -> [String: Any] {
         lock.lock()
         defer { lock.unlock() }
-        func top(_ table: [String: Int]) -> [[Any]] {
-            table.sorted { $0.value > $1.value }.prefix(limit).map { [$0.key, $0.value] }
+        func top(_ table: [String: Int], _ count: Int) -> [[Any]] {
+            table.sorted { $0.value > $1.value }.prefix(count).map { [$0.key, $0.value] }
         }
-        return ["samples": samples, "hot": top(inclusive), "leaf": top(leaf),
+        return ["samples": samples, "hot": top(inclusive, limit), "leaf": top(leaf, limit), "system": top(system, 40),
+                "images": top(images, 20),
                 "worst_stall_ms": (worstStallMs * 10).rounded() / 10, "worst_stack": worstStack]
     }
 }

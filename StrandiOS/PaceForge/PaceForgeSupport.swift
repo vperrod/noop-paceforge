@@ -9,10 +9,7 @@ extension PFFormat {
     /// "5 min ago" for an ISO-8601 timestamp; the raw text when it cannot be parsed.
     static func relative(_ timestamp: String?) -> String? {
         guard let timestamp else { return nil }
-        let formatter = ISO8601DateFormatter()
-        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        let plain = ISO8601DateFormatter()
-        guard let when = formatter.date(from: timestamp) ?? plain.date(from: timestamp)
+        guard let when = isoWithFraction.date(from: timestamp) ?? isoPlain.date(from: timestamp)
                 ?? isoLocalSeconds.date(from: timestamp) else { return timestamp }
         return RelativeDateTimeFormatter().localizedString(for: when, relativeTo: Date())
     }
@@ -68,6 +65,7 @@ struct PFCard<Content: View, Trailing: View>: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
+                let _ = NoopDiag.body("PFCard")
                 if let icon {
                     Image(systemName: icon)
                         .font(.system(size: 14, weight: .semibold))

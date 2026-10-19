@@ -194,13 +194,20 @@ enum PFMyDay {
         let today = PFAPI.todayISO
         let stamp = PFStore.savedAt(path: "api/state")
         if let cached, cached.stamp == stamp, cached.today == today, !PFAPI.isFixture { return cached.snapshot }
-        let bundle: PFRawBundle?
-        if PFAPI.isFixture {
-            bundle = try? await PFAPI.fetchBundle()
-        } else {
-            bundle = PFStore.cachedBundle()
-        }
-        guard let bundle, let built = PFBuilder.snapshot(from: bundle, today: today) else { return nil }
+        // Read, parsed and built off the main thread: NOOP Today's My Day section asks for this whenever the saved documents
+        // changed (every PaceForge refresh rewrites them), and on the main thread it stalled Today.
+        let isFixture = PFAPI.isFixture
+        let built = await Task.detached(priority: .userInitiated) { () -> PFSnapshot? in
+            let bundle: PFRawBundle?
+            if isFixture {
+                bundle = try? await PFAPI.fetchBundle()
+            } else {
+                bundle = NoopDiag.measure("myday.pf.cache.read") { PFStore.cachedBundle() }
+            }
+            guard let bundle else { return nil }
+            return NoopDiag.measure("myday.pf.build") { PFBuilder.snapshot(from: bundle, today: today) }
+        }.value
+        guard let built else { return nil }
         cached = (stamp, today, built)
         return built
     }
@@ -208,14 +215,23 @@ enum PFMyDay {
     // MARK: Dates
 
     /// "2030-03-11T07:10:00" is the phone's local time; a stamp with a zone is read as written.
+    /// Made once: building three formatters per call (once per activity, hundreds per My Day load) was the costliest
+    /// NOOP function on the main thread while Today and My Day loaded. Date formatters are thread-safe.
+    nonisolated(unsafe) private static let zoned: ISO8601DateFormatter = {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return f
+    }()
+    nonisolated(unsafe) private static let plain = ISO8601DateFormatter()
+    nonisolated(unsafe) private static let local: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.dateFormat = "yyyy-MM-dd'T'HH:mm:ss"
+        return f
+    }()
+
     nonisolated static func parse(_ text: String) -> Date? {
-        let zoned = ISO8601DateFormatter()
-        zoned.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        let plain = ISO8601DateFormatter()
         if let d = zoned.date(from: text) ?? plain.date(from: text) { return d }
-        let local = DateFormatter()
-        local.locale = Locale(identifier: "en_US_POSIX")
-        local.dateFormat = "yyyy-MM-dd'T'HH:mm:ss"
         return local.date(from: text)
     }
 }

@@ -84,6 +84,7 @@ struct PFTodayView: View {
         let ids = presentCards.map { $0.rawValue }
         let layout = layoutStore.layout(server: snapshot.todayLayout)
         let visible = visibleIDs
+        let _ = NoopDiag.body("PFTodayView")
         VStack(alignment: .leading, spacing: 16) {
             PFTodayCustomiseHeader(isArranging: $isArranging, hasLocalOrder: layoutStore.local != nil) {
                 layoutStore.reset()

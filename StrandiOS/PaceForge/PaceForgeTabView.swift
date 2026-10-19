@@ -43,6 +43,7 @@ struct PaceForgeTabView: View {
 
     var body: some View {
         Group {
+            let _ = NoopDiag.body("PaceForgeTabView")
             if lockEnabled && !lock.isUnlocked {
                 PFLockedView(lock: lock)
             } else {
