@@ -237,19 +237,7 @@ struct PFOfflineBanner: View {
         HStack(alignment: .center, spacing: 10) {
             Image(systemName: "wifi.exclamationmark")
                 .foregroundStyle(PFColor.warning)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(text)
-                    .font(StrandFont.caption)
-                    .foregroundStyle(StrandPalette.textSecondary)
-                    .fixedSize(horizontal: false, vertical: true)
-                if let detail {
-                    Text(detail)
-                        .font(StrandFont.caption)
-                        .foregroundStyle(StrandPalette.textTertiary)
-                        .textSelection(.enabled)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-            }
+            PFOfflineBannerText(text: text, detail: detail)
             Spacer(minLength: 6)
             Button(isRetrying ? "Trying" : "Retry", action: retry)
                 .font(StrandFont.caption.weight(.semibold))
@@ -258,6 +246,28 @@ struct PFOfflineBanner: View {
         .padding(12)
         .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(PFColor.warning.opacity(0.12)))
         .accessibilityIdentifier("pf-offline-banner")
+    }
+}
+
+/// The banner's message and, under it, the failure detail.
+private struct PFOfflineBannerText: View {
+    let text: String
+    let detail: String?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(text)
+                .font(StrandFont.caption)
+                .foregroundStyle(StrandPalette.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+            if let detail {
+                Text(detail)
+                    .font(StrandFont.caption)
+                    .foregroundStyle(StrandPalette.textTertiary)
+                    .textSelection(.enabled)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
     }
 }
 

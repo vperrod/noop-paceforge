@@ -83,35 +83,7 @@ struct PaceForgeTabView: View {
 
     private var content: some View {
         ScreenScaffold(title: "PaceForge", onRefresh: { await model.refresh() }) {
-            switch model.phase {
-            case .loading:
-                PFLoadingView()
-            case .notSetUp:
-                PFNotSetUpView()
-            case .failed(let message):
-                PFFailedView(message: message, detail: model.failureDetail, isRetrying: model.isRefreshing) {
-                    Task { await model.refresh() }
-                }
-            case .ready:
-                if let snapshot = model.snapshot, PFAPI.showsWidgetGallery {
-                    PFWidgetGallery(snapshot: snapshot)
-                } else if let snapshot = model.snapshot {
-                    Picker("PaceForge section", selection: segment) {
-                        ForEach(PFSegment.allCases) { Text($0.title).tag($0) }
-                    }
-                    .pickerStyle(.segmented)
-                    .accessibilityIdentifier("pf-segments")
-
-                    PFRevealBar()
-
-                    if let note = model.offlineNote {
-                        PFOfflineBanner(text: note, detail: model.failureDetail, isRetrying: model.isRefreshing) {
-                            Task { await model.refresh() }
-                        }
-                    }
-                    screen(for: segment.wrappedValue, snapshot: snapshot)
-                }
-            }
+            phaseContent
         }
         .environmentObject(model)
         .environment(\.pfOpenStanding, { openStanding() })
@@ -161,25 +133,82 @@ struct PaceForgeTabView: View {
         }
     }
 
-    @ViewBuilder private func screen(for segment: PFSegment, snapshot: PFSnapshot) -> some View {
-        Group {
-            switch segment {
-            case .today: PFTodayView(snapshot: snapshot)
-            case .coach: PFCoachView(snapshot: snapshot)
-            case .week: PFWeekView(snapshot: snapshot)
-            // The same sections as the Insights screen in More, with PaceForge's Training first.
-            case .insights: PFInsightsHost(snapshot: snapshot)
-            case .body:
-                if hiding.hides(.body) {
-                    PFCard("Body", icon: "figure.stand") {
-                        PFParagraph("\(HideScoresPrefs.placeholder) \u{2014} body weight and body fat are hidden. Tap the eye above to show them, or turn this off in Settings > Hide numbers.")
-                    }
-                    .containerIdentifier("pf-body-hidden")
-                } else {
-                    PFBodyView(snapshot: snapshot)
-                }
+    // The screen below is built from small pieces, each erased to `AnyView` at its own boundary. One big
+    // `@ViewBuilder` switch over the phase and the five segments makes SwiftUI instantiate a single enormous
+    // nested `_ConditionalContent`/`TupleView` type at runtime, deep enough to overflow the stack on a device.
+
+    /// What the scaffold shows for the load phase. Every branch is a small type; only the screen below it is erased.
+    @ViewBuilder private var phaseContent: some View {
+        switch model.phase {
+        case .loading:
+            PFLoadingView()
+        case .notSetUp:
+            PFNotSetUpView()
+        case .failed(let message):
+            PFFailedView(message: message, detail: model.failureDetail, isRetrying: model.isRefreshing) {
+                Task { await model.refresh() }
+            }
+        case .ready:
+            readyContent
+        }
+    }
+
+    @ViewBuilder private var readyContent: some View {
+        if let snapshot = model.snapshot {
+            if PFAPI.showsWidgetGallery {
+                PFWidgetGallery(snapshot: snapshot)
+            } else {
+                readySections(snapshot)
             }
         }
-        .environment(\.pfExplainers, snapshot.explainerMap)
+    }
+
+    @ViewBuilder private func readySections(_ snapshot: PFSnapshot) -> some View {
+        Picker("PaceForge section", selection: segment) {
+            ForEach(PFSegment.allCases) { Text($0.title).tag($0) }
+        }
+        .pickerStyle(.segmented)
+        .accessibilityIdentifier("pf-segments")
+
+        PFRevealBar()
+
+        if let note = model.offlineNote {
+            PFOfflineBanner(text: note, detail: model.failureDetail, isRetrying: model.isRefreshing) {
+                Task { await model.refresh() }
+            }
+        }
+        screen(for: segment.wrappedValue, snapshot: snapshot)
+    }
+
+    private func screen(for segment: PFSegment, snapshot: PFSnapshot) -> AnyView {
+        AnyView(segmentScreen(for: segment, snapshot: snapshot).environment(\.pfExplainers, snapshot.explainerMap))
+    }
+
+    private func segmentScreen(for segment: PFSegment, snapshot: PFSnapshot) -> AnyView {
+        switch segment {
+        case .today: return AnyView(PFTodayView(snapshot: snapshot))
+        case .coach: return AnyView(PFCoachView(snapshot: snapshot))
+        case .week: return AnyView(PFWeekView(snapshot: snapshot))
+        // The same sections as the Insights screen in More, with PaceForge's Training first.
+        case .insights: return AnyView(PFInsightsHost(snapshot: snapshot))
+        case .body: return bodyScreen(snapshot)
+        }
+    }
+
+    private func bodyScreen(_ snapshot: PFSnapshot) -> AnyView {
+        if hiding.hides(.body) {
+            return AnyView(PFBodyHiddenView())
+        }
+        return AnyView(PFBodyView(snapshot: snapshot))
+    }
+}
+
+/// The Body screen while Settings > Hide numbers hides body weight and body fat.
+private struct PFBodyHiddenView: View {
+    var body: some View {
+        PFCard("Body", icon: "figure.stand") {
+            PFParagraph("\(HideScoresPrefs.placeholder) \u{2014} body weight and body fat are hidden. Tap the eye above to show them, or turn this off in Settings > Hide numbers.")
+        }
+        .containerIdentifier("pf-body-hidden")
     }
 }

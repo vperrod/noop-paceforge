@@ -70,46 +70,58 @@ struct PFTodaySoFarCard: View {
     private var model: PFTodaySoFar { PFTodaySoFar.make(from: snapshot) }
 
     var body: some View {
-        let m = model
         PFCard("Today so far", icon: "clock") {
-            VStack(alignment: .leading, spacing: 10) {
-                PFMiniStrip(model: m)
-                    .frame(height: 34)
-                Text(planLine(m))
-                    .font(StrandFont.subhead.weight(.semibold))
-                    .foregroundStyle(StrandPalette.textPrimary)
-                    .accessibilityIdentifier("pf-sofar-plan")
-                if let detail = detailLine(m) {
-                    Text(detail)
-                        .font(StrandFont.caption)
-                        .foregroundStyle(StrandPalette.textSecondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                Button { MyDayDeepLink.open() } label: {
-                    Label("Open My Day", systemImage: "calendar.day.timeline.left")
-                        .font(StrandFont.subhead)
-                }
-                .buttonStyle(.bordered)
-                .tint(StrandPalette.accent)
-                .accessibilityIdentifier("pf-open-myday")
-            }
+            PFTodaySoFarContent(model: model)
         }
         .accessibilityElement(children: .contain)
         .containerIdentifier("pf-sofar-card")
     }
+}
+
+/// The card's contents, a type of its own so the card's generic type stays small.
+private struct PFTodaySoFarContent: View {
+    let model: PFTodaySoFar
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            PFMiniStrip(model: model)
+                .frame(height: 34)
+            Text(planLine)
+                .font(StrandFont.subhead.weight(.semibold))
+                .foregroundStyle(StrandPalette.textPrimary)
+                .accessibilityIdentifier("pf-sofar-plan")
+            if let detail = detailLine {
+                Text(detail)
+                    .font(StrandFont.caption)
+                    .foregroundStyle(StrandPalette.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            openMyDay
+        }
+    }
+
+    private var openMyDay: some View {
+        Button { MyDayDeepLink.open() } label: {
+            Label("Open My Day", systemImage: "calendar.day.timeline.left")
+                .font(StrandFont.subhead)
+        }
+        .buttonStyle(.bordered)
+        .tint(StrandPalette.accent)
+        .accessibilityIdentifier("pf-open-myday")
+    }
 
     /// "1 of 2 sessions done", or "Nothing planned today".
-    private func planLine(_ m: PFTodaySoFar) -> String {
-        guard m.planned > 0 else { return "Nothing planned today" }
-        return "\(m.done) of \(m.planned) session\(m.planned == 1 ? "" : "s") done"
+    private var planLine: String {
+        guard model.planned > 0 else { return "Nothing planned today" }
+        return "\(model.done) of \(model.planned) session\(model.planned == 1 ? "" : "s") done"
     }
 
     /// "Still to do: Synthetic 4 x 800 m. Slept 7h20 of 8h00. Brief written 08:12."
-    private func detailLine(_ m: PFTodaySoFar) -> String? {
+    private var detailLine: String? {
         var parts: [String] = []
-        if !m.pending.isEmpty { parts.append("Still to do: " + m.pending.joined(separator: ", ") + ".") }
-        if let sleep = m.sleepText { parts.append("Slept \(sleep).") }
-        if let time = m.briefTime { parts.append("Brief written \(time).") }
+        if !model.pending.isEmpty { parts.append("Still to do: " + model.pending.joined(separator: ", ") + ".") }
+        if let sleep = model.sleepText { parts.append("Slept \(sleep).") }
+        if let time = model.briefTime { parts.append("Brief written \(time).") }
         return parts.isEmpty ? nil : parts.joined(separator: " ")
     }
 }

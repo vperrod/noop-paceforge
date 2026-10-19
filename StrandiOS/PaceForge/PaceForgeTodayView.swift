@@ -122,83 +122,133 @@ struct PFTodayView: View {
         }
     }
 
-    @ViewBuilder private func content(for card: PFTodayCard) -> some View {
+    /// One card, erased to `AnyView` at its own boundary: a single `@ViewBuilder` switch over all fifteen cards, each with nested
+    /// `if let` branches, made SwiftUI instantiate one enormous `_ConditionalContent` type at runtime (stack overflow on device).
+    private func content(for card: PFTodayCard) -> AnyView {
         switch card {
-        case .todaysCall:
-            if let intel = snapshot.dailyIntel, intel.item(PFIntelID.todaysCall) != nil {
-                // "Not today" only on a real call; the not-ready and unavailable notes are never hidden.
-                if intel.isCurrent(for: snapshot.todayISO), let call = intel.call {
-                    dismissable(.todaysCall, PFCardText.todaysCall(call)) {
-                        PFTodaysCallHost(intel: intel, todayISO: snapshot.todayISO)
-                    }
-                } else {
+        case .todaysCall: return AnyView(todaysCallCard)
+        case .dayInReview: return AnyView(dayInReviewCard)
+        case .myPlan: return AnyView(myPlanCard)
+        case .todaySoFar: return AnyView(todaySoFarSection)
+        case .raceWeek: return AnyView(raceWeekCard)
+        case .brief: return AnyView(briefCard)
+        case .nextBestAction: return AnyView(nextBestActionCard)
+        case .easy: return AnyView(easyCard)
+        case .feel: return AnyView(feelCard)
+        case .alerts: return AnyView(alertsCard)
+        case .daily: return AnyView(dailyCard)
+        case .whatChanged: return AnyView(whatChangedCard)
+        case .readiness: return AnyView(readinessCard)
+        case .standing: return AnyView(standingCard)
+        case .session: return AnyView(sessionCard)
+        case .nextRace: return AnyView(nextRaceCard)
+        }
+    }
+
+    @ViewBuilder private var todaysCallCard: some View {
+        if let intel = snapshot.dailyIntel, intel.item(PFIntelID.todaysCall) != nil {
+            // "Not today" only on a real call; the not-ready and unavailable notes are never hidden.
+            if intel.isCurrent(for: snapshot.todayISO), let call = intel.call {
+                dismissable(.todaysCall, PFCardText.todaysCall(call)) {
                     PFTodaysCallHost(intel: intel, todayISO: snapshot.todayISO)
                 }
+            } else {
+                PFTodaysCallHost(intel: intel, todayISO: snapshot.todayISO)
             }
-        case .dayInReview:
-            if let intel = snapshot.dailyIntel, let review = intel.review, intel.isCurrent(for: snapshot.todayISO) {
-                dismissable(.dayInReview, PFCardText.dayInReview(review)) {
-                    PFDayReviewHost(intel: intel, todayISO: snapshot.todayISO)
-                }
-            } else if let intel = snapshot.dailyIntel {
+        }
+    }
+
+    @ViewBuilder private var dayInReviewCard: some View {
+        if let intel = snapshot.dailyIntel, let review = intel.review, intel.isCurrent(for: snapshot.todayISO) {
+            dismissable(.dayInReview, PFCardText.dayInReview(review)) {
                 PFDayReviewHost(intel: intel, todayISO: snapshot.todayISO)
             }
-        case .myPlan:
-            if let plan = snapshot.intelDocs.myPlan.value {
-                PFMyPlanCard(plan: plan)
-            }
-        case .todaySoFar:
-            VStack(alignment: .leading, spacing: 16) {
-                dismissable(.todaySoFar, PFCardText.todaySoFar(snapshot)) { PFTodaySoFarCard(snapshot: snapshot) }
-                if let mode = snapshot.easyMode?.mode { PFEasyModeChip(mode: mode) }
-            }
-        case .raceWeek:
-            if let week = snapshot.raceWeek {
-                dismissable(.raceWeek, PFCardText.raceWeek(week)) { PFRaceWeekCard(week: week, todayISO: snapshot.todayISO) }
-            }
-        case .brief:
-            if let brief = today.brief {
-                dismissable(.brief, PFCardText.brief(brief)) { PFBriefCard(brief: brief, todayISO: snapshot.todayISO) }
-            }
-        case .nextBestAction:
-            if let next = snapshot.insightsV2?.todayCard {
-                dismissable(.nextBestAction, next.dismissText) { PFNextActionCard(item: next) }
-            }
-        case .easy:
-            if let easy = snapshot.easyMode, !easy.isIdle {
-                dismissable(.easyMode, PFCardText.easyMode(easy)) { PFEasyModeCard(easy: easy) }
-            }
-        case .feel:
-            if let feel = snapshot.feel {
-                dismissable(.feel, PFCardText.feel(feel)) { PFFeelCard(feel: feel, todayISO: snapshot.todayISO) }
-            }
-        case .alerts:
-            if !snapshot.alerts.isEmpty {
-                dismissable(.alerts, PFCardText.alerts(snapshot.alerts)) { PFAlertsCard(alerts: snapshot.alerts) }
-            }
-        case .daily:
-            if showsScores { dismissable(.scores, PFCardText.scores(today)) { scoresCard } }
-        case .whatChanged:
-            if let changes = snapshot.whatChanged {
-                dismissable(.whatChanged, PFCardText.whatChanged(changes)) { PFWhatChangedCard(changes: changes) }
-            }
-        case .readiness:
-            if let readiness = snapshot.readiness {
-                dismissable(.readiness, PFCardText.readiness(readiness)) { PFReadinessCard(readiness: readiness) }
-            }
-        case .standing:
-            if let standing = snapshot.standing, standing.hasContent {
-                dismissable(.standing, PFCardText.standing(standing)) { PFStandingTodayCard(standing: standing) }
-            }
-        case .session:
-            VStack(alignment: .leading, spacing: 16) {
-                sessionsSection
-                if let easy = snapshot.easyMode, easy.isIdle { PFEasyModeHint() }
-            }
-        case .nextRace:
-            if let race = today.nextRace, snapshot.raceWeek == nil {
-                dismissable(.nextRace, PFCardText.nextRace(race)) { raceCard(race) }
-            }
+        } else if let intel = snapshot.dailyIntel {
+            PFDayReviewHost(intel: intel, todayISO: snapshot.todayISO)
+        }
+    }
+
+    @ViewBuilder private var myPlanCard: some View {
+        if let plan = snapshot.intelDocs.myPlan.value {
+            PFMyPlanCard(plan: plan)
+        }
+    }
+
+    private var todaySoFarSection: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            dismissable(.todaySoFar, PFCardText.todaySoFar(snapshot)) { PFTodaySoFarCard(snapshot: snapshot) }
+            if let mode = snapshot.easyMode?.mode { PFEasyModeChip(mode: mode) }
+        }
+    }
+
+    @ViewBuilder private var raceWeekCard: some View {
+        if let week = snapshot.raceWeek {
+            dismissable(.raceWeek, PFCardText.raceWeek(week)) { PFRaceWeekCard(week: week, todayISO: snapshot.todayISO) }
+        }
+    }
+
+    @ViewBuilder private var briefCard: some View {
+        if let brief = today.brief {
+            dismissable(.brief, PFCardText.brief(brief)) { PFBriefCard(brief: brief, todayISO: snapshot.todayISO) }
+        }
+    }
+
+    @ViewBuilder private var nextBestActionCard: some View {
+        if let next = snapshot.insightsV2?.todayCard {
+            dismissable(.nextBestAction, next.dismissText) { PFNextActionCard(item: next) }
+        }
+    }
+
+    @ViewBuilder private var easyCard: some View {
+        if let easy = snapshot.easyMode, !easy.isIdle {
+            dismissable(.easyMode, PFCardText.easyMode(easy)) { PFEasyModeCard(easy: easy) }
+        }
+    }
+
+    @ViewBuilder private var feelCard: some View {
+        if let feel = snapshot.feel {
+            dismissable(.feel, PFCardText.feel(feel)) { PFFeelCard(feel: feel, todayISO: snapshot.todayISO) }
+        }
+    }
+
+    @ViewBuilder private var alertsCard: some View {
+        if !snapshot.alerts.isEmpty {
+            dismissable(.alerts, PFCardText.alerts(snapshot.alerts)) { PFAlertsCard(alerts: snapshot.alerts) }
+        }
+    }
+
+    @ViewBuilder private var dailyCard: some View {
+        if showsScores { dismissable(.scores, PFCardText.scores(today)) { scoresCard } }
+    }
+
+    @ViewBuilder private var whatChangedCard: some View {
+        if let changes = snapshot.whatChanged {
+            dismissable(.whatChanged, PFCardText.whatChanged(changes)) { PFWhatChangedCard(changes: changes) }
+        }
+    }
+
+    @ViewBuilder private var readinessCard: some View {
+        if let readiness = snapshot.readiness {
+            dismissable(.readiness, PFCardText.readiness(readiness)) { PFReadinessCard(readiness: readiness) }
+        }
+    }
+
+    @ViewBuilder private var standingCard: some View {
+        if let standing = snapshot.standing, standing.hasContent {
+            dismissable(.standing, PFCardText.standing(standing)) { PFStandingTodayCard(standing: standing) }
+        }
+    }
+
+    private var sessionCard: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            sessionsSection
+            if let easy = snapshot.easyMode, easy.isIdle { PFEasyModeHint() }
+        }
+    }
+
+    @ViewBuilder private var nextRaceCard: some View {
+        if let race = today.nextRace, snapshot.raceWeek == nil {
+            dismissable(.nextRace, PFCardText.nextRace(race)) { raceCard(race) }
         }
     }
 
@@ -262,31 +312,41 @@ struct PFTodayView: View {
 
     // MARK: Sessions
 
-    @ViewBuilder private var sessionsSection: some View {
-        let sessions = today.sessions
-        let rides = snapshot.rides(on: snapshot.todayISO)
+    private var sessionsSection: some View {
         VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                Label("Today's sessions", systemImage: "calendar")
-                    .font(StrandFont.headline)
-                    .foregroundStyle(StrandPalette.textPrimary)
-                Spacer()
-                if !sessions.isEmpty {
-                    let done = sessions.filter { $0.status == "done" || $0.status == "partial" }.count
-                    Text("\(sessions.count) session\(sessions.count > 1 ? "s" : "")" + (done > 0 ? " \u{00B7} \(done) done" : ""))
-                        .font(StrandFont.caption)
-                        .foregroundStyle(StrandPalette.textTertiary)
-                }
-            }
-            if sessions.isEmpty && rides.isEmpty {
-                PFCard("Nothing scheduled") {
-                    PFParagraph("Enjoy the rest day \u{2014} recovery is training.")
-                }
-            } else {
-                ForEach(sessions) { PFWorkoutRow(workout: $0, snapshot: snapshot) }
-                ForEach(rides) { PFRideRow(ride: $0, snapshot: snapshot) }
+            sessionsHeader
+            sessionsRows
+        }
+    }
+
+    private var sessionsHeader: some View {
+        let sessions = today.sessions
+        return HStack {
+            Label("Today's sessions", systemImage: "calendar")
+                .font(StrandFont.headline)
+                .foregroundStyle(StrandPalette.textPrimary)
+            Spacer()
+            if !sessions.isEmpty {
+                let done = sessions.filter { $0.status == "done" || $0.status == "partial" }.count
+                Text("\(sessions.count) session\(sessions.count > 1 ? "s" : "")" + (done > 0 ? " \u{00B7} \(done) done" : ""))
+                    .font(StrandFont.caption)
+                    .foregroundStyle(StrandPalette.textTertiary)
             }
         }
+    }
+
+    private var sessionsRows: AnyView {
+        let sessions = today.sessions
+        let rides = snapshot.rides(on: snapshot.todayISO)
+        if sessions.isEmpty && rides.isEmpty {
+            return AnyView(PFCard("Nothing scheduled") {
+                PFParagraph("Enjoy the rest day \u{2014} recovery is training.")
+            })
+        }
+        return AnyView(Group {
+            ForEach(sessions) { PFWorkoutRow(workout: $0, snapshot: snapshot) }
+            ForEach(rides) { PFRideRow(ride: $0, snapshot: snapshot) }
+        })
     }
 
     // MARK: Race
