@@ -88,6 +88,8 @@ enum PFAPI {
         ("-PaceForgePhase4Missing", "data/my-plan.json", "data/my-plan.missing.json"),
         ("-PaceForgeNoStreak", "data/highlights.json", "data/highlights.nostreak.json"),
         ("-PaceForgeJournalImpactEmpty", "data/journal-impact.json", "data/journal-impact.empty.json"),
+        // Things waiting on the athlete (the default fixture has none, so the Needs you card is absent).
+        ("-PaceForgeNeedsYou", "data/needs-you.json", "data/needs-you.active.json"),
     ]
     #endif
 
@@ -148,6 +150,18 @@ enum PFAPI {
         }
         return try await SelfHostedPushClient.paceForgePostReturningStatus(
             "api/app/log", body: PFLog.requestBody(kind: kind, text: text))
+    }
+
+    /// `POST api/app/answer` with the app bearer: one answer to a Needs you item. Returns the status and body whatever the
+    /// status, so the card can show the server's own plain-English refusal. In a UI-test fixture the `api/app/answer` entry
+    /// stands in for the server (200), or the call fails when it has none or `-PaceForgeAnswerFails` is set.
+    static func postAnswer(_ body: [String: Any]) async throws -> (status: Int, data: Data) {
+        if let files = fixture {
+            if ProcessInfo.processInfo.arguments.contains("-PaceForgeAnswerFails") { throw URLError(.notConnectedToInternet) }
+            guard let reply = files["api/app/answer"] else { throw CocoaError(.fileNoSuchFile) }
+            return (200, try JSONSerialization.data(withJSONObject: reply))
+        }
+        return try await SelfHostedPushClient.paceForgePostReturningStatus("api/app/answer", body: body)
     }
 
     /// One line for the error card: the server host and why the request failed. No token, no path.
@@ -220,6 +234,7 @@ enum PFAPI {
         async let rideMetrics = fetchOptional("data/ride-metrics.json")
         async let dismissed = fetchOptional("data/dismissed.json")
         async let todayLayout = fetchOptional("data/today-layout.json")
+        async let needsYou = fetchOptional("data/needs-you.json")
         // Not part of the bundle's view models: fetched so My Day finds it saved on the phone (PFStore).
         async let workoutMatches = fetchOptional("data/workout-matches.json")
         async let state = fetch("api/state")
@@ -264,6 +279,7 @@ enum PFAPI {
         raw.rideMetrics = take(await rideMetrics)
         raw.dismissed = take(await dismissed)
         raw.todayLayout = take(await todayLayout)
+        raw.needsYou = take(await needsYou)
         _ = await workoutMatches
         return Fetched(raw: raw, digest: hasher.finalize(), bytes: bytes)
     }
@@ -334,7 +350,15 @@ final class PFModel: ObservableObject {
     @Published private(set) var failureDetail: String?
     @Published private(set) var savedAt: Date?
 
+    /// Why a Needs you answer was not saved, by item id; cleared when that item is answered again.
+    @Published private(set) var needsNotes: [String: String] = [:]
+
     private var lastSuccess: Date?
+    /// Needs you ids answered successfully: a refresh that started before the answer must not bring them back.
+    private var needsAnswered: Set<String> = []
+    private var needsInFlight: Set<String> = []
+    /// Idempotency keys by answer signature, so a retry after a lost reply cannot apply the answer twice.
+    private var needsKeys: [String: String] = [:]
     /// The digest of the documents the snapshot on screen was built from, and the day it was built for.
     private var lastDigest: Int?
     private var lastBuiltToday: String?
@@ -398,6 +422,9 @@ final class PFModel: ObservableObject {
                 guard let built else { throw CocoaError(.fileReadCorruptFile) }
                 NoopDiag.measure("pf.apply") {
                     snapshot = built
+                    // Answered items leave the list for good once the server's own list no longer has them.
+                    needsAnswered.formIntersection(built.needsYou.map { $0.id })
+                    if !needsAnswered.isEmpty { snapshot?.needsYou.removeAll { needsAnswered.contains($0.id) } }
                     PFDailyIntelStore.shared.update(built.dailyIntel)
                     PFPhase4Store.shared.update(built.intelDocs)
                 }
@@ -447,6 +474,50 @@ final class PFModel: ObservableObject {
             }
             return false
         }
+    }
+
+    /// Sends one Needs you answer. The item leaves the card at once; the server's fresh list replaces it on success, and on any
+    /// failure the item comes back with the reason in `needsNotes`. The reply is read off the main thread.
+    func submitAnswer(_ answer: PFNeedsAnswer, for item: PFNeedsItem) async {
+        guard !needsInFlight.contains(item.id), var current = snapshot,
+              let index = current.needsYou.firstIndex(where: { $0.id == item.id }) else { return }
+        needsInFlight.insert(item.id)
+        needsNotes[item.id] = nil
+        current.needsYou.remove(at: index)
+        snapshot = current
+
+        let signature = answer.signature(for: item.id)
+        let key = needsKeys[signature] ?? "ios-" + UUID().uuidString.lowercased()
+        needsKeys[signature] = key
+        var body = answer.body
+        body["key"] = key
+        let outcome: PFAnswerOutcome
+        do {
+            let reply = try await PFAPI.postAnswer(body)
+            outcome = await Task.detached(priority: .userInitiated) {
+                PFAnswerOutcome.from(status: reply.status, data: reply.data)
+            }.value
+        } catch {
+            outcome = .unreachable
+        }
+        needsInFlight.remove(item.id)
+
+        guard outcome.isSaved else {
+            needsNotes[item.id] = outcome.message
+            if var latest = snapshot, !latest.needsYou.contains(where: { $0.id == item.id }) {
+                latest.needsYou.insert(item, at: min(index, latest.needsYou.count))
+                snapshot = latest
+            }
+            return
+        }
+        needsKeys[signature] = nil
+        needsAnswered.insert(item.id)
+        if let fresh = outcome.fresh, var latest = snapshot {
+            latest.needsYou = fresh.filter { !needsAnswered.contains($0.id) }
+            snapshot = latest
+        }
+        // What the answer changed (a pace, a plan) reaches the other cards on the next load. A fixture has no server to ask.
+        if !PFAPI.isFixture { Task { await refresh() } }
     }
 
     /// Logs one tape or field-test phrase and, when the server took it, refreshes so the new numbers show at once.

@@ -50,6 +50,8 @@ struct PFSnapshot {
     var dismissed: [PFDismissal] = []
     /// The server's `today-layout.json` (how the web page arranged the Today cards); empty when it serves none.
     var todayLayout = PFTodayLayout()
+    /// What PaceForge is waiting on him for (`needs_you`), in the server's order; empty hides the Needs you card.
+    var needsYou: [PFNeedsItem] = []
     /// `state.settings.privacy.hide_body_on_lock_screen` as the server sent it; nil when it sent nothing.
     var serverHidesBody: Bool?
 

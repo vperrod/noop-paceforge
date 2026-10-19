@@ -212,6 +212,8 @@ targets:
       - StrandiOS/PaceForge/PaceForgeDismiss.swift
       # Logging a measurement from the app (phrase building, checks, how the answer reads) and the Today card order.
       - StrandiOS/PaceForge/PaceForgeLog.swift
+      # Needs you: the list parsing, the answer bodies, the treadmill input checks and how the server's reply reads.
+      - StrandiOS/PaceForge/PaceForgeNeedsYou.swift
       - StrandiOS/PaceForge/PaceForgeTodayLayout.swift
       # Garmin's own recovery HR (hrr_garmin): parsing and the card's wording.
       - StrandiOS/PaceForge/PaceForgeHRRGarmin.swift

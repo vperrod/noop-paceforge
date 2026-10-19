@@ -34,6 +34,7 @@ struct PFRawBundle {
     var rideMetrics = PFJ(nil)
     var dismissed = PFJ(nil)
     var todayLayout = PFJ(nil)
+    var needsYou = PFJ(nil)
 }
 
 extension PFRawBundle {
@@ -73,6 +74,7 @@ extension PFRawBundle {
         raw.rideMetrics = PFJ(data: read("data/ride-metrics.json"))
         raw.dismissed = PFJ(data: read("data/dismissed.json"))
         raw.todayLayout = PFJ(data: read("data/today-layout.json"))
+        raw.needsYou = PFJ(data: read("data/needs-you.json"))
         return raw
     }
 }
@@ -153,6 +155,8 @@ enum PFBuilder {
         snapshot.rides = PFRideParse.metrics(raw.rideMetrics)
         snapshot.dismissed = PFDismissStorage.parseServer(raw.dismissed)
         snapshot.todayLayout = PFTodayOrder.parseServer(raw.todayLayout)
+        // The live list document first, the copy inside /api/state when an older server serves no such file.
+        snapshot.needsYou = PFNeedsParse.items(raw.needsYou.exists ? raw.needsYou : state["needs_you"])
         snapshot.serverHidesBody = PFWave3Parse.hidesBodyOnLockScreen(state)
         snapshot.sleepNights = raw.fitness["load"]["sleep"]["stages_14d"].array.compactMap { night in
             guard let date = night["date"].string else { return nil }
