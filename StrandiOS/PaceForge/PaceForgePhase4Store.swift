@@ -29,8 +29,9 @@ final class PFPhase4Store: ObservableObject {
 
     /// The PaceForge tab already fetched the documents; keep them instead of fetching them a second time.
     func update(_ new: PFIntelDocs) {
-        docs = new
-        didLoad = true
+        // NOOP Today (the whole dashboard) observes this store; an equal assignment would still publish.
+        if docs != new { docs = new }
+        if !didLoad { didLoad = true }
         lastFetch = Date()
         rememberWeek()
     }
@@ -64,11 +65,12 @@ final class PFPhase4Store: ObservableObject {
         async let highlights = Self.read(PFDocPath.highlights)
         async let monthlyReport = Self.read(PFDocPath.monthlyReport)
         async let myPlan = Self.read(PFDocPath.myPlan)
-        docs = PFIntelDocsParse.docs(healthspan: PFJ(data: await healthspan), journalImpact: PFJ(data: await journalImpact),
-                                     highlights: PFJ(data: await highlights), monthlyReport: PFJ(data: await monthlyReport),
-                                     myPlan: PFJ(data: await myPlan))
+        let loaded = PFIntelDocsParse.docs(healthspan: PFJ(data: await healthspan), journalImpact: PFJ(data: await journalImpact),
+                                           highlights: PFJ(data: await highlights), monthlyReport: PFJ(data: await monthlyReport),
+                                           myPlan: PFJ(data: await myPlan))
+        if docs != loaded { docs = loaded }
         lastFetch = Date()
-        didLoad = true
+        if !didLoad { didLoad = true }
         rememberWeek()
     }
 

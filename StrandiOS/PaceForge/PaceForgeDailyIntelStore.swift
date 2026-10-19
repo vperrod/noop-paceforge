@@ -41,8 +41,10 @@ final class PFDailyIntelStore: ObservableObject {
 
     /// The PaceForge tab already fetched the file; keep it instead of fetching it a second time.
     func update(_ new: PFDailyIntel?) {
-        intel = new
-        didLoad = true
+        // Assigning a @Published value publishes even when it is equal, and NOOP Today (the whole dashboard) observes this
+        // store: only a changed file is assigned.
+        if intel != new { intel = new }
+        if !didLoad { didLoad = true }
         lastFetch = Date()
     }
 
@@ -73,8 +75,9 @@ final class PFDailyIntelStore: ObservableObject {
         var data = await PFAPI.fetchOptional(Self.path)
         // Offline: the copy the last good fetch left on the phone. A fixture never reads it.
         if data == nil, PFAPI.usesPhoneState { data = PFStore.read(path: Self.path) }
-        intel = PFDailyIntelParse.document(PFJ(data: data))
+        let parsed = PFDailyIntelParse.document(PFJ(data: data))
+        if intel != parsed { intel = parsed }
         lastFetch = Date()
-        didLoad = true
+        if !didLoad { didLoad = true }
     }
 }

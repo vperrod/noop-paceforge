@@ -275,6 +275,9 @@ struct TrendsView: View {
     }
 
     var body: some View {
+        #if os(iOS)
+        let _ = NoopDiag.body("TrendsView")
+        #endif
         // The liquid metric cards now tap through to their MetricDetailView (matching Today's card
         // taps + Explore's rows). On iOS each tab already supplies a NavigationStack, so those pushes
         // land in the ambient stack. On macOS the .trends detail pane has NO enclosing NavigationStack

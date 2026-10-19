@@ -578,7 +578,13 @@ final class NoopPerfStats {
     /// The screen visit on show ("pf.today#1").
     var currentKey: String { state.withLockUnchecked { $0.current } }
 
-    func body(_ name: String) { state.withLockUnchecked { $0.bodies[name, default: 0] += 1 } }
+    /// Counted per screen visit too ("LiquidTodayView@pf.today#1"), so a hidden tab re-rendering shows.
+    func body(_ name: String) {
+        state.withLockUnchecked { s in
+            s.bodies[name, default: 0] += 1
+            s.bodies["\(name)@\(s.current)", default: 0] += 1
+        }
+    }
 
     func footprint(_ mb: Double) { state.withLockUnchecked { $0.peakMB = max($0.peakMB, mb) } }
 
