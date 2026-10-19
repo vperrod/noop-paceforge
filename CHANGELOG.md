@@ -17,6 +17,15 @@ approximate; downloads are on the [Releases](https://github.com/NoopApp/noop/rel
 
 ---
 
+## 12.0.12 build 469 (PaceForge iPhone build): freeze fixes and on-device diagnostics
+
+- **Fewer freezes.** The heavy work behind Today and My Day (PaceForge activity spans, the shared PaceForge stores) now runs off the main thread, and the
+  stores publish only when their document changed. Measured on a test device: Today's main-thread blocking went from about 16 s to 2-3 s, and the worst
+  single stall from about 8 s to 1.7 s. This is better, not fixed: the strict performance budget still fails and is not loosened.
+- **Diagnostics from the phone.** Settings > Tools > Send diagnostics now builds a report (stalls with the main thread's stack, per-screen body counts,
+  the last crash report), keeps it on the phone and posts it to PaceForge, then shows what the server answered.
+- The stall watchdog now watches the main run loop instead of pinging it, so it no longer adds work to the thread it measures.
+
 ## 12.0.12 build 468 (PaceForge iPhone build): fewer screens, same content
 
 - **Two taps to anything.** More lists 11 rows (it was 33), all visible at rest: Insights, Explore, Compare, Lift Log, Health, Stress, Lab Book,
