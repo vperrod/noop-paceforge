@@ -72,6 +72,9 @@ final class PaceForgeNeedsYouUITests: XCTestCase {
         XCTAssertFalse(save.isEnabled, "30 km/h is outside the belt's limits.")
         speed.typeText("\u{8}\u{8}11.6")
         XCTAssertTrue(save.isEnabled, "11.6 km/h is a valid speed.")
+        // The keyboard covers the lower half of the screen, where the scroll drags start.
+        let done = app.keyboards.buttons["return"]
+        if done.exists { done.tap() }
 
         // Effort 1-10 and feel 1-5 are one tap each.
         XCTAssertTrue(reveal(element(app, "pf-needs-rpe-7-rpe:9100000002"), in: app), "The effort row has a 7.")
