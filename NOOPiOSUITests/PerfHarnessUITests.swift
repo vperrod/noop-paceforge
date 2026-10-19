@@ -24,10 +24,11 @@ final class PerfHarnessUITests: XCTestCase {
     static let budgetedScreens = ["tab.trends#1", "tab.today#2", "pf.today#1", "pf.coach#1", "pf.week#1",
                                   "pf.insights#1", "pf.body#1"]
 
-    private func launch() throws -> XCUIApplication {
+    private func launch(autopilot: Bool = true) throws -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments += ["--demo-seed", "--demo-seed-days", "800", "--demo-seed-raw-hr-days", "7",
-                                "-theme.appearance", "dark", "-PaceForgeFixture", "-NoopPerf", "-NoopPerfAutopilot"]
+                                "-theme.appearance", "dark", "-PaceForgeFixture", "-NoopPerf"]
+        if autopilot { app.launchArguments += ["-NoopPerfAutopilot"] }
         if let omit = ProcessInfo.processInfo.environment["PERF_OMIT"], !omit.isEmpty { app.launchArguments += ["-NoopPerfOmit", omit] }
         // No "-noop.paceforge.segment" argument here: the argument domain would override the segments the autopilot picks.
         let url = try XCTUnwrap(Bundle(for: Self.self).url(forResource: "PaceForgeRealShapes", withExtension: "json"),
@@ -100,5 +101,24 @@ final class PerfHarnessUITests: XCTestCase {
         print("PERF_TTI pf.today \(ready.map { "\($0) ms" } ?? "not measured")")
         XCTAssertNotNil(ready, "The PaceForge tab should report its time to content.")
         XCTAssertLessThanOrEqual(ready ?? .infinity, Self.maxTimeToReadyMs, "The PaceForge tab took \(ready ?? -1) ms to show its content.")
+    }
+
+    /// The field report: the app ran on Today, went to the background, and froze the moment it was opened again.
+    /// Settle on Today, press Home, wait, open the app, wait, read the app's own stall numbers.
+    func testActivateAfterBackground() throws {
+        let app = try launch(autopilot: false)
+        Thread.sleep(forTimeInterval: 45)
+        XCUIDevice.shared.press(.home)
+        Thread.sleep(forTimeInterval: 70)
+        app.activate()
+        Thread.sleep(forTimeInterval: 30)
+        let probe = app.descendants(matching: .any).matching(identifier: "noop-perf-summary").firstMatch
+        XCTAssertTrue(probe.waitForExistence(timeout: 60), "The perf probe should be on screen under -NoopPerf.")
+        let text = (probe.value as? String) ?? ""
+        print("PERF_SUMMARY activate \(text)")
+        let attachment = XCTAttachment(string: text)
+        attachment.name = "perf-summary.json"
+        attachment.lifetime = .keepAlways
+        add(attachment)
     }
 }
