@@ -27,8 +27,8 @@ final class PerfHarnessUITests: XCTestCase {
     private func launch() throws -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments += ["--demo-seed", "--demo-seed-days", "800", "--demo-seed-raw-hr-days", "7",
-                                "-theme.appearance", "dark", "-PaceForgeFixture", "-NoopPerf", "-NoopPerfAutopilot",
-                                "-noop.paceforge.segment", "today"]
+                                "-theme.appearance", "dark", "-PaceForgeFixture", "-NoopPerf", "-NoopPerfAutopilot"]
+        // No "-noop.paceforge.segment" argument here: the argument domain would override the segments the autopilot picks.
         let url = try XCTUnwrap(Bundle(for: Self.self).url(forResource: "PaceForgeRealShapes", withExtension: "json"),
                                 "The synthetic real-shapes fixture should be bundled with the UI tests.")
         let documents = try PerfFixtureBuilder.realSize(shapes: url) as NSData

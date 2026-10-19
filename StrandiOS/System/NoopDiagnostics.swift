@@ -426,7 +426,7 @@ final class MainThreadWatchdog {
                 if waited >= threshold, stallSamples < 40 {
                     stallSamples += 1
                     let stack = MainThreadSampler.sample()
-                    MainThreadProfile.shared.add(stack, stallMs: waited * 1000)
+                    MainThreadProfile.shared.add(stack, stallMs: waited * 1000, screen: NoopPerfStats.shared.currentKey)
                     if let top = stack.lazy.map({ MainThreadSampler.frame($0) }).first(where: \.isApp) {
                         lastTop = MainThreadSampler.short(top.symbol)
                     }
@@ -574,6 +574,9 @@ final class NoopPerfStats {
             s.sections[name] = entry
         }
     }
+
+    /// The screen visit on show ("pf.today#1").
+    var currentKey: String { state.withLockUnchecked { $0.current } }
 
     func body(_ name: String) { state.withLockUnchecked { $0.bodies[name, default: 0] += 1 } }
 

@@ -19,7 +19,8 @@ enum PFMyDay {
     // MARK: Inputs
 
     static func inputs(for dayStart: Date) async -> MyDayExternalInputs {
-        guard PFAPI.isConfigured, let snapshot = await loadSnapshot() else { return MyDayExternalInputs() }
+        guard PFAPI.isConfigured, let loaded = await loadSnapshot() else { return MyDayExternalInputs() }
+        let snapshot = loaded.snapshot
         let dayISO = PFFormat.isoString(dayStart)
         var out = MyDayExternalInputs()
 
@@ -44,7 +45,7 @@ enum PFMyDay {
         out.planned += unseen
             .sorted { ($0.startTs ?? 0, $0.sessionId ?? "") < ($1.startTs ?? 0, $1.sessionId ?? "") }
             .map { plannedFromEvent($0) }
-        out.planActivities = snapshot.activities.values.compactMap(planActivity)
+        out.planActivities = loaded.planActivities
         out.canonicalOf = await workoutMatches()
 
         var weighIns: [PFDayMerge.WeighIn] = []
@@ -92,7 +93,7 @@ enum PFMyDay {
                                          durationMin: minutes, matchedActivityIds: matched)
     }
 
-    private static func planActivity(_ a: PFActivity) -> DayTimeline.Input.PlanActivity? {
+    nonisolated private static func planActivity(_ a: PFActivity) -> DayTimeline.Input.PlanActivity? {
         guard let start = a.startTime.flatMap(parse), let seconds = a.durationS, seconds > 0 else { return nil }
         let startTs = Safe.int(start.timeIntervalSince1970, .towardZero)
         return DayTimeline.Input.PlanActivity(id: a.id, startTs: startTs, endTs: startTs + Safe.int(seconds, .towardZero))
@@ -188,24 +189,32 @@ enum PFMyDay {
 
     // MARK: Snapshot
 
-    private static var cached: (stamp: Date?, today: String, snapshot: PFSnapshot)?
+    /// The snapshot and its activities as My Day spans (one date parse per activity), built together off the main thread.
+    private struct Loaded {
+        let snapshot: PFSnapshot
+        let planActivities: [DayTimeline.Input.PlanActivity]
+    }
 
-    private static func loadSnapshot() async -> PFSnapshot? {
+    private static var cached: (stamp: Date?, today: String, loaded: Loaded)?
+
+    private static func loadSnapshot() async -> Loaded? {
         let today = PFAPI.todayISO
         let stamp = PFStore.savedAt(path: "api/state")
-        if let cached, cached.stamp == stamp, cached.today == today, !PFAPI.isFixture { return cached.snapshot }
+        if let cached, cached.stamp == stamp, cached.today == today, !PFAPI.isFixture { return cached.loaded }
         // Read, parsed and built off the main thread: NOOP Today's My Day section asks for this whenever the saved documents
         // changed (every PaceForge refresh rewrites them), and on the main thread it stalled Today.
         let isFixture = PFAPI.isFixture
-        let built = await Task.detached(priority: .userInitiated) { () -> PFSnapshot? in
+        let built = await Task.detached(priority: .userInitiated) { () -> Loaded? in
             let bundle: PFRawBundle?
             if isFixture {
                 bundle = try? await PFAPI.fetchBundle()
             } else {
                 bundle = NoopDiag.measure("myday.pf.cache.read") { PFStore.cachedBundle() }
             }
-            guard let bundle else { return nil }
-            return NoopDiag.measure("myday.pf.build") { PFBuilder.snapshot(from: bundle, today: today) }
+            guard let bundle,
+                  let snapshot = NoopDiag.measure("myday.pf.build", { PFBuilder.snapshot(from: bundle, today: today) })
+            else { return nil }
+            return Loaded(snapshot: snapshot, planActivities: snapshot.activities.values.compactMap(planActivity))
         }.value
         guard let built else { return nil }
         cached = (stamp, today, built)

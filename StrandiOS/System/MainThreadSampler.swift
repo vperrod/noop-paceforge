@@ -144,12 +144,21 @@ final class MainThreadProfile {
                                                    "AttributeGraph", "Foundation", "CoreFoundation", "libswiftCore.dylib",
                                                    "QuartzCore", "CoreGraphics", "MarkdownUI"]
 
-    /// One sample taken during a stall of `stallMs` so far.
-    func add(_ addresses: [UInt], stallMs: Double) {
+    /// Per screen visit: the NOOP functions on the stack and the innermost frame (where the time is actually spent).
+    private var perScreen: [String: (samples: Int, app: [String: Int], leaf: [String: Int])] = [:]
+
+    /// One sample taken during a stall of `stallMs` so far, on screen visit `screen`.
+    func add(_ addresses: [UInt], stallMs: Double, screen: String = "") {
         guard !addresses.isEmpty else { return }
         let frames = addresses.map { MainThreadSampler.frame($0) }
         let app = frames.filter(\.isApp).map { MainThreadSampler.short($0.symbol) }
+        let innermost = frames.first.map { "\($0.image): \(MainThreadSampler.short($0.symbol))" } ?? "?"
         lock.lock()
+        var entry = perScreen[screen] ?? (0, [:], [:])
+        entry.samples += 1
+        for name in Set(app) { entry.app[name, default: 0] += 1 }
+        entry.leaf[innermost, default: 0] += 1
+        perScreen[screen] = entry
         samples += 1
         for name in Set(app) { inclusive[name, default: 0] += 1 }
         let framework = frames.filter { !$0.isApp && Self.interesting.contains($0.image) }
@@ -170,8 +179,12 @@ final class MainThreadProfile {
         func top(_ table: [String: Int], _ count: Int) -> [[Any]] {
             table.sorted { $0.value > $1.value }.prefix(count).map { [$0.key, $0.value] }
         }
-        return ["samples": samples, "hot": top(inclusive, limit), "leaf": top(leaf, limit), "system": top(system, 40),
-                "images": top(images, 20),
+        var screens: [String: Any] = [:]
+        for (name, entry) in perScreen {
+            screens[name] = ["samples": entry.samples, "app": top(entry.app, 12), "innermost": top(entry.leaf, 15)]
+        }
+        return ["samples": samples, "hot": top(inclusive, limit), "leaf": top(leaf, limit), "system": top(system, 25),
+                "images": top(images, 20), "screens": screens,
                 "worst_stall_ms": (worstStallMs * 10).rounded() / 10, "worst_stack": worstStack]
     }
 }
