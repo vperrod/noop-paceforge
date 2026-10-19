@@ -17,6 +17,16 @@ approximate; downloads are on the [Releases](https://github.com/NoopApp/noop/rel
 
 ---
 
+## 12.0.12 build 471 (PaceForge iPhone build): performance work after the first real-device freeze report
+
+- **Not verified on a real iPhone.** Builds 465-470 froze on Today for some people; this build is performance work from the first on-device report, and it was
+  profiled only on the iOS 26.5 simulator. Build 464 remains the last known good. The on-device diagnostics (Settings) will show whether the freeze is gone.
+- Today now writes what it loaded in two steps instead of about twenty, so the dashboard is drawn far fewer times per load. The cards below the fold on Today
+  and Trends are built when they scroll near. Nothing on screen changed in content, order or style.
+- Apple Health authorisation is read off the main thread at app activation, the shared-container paths are looked up once, My Day builds its PaceForge snapshot
+  once at a time, and Trends keeps its history cards until the data changes. The refresh runs once at a time.
+- Detected walks of 15 minutes or more are saved by themselves (from the unreleased work after 470).
+
 ## 12.0.12 build 470 (PaceForge iPhone build): Needs you on Today
 
 - **Answer from the app, not Telegram.** When PaceForge is waiting on you, Today opens with a Needs you card: a treadmill run (km/h or min/km, incline,
