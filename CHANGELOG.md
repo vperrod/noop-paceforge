@@ -17,6 +17,13 @@ approximate; downloads are on the [Releases](https://github.com/NoopApp/noop/rel
 
 ---
 
+## 12.0.12 build 470 (PaceForge iPhone build): Needs you on Today
+
+- **Answer from the app, not Telegram.** When PaceForge is waiting on you, Today opens with a Needs you card: a treadmill run (km/h or min/km, incline,
+  Save, Same as last treadmill run, Don't know), a plan or pace proposal (Accept / Dismiss on one line), an effort rating 1-10 and today's feel 1-5.
+  The card is not there when nothing is waiting. An answer leaves the card at once and comes back with the reason if PaceForge did not take it.
+- Nothing else on Today moved. The list is read and the replies are decoded off the main thread.
+
 ## 12.0.12 build 469 (PaceForge iPhone build): freeze fixes and on-device diagnostics
 
 - **Fewer freezes.** The heavy work behind Today and My Day (PaceForge activity spans, the shared PaceForge stores) now runs off the main thread, and the
