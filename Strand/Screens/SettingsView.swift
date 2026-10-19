@@ -1722,13 +1722,15 @@ struct SettingsView: View {
         SettingsSection(
             icon: "wrench.and.screwdriver.fill",
             title: "Tools",
-            blurb: "Diagnostics, automations, Siri and power saving."
+            blurb: "Diagnostics, automations, Siri, power saving and crash reports."
         ) {
             VStack(spacing: 0) {
                 toolRow("Test Centre", icon: "stethoscope", id: "settings-tool-testcentre") { TestCentreView() }
                 toolRow("Automations", icon: "wand.and.stars", id: "settings-tool-automations") { AutomationsView() }
                 toolRow("Siri & Shortcuts", icon: "mic.fill", id: "settings-tool-siri") { SiriShortcutsSettingsView() }
                 toolRow("Power saving", icon: "battery.25", id: "settings-tool-powersaving") { PowerSavingView() }
+                toolRow("Last crash report", icon: "exclamationmark.triangle", id: "settings-tool-crashreport") { NoopDiagnosticsView() }
+                NoopDiagSendButton()
             }
         }
     }

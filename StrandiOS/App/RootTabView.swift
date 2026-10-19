@@ -169,6 +169,11 @@ struct RootTabView: View {
             // Tab crossfade — README §Motion: ~240ms opacity swap between tab roots, global calm
             // easing cubic-bezier(0.22,1,0.36,1).
             .animation(.timingCurve(0.22, 1, 0.36, 1, duration: 0.24), value: selectedTab)
+            // The tab on show, for the diagnostics breadcrumbs and the per-screen stall numbers (NoopDiag). The PaceForge
+            // tab names its own segment.
+            .onChange(of: selectedTab, initial: true) { _, tab in
+                if tab != 3 { NoopDiag.screen(Self.lookTabs.indices.contains(tab) ? "tab.\(Self.lookTabs[tab].id)" : "tab.\(tab)") }
+            }
             // Swipe left/right anywhere to move between tabs (2026-07-02), but ONLY while the current
             // tab is at its root. Attaching this ancestor drag gesture unconditionally defeated the
             // edge-restriction of a pushed NavigationStack screen's native interactive-pop gesture —

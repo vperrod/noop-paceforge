@@ -52,6 +52,9 @@ struct StrandiOSApp: App {
     @AppStorage(UnitPrefs.systemKey) private var unitSystemRaw = UnitSystem.metric.rawValue
 
     init() {
+        // Breadcrumbs, the main-thread watchdog and the "did the last run finish" marker, before anything else runs, so a
+        // stall or kill during launch is on record too (NoopDiagnostics).
+        NoopDiag.start()
         // #1008: pin the pre-change Overnight-only default for existing installs before
         // anything reads it. Idempotent; a no-op on fresh installs and after the first launch.
         PuffinExperiment.migrateContinuousHrvOvernightDefault()
@@ -370,6 +373,13 @@ struct StrandiOSApp: App {
         // safe no-op until the user opts in.
         .onChange(of: scenePhase, initial: true) { _, phase in
             if phase == .active {
+                NoopDiag.sceneActive()
+                // A report owed by the previous run (it did not finish) or by a new MetricKit diagnostic, once, after the
+                // launch work has settled; at most every six hours (NoopDiagUpload).
+                Task(priority: .utility) {
+                    try? await Task.sleep(nanoseconds: 20_000_000_000)
+                    await NoopDiagUpload.sendIfOwed()
+                }
                 // Retry any batches that were interrupted while iOS suspended the app.
                 Task(priority: .utility) {
                     await SelfHostedPushClient.pushIfEnabled(repo: model.repo)
@@ -421,6 +431,7 @@ struct StrandiOSApp: App {
                     await watch.pushLatest(from: model)
                 }
             } else if phase == .background {
+                NoopDiag.sceneBackground()
                 // Re-submit on every transition because iOS may discard an old best-effort request.
                 HealthWritebackBackgroundScheduler.updateSchedule(
                     isAuthorized: health.auth == .authorized)
@@ -539,6 +550,10 @@ private struct iOSRootView: View {
         }
         .animation(.easeInOut(duration: 0.35), value: onboarded)
         .animation(.easeInOut(duration: 0.35), value: acceptedTerms)
+        #if DEBUG
+        // `-NoopPerf`: the per-screen stall, CPU and memory numbers for the perf UI tests (NoopPerfProbe).
+        .overlay(alignment: .topLeading) { if NoopDiag.isPerfMode { NoopPerfProbe() } }
+        #endif
         .sheet(isPresented: $showWhatsNew, onDismiss: { automaticLaunchSheetResolved = true }) {
             WhatsNewView(onClose: {
                 lastSeenChangelog = AppChangelog.currentVersion

@@ -5,8 +5,8 @@ import MetricKit
 /// Writes the reports iOS hands NOOP through MetricKit into the strap log, one line each (`MetricKitLine`).
 ///
 /// Costs nothing between reports: registering is one call at launch, iOS gathers the numbers itself, and it
-/// delivers a metric payload about once a day and a diagnostic payload after a crash, hang or exception. No timer,
-/// no file, no network: the lines stay in the strap log.
+/// delivers a metric payload about once a day and a diagnostic payload after a crash, hang or exception. The lines stay
+/// in the strap log; each payload's JSON is also kept for the diagnostics report (NoopDiagStore).
 final class MetricKitLog: NSObject, MXMetricManagerSubscriber {
     static let shared = MetricKitLog()
 
@@ -19,11 +19,16 @@ final class MetricKitLog: NSObject, MXMetricManagerSubscriber {
     }
 
     func didReceive(_ payloads: [MXMetricPayload]) {
+        // The whole payload too, for the diagnostics report (NoopDiagStore keeps the newest three).
+        for payload in payloads { NoopDiagStore.shared.saveMetricKit(payload.jsonRepresentation(), diagnostic: false) }
         let lines = payloads.map { MetricKitLine.day(Self.day(from: $0)) }
         post(lines)
     }
 
     func didReceive(_ payloads: [MXDiagnosticPayload]) {
+        // The whole payload with its call stacks, for the diagnostics report sent at the next launch (NoopDiagUpload).
+        for payload in payloads { NoopDiagStore.shared.saveMetricKit(payload.jsonRepresentation(), diagnostic: true) }
+        NoopDiag.crumb("metrickit diagnostic", ["payloads": Double(payloads.count)])
         post(payloads.flatMap(Self.lines(from:)))
     }
 

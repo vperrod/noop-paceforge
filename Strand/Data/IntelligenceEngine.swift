@@ -768,6 +768,11 @@ final class IntelligenceEngine: ObservableObject {
     func analyzeRecent(maxDays: Int = 21, force: Bool = true, skipIfUnchanged: Bool = false,
                        triggerLabel: String? = nil, preserveUnscoredHistory: Bool = false,
                        onPersisted: (() -> Void)? = nil) async {
+        #if os(iOS)
+        // Diagnostics: the scoring pass's start and end (and its length) in the breadcrumbs, so a kill during it is visible.
+        let diagnostics = NoopDiag.begin("scoring", ["max_days": Double(maxDays), "force": force ? 1 : 0])
+        defer { diagnostics.end() }
+        #endif
         // #899-A: a concurrent pass already holds the lock. A NON-forced idle tick is safe to drop (the
         // in-flight pass already covers the same window). But a FORCED call is a real update path (a
         // post-backfill rescore after a sync) , dropping it would leave a freshly-synced night unscored

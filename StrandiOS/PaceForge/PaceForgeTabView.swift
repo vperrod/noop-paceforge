@@ -58,7 +58,16 @@ struct PaceForgeTabView: View {
             }
         }
         // The one-tap reveal lasts until the athlete leaves the tab.
-        .onDisappear { PFPeek.shared.isShowing = false }
+        .onDisappear {
+            PFPeek.shared.isShowing = false
+            NoopDiagSampler.shared.isWatchingClosely = false
+        }
+        // Diagnostics: the segment on show names the screen, and memory is sampled into the breadcrumbs while the tab is open.
+        .onAppear {
+            NoopDiagSampler.shared.isWatchingClosely = true
+            NoopDiag.screen("pf.\(segment.wrappedValue.rawValue)")
+        }
+        .onChange(of: segmentRaw) { _, raw in NoopDiag.screen("pf.\(raw)") }
     }
 
     private var content: some View {

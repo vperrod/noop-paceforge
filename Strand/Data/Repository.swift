@@ -950,6 +950,10 @@ final class Repository: ObservableObject {
 
     func refresh(days nDays: Int = 4000) async {
         guard let store = await ensureStore() else { return }
+        #if os(iOS)
+        let diagnostics = NoopDiag.begin("repo.refresh")
+        defer { diagnostics.end(["days": Double(days.count)]) }
+        #endif
         refreshGen &+= 1
         let myGen = refreshGen
         let now = Date()

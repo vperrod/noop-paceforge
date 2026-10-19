@@ -1,5 +1,6 @@
 #if DEBUG
 import Foundation
+import WhoopProtocol
 import WhoopStore
 
 // MARK: - DEBUG-only demo seed (Apple parity with Android's DemoSeeder)
@@ -18,7 +19,17 @@ enum AppleDemoSeeder {
 
     static let whoop = "my-whoop"
     static let apple = "apple-health"
-    private static let DAYS = 120
+    /// 120 days, or `--demo-seed-days N` (30...1500): the perf tests seed a phone-sized history.
+    private static var DAYS: Int { min(1500, max(30, intArgument("--demo-seed-days") ?? 120)) }
+    /// `--demo-seed-raw-hr-days N` (0...30): also bank N days of 1 Hz strap heart rate, so the launch scoring pass and
+    /// the day screens run on the raw volume a phone worn day and night holds.
+    private static var rawHRDays: Int { min(30, max(0, intArgument("--demo-seed-raw-hr-days") ?? 0)) }
+
+    private static func intArgument(_ flag: String) -> Int? {
+        let arguments = CommandLine.arguments
+        guard let i = arguments.firstIndex(of: flag), i + 1 < arguments.count else { return nil }
+        return Int(arguments[i + 1])
+    }
     /// Effort rescale factor: the old 0–21 strain scale → the new 0–100 Effort scale.
     private static let STRAIN_SCALE = 100.0 / 21.0
 
@@ -248,7 +259,36 @@ enum AppleDemoSeeder {
         if !garminRows.isEmpty { _ = try await store.upsertDailyMetrics(garminRows, deviceId: garminDeviceId) }
         if !workouts.isEmpty { _ = try await store.upsertWorkouts(workouts, deviceId: whoop) }
         if !journal.isEmpty { _ = try await store.upsertJournal(journal, deviceId: whoop) }
-        NSLog("AppleDemoSeeder: seeded \(daily.count) days, \(workouts.count) workouts.")
+        if rawHRDays > 0 { try await seedRawHeartRate(into: store, days: rawHRDays) }
+        NSLog("AppleDemoSeeder: seeded \(daily.count) days, \(workouts.count) workouts, \(rawHRDays) days of 1 Hz HR.")
+    }
+
+    /// One reading a second for the last `days` days up to now: a night near 52 bpm, a day near 72 with a walk an hour
+    /// and an hour's run at 150 around 18:00. Deterministic, inserted a day at a time.
+    private static func seedRawHeartRate(into store: WhoopStore, days: Int) async throws {
+        var rng = SplitMix64(seed: 0xBEA7)
+        let cal = Calendar.current
+        let now = Int(Date().timeIntervalSince1970)
+        let today = cal.startOfDay(for: Date())
+        for back in stride(from: days - 1, through: 0, by: -1) {
+            guard let day = cal.date(byAdding: .day, value: -back, to: today) else { continue }
+            let start = Int(day.timeIntervalSince1970)
+            let end = min(start + 86_400, now)
+            guard end > start else { continue }
+            var hr: [HRSample] = []
+            hr.reserveCapacity(end - start)
+            for ts in start..<end {
+                let hour = Double(ts - start) / 3600
+                let base: Double
+                switch hour {
+                case ..<7: base = 52
+                case 18..<19: base = 150
+                default: base = (Int(hour) % 3 == 0 && hour.truncatingRemainder(dividingBy: 1) < 0.25) ? 98 : 72
+                }
+                hr.append(HRSample(ts: ts, bpm: Int(base + gauss(&rng, 0, 3).clamped(-9, 9))))
+            }
+            _ = try await store.insert(Streams(hr: hr), deviceId: whoop)
+        }
     }
 
     // MARK: - helpers

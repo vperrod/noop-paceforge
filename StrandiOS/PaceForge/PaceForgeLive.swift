@@ -6,10 +6,16 @@ enum PFAPI {
     /// Path (relative to the PaceForge root) -> JSON value or markdown text, for the UI-test fixture.
     static let fixture: [String: Any]? = {
         #if DEBUG
-        guard ProcessInfo.processInfo.arguments.contains("-PaceForgeFixture"),
-              let text = ProcessInfo.processInfo.environment["PF_FIXTURE_JSON"],
-              let data = text.data(using: .utf8),
-              let files = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else { return nil }
+        guard ProcessInfo.processInfo.arguments.contains("-PaceForgeFixture") else { return nil }
+        let environment = ProcessInfo.processInfo.environment
+        let data: Data?
+        if let packed = environment["PF_FIXTURE_DEFLATE"] {
+            // A real-size fixture (the perf tests) is too big for one launch variable as text: base64 of raw DEFLATE.
+            data = Data(base64Encoded: packed).flatMap { try? ($0 as NSData).decompressed(using: .zlib) as Data }
+        } else {
+            data = environment["PF_FIXTURE_JSON"]?.data(using: .utf8)
+        }
+        guard let data, let files = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else { return nil }
         return files
         #else
         return nil
@@ -109,6 +115,8 @@ enum PFAPI {
         }
         let data = try await SelfHostedPushClient.paceForgeGet(path)
         PFStore.write(data, path: path)
+        // The big documents only (state, fitness, activities, ...), so one refresh does not fill the breadcrumb ring.
+        if data.count >= 100_000 { NoopDiag.crumb("pf.doc \(path)", ["bytes": Double(data.count)]) }
         return data
     }
 
@@ -343,21 +351,26 @@ final class PFModel: ObservableObject {
             phase = .notSetUp
             return
         }
-        if snapshot == nil, PFAPI.usesPhoneState, let cached = PFStore.cachedBundle(),
-           let built = PFBuilder.snapshot(from: cached, today: PFAPI.todayISO) {
+        if snapshot == nil, PFAPI.usesPhoneState,
+           let cached = NoopDiag.measure("pf.cache.read", { PFStore.cachedBundle() }),
+           let built = NoopDiag.measure("pf.build.cached", { PFBuilder.snapshot(from: cached, today: PFAPI.todayISO) }) {
             snapshot = built
             savedAt = PFStore.savedAt(path: "api/state")
             phase = .ready
         }
         do {
+            let fetch = NoopDiag.begin("pf.fetch")
             let raw = try await PFAPI.fetchBundleRetryingCancel()
-            guard let built = PFBuilder.snapshot(from: raw, today: PFAPI.todayISO) else {
+            fetch.end()
+            guard let built = NoopDiag.measure("pf.build.fetched", { PFBuilder.snapshot(from: raw, today: PFAPI.todayISO) }) else {
                 throw CocoaError(.fileReadCorruptFile)
             }
-            snapshot = built
-            PFDailyIntelStore.shared.update(built.dailyIntel)
-            PFPhase4Store.shared.update(built.intelDocs)
-            PFSummaryWriter.publish(built)
+            NoopDiag.measure("pf.apply") {
+                snapshot = built
+                PFDailyIntelStore.shared.update(built.dailyIntel)
+                PFPhase4Store.shared.update(built.intelDocs)
+            }
+            NoopDiag.measure("pf.summary.publish") { PFSummaryWriter.publish(built) }
             savedAt = Date()
             lastSuccess = Date()
             offlineNote = nil
