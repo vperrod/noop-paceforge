@@ -50,6 +50,25 @@ enum NoopDiag {
         MainThreadWatchdog.shared.start(tick: isPerfMode ? 0.008 : 0.05, threshold: stallThreshold)
         NoopDiagSampler.shared.start(interval: isPerfMode ? 1 : 5)
         crumb("launch", ["footprint_mb": NoopDiagSampler.footprintMB()])
+        recordAssistiveFeatures()
+    }
+
+    /// The assistive features on when the app was last active. With one of them running, iOS asks SwiftUI for the whole
+    /// accessibility tree (every Text resolved, on the main thread), which costs as much as the screen itself.
+    private(set) static var assistive: [String: Double] = [:]
+
+    @MainActor
+    static func recordAssistiveFeatures() {
+        let flags: [String: Bool] = [
+            "voiceover": UIAccessibility.isVoiceOverRunning, "switch_control": UIAccessibility.isSwitchControlRunning,
+            "assistive_touch": UIAccessibility.isAssistiveTouchRunning, "speak_screen": UIAccessibility.isSpeakScreenEnabled,
+            "speak_selection": UIAccessibility.isSpeakSelectionEnabled, "guided_access": UIAccessibility.isGuidedAccessEnabled,
+            "reduce_motion": UIAccessibility.isReduceMotionEnabled, "bold_text": UIAccessibility.isBoldTextEnabled,
+        ]
+        let numbers = flags.mapValues { $0 ? 1.0 : 0.0 }
+        guard numbers != assistive else { return }
+        assistive = numbers
+        crumb("assistive", numbers)
     }
 
     /// One breadcrumb. `event` is a fixed label from the code; `fields` are numbers only.
@@ -125,9 +144,11 @@ enum NoopDiag {
     // MARK: Scene phase
 
     /// The scene is on screen: from now until it goes to the background, an exit is not a clean one.
+    @MainActor
     static func sceneActive() {
         NoopDiagStore.shared.setForeground(true)
         crumb("active", ["footprint_mb": NoopDiagSampler.footprintMB()])
+        recordAssistiveFeatures()
     }
 
     /// Going to the background ends the foreground stretch cleanly.
@@ -576,7 +597,12 @@ final class NoopPerfStats {
         for (name, e) in snapshot.sections {
             sections[name] = ["n": e.count, "total_ms": r(e.totalMs), "max_ms": r(e.maxMs), "main_ms": r(e.mainMs)]
         }
-        let object: [String: Any] = ["peak_mb": r(max(snapshot.peakMB, NoopDiagSampler.footprintMB())),
+        #if DEBUG
+        let autopilot: Any = NoopPerfAutopilot.isDone ? "done" : "running"
+        #else
+        let autopilot: Any = "off"
+        #endif
+        let object: [String: Any] = ["peak_mb": r(max(snapshot.peakMB, NoopDiagSampler.footprintMB())), "autopilot": autopilot,
                                      "screens": screens, "sections": sections, "bodies": snapshot.bodies,
                                      "main_thread": MainThreadProfile.shared.summary()]
         guard let data = try? JSONSerialization.data(withJSONObject: object, options: [.sortedKeys]) else { return "{}" }

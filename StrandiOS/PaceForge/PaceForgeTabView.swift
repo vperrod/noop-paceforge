@@ -31,6 +31,7 @@ struct PaceForgeTabView: View {
     @AppStorage("noop.paceforge.segment") private var segmentRaw = PFSegment.today.rawValue
     @State private var showStanding = false
     @State private var insightRoute: PFInsightRoute?
+    @State private var openedAt: UInt64?
     /// Settings > Hide numbers: body weight and body fat. The Body screen then shows a placeholder.
     private let hiding = PFHiding()
 
@@ -67,6 +68,15 @@ struct PaceForgeTabView: View {
         .onAppear {
             NoopDiagSampler.shared.isWatchingClosely = true
             NoopDiag.screen("pf.\(segment.wrappedValue.rawValue)")
+            openedAt = model.phase == .ready ? nil : DispatchTime.now().uptimeNanoseconds
+        }
+        // Time from opening the tab to its content (the first load), in the breadcrumbs and the perf numbers.
+        .onChange(of: model.phase) { _, phase in
+            guard phase == .ready, let start = openedAt else { return }
+            openedAt = nil
+            let ms = Double(DispatchTime.now().uptimeNanoseconds - start) / 1e6
+            NoopPerfStats.shared.section("pf.time_to_ready", ms: ms, onMain: false)
+            NoopDiag.crumb("pf.ready", ["ms": ms.rounded()])
         }
         .onChange(of: segmentRaw) { _, raw in NoopDiag.screen("pf.\(raw)") }
     }

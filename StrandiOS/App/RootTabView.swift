@@ -175,6 +175,12 @@ struct RootTabView: View {
             .onChange(of: selectedTab, initial: true) { _, tab in
                 if tab != 3 { NoopDiag.screen(Self.lookTabs.indices.contains(tab) ? "tab.\(Self.lookTabs[tab].id)" : "tab.\(tab)") }
             }
+            #if DEBUG
+            // `-NoopPerfAutopilot` walks the tabs itself (NoopPerfAutopilot).
+            .onReceive(NotificationCenter.default.publisher(for: .noopPerfSelectTab)) { note in
+                if let tab = note.object as? Int { selectedTab = tab }
+            }
+            #endif
             // Swipe left/right anywhere to move between tabs (2026-07-02), but ONLY while the current
             // tab is at its root. Attaching this ancestor drag gesture unconditionally defeated the
             // edge-restriction of a pushed NavigationStack screen's native interactive-pop gesture —

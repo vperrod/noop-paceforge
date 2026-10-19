@@ -1,12 +1,14 @@
 import XCTest
 
-/// The PaceForge tab, Today and Trends on phone-sized data, measured by the app on itself (`-NoopPerf`):
+/// Today, Trends and every PaceForge segment on phone-sized data, measured by the app on itself:
 /// - PaceForge documents at their real list lengths: the synthetic PaceForgeRealShapes.json grown to `PerfRealCounts`
 ///   (PerfFixtureBuilder; no real athlete value anywhere), passed packed (`PF_FIXTURE_DEFLATE`);
 /// - 800 days of daily history and 7 days of 1 Hz strap heart rate (`--demo-seed-days`, `--demo-seed-raw-hr-days`).
-/// Each screen is opened and scrolled; the app's main-thread watchdog (8 ms tick, stalls from 33 ms) counts every stall
-/// against the screen visit on show. A simulator on a Mac runs faster than an iPhone, so every simulator figure is
-/// multiplied by `deviceFactor` before it is held to the phone budget.
+/// The app walks the screens itself (`-NoopPerfAutopilot`: open, load, scroll to the end and back, rest) while its
+/// main-thread watchdog (8 ms tick, stalls from 33 ms, `-NoopPerf`) counts every stall against the screen visit on show.
+/// The test does not touch the app until the walk is over: an XCUITest query makes SwiftUI build the whole accessibility
+/// tree on the main thread, which would be measured as the screen's own cost. A simulator on a Mac runs faster than an
+/// iPhone, so every simulator figure is multiplied by `deviceFactor` before it is held to the phone budget.
 final class PerfHarnessUITests: XCTestCase {
     /// Simulator on a CI Mac vs an iPhone: a figure measured here counts four times against the phone budget.
     static let deviceFactor = 4.0
@@ -15,17 +17,17 @@ final class PerfHarnessUITests: XCTestCase {
     /// Phone budget: opening and scrolling one screen blocks the main thread for 1 s at most in total.
     static let maxBlockedMs = 1_000.0
     /// Peak physical footprint of the whole app over the run, in MB (simulator figure, not scaled).
-    static let peakBudgetMB = 700.0
+    static let peakBudgetMB = 400.0
+    /// Simulator budget for the PaceForge tab's first load, tab opened to content (fixture: no network).
+    static let maxTimeToReadyMs = 1_500.0
 
-    override func setUp() {
-        continueAfterFailure = true
-    }
+    static let budgetedScreens = ["tab.trends#1", "tab.today#2", "pf.today#1", "pf.coach#1", "pf.week#1",
+                                  "pf.insights#1", "pf.body#1"]
 
     private func launch() throws -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments += ["--demo-seed", "--demo-seed-days", "800", "--demo-seed-raw-hr-days", "7",
-                                "-theme.appearance", "dark", "-PaceForgeFixture", "-NoopPerf",
-                                // Start every run on PaceForge Today, whatever an earlier test left selected.
+                                "-theme.appearance", "dark", "-PaceForgeFixture", "-NoopPerf", "-NoopPerfAutopilot",
                                 "-noop.paceforge.segment", "today"]
         let url = try XCTUnwrap(Bundle(for: Self.self).url(forResource: "PaceForgeRealShapes", withExtension: "json"),
                                 "The synthetic real-shapes fixture should be bundled with the UI tests.")
@@ -38,110 +40,64 @@ final class PerfHarnessUITests: XCTestCase {
         return app
     }
 
-    private func attach(_ app: XCUIApplication, _ name: String) {
-        let screenshot = XCTAttachment(screenshot: app.screenshot())
-        screenshot.name = name
-        screenshot.lifetime = .keepAlways
-        add(screenshot)
-    }
-
-    private func scroll(_ app: XCUIApplication, swipes: Int = 6) {
-        for _ in 0..<swipes { app.swipeUp(velocity: .fast) }
-        for _ in 0..<swipes { app.swipeDown(velocity: .fast) }
-    }
-
-    /// The app's own numbers: {"peak_mb", "screens": {"pf.today#1": {...}}, "sections": {...}}.
-    private func summary(_ app: XCUIApplication, _ label: String) throws -> [String: Any] {
-        Thread.sleep(forTimeInterval: 1.5)   // the probe refreshes once a second
+    /// The app's own numbers once its walk is over: {"autopilot", "peak_mb", "screens", "sections", "bodies", "main_thread"}.
+    private func summaryAfterWalk(_ app: XCUIApplication) throws -> [String: Any] {
+        // The walk takes about 80 s after a 25 s settle; nothing is asked of the app before then.
+        Thread.sleep(forTimeInterval: 110)
         let probe = app.descendants(matching: .any).matching(identifier: "noop-perf-summary").firstMatch
-        XCTAssertTrue(probe.waitForExistence(timeout: 10), "The perf probe should be on screen under -NoopPerf.")
-        let text = try XCTUnwrap(probe.value as? String, "The perf probe should carry the summary JSON.")
-        print("PERF_SUMMARY \(label) \(text)")
+        var text = ""
+        for _ in 0..<12 {
+            XCTAssertTrue(probe.waitForExistence(timeout: 20), "The perf probe should be on screen under -NoopPerf.")
+            text = (probe.value as? String) ?? ""
+            if text.contains("\"autopilot\":\"done\"") { break }
+            Thread.sleep(forTimeInterval: 10)
+        }
+        print("PERF_SUMMARY walk \(text)")
         let attachment = XCTAttachment(string: text)
-        attachment.name = "perf-summary \(label).json"
+        attachment.name = "perf-summary.json"
         attachment.lifetime = .keepAlways
         add(attachment)
-        return try XCTUnwrap((try JSONSerialization.jsonObject(with: Data(text.utf8))) as? [String: Any])
+        let summary = try XCTUnwrap((try JSONSerialization.jsonObject(with: Data(text.utf8))) as? [String: Any])
+        XCTAssertEqual(summary["autopilot"] as? String, "done", "The autopilot should have finished its walk.")
+        return summary
     }
 
-    private func assertBudget(_ summary: [String: Any], screen: String, file: StaticString = #filePath, line: UInt = #line) {
+    private func assertBudget(_ summary: [String: Any], screen: String) {
         let screens = summary["screens"] as? [String: [String: Any]] ?? [:]
         guard let entry = screens[screen] else {
-            XCTFail("No numbers for \(screen); measured: \(screens.keys.sorted())", file: file, line: line)
+            XCTFail("No numbers for \(screen); measured: \(screens.keys.sorted())")
             return
         }
         let maxMs = entry["max_ms"] as? Double ?? 0
         let blocked = entry["blocked_ms"] as? Double ?? 0
         let label = entry["max_label"] as? String ?? "?"
-        print("PERF_SCREEN \(screen) max_ms=\(maxMs) (x\(Self.deviceFactor) = \(maxMs * Self.deviceFactor)) blocked_ms=\(blocked) (x\(Self.deviceFactor) = \(blocked * Self.deviceFactor)) worst=\(label) cpu_s=\(entry["cpu_s"] ?? "?")")
+        print("PERF_SCREEN \(screen) stalls=\(entry["stalls"] ?? "?") max_ms=\(maxMs) (x\(Self.deviceFactor) = \(maxMs * Self.deviceFactor)) blocked_ms=\(blocked) (x\(Self.deviceFactor) = \(blocked * Self.deviceFactor)) worst=\(label) cpu_s=\(entry["cpu_s"] ?? "?")")
         XCTAssertLessThanOrEqual(maxMs * Self.deviceFactor, Self.maxStallMs,
-                                 "\(screen): a \(maxMs) ms main-thread stall in \(label) is \(maxMs * Self.deviceFactor) ms on a phone.",
-                                 file: file, line: line)
+                                 "\(screen): a \(maxMs) ms main-thread stall in \(label) is \(maxMs * Self.deviceFactor) ms on a phone.")
         XCTAssertLessThanOrEqual(blocked * Self.deviceFactor, Self.maxBlockedMs,
-                                 "\(screen): \(blocked) ms of main-thread stalls is \(blocked * Self.deviceFactor) ms on a phone.",
-                                 file: file, line: line)
+                                 "\(screen): \(blocked) ms of main-thread stalls is \(blocked * Self.deviceFactor) ms on a phone.")
     }
 
-    private func assertPeak(_ summary: [String: Any], file: StaticString = #filePath, line: UInt = #line) {
+    func testScreensOnPhoneSizedData() throws {
+        let app = try launch()
+        let summary = try summaryAfterWalk(app)
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "Perf PaceForge Body after the walk"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
+
+        let screens = summary["screens"] as? [String: [String: Any]] ?? [:]
+        print("PERF_SCREEN launch (seed, first refresh, scoring; not budgeted): \(screens["tab.today#1"] ?? [:])")
+        for screen in Self.budgetedScreens { assertBudget(summary, screen: screen) }
+
         let peak = summary["peak_mb"] as? Double ?? 0
         print("PERF_PEAK_MB \(peak)")
-        XCTAssertLessThanOrEqual(peak, Self.peakBudgetMB, "Peak footprint \(peak) MB is over the \(Self.peakBudgetMB) MB budget.",
-                                 file: file, line: line)
-    }
+        XCTAssertLessThanOrEqual(peak, Self.peakBudgetMB, "Peak footprint \(peak) MB is over the \(Self.peakBudgetMB) MB budget.")
 
-    /// Lets the launch work (the seed, the first refresh and the scoring pass) finish before a screen is measured.
-    private func settle(_ app: XCUIApplication) {
-        XCTAssertTrue(app.shellTab("Today").waitForExistence(timeout: 60), "Today's tab should show.")
-        Thread.sleep(forTimeInterval: 25)
-    }
-
-    func testPaceForgeTabOnRealSizeDocuments() throws {
-        let app = try launch()
-        settle(app)
-        let tab = app.shellTab("PaceForge")
-        let opened = Date()
-        tab.tap()
-        let segments = app.segmentedControls["pf-segments"]
-        XCTAssertTrue(segments.waitForExistence(timeout: 20), "The PaceForge tab should load the real-size fixture.")
-        let timeToSegments = Date().timeIntervalSince(opened)
-        print("PERF_TTI pf.today \(String(format: "%.2f", timeToSegments)) s")
-        XCTAssertLessThan(timeToSegments, 6, "The PaceForge tab took \(timeToSegments) s to show its segments.")
-        Thread.sleep(forTimeInterval: 2)
-        attach(app, "Perf 1 PaceForge Today")
-        scroll(app)
-        for (index, title) in ["Coach", "This week", "Insights", "Body"].enumerated() {
-            let button = segments.buttons[title]
-            // A busy main thread drops taps: try again for up to about 20 s before measuring the segment.
-            for _ in 0..<10 where !button.isSelected { button.tap(); Thread.sleep(forTimeInterval: 2) }
-            XCTAssertTrue(button.isSelected, "The \(title) segment should open.")
-            Thread.sleep(forTimeInterval: 2)
-            attach(app, "Perf \(index + 2) PaceForge \(title)")
-            scroll(app)
-        }
-        let numbers = try summary(app, "paceforge")
-        for screen in ["pf.today#1", "pf.coach#1", "pf.week#1", "pf.insights#1", "pf.body#1"] {
-            assertBudget(numbers, screen: screen)
-        }
-        assertPeak(numbers)
-    }
-
-    func testTodayAndTrendsOnPhoneSizedHistory() throws {
-        let app = try launch()
-        settle(app)
-        attach(app, "Perf 7 Today")
-        // The launch visit carries the seed and the first scoring pass; Today is measured on a second visit.
-        app.shellTab("Trends").tap()
-        Thread.sleep(forTimeInterval: 3)
-        attach(app, "Perf 8 Trends")
-        scroll(app)
-        app.shellTab("Today").tap()
-        Thread.sleep(forTimeInterval: 3)
-        scroll(app)
-        let numbers = try summary(app, "today-trends")
-        let screens = numbers["screens"] as? [String: [String: Any]] ?? [:]
-        print("PERF_SCREEN launch (seed, first refresh, scoring; not budgeted): \(screens["tab.today#1"] ?? [:])")
-        assertBudget(numbers, screen: "tab.trends#1")
-        assertBudget(numbers, screen: "tab.today#2")
-        assertPeak(numbers)
+        let sections = summary["sections"] as? [String: [String: Any]] ?? [:]
+        let ready = sections["pf.time_to_ready"]?["max_ms"] as? Double
+        print("PERF_TTI pf.today \(ready.map { "\($0) ms" } ?? "not measured")")
+        XCTAssertNotNil(ready, "The PaceForge tab should report its time to content.")
+        XCTAssertLessThanOrEqual(ready ?? .infinity, Self.maxTimeToReadyMs, "The PaceForge tab took \(ready ?? -1) ms to show its content.")
     }
 }

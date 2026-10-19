@@ -55,6 +55,9 @@ struct StrandiOSApp: App {
         // Breadcrumbs, the main-thread watchdog and the "did the last run finish" marker, before anything else runs, so a
         // stall or kill during launch is on record too (NoopDiagnostics).
         NoopDiag.start()
+        #if DEBUG
+        NoopPerfAutopilot.startIfRequested()
+        #endif
         // #1008: pin the pre-change Overnight-only default for existing installs before
         // anything reads it. Idempotent; a no-op on fresh installs and after the first launch.
         PuffinExperiment.migrateContinuousHrvOvernightDefault()

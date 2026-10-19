@@ -45,6 +45,7 @@ enum NoopDiagReport {
                 "app": ["version": NoopDiagStore.appVersion, "build": NoopDiagStore.appBuild],
                 "device": ["model": deviceModel(), "os": ProcessInfo.processInfo.operatingSystemVersionString],
                 "footprint_mb": NoopDiagSampler.footprintMB(),
+                "assistive": NoopDiag.assistive,
                 "peak_mb": NoopDiagSampler.shared.peakMB,
                 "stats": (try? JSONSerialization.jsonObject(with: Data(NoopPerfStats.shared.summaryJSON().utf8))) ?? [String: Any](),
                 "current_run": ["crumbs": crumbs],
