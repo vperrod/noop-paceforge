@@ -8,7 +8,7 @@ struct PFCoachView: View {
     private var coach: PFCoach { snapshot.coach }
 
     var body: some View {
-        LazyVStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: 16) {
             if let brief = coach.brief { briefCard(brief) }
             if let take = coach.take { takeCard(take) }
             if let review = coach.weeklyReview { weeklyReviewCard(review) }

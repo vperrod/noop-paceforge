@@ -16,7 +16,7 @@ struct PFWeekView: View {
     private var week: PFWeek { snapshot.weeks[weekIndex.wrappedValue] }
 
     var body: some View {
-        LazyVStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: 16) {
             if snapshot.weeks.count > 1 {
                 Picker("Week", selection: weekIndex) {
                     ForEach(Array(snapshot.weeks.enumerated()), id: \.offset) { index, w in

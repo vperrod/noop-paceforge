@@ -10,7 +10,7 @@ struct PFInsightsView: View {
     private var insights: PFInsights { snapshot.insights }
 
     var body: some View {
-        LazyVStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: 16) {
             if let standing = snapshot.standing, standing.hasContent {
                 PFDismissable(.standing, text: PFCardText.standing(standing), snapshot: snapshot) {
                     PFStandingInsightsCard(standing: standing)

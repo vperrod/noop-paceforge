@@ -11,7 +11,7 @@ struct PFBodyView: View {
 
     var body: some View {
         if let doc = snapshot.body {
-            LazyVStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: 16) {
                 if let progress = snapshot.bodyProgress { PFProgressCard(progress: progress) }
                 PFTrendCard(doc: doc, progress: snapshot.bodyProgress, metric: $metric)
                 if let muscle = snapshot.muscle { PFMuscleCheckCard(check: muscle) }
