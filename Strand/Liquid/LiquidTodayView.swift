@@ -364,7 +364,9 @@ struct LiquidTodayView: View {
 
                 liquidRefreshIndicator   // grows in the revealed space; a vessel filling with the pull
 
-                VStack(alignment: .leading, spacing: 12) {
+                // Lazy: the sections below the fold are built when they scroll near, not at every visit; with 15 Look
+                // sections the eager column was the cost of every Today pass (same alignment and spacing).
+                LazyVStack(alignment: .leading, spacing: 12) {
                     scene
                     // The strain/illness early-warning banner, dropped in the liquid Home rewrite. Liquid is
                     // the DEFAULT Today on both platforms (RootTabView.swift's liquidTodayEnabled = true,

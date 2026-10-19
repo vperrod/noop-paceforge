@@ -85,7 +85,7 @@ struct PFTodayView: View {
         let layout = layoutStore.layout(server: snapshot.todayLayout)
         let visible = visibleIDs
         let _ = NoopDiag.body("PFTodayView")
-        VStack(alignment: .leading, spacing: 16) {
+        LazyVStack(alignment: .leading, spacing: 16) {
             // Fixed above the arrangeable cards; absent while nothing is waiting on him.
             if !snapshot.needsYou.isEmpty { PFNeedsYouCard(items: snapshot.needsYou) }
             PFTodayCustomiseHeader(isArranging: $isArranging, hasLocalOrder: layoutStore.local != nil) {
