@@ -20,8 +20,16 @@ final class DetectedSportChoiceTests: XCTestCase {
         XCTAssertEqual(DetectedSportChoice.walk.sportName, "Walking")
     }
 
-    func testTheAutoSaveSettingIsOffByDefault() {
-        UserDefaults.standard.removeObject(forKey: MyDayWalkPrefs.autoSaveKey)
-        XCTAssertFalse(MyDayWalkPrefs.autoSaveEnabled)
+    func testTheAutoSaveSettingIsOnWhenNeverSet() throws {
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: "DetectedSportChoiceTests.never"))
+        defaults.removePersistentDomain(forName: "DetectedSportChoiceTests.never")
+        XCTAssertTrue(MyDayWalkPrefs.isAutoSaveEnabled(defaults))
+    }
+
+    func testTheAutoSaveSettingStaysOffWhenSwitchedOff() throws {
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: "DetectedSportChoiceTests.off"))
+        defaults.removePersistentDomain(forName: "DetectedSportChoiceTests.off")
+        defaults.set(false, forKey: MyDayWalkPrefs.autoSaveKey)
+        XCTAssertFalse(MyDayWalkPrefs.isAutoSaveEnabled(defaults))
     }
 }

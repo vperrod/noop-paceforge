@@ -159,7 +159,7 @@ final class DetectedSegmentClassifierTests: XCTestCase {
         XCTAssertEqual(C.recordedMatch(startTs: 1000, endTs: 2000, in: [walk, run])?.sport, "Running")
     }
 
-    // MARK: Auto-save rule
+    // MARK: Auto-save rule (on by default in the app; the setting is read by the loader)
 
     private func autoSave(_ guess: C.Guess = .walk, recorded: Bool = false, minutes: Int = 20, endedAgo: Int = 3600,
                           enabled: Bool = true) -> Bool {
@@ -175,4 +175,8 @@ final class DetectedSegmentClassifierTests: XCTestCase {
     func testFourteenMinutesIsTooShort() { XCTAssertFalse(autoSave(minutes: 14)) }
     func testAWalkThatEndedTenMinutesAgoIsSettled() { XCTAssertTrue(autoSave(endedAgo: 600)) }
     func testAWalkThatEndedAMinuteAgoMayStillBeGoing() { XCTAssertFalse(autoSave(endedAgo: 60)) }
+
+    func testTheSettingIsOnWhenItWasNeverStored() { XCTAssertTrue(C.autoSaveEnabled(stored: nil)) }
+    func testTheSettingStaysOffWhenSwitchedOff() { XCTAssertFalse(C.autoSaveEnabled(stored: false)) }
+    func testTheSettingIsOnWhenSwitchedOn() { XCTAssertTrue(C.autoSaveEnabled(stored: true)) }
 }

@@ -100,10 +100,14 @@ public enum DetectedSegmentClassifier {
     /// Fewer per-minute points than this and the series is too short to judge steadiness.
     public static let minSeriesMinutes = 5
 
-    /// A walk is saved by itself (when the user opted in) once it is at least this long...
+    /// A walk is saved by itself once it is at least this long...
     public static let autoSaveMinSec = 15 * 60
     /// ...and has been over for this long, so a walk still going is not saved in two pieces.
     public static let autoSaveSettleSec = 10 * 60
+
+    /// The auto-save setting: on unless the person switched it off. `stored` is the value the Settings toggle
+    /// wrote, nil when it never did (the setting used to default to off, so nobody is stuck on an old default).
+    public static func autoSaveEnabled(stored: Bool?) -> Bool { stored ?? true }
 
     // MARK: Classify
 
@@ -132,7 +136,7 @@ public enum DetectedSegmentClassifier {
         return .walk
     }
 
-    /// Whether a suggestion should be saved by itself: the opt-in is on, it is a walk nobody has recorded,
+    /// Whether a suggestion should be saved by itself: the setting is on, it is a walk nobody has recorded,
     /// it is long enough, and it is over.
     public static func shouldAutoSave(guess: Guess, isRecorded: Bool, durationSec: Int, endTs: Int, nowTs: Int,
                                       enabled: Bool) -> Bool {

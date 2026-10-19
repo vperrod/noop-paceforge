@@ -352,12 +352,12 @@ final class DayTimelineTests: XCTestCase {
         XCTAssertTrue(events(DayTimeline.build(i), .detected).isEmpty)
     }
 
-    func testACalmDetectedWindowIsOfferedAsAWalk() {
+    func testACalmDetectedWindowIsShownAsAWalk() {
         var i = input()
         i.segmentProfile = .init(maxHr: 185, restingHr: 52)
         i.detected = [.init(startTs: at(12), endTs: at(12, 14), avgBpm: 101, peakBpm: 116)]
         let e = events(DayTimeline.build(i), .detected).first
-        XCTAssertEqual([e?.title, e?.suggestion?.guess.rawValue], ["Looks like a walk", "walk"])
+        XCTAssertEqual([e?.title, e?.suggestion?.guess.rawValue], ["Walk", "walk"])
     }
 
     func testAHardDetectedWindowStaysAWorkout() {

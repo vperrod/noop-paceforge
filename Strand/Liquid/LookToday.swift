@@ -113,6 +113,7 @@ struct LookMyDaySection: View {
     @EnvironmentObject private var repo: Repository
     @EnvironmentObject private var model: AppModel
     @EnvironmentObject private var router: NavRouter
+    @EnvironmentObject private var profile: ProfileStore
     @State private var items: [ActivityPillItem] = []
     @State private var showLiveWorkout = false
     @State private var showStartSport = false
@@ -173,6 +174,11 @@ struct LookMyDaySection: View {
     }
 
     @MainActor private func load() async {
+        // Calm walks the detector found are saved first, so they are in this very read.
+        if await DayTimelineLoader.autoSaveWalksForToday(repo: repo, day: day, segmentProfile: profile.segmentProfile) > 0 {
+            await repo.refresh()
+        }
+        guard !Task.isCancelled else { return }
         let result = await DayTimelineLoader.load(
             repo: repo, day: day,
             options: DayTimelineLoader.Options(includeHeartRate: false, includeStress: false, includeContext: false))

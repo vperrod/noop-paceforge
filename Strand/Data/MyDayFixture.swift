@@ -21,8 +21,9 @@ enum MyDayFixture {
         case empty
         /// The full day plus a PaceForge bike ride (a day-events row with a ride id), which opens the ride screen.
         case ride
-        /// The full day with the walk-or-workout suggestions: five calm walks, one hard stretch, and one stretch
-        /// a recorded run already covers ("Already recorded").
+        /// The full day as it reads once the walks have saved themselves: three calm walks of 15 minutes or more
+        /// are Walking workouts, two shorter ones and one hard stretch stay plain rows, and one stretch a
+        /// recorded run already covers says "Already recorded".
         case walks
     }
 
@@ -128,6 +129,30 @@ enum MyDayFixture {
             }
             input.journal = [.init(label: "Caffeine", yes: true), .init(label: "Alcohol", yes: false),
                              .init(label: "Late meal", yes: true)]
+        }
+
+        if variant == .walks {
+            // What My Day does on a real day: a finished, calm stretch of 15 minutes or more is saved as a Walking
+            // workout and its suggestion dismissed, so it is only the workout row from then on.
+            let nowTs = Int(input.now.timeIntervalSince1970)
+            let saved = DayTimeline.build(input).events.compactMap { event -> DayTimeline.Input.Detected? in
+                guard event.kind == .detected, let suggestion = event.suggestion,
+                      let found = input.detected.first(where: { "detected-\($0.startTs)-\($0.endTs)" == event.id }),
+                      DetectedSegmentClassifier.shouldAutoSave(
+                        guess: suggestion.guess, isRecorded: suggestion.isRecorded, durationSec: found.endTs - found.startTs,
+                        endTs: found.endTs, nowTs: nowTs, enabled: true) else { return nil }
+                return found
+            }
+            for walk in saved {
+                let key = "auto-\(walk.startTs)"
+                input.workouts.append(.init(key: key, startTs: walk.startTs, endTs: walk.endTs, title: DetectedSportChoice.walk.sportName,
+                                            sources: [.strap], avgHr: walk.avgBpm, maxHr: walk.peakBpm))
+                rows[key] = WorkoutRow(startTs: walk.startTs, endTs: walk.endTs, sport: DetectedSportChoice.walk.sportName,
+                                       source: "manual", durationS: Double(walk.endTs - walk.startTs), energyKcal: nil,
+                                       avgHr: walk.avgBpm, maxHr: walk.peakBpm, strain: nil, distanceM: nil,
+                                       zonesJSON: nil, notes: nil, steps: nil)
+            }
+            input.detected.removeAll { d in saved.contains { $0.startTs == d.startTs && $0.endTs == d.endTs } }
         }
 
         let detected = input.detected.reduce(into: [String: DetectedWorkout]()) { acc, d in

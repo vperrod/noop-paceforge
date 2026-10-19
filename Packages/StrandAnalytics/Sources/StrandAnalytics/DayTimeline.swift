@@ -21,7 +21,7 @@ import Foundation
 //  - A stretch with no heart rate for 10 minutes or more becomes a no-data event while the day is not
 //    over. The heart-rate curve lifts the pen across it; nothing is ever interpolated.
 //  - Journal answers are one untimed day note.
-//  - A detected stretch is offered as a Walk (not a workout) when `DetectedSegmentClassifier` says so, and
+//  - A detected stretch is shown as a Walk (not a workout) when `DetectedSegmentClassifier` says so, and
 //    is marked "Already recorded", with that workout's sport, when a recorded workout covers more than
 //    half of it. A saved workout that explains less than half of it still hides it (the old rule).
 

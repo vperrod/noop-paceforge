@@ -3,10 +3,10 @@ import StrandAnalytics
 
 // MARK: - Detected stretch: the type to save it as, and the My Day walk setting
 //
-// My Day lists a sustained, raised-heart-rate stretch as a suggestion. Tapping Save uses the type the classifier
-// guessed (Walk for a calm one); the type menu on the same button names it directly. The names below are the
-// workout catalogue's own (`KnownWorkoutType`), so each saved row gets that sport's icon and dedupes like a
-// hand-entered one.
+// A calm detected stretch of 15 minutes or more is saved as a Walk by itself (see `MyDayWalkPrefs`). Anything
+// else stays a plain row on My Day; its long-press menu, and the one on a saved workout, name the type
+// directly. The names below are the workout catalogue's own (`KnownWorkoutType`), so each saved row gets that
+// sport's icon and dedupes like a hand-entered one.
 
 enum DetectedSportChoice: String, CaseIterable, Identifiable {
     case walk, run, cycle, strength, hiit, yoga, hike, swim, other
@@ -44,10 +44,17 @@ enum DetectedSportChoice: String, CaseIterable, Identifiable {
 }
 
 enum MyDayWalkPrefs {
-    /// Off by default. When on, a calm stretch classified as a walk (15 minutes or more, finished) is saved as a
-    /// Walk workout by itself the next time My Day loads. It stays editable and deletable like any workout.
+    /// On unless the person switched it off in Settings. A calm stretch classified as a walk (15 minutes or more,
+    /// finished) is saved as a Walk workout by itself the next time My Day or Today loads. It stays editable and
+    /// deletable like any workout. The key is only ever written by the Settings toggle, so a person who never
+    /// touched it (the setting used to default to off) has no stored value and gets the new default; an explicit
+    /// off stays off.
     static let autoSaveKey = "noop.myday.autoSaveWalks"
-    static var autoSaveEnabled: Bool { UserDefaults.standard.bool(forKey: autoSaveKey) }
+    static var autoSaveEnabled: Bool { isAutoSaveEnabled(UserDefaults.standard) }
+
+    static func isAutoSaveEnabled(_ defaults: UserDefaults) -> Bool {
+        DetectedSegmentClassifier.autoSaveEnabled(stored: defaults.object(forKey: autoSaveKey) as? Bool)
+    }
 }
 
 extension ProfileStore {

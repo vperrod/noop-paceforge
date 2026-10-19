@@ -164,12 +164,18 @@ enum DayTimelineLoader {
         return Loaded(timeline: DayTimeline.build(input), workoutRows: rowsByKey, detected: detectedByEvent)
     }
 
-    /// Saves, as Walk workouts, the walks the user asked to have saved by themselves (Settings, off by default):
-    /// calm stretches classified as walks, 15 minutes or longer, finished, that no recorded workout covers.
-    /// Returns how many were saved; the caller then reloads, where they show as ordinary Walk entries.
+    /// Set while a pass runs, so My Day and the Today card opening together cannot save the same walk twice.
+    private static var isAutoSaving = false
+
+    /// Saves, as Walk workouts, the calm stretches classified as walks, 15 minutes or longer, finished, that no
+    /// recorded workout covers (Settings can switch this off; it is on by default). Each saved stretch is also
+    /// dismissed as a suggestion: the Walk row replaces it, and a walk the person later deletes is not found
+    /// and saved again. Returns how many were saved; the caller then reloads.
     static func autoSaveWalks(repo: Repository, loaded: Loaded, now: Date = Date()) async -> Int {
         let enabled = MyDayWalkPrefs.autoSaveEnabled
-        guard enabled else { return 0 }
+        guard enabled, !isAutoSaving else { return 0 }
+        isAutoSaving = true
+        defer { isAutoSaving = false }
         let nowTs = Int(now.timeIntervalSince1970)
         var count = 0
         for event in loaded.timeline.events where event.kind == .detected {
@@ -178,9 +184,25 @@ enum DayTimelineLoader {
             guard DetectedSegmentClassifier.shouldAutoSave(
                 guess: suggestion.guess, isRecorded: suggestion.isRecorded, durationSec: length,
                 endTs: found.endSec, nowTs: nowTs, enabled: enabled) else { continue }
-            if await repo.saveDetectedWorkout(found, sport: DetectedSportChoice.walk.sportName) { count += 1 }
+            if await repo.saveDetectedWorkout(found, sport: DetectedSportChoice.walk.sportName) {
+                repo.dismissDetectedSuggestion(found)
+                count += 1
+            }
         }
         return count
+    }
+
+    /// The Today card's pass: reads the day the way My Day does and saves its finished walks, so they are in
+    /// the card and in Workouts without My Day being opened. At most one pass every five minutes.
+    private static var lastTodayPass: Date?
+
+    static func autoSaveWalksForToday(repo: Repository, day: Date, segmentProfile: DetectedSegmentClassifier.Profile,
+                                      now: Date = Date()) async -> Int {
+        guard MyDayWalkPrefs.autoSaveEnabled, PuffinExperiment.autoDetectWorkoutsEnabled else { return 0 }
+        if let last = lastTodayPass, now.timeIntervalSince(last) < 300 { return 0 }
+        lastTodayPass = now
+        let loaded = await load(repo: repo, day: day, options: Options(segmentProfile: segmentProfile), now: now)
+        return await autoSaveWalks(repo: repo, loaded: loaded, now: now)
     }
 
     /// True when the day being loaded is the logical day of `now` (it rolls over at the user's rollover hour,

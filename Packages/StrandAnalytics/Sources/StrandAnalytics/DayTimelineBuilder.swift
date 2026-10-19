@@ -263,7 +263,7 @@ extension DayTimeline {
         }
 
         // Detected, unsaved suggestions. A recorded workout covering more than half of one marks it "Already
-        // recorded" (kept, with that sport, no Save); a workout or sleep that merely explains it is dropped.
+        // recorded" (kept, with that sport); a workout or sleep that merely explains it is dropped.
         let saved = events.filter { $0.kind == .workout || $0.kind == .sleep || $0.kind == .nap }
         let recorded = events.compactMap { e -> DetectedSegmentClassifier.Recorded? in
             guard e.kind == .workout, let end = e.end else { return nil }
@@ -288,7 +288,7 @@ extension DayTimeline {
             let figures = "\(durationText(length)) \u{00B7} avg \(d.avgBpm) bpm"
             events.append(Event(
                 id: "detected-\(d.startTs)-\(d.endTs)", kind: .detected, start: date(d.startTs), end: date(d.endTs),
-                title: match?.sport ?? (guess == .walk ? "Looks like a walk" : "Looks like a workout"),
+                title: match?.sport ?? (guess == .walk ? "Walk" : "Looks like a workout"),
                 subtitle: match == nil ? figures : "Already recorded \u{00B7} \(figures)",
                 sources: [.strap],
                 metrics: Metrics(durationSec: length, avgHr: d.avgBpm, maxHr: d.peakBpm),

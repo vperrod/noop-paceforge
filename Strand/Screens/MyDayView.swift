@@ -30,7 +30,7 @@ struct MyDayView: View {
     @AppStorage("noop.myday.showEnergy") private var showEnergy = false
     @AppStorage("noop.myday.showGarminStress") private var showGarminStress = false
     @AppStorage(HydrationStore.enabledKey) private var hydrationEnabled = false
-    @AppStorage(MyDayWalkPrefs.autoSaveKey) private var autoSaveWalks = false
+    @AppStorage(MyDayWalkPrefs.autoSaveKey) private var autoSaveWalks = true
     @AppStorage(UnitPrefs.systemKey) private var unitSystemRaw = UnitSystem.metric.rawValue
     @AppStorage(UnitPrefs.distanceSystemKey) private var distanceSystemRaw = ""
 
@@ -41,7 +41,6 @@ struct MyDayView: View {
     @State private var sheet: Sheet?
     /// Suggestions dismissed on this screen, hidden at once (the dismissal itself is stored by the repository).
     @State private var dismissedIds: Set<String> = []
-    @State private var isAutoSaving = false
 
     private enum Sheet: Identifiable {
         case addWorkout
@@ -123,11 +122,10 @@ struct MyDayView: View {
         let options = DayTimelineLoader.Options(includeStress: showStress, segmentProfile: profile.segmentProfile)
         var result = await DayTimelineLoader.load(repo: repo, day: dayStart, options: options)
         guard !Task.isCancelled else { return }
-        // Opt-in: calm walks of 15 minutes or more are saved as Walk workouts, then the day is read again.
-        if autoSaveWalks, !isAutoSaving {
-            isAutoSaving = true
+        // Calm walks of 15 minutes or more are saved as Walk workouts (unless switched off in Settings), then the
+        // day is read again.
+        if autoSaveWalks {
             let savedCount = await DayTimelineLoader.autoSaveWalks(repo: repo, loaded: result)
-            isAutoSaving = false
             if savedCount > 0 {
                 await repo.refresh()
                 result = await DayTimelineLoader.load(repo: repo, day: dayStart, options: options)
@@ -378,30 +376,18 @@ struct MyDayView: View {
         // A day with no heart rate at all is one whole-day gap; the empty-state card above already says so.
         let shown = timeline.hasHeartRate ? timeline.events : timeline.events.filter { $0.kind != .noData }
         let events = shown.filter { !dismissedIds.contains($0.id) }
-        let walkIds = Self.openWalkIds(in: events)
         if !events.isEmpty {
             VStack(alignment: .leading, spacing: NoopMetrics.gap) {
                 SectionHeader("Timeline", overline: "Newest first", trailing: "\(events.count)")
-                if !walkIds.isEmpty {
-                    HStack {
-                        Spacer(minLength: 0)
-                        Button { dismissAllWalks(walkIds) } label: {
-                            Label(walkIds.count == 1 ? String(localized: "Dismiss the walk")
-                                  : String(localized: "Dismiss all walks (\(walkIds.count))"),
-                                  systemImage: "figure.walk")
-                        }
-                        .buttonStyle(.bordered)
-                        .controlSize(.small)
-                        .accessibilityIdentifier("myday-dismiss-walks")
-                    }
-                }
                 NoopCard(padding: NoopMetrics.space3) {
                     VStack(spacing: 0) {
                         ForEach(Array(events.enumerated()), id: \.element.id) { index, event in
                             MyDayRow(event: event, text: rowText(event), isHighlighted: event.id == highlightedId,
                                      opens: opens(event),
                                      onOpen: { open(event) },
-                                     onSave: { choice in save(event, as: choice) }, onDismiss: { dismiss(event) })
+                                     onSave: { choice in save(event, as: choice) }, onDismiss: { dismiss(event) },
+                                     onRetype: manualRow(event) == nil ? nil : { choice in retype(event, to: choice) },
+                                     onDelete: manualRow(event) == nil ? nil : { delete(event) })
                                 .id(event.id)
                             if index < events.count - 1 { Divider().overlay(StrandPalette.hairline) }
                         }
@@ -468,18 +454,33 @@ struct MyDayView: View {
         Task { await reload() }
     }
 
-    /// Suggestions guessed as walks that nobody has recorded yet: what "Dismiss all walks" removes.
-    static func openWalkIds(in events: [DayTimeline.Event]) -> [String] {
-        events.filter { $0.kind == .detected && $0.suggestion?.guess == .walk && $0.suggestion?.isRecorded == false }
-            .map(\.id)
+    /// The stored row behind a workout event the person made or the app saved for them (manual), the only kind
+    /// whose type can be changed or that can be deleted from here.
+    private func manualRow(_ event: DayTimeline.Event) -> WorkoutRow? {
+        guard event.kind == .workout, case .workout(let key) = event.route,
+              let row = loaded?.workoutRows[key], WorkoutSource.classify(row.source) == .manual else { return nil }
+        return row
     }
 
-    private func dismissAllWalks(_ ids: [String]) {
-        for id in ids {
-            dismissedIds.insert(id)
-            if let suggestion = loaded?.detected[id] { repo.dismissDetectedSuggestion(suggestion) }
+    private func retype(_ event: DayTimeline.Event, to choice: DetectedSportChoice) {
+        guard let old = manualRow(event), old.sport != choice.sportName else { return }
+        let row = WorkoutRow(startTs: old.startTs, endTs: old.endTs, sport: choice.sportName, source: old.source,
+                             durationS: old.durationS, energyKcal: old.energyKcal, avgHr: old.avgHr,
+                             maxHr: old.maxHr, strain: old.strain, distanceM: old.distanceM,
+                             zonesJSON: old.zonesJSON, notes: old.notes, steps: old.steps)
+        Task {
+            await repo.saveManualWorkout(row, replacing: old)
+            await repo.refresh()
         }
-        Task { await reload() }
+    }
+
+    private func delete(_ event: DayTimeline.Event) {
+        guard let row = manualRow(event) else { return }
+        RouteStore.remove(startTs: row.startTs, sport: row.sport)
+        Task {
+            await repo.deleteWorkout(row)
+            await repo.refresh()
+        }
     }
 
     // MARK: Add
@@ -603,6 +604,9 @@ private struct MyDayRow: View {
     /// Nil saves as the guessed type; a choice saves as that type.
     let onSave: (DetectedSportChoice?) -> Void
     let onDismiss: () -> Void
+    /// Set on a saved (manual) workout: change its type, or delete it, from the long-press menu.
+    var onRetype: ((DetectedSportChoice) -> Void)?
+    var onDelete: (() -> Void)?
 
     private var tint: Color { MyDayStyle.color(event.kind) }
 
@@ -649,6 +653,7 @@ private struct MyDayRow: View {
         .background(isHighlighted ? tint.opacity(0.10) : Color.clear, in: RoundedRectangle(cornerRadius: 10))
         .contentShape(Rectangle())
         .onTapGesture { if opens { onOpen() } }
+        .contextMenu { rowMenu }
         .accessibilityElement(children: .contain)
         .accessibilityLabel(accessibilityText)
         .accessibilityAddTraits(opens ? .isButton : [])
@@ -658,7 +663,13 @@ private struct MyDayRow: View {
     @ViewBuilder private var actions: some View {
         switch event.kind {
         case .detected:
-            detectedActions
+            if event.suggestion?.isRecorded == true {
+                Label("Already recorded", systemImage: "checkmark.seal.fill")
+                    .font(StrandFont.footnote.weight(.semibold))
+                    .foregroundStyle(StrandPalette.textSecondary)
+                    .padding(.top, 2)
+                    .accessibilityIdentifier("myday-recorded-\(event.id)")
+            }
         case .nap:
             Button(action: onOpen) { Label("Open", systemImage: "arrow.up.right") }
                 .buttonStyle(.bordered)
@@ -669,56 +680,21 @@ private struct MyDayRow: View {
         }
     }
 
-    /// Save is a split button: tap saves as the guessed type, the chevron (or a long press) picks the type.
-    /// A suggestion a recorded workout already covers has nothing to save and says so.
-    @ViewBuilder private var detectedActions: some View {
-        let guess = event.suggestion?.guess ?? .workout
-        let recorded = event.suggestion?.isRecorded ?? false
-        let saveTitle = guess == .walk ? String(localized: "Save as walk") : String(localized: "Save as workout")
-        LookFlowLayout(spacing: NoopMetrics.space2, lineSpacing: NoopMetrics.space2) {
-            if recorded {
-                Label("Already recorded", systemImage: "checkmark.seal.fill")
-                    .font(StrandFont.footnote.weight(.semibold))
-                    .foregroundStyle(StrandPalette.textSecondary)
-                    .accessibilityIdentifier("myday-recorded-\(event.id)")
-            } else {
-                HStack(spacing: 2) {
-                    Button { onSave(nil) } label: {
-                        Label(saveTitle, systemImage: "checkmark")
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .tint(StrandPalette.accent)
-                    .controlSize(.small)
-                    .contextMenu { typeButtons }
-                    .accessibilityIdentifier("myday-save-\(event.id)")
-                    Menu { typeButtons } label: {
-                        Image(systemName: "chevron.down")
-                            .font(StrandFont.caption.weight(.bold))
-                            .padding(.horizontal, 4)
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .tint(StrandPalette.accent)
-                    .controlSize(.small)
-                    .menuIndicator(.hidden)
-                    .accessibilityLabel("Choose the workout type")
-                    .accessibilityIdentifier("myday-type-\(event.id)")
-                }
-            }
-            Button("Dismiss", action: onDismiss)
-                .buttonStyle(.bordered)
-                .controlSize(.small)
-                .accessibilityIdentifier("myday-dismiss-\(event.id)")
+    /// Long press. A stretch the app only noticed can be saved as a type of the person's choosing or dismissed; a
+    /// saved workout can be given another type or deleted (a wrongly detected walk). Nothing shows by default.
+    @ViewBuilder private var rowMenu: some View {
+        if event.kind == .detected, event.suggestion?.isRecorded == false {
+            Menu("Save as") { ForEach(DetectedSportChoice.allCases) { choice in typeButton(choice) { onSave(choice) } } }
+            Button("Dismiss", role: .destructive, action: onDismiss)
+        } else if let onRetype, let onDelete {
+            Menu("Change type") { ForEach(DetectedSportChoice.allCases) { choice in typeButton(choice) { onRetype(choice) } } }
+            Button("Delete", role: .destructive, action: onDelete)
         }
-        .padding(.top, 2)
     }
 
-    @ViewBuilder private var typeButtons: some View {
-        ForEach(DetectedSportChoice.allCases) { choice in
-            Button { onSave(choice) } label: {
-                Label(choice.label, systemImage: sportSymbol(choice.sportName))
-            }
+    private func typeButton(_ choice: DetectedSportChoice, action: @escaping () -> Void) -> some View {
+        Button(action: action) { Label(choice.label, systemImage: sportSymbol(choice.sportName)) }
             .accessibilityIdentifier("myday-type-\(choice.rawValue)-\(event.id)")
-        }
     }
 
     @ViewBuilder private var timeColumn: some View {

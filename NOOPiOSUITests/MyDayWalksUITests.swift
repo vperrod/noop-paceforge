@@ -1,8 +1,9 @@
 import XCTest
 
-/// Simulator checks for the walk-or-workout suggestions on My Day. Driven by the made-up day
-/// `-MyDayFixture walks` (DEBUG builds only): five calm walks, one hard stretch and one stretch a recorded run
-/// already covers. Nothing here is real data.
+/// Simulator checks for detected walks on My Day. Driven by the made-up day `-MyDayFixture walks` (DEBUG builds
+/// only), which shows the day after the walks saved themselves: three calm walks of 15 minutes or more are
+/// Walking workouts; two shorter calm ones, one hard stretch and one stretch a recorded run already covers stay
+/// plain rows with no button. Nothing here is real data.
 final class MyDayWalksUITests: XCTestCase {
 
     private func launch() -> XCUIApplication {
@@ -32,24 +33,42 @@ final class MyDayWalksUITests: XCTestCase {
         app.staticTexts.matching(NSPredicate(format: "label CONTAINS[c] %@", text)).firstMatch
     }
 
-    /// Today tab, My Day card, then scrolled down to the walk header of the timeline.
+    private func walkingRows(_ app: XCUIApplication) -> XCUIElementQuery {
+        app.staticTexts.matching(NSPredicate(format: "label == %@", "Walking"))
+    }
+
+    /// Today tab, My Day card, then scrolled down to the saved walks in the timeline.
     private func openTimeline(_ app: XCUIApplication) {
         let card = element(app, "myday-entry")
         XCTAssertTrue(card.waitForExistence(timeout: 30), "Today should show the My Day card under the rings.")
         card.tap()
         XCTAssertTrue(element(app, "myday-strip").waitForExistence(timeout: 20), "My Day should draw its 24 h strip.")
-        let header = element(app, "myday-dismiss-walks")
-        for _ in 0..<8 where !header.exists { app.swipeUp() }
-        XCTAssertTrue(header.exists, "The timeline header should offer to dismiss the walks.")
+        for _ in 0..<8 where walkingRows(app).count == 0 { app.swipeUp() }
+        XCTAssertGreaterThan(walkingRows(app).count, 0, "The saved walks should be in the timeline.")
     }
 
-    func testCalmStretchesAreOfferedAsWalksAndTheRestStaysAWorkout() {
+    func testDetectedWalksAreWalkingWorkoutsWithNoSavePrompt() {
         let app = launch()
         openTimeline(app)
         attach(app, "30 My Day walks")
-        XCTAssertTrue(labelContaining(app, "Looks like a walk").exists, "A calm stretch should read as a walk.")
-        XCTAssertTrue(labelContaining(app, "Looks like a workout").exists, "The hard stretch should stay a workout.")
-        XCTAssertTrue(app.buttons["Save as walk"].exists, "A walk is saved as a walk.")
+        XCTAssertGreaterThanOrEqual(walkingRows(app).count, 3, "The three walks of 15 minutes or more are saved as Walking.")
+        XCTAssertEqual(elements(app, prefix: "myday-save-").count, 0, "Nothing asks to be saved.")
+        XCTAssertFalse(app.buttons["Save as walk"].exists, "No Save as walk button.")
+        XCTAssertFalse(app.buttons["Save as workout"].exists, "No Save as workout button.")
+        XCTAssertFalse(app.buttons["Dismiss"].exists, "No Dismiss button.")
+        XCTAssertFalse(labelContaining(app, "Looks like a walk").exists, "Nothing hedges a walk any more.")
+    }
+
+    func testAShortCalmStretchAndAHardOneAreJustShown() {
+        let app = launch()
+        openTimeline(app)
+        for _ in 0..<8 where !labelContaining(app, "Looks like a workout").exists { app.swipeDown() }
+        XCTAssertTrue(labelContaining(app, "Looks like a workout").exists, "The hard stretch is shown as a workout.")
+        let walk = app.staticTexts.matching(NSPredicate(format: "label == %@", "Walk")).firstMatch
+        for _ in 0..<8 where !walk.exists { app.swipeUp() }
+        XCTAssertTrue(walk.exists, "A calm stretch under 15 minutes is shown as a Walk.")
+        XCTAssertEqual(elements(app, prefix: "myday-type-").count, 0, "No type button next to a stretch.")
+        attach(app, "31 My Day short walk and workout")
     }
 
     func testAStretchARecordedRunCoversIsMarkedAlreadyRecordedWithNoSaveButton() {
@@ -57,34 +76,17 @@ final class MyDayWalksUITests: XCTestCase {
         openTimeline(app)
         for _ in 0..<8 where elements(app, prefix: "myday-recorded-").count == 0 { app.swipeDown() }
         XCTAssertGreaterThan(elements(app, prefix: "myday-recorded-").count, 0, "The covered stretch should say Already recorded.")
-        // Seven suggestions, one of them recorded: six can be saved.
-        XCTAssertEqual(elements(app, prefix: "myday-save-").count, 6)
-        attach(app, "31 My Day already recorded")
+        XCTAssertEqual(elements(app, prefix: "myday-save-").count, 0)
+        attach(app, "32 My Day already recorded")
     }
 
-    func testTheSaveButtonOffersEveryWorkoutType() {
+    func testLongPressOnASavedWalkOffersChangeTypeAndDelete() {
         let app = launch()
         openTimeline(app)
-        let chooser = elements(app, prefix: "myday-type-").matching(NSPredicate(format: "identifier MATCHES %@", "myday-type-detected.*")).firstMatch
-        XCTAssertTrue(chooser.waitForExistence(timeout: 5), "A suggestion should carry a type chooser next to Save.")
-        chooser.tap()
-        for type in ["walk", "run", "cycle", "strength", "hiit", "yoga", "hike", "swim", "other"] {
-            XCTAssertTrue(elements(app, prefix: "myday-type-\(type)-").firstMatch.waitForExistence(timeout: 5),
-                          "The type menu should offer \(type).")
-        }
-        attach(app, "32 My Day type menu")
-    }
-
-    func testDismissAllWalksClearsThemAndKeepsTheWorkout() {
-        let app = launch()
-        openTimeline(app)
-        element(app, "myday-dismiss-walks").tap()
-        // The rows go at once, but the 24 h strip's own labels follow the reload that stores the dismissal: wait for them to go.
-        let walk = labelContaining(app, "Looks like a walk")
-        let gone = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: walk)
-        XCTAssertEqual(XCTWaiter().wait(for: [gone], timeout: 20), .completed, "No walk should be left.")
-        XCTAssertTrue(labelContaining(app, "Looks like a workout").exists, "The hard stretch stays.")
-        XCTAssertFalse(element(app, "myday-dismiss-walks").exists, "The header action goes with the walks.")
-        attach(app, "33 My Day walks dismissed")
+        let walk = walkingRows(app).firstMatch
+        walk.press(forDuration: 1.2)
+        XCTAssertTrue(app.buttons["Change type"].waitForExistence(timeout: 5), "A saved walk can be given another type.")
+        XCTAssertTrue(app.buttons["Delete"].exists, "A wrongly detected walk can be deleted.")
+        attach(app, "33 My Day walk menu")
     }
 }
