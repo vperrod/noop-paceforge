@@ -948,7 +948,36 @@ final class Repository: ObservableObject {
     var loadFireCounts: [String: Int] = [:]
     #endif
 
+    /// Single-flight: at launch the shell, Today, My Day and the importers each call this within a second, and
+    /// every call used to run the full ~50-read merge on its own (3-4 at once on the phone, 4 s to 13 s each) with
+    /// the older ones' results thrown away by the generation guard. Now one run is in flight; callers arriving
+    /// meanwhile share ONE trailing run (the widest window asked for), so their data is read after their call, and
+    /// all of them return when it has published. An unstructured task so a cancelled caller (a view's .task) cannot
+    /// truncate the run the others are waiting on.
     func refresh(days nDays: Int = 4000) async {
+        if let running = refreshTask {
+            refreshRerunDays = max(refreshRerunDays ?? 0, nDays)
+            await running.value
+            return
+        }
+        let task = Task { [self] in
+            var next: Int? = nDays
+            while let window = next {
+                refreshRerunDays = nil
+                await refreshOnce(days: window)
+                next = refreshRerunDays
+            }
+            refreshTask = nil
+        }
+        refreshTask = task
+        await task.value
+    }
+
+    private var refreshTask: Task<Void, Never>?
+    /// The widest window asked for while a refresh was running; nil = nothing waiting. Load-bookkeeping, not @Published.
+    private var refreshRerunDays: Int?
+
+    private func refreshOnce(days nDays: Int) async {
         guard let store = await ensureStore() else { return }
         #if os(iOS)
         let diagnostics = NoopDiag.begin("repo.refresh")
