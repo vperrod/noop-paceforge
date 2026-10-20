@@ -29,16 +29,19 @@ enum NoopPerfSimulateSync {
             live.bonded = true
             live.batteryPct = 68
             live.charging = false
-            live.backfilling = true
+            // `-NoopPerfPublishOnly`: the 10-14 Hz publishes without the backfilling flag; `-NoopPerfSyncOnly`: the flag without them.
+            if !args.contains("-NoopPerfPublishOnly") { live.backfilling = true }
             NoopDiag.crumb("perf.sync.started")
             let end = Date().addingTimeInterval(duration)
             var tick = 0
             while Date() < end {
                 tick += 1
-                live.heartRate = 58 + (tick * 7) % 41
-                live.syncChunksThisSession += 1
-                live.decodedChunksThisSession += 1
-                if tick % 6 == 0 { live.batteryPct = 68 - Double(tick % 3) * 0.5 }
+                if !args.contains("-NoopPerfSyncOnly") {
+                    live.heartRate = 58 + (tick * 7) % 41
+                    live.syncChunksThisSession += 1
+                    live.decodedChunksThisSession += 1
+                    if tick % 6 == 0 { live.batteryPct = 68 - Double(tick % 3) * 0.5 }
+                }
                 // 10-14 Hz, jittered like a radio.
                 try? await Task.sleep(nanoseconds: UInt64(Double.random(in: 1 / 14 ... 1 / 10) * 1_000_000_000))
             }
@@ -48,12 +51,28 @@ enum NoopPerfSimulateSync {
         }
     }
 
+    // MARK: Identity counters
+
+    private static let countLock = NSLock()
+    private static var counters: [String: Int] = [:]
+
+    /// Counts a view appearing or disappearing (or a body running), so identity churn shows as a rate per second.
+    static func count(_ name: String) {
+        countLock.lock(); counters[name, default: 0] += 1; countLock.unlock()
+    }
+
+    private static func countersSnapshot() -> [String: Int] {
+        countLock.lock(); defer { countLock.unlock() }
+        return counters
+    }
+
     // MARK: Stall meter
 
     private static let queue = DispatchQueue(label: "noop.perf.stallmeter")
     private static var timer: DispatchSourceTimer?
     private static var outstandingSince: Double?
     private static var events: [[Double]] = []        // [startSeconds, durationSeconds]
+    private static var counterSeries: [[String: Int]] = []   // one snapshot a second, with "t"
     private static let launch = ProcessInfo.processInfo.systemUptime
 
     private static func now() -> Double { ProcessInfo.processInfo.systemUptime - launch }
@@ -83,7 +102,10 @@ enum NoopPerfSimulateSync {
             if let since = outstandingSince, t - since > 0.1 { all.append([since, t - since]) }   // a stall still going
             let total = all.reduce(0) { $0 + $1[1] }
             let after = all.filter { $0[0] >= startAfter }.reduce(0) { $0 + $1[1] }
-            let object: [String: Any] = ["uptime_s": t, "stall_events": all.count, "stalled_s_total": total,
+            var snapshot = countersSnapshot()
+            snapshot["t"] = Int(t)
+            counterSeries.append(snapshot)
+            let object: [String: Any] = ["uptime_s": t, "counters": Array(counterSeries.suffix(80)), "stall_events": all.count, "stalled_s_total": total,
                                          "stalled_s_after_sync_start": after, "longest_s": all.map { $0[1] }.max() ?? 0,
                                          "events": Array(all.suffix(400))]
             if let data = try? JSONSerialization.data(withJSONObject: object) { try? data.write(to: url, options: .atomic) }
@@ -99,6 +121,10 @@ enum NoopPerfSwitches {
     private static let args = ProcessInfo.processInfo.arguments
     static let noViewThatFits = args.contains("-NoopPerfNoViewThatFits")
     static let noBatteryButton = args.contains("-NoopPerfNoBattery")
+    /// The battery button keeps its battery reading but is never told a sync is running.
+    static let noSyncMorph = args.contains("-NoopPerfNoSyncMorph")
+    /// The candidate fix: the top bar is decided without ViewThatFits.
+    static let staticTopBar = args.contains("-NoopPerfStaticTopBar")
     /// `-NoopPerfMountCap N`.
     static let mountCap: Int? = args.firstIndex(of: "-NoopPerfMountCap").flatMap { args.indices.contains($0 + 1) ? Int(args[$0 + 1]) : nil }
 }

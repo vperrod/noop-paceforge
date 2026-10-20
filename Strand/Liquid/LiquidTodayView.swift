@@ -942,8 +942,14 @@ struct LiquidTodayView: View {
     /// identifier is the same either way.
     @ViewBuilder private var lookTopBar: some View {
         #if DEBUG && os(iOS)
-        // Profiling switch (.github/workflows/profile-today.yml): the same row without the ViewThatFits wrapper.
-        if NoopPerfSwitches.noViewThatFits { lookTopBarRow(showsStreak: true) } else { lookTopBarFitting }
+        // Profiling switches (.github/workflows/ios-simulator-verify.yml on profile-1): the row alone, or the stacked form alone.
+        if NoopPerfSwitches.noViewThatFits {
+            lookTopBarRow(showsStreak: true)
+        } else if NoopPerfSwitches.staticTopBar {
+            lookTopBarStacked
+        } else {
+            lookTopBarFitting
+        }
         #else
         lookTopBarFitting
         #endif
@@ -952,10 +958,14 @@ struct LiquidTodayView: View {
     private var lookTopBarFitting: some View {
         ViewThatFits(in: .horizontal) {
             lookTopBarRow(showsStreak: true)
-            VStack(alignment: .leading, spacing: 10) {
-                lookTopBarRow(showsStreak: false)
-                if phase4Store.streakChip != nil { PFStreakChipView() }
-            }
+            lookTopBarStacked
+        }
+    }
+
+    private var lookTopBarStacked: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            lookTopBarRow(showsStreak: false)
+            if phase4Store.streakChip != nil { PFStreakChipView() }
         }
     }
 
@@ -3406,6 +3416,14 @@ private struct LiquidBatteryButton: View {
         )
     }
 
+    private var indicatorSyncing: Bool {
+        #if DEBUG && os(iOS)
+        return syncing && !NoopPerfSwitches.noSyncMorph
+        #else
+        return syncing
+        #endif
+    }
+
     private var indicatorState: ChargeSyncIndicator.BatteryState {
         switch batteryDisplay {
         case .offline, .notActiveDevice:
@@ -3430,11 +3448,16 @@ private struct LiquidBatteryButton: View {
             Button { showSyncSheet = true } label: {
                 ChargeSyncIndicator(
                     batteryState: indicatorState,
-                    syncing: syncing,
+                    syncing: indicatorSyncing,
                     chunks: syncChunks
                 )
             }
             .nativeLiquidGlassSyncButton()
+            #if DEBUG && os(iOS)
+            // Identity churn: how often a battery button is created and destroyed (profiling counters).
+            .onAppear { NoopPerfSimulateSync.count("battery.appear") }
+            .onDisappear { NoopPerfSimulateSync.count("battery.disappear") }
+            #endif
             .accessibilityLabel(batteryAccessibility)
             .sheet(isPresented: $showSyncSheet) { SyncNowSheet() }
             .debouncedSyncSignal(syncingRaw, into: $syncing)

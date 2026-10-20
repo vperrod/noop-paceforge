@@ -10,12 +10,12 @@ record() {  # record NAME TEMPLATE
   xcrun simctl terminate "$UDID" "$BID" 2>/dev/null
   rm -rf "$trace"
   echo "::group::xctrace $name ($template): launch by bundle id"
-  run_limited 150 xcrun xctrace record --template "$template" --device "$UDID" --time-limit 45s --no-prompt \
+  run_limited 100 xcrun xctrace record --template "$template" --device "$UDID" --time-limit 45s --no-prompt \
     --output "$trace" --launch -- "$BID" $args 2>&1 | tail -n 30 | tee "$OUT/traces/$name.log"
   echo "::endgroup::"
   if [ ! -d "$trace" ]; then
     echo "::group::xctrace $name: launch by app path"
-    run_limited 150 xcrun xctrace record --template "$template" --device "$UDID" --time-limit 45s --no-prompt \
+    run_limited 100 xcrun xctrace record --template "$template" --device "$UDID" --time-limit 45s --no-prompt \
       --output "$trace" --launch -- "$APP" $args 2>&1 | tail -n 30 | tee -a "$OUT/traces/$name.log"
     echo "::endgroup::"
   fi
@@ -25,7 +25,7 @@ record() {  # record NAME TEMPLATE
     local line pid
     line=$(xcrun simctl launch "$UDID" "$BID" $args 2>&1); echo "$line"
     pid=$(echo "$line" | awk -F': ' '{print $2}' | tr -d ' ')
-    run_limited 150 xcrun xctrace record --template "$template" --device "$UDID" --time-limit 45s --no-prompt \
+    run_limited 100 xcrun xctrace record --template "$template" --device "$UDID" --time-limit 45s --no-prompt \
       --output "$trace" --attach "$pid" 2>&1 | tail -n 30 | tee -a "$OUT/traces/$name.log"
     echo "::endgroup::"
   fi

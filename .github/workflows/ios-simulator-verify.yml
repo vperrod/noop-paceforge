@@ -8,9 +8,9 @@ on:
   workflow_dispatch:
     inputs:
       variants:
-        description: "Space-separated bisect variants (nosync sync nofits quiet nobattery cap0 cap2)."
+        description: "Space-separated bisect variants (nosync sync nofits static nobattery nomorph quiet bfonly pubonly cap0 cap2)."
         required: false
-        default: "nosync sync nofits quiet nobattery cap0 cap2"
+        default: "nofits static nobattery nomorph quiet bfonly pubonly cap0 cap2 sync"
 
 permissions:
   contents: read
@@ -25,8 +25,14 @@ jobs:
         run: brew install xcodegen
       - name: Generate Xcode project
         run: xcodegen generate
-      - name: Build, boot, seed
+      - name: Fixture, start the simulator booting
+        run: .github/profile-today/prep.sh
+      - name: Build (arm64, optimized)
+        timeout-minutes: 30
         run: .github/profile-today/build.sh
+      - name: Install and seed the demo database
+        timeout-minutes: 8
+        run: .github/profile-today/seed.sh
       - name: Bisect the suspects (stall per variant)
         if: always() && !cancelled()
         continue-on-error: true
