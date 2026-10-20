@@ -80,7 +80,7 @@ struct RootTabView: View {
 
     /// Tab ids for the floating bar, in tag order. The ids are the lower-cased titles, which is also what the UI
     /// tests look for (`look-tab-<id>`).
-    private static let lookTabs: [LookTabItem] = UnifiedNav.isOn ? UnifiedNav.tabs : [
+    private static let classicTabs: [LookTabItem] = [
         LookTabItem(id: "today", title: "Today", symbol: "square.grid.2x2"),
         LookTabItem(id: "trends", title: "Trends", symbol: "chart.line.uptrend.xyaxis"),
         // Tab 2 is Sleep, or Day when Settings > Tools > New Day tab (beta) was on at launch (UnifiedDay).
@@ -89,6 +89,8 @@ struct RootTabView: View {
         LookTabItem(id: "paceforge", title: "PaceForge", symbol: "figure.run"),
         LookTabItem(id: "more", title: "More", symbol: "ellipsis"),
     ]
+
+    private static let lookTabs: [LookTabItem] = UnifiedNav.isOn ? UnifiedNav.tabs : classicTabs
 
     private var lookTabSelection: Binding<String> {
         Binding(
