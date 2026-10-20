@@ -2,7 +2,12 @@ import SwiftUI
 import StrandDesign
 
 /// Standard scrollable screen container: title + dark surface + content column.
-struct ScreenScaffold<Content: View, Trailing: View>: View {
+///
+/// NOT generic over its content. ~150 screens use it, and while it was `ScreenScaffold<Content, Trailing>` every
+/// caller's whole nested `VStack<TupleView<...>>` ended up in the scaffold's type (symbols up to 7,725 chars), which
+/// the Swift runtime has to resolve generically while SwiftUI walks the tree; the PaceForge tab froze on it
+/// (0x8BADF00D, build 472). Content and trailing are stored type-erased so the scaffold's own type stays tiny.
+struct ScreenScaffold: View {
     /// Optional — when nil (and no subtitle) the header is omitted entirely, so a screen can supply its
     /// own custom header in `content` (iOS Today's compact top bar).
     let title: LocalizedStringKey?
@@ -22,8 +27,45 @@ struct ScreenScaffold<Content: View, Trailing: View>: View {
     var topBackground: AnyView? = nil
     /// Optional element pinned to the header's trailing edge (e.g. the strap-battery badge on Today).
     /// Defaults to `EmptyView` via the convenience init below, so other screens are unaffected.
-    @ViewBuilder var trailing: () -> Trailing
-    @ViewBuilder var content: () -> Content
+    /// nil when there is no trailing element, so the header lays out exactly as it did with an `EmptyView`.
+    let trailing: (() -> AnyView)?
+    let content: () -> AnyView
+
+    init<Content: View, Trailing: View>(
+        title: LocalizedStringKey?, subtitle: LocalizedStringKey? = nil,
+        onRefresh: (() async -> Void)? = nil, lazy: Bool = false, topBackground: AnyView? = nil,
+        @ViewBuilder trailing: @escaping () -> Trailing,
+        @ViewBuilder content: @escaping () -> Content
+    ) {
+        self.title = title
+        self.subtitle = subtitle
+        self.onRefresh = onRefresh
+        self.lazy = lazy
+        self.topBackground = topBackground
+        self.trailing = { AnyView(trailing()) }
+        self.content = { AnyView(content()) }
+    }
+
+    private init(plainTitle title: LocalizedStringKey?, subtitle: LocalizedStringKey?, onRefresh: (() async -> Void)?,
+                 lazy: Bool, topBackground: AnyView?, content: @escaping () -> AnyView) {
+        self.title = title
+        self.subtitle = subtitle
+        self.onRefresh = onRefresh
+        self.lazy = lazy
+        self.topBackground = topBackground
+        self.trailing = nil
+        self.content = content
+    }
+
+    /// Common case with no header trailing element — keeps every call site that never passed `trailing` source-compatible.
+    init<Content: View>(
+        title: LocalizedStringKey?, subtitle: LocalizedStringKey? = nil,
+        onRefresh: (() async -> Void)? = nil, lazy: Bool = false, topBackground: AnyView? = nil,
+        @ViewBuilder content: @escaping () -> Content
+    ) {
+        self.init(plainTitle: title, subtitle: subtitle, onRefresh: onRefresh, lazy: lazy,
+                  topBackground: topBackground, content: { AnyView(content()) })
+    }
 
     // iPad runs the shared screens full-screen, where an uncapped column gives 120+ character lines
     // in landscape. On iOS regular width (iPad) the readable column is capped + centred; compact
@@ -143,19 +185,8 @@ struct ScreenScaffold<Content: View, Trailing: View>: View {
                 }
             }
             Spacer(minLength: 0)
-            trailing()
+            if let trailing { trailing() }
         }
-    }
-}
-
-extension ScreenScaffold where Trailing == EmptyView {
-    /// Convenience init for the common case with no header trailing element — keeps every existing
-    /// call site (which never passed `trailing`) source-compatible.
-    init(title: LocalizedStringKey?, subtitle: LocalizedStringKey? = nil,
-         onRefresh: (() async -> Void)? = nil, lazy: Bool = false, topBackground: AnyView? = nil,
-         @ViewBuilder content: @escaping () -> Content) {
-        self.init(title: title, subtitle: subtitle, onRefresh: onRefresh, lazy: lazy,
-                  topBackground: topBackground, trailing: { EmptyView() }, content: content)
     }
 }
 

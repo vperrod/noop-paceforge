@@ -2969,11 +2969,20 @@ private struct SettingsDisclosureGroup<Content: View>: View {
 
 /// A grouped settings card: a "Settings" overline + icon + title header, an explanatory blurb,
 /// then content. The surface stays neutral; accent blue is reserved for the icon and controls.
-private struct SettingsSection<Content: View>: View {
+private struct SettingsSection: View {
     let icon: String
     let title: LocalizedStringKey
     let blurb: LocalizedStringKey
-    @ViewBuilder var content: () -> Content
+    let content: () -> AnyView
+
+    // Content is type-erased so Settings' many sections do not each carry their whole nested view tree in a generic type name.
+    init<Content: View>(icon: String, title: LocalizedStringKey, blurb: LocalizedStringKey,
+                        @ViewBuilder content: @escaping () -> Content) {
+        self.icon = icon
+        self.title = title
+        self.blurb = blurb
+        self.content = { AnyView(content()) }
+    }
 
     var body: some View {
         StrandCard(padding: NoopMetrics.space5) {
@@ -3551,9 +3560,14 @@ struct StepsCalibrationSheet: View {
 // MARK: - Two-column form row
 
 /// Label on the left, control on the right — the two-column form feel.
-private struct FormRow<Control: View>: View {
+private struct FormRow: View {
     let label: LocalizedStringKey
-    @ViewBuilder var control: () -> Control
+    let control: () -> AnyView
+
+    init<Control: View>(label: LocalizedStringKey, @ViewBuilder control: @escaping () -> Control) {
+        self.label = label
+        self.control = { AnyView(control()) }
+    }
 
     var body: some View {
         HStack(alignment: .center, spacing: NoopMetrics.space4) {

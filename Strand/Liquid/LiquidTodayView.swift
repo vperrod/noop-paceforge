@@ -3268,6 +3268,9 @@ extension LiquidTodayView {
 private struct LiquidBatteryButton: View {
     @EnvironmentObject var live: LiveState
     @EnvironmentObject var router: NavRouter
+    /// Tapping the indicator opens the strap sync sheet (last sync, progress, "Sync now"), whose "Manage devices"
+    /// button goes on to Devices: one tap to sync, one more for the old destination.
+    @State private var showSyncSheet = false
 
     /// Debounced by `debouncedSyncSignal` below, so a per-chunk `backfilling` gap cannot flash the
     /// indicator back to the battery reading in the middle of one logical sync.
@@ -3338,7 +3341,7 @@ private struct LiquidBatteryButton: View {
         if case .notActiveDevice = batteryDisplay {
             EmptyView()
         } else {
-            Button { router.openDevices() } label: {
+            Button { showSyncSheet = true } label: {
                 ChargeSyncIndicator(
                     batteryState: indicatorState,
                     syncing: syncing,
@@ -3347,6 +3350,7 @@ private struct LiquidBatteryButton: View {
             }
             .nativeLiquidGlassSyncButton()
             .accessibilityLabel(batteryAccessibility)
+            .sheet(isPresented: $showSyncSheet) { SyncNowSheet() }
             .debouncedSyncSignal(syncingRaw, into: $syncing)
             // DEBUG-gated at the CALL SITE too, not just in the body: in Release the harness must cost
             // literally nothing, rather than an async task created and immediately returned per appearance.

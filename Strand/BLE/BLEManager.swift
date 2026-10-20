@@ -4924,6 +4924,64 @@ public final class BLEManager: NSObject, ObservableObject {
         requestSync(.manual)
     }
 
+    /// What a "Sync now" tap did, in words the sheet can show. Every case is a plain answer: the tap never
+    /// ends in silence.
+    public enum SyncNowOutcome: Equatable {
+        /// An offload began; progress shows in `LiveState.backfilling` / `syncChunksThisSession`.
+        case started
+        case alreadyRunning
+        /// The strap is not connected yet. A reconnect was requested and the sync is armed to run the moment the
+        /// connect handshake settles (up to `pendingManualSyncTTL`).
+        case waitingForStrap
+        /// Connected, but the connect handshake has not finished; the armed sync runs when it does.
+        case linkStillSettingUp
+        case bluetoothOff
+        case bluetoothDenied
+        case bluetoothUnsupported
+        /// A ring (not the strap) is the active device.
+        case otherDeviceActive
+    }
+
+    /// The "Sync now" action behind the Today and PaceForge sync controls: `syncNow()` plus an honest answer for
+    /// every state it cannot start in. A user gesture, so an unconnected strap gets an explicit connect.
+    @discardableResult
+    public func syncNowReporting() -> SyncNowOutcome {
+        switch central.state {
+        case .poweredOff: return .bluetoothOff
+        case .unauthorized: return .bluetoothDenied
+        case .unsupported: return .bluetoothUnsupported
+        default: break
+        }
+        guard state.activeIsWhoop else { return .otherDeviceActive }
+        if backfilling { return .alreadyRunning }
+        guard state.connected, state.bonded else {
+            armPendingManualSync()
+            connect()
+            return .waitingForStrap
+        }
+        guard connectHandshakeDone else {
+            armPendingManualSync()
+            return .linkStillSettingUp
+        }
+        log("Sync now: manual sync requested by user.")
+        requestSync(.manual)
+        return backfilling ? .started : .linkStillSettingUp
+    }
+
+    /// The app became active. A sync no older than `staleAfter` keeps the old behaviour (the 90 s-floored
+    /// `.foreground` kick). An older one, or none, must not be lost to a link that is not ready yet: `requestSync`
+    /// drops the kick silently when the strap is still reconnecting or the handshake has not run, so in that case
+    /// the sync is armed instead and the connect handshake runs it as soon as the strap answers.
+    public func syncOnForeground(staleAfter: TimeInterval = 300) {
+        let isStale = state.lastSyncedAt.map { Date().timeIntervalSince1970 - $0 > staleAfter } ?? true
+        let linkReady = state.connected && state.bonded && connectHandshakeDone
+        if isStale, state.activeIsWhoop, !backfilling, !linkReady {
+            armPendingManualSync()
+            return
+        }
+        requestSync(.foreground)
+    }
+
     /// When the iOS "Sync Strap" shortcut asked for a sync while no strap link was ready. The connect
     /// handshake's own on-connect kick consumes it (`connectSyncTrigger`), so a request made while NOOP was
     /// still launching and reconnecting in the background runs as soon as the link can serve, at the

@@ -25,9 +25,12 @@ struct PFBodyAgeBlob: View {
     let color: Color
     let seed: Int
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 24.0, paused: reduceMotion)) { timeline in
+        // 12 fps is plenty for waves that move 0.5 rad/s, and the clock stops whenever the app is not in front: this redraws
+        // ~300 specks per tick, so it was the one always-running animation on the PaceForge screens.
+        TimelineView(.animation(minimumInterval: 1.0 / 12.0, paused: reduceMotion || scenePhase != .active)) { timeline in
             let t = reduceMotion ? 0 : timeline.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: 600)
             Canvas { context, size in
                 Self.draw(&context, size: size, time: t, color: color, seed: seed)

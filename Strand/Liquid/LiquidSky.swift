@@ -118,6 +118,8 @@ struct LiquidSky: View {
     /// frame loop stand down from inside, so the gate travels with the view.
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObservedObject private var motion = NoopMotionState.shared
+    /// Off screen the twinkle has no audience: pose the one still frame instead of running the 20 fps loop.
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
         // The sky must dissolve into the SAME canvas colour the body uses (theme-aware surfaceBase),
@@ -128,7 +130,7 @@ struct LiquidSky: View {
                            green: dark ? 30.0 / 255.0 : 242.0 / 255.0,
                            blue: dark ? 35.0 / 255.0 : 247.0 / 255.0,
                            opacity: 1)
-        if Self.pausesFrames(hour: hour ?? liveHour(), light: !dark, poseStill: motion.poseStill(reduceMotion)) {
+        if scenePhase != .active || Self.pausesFrames(hour: hour ?? liveHour(), light: !dark, poseStill: motion.poseStill(reduceMotion)) {
             // One frame, with no timeline behind it: the breath sits at mid-cycle (`now` 0). A timeline built
             // with `paused: true` is not the same thing. Measured on Today with the stars gone, it made the
             // render server busier, not quieter: 46 CPU-seconds a minute against 22 while the loop animated

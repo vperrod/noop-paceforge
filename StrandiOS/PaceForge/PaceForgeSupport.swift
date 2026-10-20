@@ -52,13 +52,40 @@ enum PFColor {
 }
 
 /// A titled card, the one container every PaceForge screen is built from.
-struct PFCard<Content: View, Trailing: View>: View {
+///
+/// Not generic over its content or trailing view: a generic PFCard<...> carried every screen's whole nested view tree in
+/// its type name, which the Swift runtime resolved on the main thread (the PaceForge tab freeze, build 472).
+struct PFCard: View {
     let title: String
     var icon: String? = nil
     /// A metric-explainer id: the card then shows an (i) that opens "how it works" when the server has one.
     var info: String? = nil
-    @ViewBuilder var trailing: () -> Trailing
-    @ViewBuilder var content: () -> Content
+    /// nil when the card has no trailing view, so the header lays out exactly as it did with an `EmptyView`.
+    let trailing: (() -> AnyView)?
+    let content: () -> AnyView
+
+    init<Content: View, Trailing: View>(title: String, icon: String? = nil, info: String? = nil,
+                                        @ViewBuilder trailing: @escaping () -> Trailing,
+                                        @ViewBuilder content: @escaping () -> Content) {
+        self.title = title
+        self.icon = icon
+        self.info = info
+        self.trailing = { AnyView(trailing()) }
+        self.content = { AnyView(content()) }
+    }
+
+    private init(plainTitle title: String, icon: String?, info: String?, content: @escaping () -> AnyView) {
+        self.title = title
+        self.icon = icon
+        self.info = info
+        self.trailing = nil
+        self.content = content
+    }
+
+    init<Content: View>(_ title: String, icon: String? = nil, info: String? = nil,
+                        @ViewBuilder content: @escaping () -> Content) {
+        self.init(plainTitle: title, icon: icon, info: info, content: { AnyView(content()) })
+    }
 
     /// The look's card: a 12 pt tile on the dark gradient, a small caps title, content below. Every PaceForge
     /// screen builds on it, so this is the one place its card style lives.
@@ -75,7 +102,7 @@ struct PFCard<Content: View, Trailing: View>: View {
                     .lookCaps(12.5)
                     .foregroundStyle(NoopLook.textPrimary)
                 Spacer(minLength: 8)
-                trailing()
+                if let trailing { trailing() }
                 if let info { PFInfoButton(id: info) }
             }
             content()
@@ -83,12 +110,6 @@ struct PFCard<Content: View, Trailing: View>: View {
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(RoundedRectangle(cornerRadius: NoopLook.Metric.tileRadius, style: .continuous).fill(NoopLook.card))
-    }
-}
-
-extension PFCard where Trailing == EmptyView {
-    init(_ title: String, icon: String? = nil, info: String? = nil, @ViewBuilder content: @escaping () -> Content) {
-        self.init(title: title, icon: icon, info: info, trailing: { EmptyView() }, content: content)
     }
 }
 

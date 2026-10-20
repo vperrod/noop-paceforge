@@ -57,14 +57,17 @@ public struct FrostedCardSurface: View {
 // so callers can opt into a domain wash without breaking existing call sites.
 // Keeps the mandated hover lift via `.strandCardHover()`.
 
-public struct StrandCard<Content: View>: View {
+// NOT generic over its content: ~150 call sites nest StrandCard inside VStack<TupleView<...>>, and a generic
+// StrandCard<...> put every caller's whole tree into one runtime-resolved type name (the PaceForge tab freeze,
+// 0x8BADF00D, build 472). The content is stored type-erased so the card's own type is always the same small one.
+public struct StrandCard: View {
 
     public var padding: CGFloat
     public var cornerRadius: CGFloat
     public var tint: Color?
-    @ViewBuilder public var content: () -> Content
+    public let content: () -> AnyView
 
-    public init(
+    public init<Content: View>(
         padding: CGFloat = 16,
         cornerRadius: CGFloat = 22,
         tint: Color? = nil,
@@ -73,7 +76,7 @@ public struct StrandCard<Content: View>: View {
         self.padding = padding
         self.cornerRadius = cornerRadius
         self.tint = tint
-        self.content = content
+        self.content = { AnyView(content()) }
     }
 
     public var body: some View {

@@ -23,8 +23,6 @@ enum PFSegment: String, CaseIterable, Identifiable {
 struct PaceForgeTabView: View {
     @StateObject private var model = PFModel()
     @ObservedObject private var lock = PFLock.shared
-    @EnvironmentObject private var repo: Repository
-    @EnvironmentObject private var profile: ProfileStore
     @Environment(\.scenePhase) private var scenePhase
     @AppStorage(PFPrefs.lockKey) private var lockEnabled = false
 
@@ -82,9 +80,11 @@ struct PaceForgeTabView: View {
     }
 
     private var content: some View {
-        ScreenScaffold(title: "PaceForge", onRefresh: { await model.refresh() }) {
+        ScreenScaffold(title: "PaceForge", onRefresh: { await model.refresh() }, trailing: {
+            SyncNowButton()
+        }, content: {
             phaseContent
-        }
+        })
         .environmentObject(model)
         .environment(\.pfOpenStanding, { openStanding() })
         .environment(\.pfOpenInsight, { id in openInsight(id) })
@@ -103,8 +103,8 @@ struct PaceForgeTabView: View {
             // A `noop://paceforge/standing` link that arrived before the tab existed.
             if await PFStandingLink.consume() { openStanding() }
             if let id = await PFInsightLink.consume() { openInsight(id) }
-            await PFHeartRecovery.updateSummary(repo: repo, hrMax: profile.hrMax)
         }
+        .background(PFHeartRecoveryTask())
     }
 
     /// Opens the scorecard when the server serves one; otherwise the request is dropped.
@@ -210,5 +210,20 @@ private struct PFBodyHiddenView: View {
             PFParagraph("\(HideScoresPrefs.placeholder) \u{2014} body weight and body fat are hidden. Tap the eye above to show them, or turn this off in Settings > Hide numbers.")
         }
         .containerIdentifier("pf-body-hidden")
+    }
+}
+
+/// Refreshes the heart-rate-recovery summary when the tab opens. It lives in its own view because it needs `Repository` and
+/// `ProfileStore` only to read them once: as `@EnvironmentObject`s on `PaceForgeTabView` they re-evaluated the whole tab
+/// (every card in it) on each of their publishes, none of which changes what the tab shows.
+private struct PFHeartRecoveryTask: View {
+    @EnvironmentObject private var repo: Repository
+    @EnvironmentObject private var profile: ProfileStore
+
+    var body: some View {
+        Color.clear
+            .frame(width: 0, height: 0)
+            .accessibilityHidden(true)
+            .task { await PFHeartRecovery.updateSummary(repo: repo, hrMax: profile.hrMax) }
     }
 }
