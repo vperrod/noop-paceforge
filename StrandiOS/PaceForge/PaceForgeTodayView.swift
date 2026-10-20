@@ -30,10 +30,8 @@ struct PFTodayView: View {
     private func isPresent(_ card: PFTodayCard) -> Bool {
         switch card {
         case .todaySoFar, .session: return true
-        case .myPlan: return snapshot.intelDocs.myPlan.value != nil
-        case .todaysCall: return snapshot.dailyIntel?.item(PFIntelID.todaysCall) != nil
-        case .dayInReview:
-            return PFIntelClock.isEvening() && snapshot.dailyIntel?.item(PFIntelID.dayInReview) != nil
+        // NOOP Today carries these three from the same PaceForge stores (LiquidTodayView), so they are not drawn twice.
+        case .todaysCall, .dayInReview, .myPlan: return false
         case .raceWeek: return snapshot.raceWeek != nil
         case .brief: return today.brief != nil
         case .nextBestAction: return snapshot.insightsV2?.todayCard != nil
@@ -126,9 +124,7 @@ struct PFTodayView: View {
     /// `if let` branches, made SwiftUI instantiate one enormous `_ConditionalContent` type at runtime (stack overflow on device).
     private func content(for card: PFTodayCard) -> AnyView {
         switch card {
-        case .todaysCall: return AnyView(todaysCallCard)
-        case .dayInReview: return AnyView(dayInReviewCard)
-        case .myPlan: return AnyView(myPlanCard)
+        case .todaysCall, .dayInReview, .myPlan: return AnyView(EmptyView())
         case .todaySoFar: return AnyView(todaySoFarSection)
         case .raceWeek: return AnyView(raceWeekCard)
         case .brief: return AnyView(briefCard)
@@ -142,35 +138,6 @@ struct PFTodayView: View {
         case .standing: return AnyView(standingCard)
         case .session: return AnyView(sessionCard)
         case .nextRace: return AnyView(nextRaceCard)
-        }
-    }
-
-    @ViewBuilder private var todaysCallCard: some View {
-        if let intel = snapshot.dailyIntel, intel.item(PFIntelID.todaysCall) != nil {
-            // "Not today" only on a real call; the not-ready and unavailable notes are never hidden.
-            if intel.isCurrent(for: snapshot.todayISO), let call = intel.call {
-                dismissable(.todaysCall, PFCardText.todaysCall(call)) {
-                    PFTodaysCallHost(intel: intel, todayISO: snapshot.todayISO)
-                }
-            } else {
-                PFTodaysCallHost(intel: intel, todayISO: snapshot.todayISO)
-            }
-        }
-    }
-
-    @ViewBuilder private var dayInReviewCard: some View {
-        if let intel = snapshot.dailyIntel, let review = intel.review, intel.isCurrent(for: snapshot.todayISO) {
-            dismissable(.dayInReview, PFCardText.dayInReview(review)) {
-                PFDayReviewHost(intel: intel, todayISO: snapshot.todayISO)
-            }
-        } else if let intel = snapshot.dailyIntel {
-            PFDayReviewHost(intel: intel, todayISO: snapshot.todayISO)
-        }
-    }
-
-    @ViewBuilder private var myPlanCard: some View {
-        if let plan = snapshot.intelDocs.myPlan.value {
-            PFMyPlanCard(plan: plan)
         }
     }
 

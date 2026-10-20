@@ -49,8 +49,27 @@ final class PFDailyIntelStore: ObservableObject {
     }
 
     func refreshIfStale() async {
+        if PFBeta.isOn, await refreshViaCoordinator() { return }
         if let lastFetch, didLoad, Date().timeIntervalSince(lastFetch) < 120 { return }
         await refresh()
+    }
+
+    /// Beta only (see PaceForgeBeta.swift): the coordinator downloads the file only when the server's hash differs from the saved
+    /// copy and hands it to `update`. False after a `refresh.beta.fallback` breadcrumb: the caller then refreshes the way build 477 did.
+    private func refreshViaCoordinator() async -> Bool {
+        guard PFAPI.isConfigured else {
+            didLoad = true
+            return true
+        }
+        do {
+            _ = try await PFRefreshCoordinator.shared.refreshIfStale(.dailyIntel, maxAge: 120)
+            // A refresh that published nothing still ends the load: a screen shows nothing until `didLoad`.
+            if !didLoad { didLoad = true }
+            return true
+        } catch {
+            PFBeta.fallback(PFBeta.reason(error))
+            return false
+        }
     }
 
     /// Overlapping callers share the load already running.

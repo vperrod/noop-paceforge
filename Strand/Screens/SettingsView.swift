@@ -1730,6 +1730,7 @@ struct SettingsView: View {
                 toolRow("Siri & Shortcuts", icon: "mic.fill", id: "settings-tool-siri") { SiriShortcutsSettingsView() }
                 toolRow("Power saving", icon: "battery.25", id: "settings-tool-powersaving") { PowerSavingView() }
                 toolRow("Last crash report", icon: "exclamationmark.triangle", id: "settings-tool-crashreport") { NoopDiagnosticsView() }
+                PFRefreshBetaToggle()
                 NoopDiagSendButton()
             }
         }

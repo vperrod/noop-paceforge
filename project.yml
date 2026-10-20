@@ -188,6 +188,7 @@ targets:
       # The builder and its models: the crash-guard tests build a whole snapshot from the live documents' shapes.
       - StrandiOS/PaceForge/PaceForgeModels.swift
       - StrandiOS/PaceForge/PaceForgeBuilder.swift
+      - StrandiOS/PaceForge/PaceForgeDocs.swift
       - StrandiOS/PaceForge/PaceForgeJSON.swift
       - StrandiOS/PaceForge/PaceForgeWave2.swift
       # Wave 3 (race week, race simulations, easy mode, muscle check, tape, heat, privacy, intraday, day events).

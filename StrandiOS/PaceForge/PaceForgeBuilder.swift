@@ -79,6 +79,43 @@ extension PFRawBundle {
     }
 }
 
+/// The parts of a snapshot that are built from their own documents: when none of a part's documents changed, a refresh keeps the
+/// part from the snapshot it already has. The one list of which document feeds which part. Used by the beta refresh only.
+enum PFLeaf: CaseIterable {
+    case insightsV2, body, bodyProgress, alerts, readiness, feel, whatChanged, behaviour, explainers, raceWeek, simulations
+    case easyMode, muscle, tape, standing, dailyIntel, intelDocs, rides, dismissed, todayLayout, needsYou, serverHidesBody
+    case activities, analyses
+
+    var docs: [String] {
+        switch self {
+        case .insightsV2: return [PFDocs.insightsV2]
+        case .body: return [PFDocs.body]
+        case .bodyProgress: return [PFDocs.bodyProgress]
+        case .alerts: return [PFDocs.alerts]
+        case .readiness: return [PFDocs.readiness]
+        case .feel: return [PFDocs.feelSummary]
+        case .whatChanged: return [PFDocs.whatChanged]
+        case .behaviour: return [PFDocs.behaviour]
+        case .explainers: return [PFDocs.explainers]
+        case .raceWeek: return [PFDocs.raceWeek, PFDocs.state]
+        case .simulations: return [PFDocs.hyroxSimAnalysis, PFDocs.hyroxSims]
+        case .easyMode: return [PFDocs.easyMode, PFDocs.state]
+        case .muscle: return [PFDocs.muscle]
+        case .tape: return [PFDocs.tape]
+        case .standing: return [PFDocs.standing]
+        case .dailyIntel: return [PFDocs.dailyIntel]
+        case .intelDocs: return PFDocPath.all
+        case .rides: return [PFDocs.rideMetrics]
+        case .dismissed: return [PFDocs.dismissed]
+        case .todayLayout: return [PFDocs.todayLayout]
+        case .needsYou: return [PFDocs.needsYou, PFDocs.state]
+        case .serverHidesBody: return [PFDocs.state]
+        case .activities: return [PFDocs.activities]
+        case .analyses: return [PFDocs.analysesIndex]
+        }
+    }
+}
+
 /// Derives the screens' view models from the server's JSON, the way the PaceForge web app derives
 /// its own Today / Body / Calendar views.
 enum PFBuilder {
@@ -179,6 +216,202 @@ enum PFBuilder {
             if let id = entry["activity_id"].idString, let rpe = entry["rpe"].double { snapshot.rpe[id] = rpe }
         }
         return snapshot
+    }
+
+    // MARK: Incremental build (beta refresh only; `snapshot(from:today:)` above is the build every other path uses)
+
+    /// Which parts of the snapshot a build has to make again.
+    private struct Staleness {
+        let isEverything: Bool
+        let changed: Set<String>
+        func callAsFunction(docs: [String]) -> Bool { isEverything || !changed.isDisjoint(with: docs) }
+        func callAsFunction(_ leaf: PFLeaf) -> Bool { self(docs: leaf.docs) }
+    }
+
+    /// The snapshot for `raw`. With the `previous` snapshot of the same day and the paths of the documents that changed since it was
+    /// built (`changed`), only the parts built from a changed document are built again: the rest is carried over from `previous`,
+    /// and `raw` need only hold the documents `documents(needed:previous:changed:)` names. Without `previous`, everything is built.
+    /// The work is split into small non-inlined functions so no frame of it is large; callers still run it on a thread with a big
+    /// stack (`PFBuildThread`).
+    static func snapshot(from raw: PFRawBundle, today: String, previous: PFSnapshot?, changed: Set<String>) -> PFSnapshot? {
+        let reusable = previous.flatMap { $0.todayISO == today ? $0 : nil }
+        let stale = Staleness(isEverything: reusable == nil, changed: changed)
+
+        let insightsV2 = stale(.insightsV2) ? PFInsightsV2Parse.document(raw.insightsV2) : reusable?.insightsV2
+        var snapshot: PFSnapshot
+        if let reusable, !stale(docs: coreInputs) {
+            snapshot = reusable
+        } else {
+            guard let fresh = core(raw: raw, today: today, insightsV2: insightsV2) else { return nil }
+            if var kept = reusable {
+                kept.generatedAt = fresh.generatedAt
+                kept.today = fresh.today
+                kept.coach = fresh.coach
+                kept.weeks = fresh.weeks
+                kept.currentWeekIndex = fresh.currentWeekIndex
+                kept.insights = fresh.insights
+                kept.sleepNights = fresh.sleepNights
+                kept.trimp = fresh.trimp
+                kept.rpe = fresh.rpe
+                snapshot = kept
+            } else {
+                snapshot = fresh
+            }
+        }
+        snapshot.insightsV2 = insightsV2
+        applyWave2Leaves(&snapshot, raw: raw, stale: stale)
+        applyWave3Leaves(&snapshot, raw: raw, stale: stale)
+        applyRemainingLeaves(&snapshot, raw: raw, stale: stale)
+        return snapshot
+    }
+
+    @inline(never)
+    private static func applyWave2Leaves(_ snapshot: inout PFSnapshot, raw: PFRawBundle, stale: Staleness) {
+        if stale(.body) { snapshot.body = body(raw.body) }
+        if stale(.bodyProgress) { snapshot.bodyProgress = bodyProgress(raw.bodyProgress) }
+        if stale(.alerts) { snapshot.alerts = alerts(raw.alerts) }
+        if stale(.readiness) { snapshot.readiness = readiness(raw.readiness) }
+        if stale(.feel) { snapshot.feel = PFWave2Parse.feelSummary(raw.feelSummary) }
+        if stale(.whatChanged) { snapshot.whatChanged = PFWave2Parse.whatChanged(raw.whatChanged) }
+        if stale(.behaviour) { snapshot.behaviour = PFWave2Parse.behaviourImpact(raw.behaviour) }
+        if stale(.explainers) { snapshot.explainers = PFWave2Parse.explainers(raw.explainers) }
+    }
+
+    @inline(never)
+    private static func applyWave3Leaves(_ snapshot: inout PFSnapshot, raw: PFRawBundle, stale: Staleness) {
+        let state = raw.state
+        if stale(.raceWeek) { snapshot.raceWeek = PFWave3Parse.raceWeek(raw.raceWeek, brief: state["daily_brief"]) }
+        if stale(.simulations) {
+            snapshot.simulations = PFWave3Parse.hyroxSims(analysis: raw.hyroxSimAnalysis, sims: raw.hyroxSims)
+        }
+        if stale(.easyMode) {
+            // A mode with level 0 or no level is "off"; it must not shadow the brief's mode.
+            let activeMode: PFJ = [state["mode"], state["daily_brief"]["mode"]].first { ($0["level"].int ?? 0) > 0 } ?? PFJ(nil)
+            snapshot.easyMode = PFWave3Parse.easyMode(raw.easyMode, stateMode: activeMode)
+        }
+        if stale(.muscle) { snapshot.muscle = PFWave3Parse.muscleCheck(raw.muscle) }
+        if stale(.tape) { snapshot.tape = PFWave3Parse.tape(raw.tape) }
+        if stale(.standing) { snapshot.standing = PFStandingParse.standing(raw.standing) }
+    }
+
+    @inline(never)
+    private static func applyRemainingLeaves(_ snapshot: inout PFSnapshot, raw: PFRawBundle, stale: Staleness) {
+        let state = raw.state
+        if stale(.dailyIntel) { snapshot.dailyIntel = PFDailyIntelParse.document(raw.dailyIntel) }
+        if stale(.intelDocs) {
+            snapshot.intelDocs = PFIntelDocsParse.docs(healthspan: raw.healthspan, journalImpact: raw.journalImpact,
+                                                       highlights: raw.highlights, monthlyReport: raw.monthlyReport,
+                                                       myPlan: raw.myPlan)
+        }
+        if stale(.rides) { snapshot.rides = PFRideParse.metrics(raw.rideMetrics) }
+        if stale(.dismissed) { snapshot.dismissed = PFDismissStorage.parseServer(raw.dismissed) }
+        if stale(.todayLayout) { snapshot.todayLayout = PFTodayOrder.parseServer(raw.todayLayout) }
+        // The live list document first, the copy inside /api/state when an older server serves no such file.
+        if stale(.needsYou) { snapshot.needsYou = PFNeedsParse.items(raw.needsYou.exists ? raw.needsYou : state["needs_you"]) }
+        if stale(.serverHidesBody) { snapshot.serverHidesBody = PFWave3Parse.hidesBodyOnLockScreen(state) }
+        if stale(.activities) {
+            snapshot.activities = [:]
+            for item in raw.activities.array {
+                if let activity = activity(item) { snapshot.activities[activity.id] = activity }
+            }
+        }
+        if stale(.analyses) {
+            snapshot.analyses = [:]
+            for row in raw.analysesIndex.array {
+                if let parsed = analysisRow(row) { snapshot.analyses[parsed.id] = parsed }
+            }
+        }
+    }
+
+    /// The paths of the saved documents `snapshot(from:today:previous:changed:)` reads for these arguments, so a refresh parses
+    /// exactly those and no others.
+    static func documents(needed today: String, previous: PFSnapshot?, changed: Set<String>) -> Set<String> {
+        let isSameDay = previous?.todayISO == today
+        func isStale(docs: [String]) -> Bool { !isSameDay || !changed.isDisjoint(with: docs) }
+        var out = Set<String>()
+        if isStale(docs: coreInputs) { out.formUnion(coreDocs) }
+        for leaf in PFLeaf.allCases where isStale(docs: leaf.docs) { out.formUnion(leaf.docs) }
+        return out
+    }
+
+    /// The documents behind the part of the snapshot every screen shares: the plan, today's scores and the insights.
+    static let coreDocs = [PFDocs.state, PFDocs.fitness, PFDocs.projection, PFDocs.hyrox]
+    /// The core also reads the race finish out of insights-v2.
+    private static let coreInputs = coreDocs + [PFDocs.insightsV2]
+
+    @inline(never)
+    private static func core(raw: PFRawBundle, today: String, insightsV2: PFInsightsV2?) -> PFSnapshot? {
+        guard raw.state.exists, raw.fitness.exists else { return nil }
+        let state = raw.state
+        let strength = state["strength_sessions"]
+        let allWorkouts = collectWorkouts(state: state, strength: strength, today: today)
+        let weeks = buildWeeks(state: state, workouts: allWorkouts, today: today)
+        var snapshot = PFSnapshot(
+            generatedAt: state["generated_at"].string,
+            todayISO: today,
+            today: buildTodayBlock(raw: raw, workouts: allWorkouts, today: today),
+            coach: coach(state: state, fitness: raw.fitness),
+            weeks: weeks.list,
+            currentWeekIndex: weeks.currentIndex,
+            insights: insights(fitness: raw.fitness, projection: raw.projection, hyrox: raw.hyrox,
+                               raceFinish: insightsV2?.item(PFInsightID.raceCountdown)?.race?.finish,
+                               today: today)
+        )
+        applyScoreSeries(&snapshot, raw: raw)
+        return snapshot
+    }
+
+    @inline(never)
+    private static func buildTodayBlock(raw: PFRawBundle, workouts allWorkouts: [PFWorkout], today: String) -> PFToday {
+        let state = raw.state
+        var todayBlock = PFToday()
+        let daily = raw.fitness["daily"]
+        if let score = daily["recovery"]["score"].double {
+            todayBlock.recovery = PFRecovery(score: score, band: daily["recovery"]["band"].string,
+                                             confidence: daily["recovery"]["confidence"]["tier"].string,
+                                             trust: PFWave2Parse.trust(daily["recovery"]["trust"]))
+        }
+        if let value = daily["strain"]["value"].double {
+            todayBlock.strain = PFStrain(value: value, targetLow: daily["strain"]["target_low"].double,
+                                         targetHigh: daily["strain"]["target_high"].double,
+                                         band: daily["strain"]["band"].string)
+        }
+        if let score = daily["sleep"]["score"].double {
+            todayBlock.sleep = PFSleep(score: score, hoursText: daily["sleep"]["hours_text"].string,
+                                       needText: daily["sleep"]["need_text"].string,
+                                       sufficiencyPct: daily["sleep"]["sufficiency_pct"].double,
+                                       debtHours: daily["sleep"]["debt_hours"].double)
+        }
+        todayBlock.hrv = raw.fitness["load"]["hrv"]["last_night_ms"].double
+        todayBlock.hrvBaselineMs = raw.fitness["load"]["hrv"]["baseline7_ms"].double
+        todayBlock.hrvLowMs = raw.fitness["load"]["hrv"]["normal_range_ms"][0].double
+        todayBlock.hrvHighMs = raw.fitness["load"]["hrv"]["normal_range_ms"][1].double
+        todayBlock.restingHr = raw.fitness["load"]["resting_hr_trend"]["latest"].double
+        todayBlock.acwr = raw.fitness["load"]["acwr"]["acwr"].double
+        todayBlock.brief = dailyBrief(state["daily_brief"])
+        todayBlock.nextRace = nextRace(events: state["events"], today: today)
+        todayBlock.sessions = allWorkouts
+            .filter { $0.date == today && $0.status != "optional" }
+            .sorted { ($0.name ?? "") < ($1.name ?? "") }
+        return todayBlock
+    }
+
+    @inline(never)
+    private static func applyScoreSeries(_ snapshot: inout PFSnapshot, raw: PFRawBundle) {
+        snapshot.sleepNights = raw.fitness["load"]["sleep"]["stages_14d"].array.compactMap { night in
+            guard let date = night["date"].string else { return nil }
+            let deep = night["deep_min"].double ?? 0
+            let rem = night["rem_min"].double ?? 0
+            let light = night["light_min"].double ?? 0
+            let minutes = deep + rem + light
+            return minutes > 0 ? PFSleepNight(date: date, minutes: minutes) : nil
+        }
+        for row in raw.fitness["load"]["daily_load"]["per_activity"].array {
+            if let id = row["activity_id"].idString, let trimp = row["trimp"].double { snapshot.trimp[id] = trimp }
+        }
+        for entry in raw.state["rpe"]["entries"].array {
+            if let id = entry["activity_id"].idString, let rpe = entry["rpe"].double { snapshot.rpe[id] = rpe }
+        }
     }
 
     // MARK: Workouts

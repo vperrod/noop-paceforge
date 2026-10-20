@@ -82,9 +82,24 @@ enum PaceForgeBackground {
     /// Fetches PaceForge, rewrites the widget summary and notifies about a new daily brief.
     static func refresh() async -> Bool {
         guard PFAPI.isConfigured, !PFAPI.isFixture else { return false }
+        // Beta only (see PaceForgeBeta.swift): the coordinator also republishes the widget summary when its inputs changed.
+        if PFBeta.isOn {
+            do {
+                if let snapshot = try await PFRefreshCoordinator.shared.refresh(.everything).snapshot {
+                    return await deliver(snapshot)
+                }
+                PFBeta.fallback("no-snapshot")
+            } catch {
+                PFBeta.fallback(PFBeta.reason(error))
+            }
+        }
         guard let raw = try? await PFAPI.fetchBundle(),
               let snapshot = PFBuilder.snapshot(from: raw, today: PFFormat.isoString(Date())) else { return false }
         PFSummaryWriter.publish(snapshot)
+        return await deliver(snapshot)
+    }
+
+    private static func deliver(_ snapshot: PFSnapshot) async -> Bool {
         if let brief = snapshot.today.brief {
             await notifyIfNew(brief, today: snapshot.todayISO)
             await notifyIfUpdated(brief, today: snapshot.todayISO)

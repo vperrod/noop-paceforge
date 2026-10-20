@@ -55,6 +55,8 @@ struct StrandiOSApp: App {
         // Breadcrumbs, the main-thread watchdog and the "did the last run finish" marker, before anything else runs, so a
         // stall or kill during launch is on record too (NoopDiagnostics).
         NoopDiag.start()
+        // The New PaceForge refresh (beta) switch is read here, once per launch.
+        PFBeta.captureAtLaunch()
         #if DEBUG
         NoopPerfAutopilot.startIfRequested()
         #endif

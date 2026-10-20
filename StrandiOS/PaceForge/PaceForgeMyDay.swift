@@ -211,6 +211,7 @@ enum PFMyDay {
         // Read, parsed and built off the main thread: NOOP Today's My Day section asks for this whenever the saved documents
         // changed (every PaceForge refresh rewrites them), and on the main thread it stalled Today.
         let isFixture = PFAPI.isFixture
+        let isBeta = PFBeta.isOn
         let task = Task.detached(priority: .userInitiated) { () -> Loaded? in
             let bundle: PFRawBundle?
             if isFixture {
@@ -218,9 +219,15 @@ enum PFMyDay {
             } else {
                 bundle = NoopDiag.measure("myday.pf.cache.read") { PFStore.cachedBundle() }
             }
-            guard let bundle,
-                  let snapshot = NoopDiag.measure("myday.pf.build", { PFBuilder.snapshot(from: bundle, today: today) })
-            else { return nil }
+            guard let bundle else { return nil }
+            // Beta only: the build runs on a thread with a large stack (build 478 overflowed the concurrency pool's on this call).
+            let built: PFSnapshot?
+            if isBeta {
+                built = await PFBuildThread.run("myday") { PFBuilder.snapshot(from: bundle, today: today) }
+            } else {
+                built = NoopDiag.measure("myday.pf.build", { PFBuilder.snapshot(from: bundle, today: today) })
+            }
+            guard let snapshot = built else { return nil }
             return Loaded(snapshot: snapshot, planActivities: snapshot.activities.values.compactMap(planActivity))
         }
         building = (stamp, today, task)

@@ -362,6 +362,8 @@ final class PFModel: ObservableObject {
     /// The digest of the documents the snapshot on screen was built from, and the day it was built for.
     private var lastDigest: Int?
     private var lastBuiltToday: String?
+    /// Beta refresh only: the coordinator's generation of the snapshot on screen.
+    private var betaAppliedGeneration = -1
     /// The one load in flight. It runs in its own task so SwiftUI cancelling a caller (`.task` re-run,
     /// `.refreshable` ending, a tab switch) cannot cancel the network requests with URLError.cancelled.
     private var inFlight: Task<Void, Never>?
@@ -396,6 +398,8 @@ final class PFModel: ObservableObject {
             return
         }
         let today = PFAPI.todayISO
+        // Beta only (off by default, see PaceForgeBeta.swift): any failure of it runs the refresh below, the one build 477 had.
+        if PFBeta.isOn, await loadBeta(today: today) { return }
         if snapshot == nil, PFAPI.usesPhoneState {
             // The saved documents (about 1.5 MB of JSON) are read, parsed and built off the main thread: on a phone that work
             // blocked the tab for a noticeable time on every first open.
@@ -448,6 +452,47 @@ final class PFModel: ObservableObject {
                 phase = .failed("Can't reach PaceForge")
             }
         }
+    }
+
+    /// The beta refresh (`PFRefreshCoordinator`). True when it finished and the state is set; false after a `refresh.beta.fallback`
+    /// breadcrumb, when the caller runs the build 477 refresh instead.
+    private func loadBeta(today: String) async -> Bool {
+        let coordinator = PFRefreshCoordinator.shared
+        if snapshot == nil, PFAPI.usesPhoneState,
+           let cached = await coordinator.cachedSnapshot(today: today), snapshot == nil, let saved = cached.snapshot {
+            applyBeta(saved, generation: cached.generation)
+            savedAt = PFStore.savedAt(path: "api/state")
+            phase = .ready
+        }
+        do {
+            let outcome = try await coordinator.refresh(.everything)
+            guard let built = outcome.snapshot else {
+                PFBeta.fallback("no-snapshot")
+                return false
+            }
+            // The same generation is the snapshot already on screen: neither the tab nor NOOP Today (which observes the shared
+            // stores) re-renders for nothing.
+            if outcome.generation != betaAppliedGeneration || snapshot == nil { applyBeta(built, generation: outcome.generation) }
+            savedAt = Date()
+            lastSuccess = Date()
+            offlineNote = nil
+            failureDetail = nil
+            phase = .ready
+            return true
+        } catch {
+            PFBeta.fallback(PFBeta.reason(error))
+            return false
+        }
+    }
+
+    private func applyBeta(_ built: PFSnapshot, generation: Int) {
+        NoopDiag.measure("pf.apply") {
+            snapshot = built
+            // Answered items leave the list for good once the server's own list no longer has them.
+            needsAnswered.formIntersection(built.needsYou.map { $0.id })
+            if !needsAnswered.isEmpty { snapshot?.needsYou.removeAll { needsAnswered.contains($0.id) } }
+        }
+        betaAppliedGeneration = generation
     }
 
     /// Files today's feel answer. The card shows it at once; on a failure the previous summary comes back
