@@ -423,13 +423,30 @@ final class AppModel: ObservableObject {
         // trailing edge, so the dashboard still refreshes with the newly-synced data , freshness is kept,
         // we just stop re-doing it dozens of times mid-download. removeDuplicates() still drops a slice that
         // stamped an identical second; the trailing refresh after a real change is never dropped.
+        //
+        // A WHOOP strap no longer refreshes off `lastSyncedAt` at all: BLEManager ends each logical sync (the whole
+        // chain of offload sessions) exactly once and bumps `syncFinishedSeq`, which drives ONE refresh and ONE
+        // server push below. Other sources (the Oura ring) still stamp `lastSyncedAt` and keep this debounce.
         live.$lastSyncedAt
             .dropFirst()
             .compactMap { $0 }
             .removeDuplicates()
+            .filter { [weak self] _ in self?.live.activeIsWhoop == false }
             .debounce(for: .seconds(2), scheduler: DispatchQueue.main)
             .sink { [weak self] _ in
                 Task { [weak self] in await self?.refreshAfterCompletedBackfill() }
+            }
+            .store(in: &hrCancellables)
+        live.$syncFinishedSeq
+            .dropFirst()
+            .removeDuplicates()
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                Task { [weak self] in
+                    guard let self else { return }
+                    await self.refreshAfterCompletedBackfill()
+                    await SelfHostedPushClient.pushIfEnabled(repo: self.repo)
+                }
             }
             .store(in: &hrCancellables)
 

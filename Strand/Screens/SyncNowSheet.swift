@@ -12,7 +12,6 @@ struct SyncNowSheet: View {
 
     /// What the last tap said; cleared when a sync finishes so the status line below tells the result.
     @State private var outcome: BLEManager.SyncNowOutcome?
-    @State private var finishedJustNow = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: NoopMetrics.gap) {
@@ -21,16 +20,16 @@ struct SyncNowSheet: View {
                 .foregroundStyle(StrandPalette.textPrimary)
 
             HStack(spacing: 10) {
-                if live.backfilling {
+                if isSyncing {
                     ProgressView()
                 }
-                Text(statusLine)
+                statusText
                     .font(StrandFont.body)
-                    .foregroundStyle(StrandPalette.textPrimary)
+                    .foregroundStyle(failureLine == nil ? StrandPalette.textPrimary : StrandPalette.statusCritical)
                     .fixedSize(horizontal: false, vertical: true)
             }
 
-            if let error = live.lastSyncError, !live.backfilling {
+            if let error = live.lastSyncError, !isSyncing, failureLine == nil {
                 Text(error)
                     .font(StrandFont.subhead)
                     .foregroundStyle(StrandPalette.statusCritical)
@@ -44,17 +43,26 @@ struct SyncNowSheet: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
 
-            NoopButton(live.backfilling ? "Syncing…" : "Sync now",
+            NoopButton(isSyncing ? "Syncing…" : "Sync now",
                        systemImage: "arrow.triangle.2.circlepath",
                        kind: .primary, fullWidth: true) {
-                finishedJustNow = false
                 #if os(iOS)
                 NoopDiag.crumb("syncsheet.tap", ["backfilling": live.backfilling ? 1 : 0, "connected": live.connected ? 1 : 0])
                 #endif
                 outcome = model.ble.syncNowReporting()
             }
-            .disabled(live.backfilling)
+            .disabled(isSyncing)
             .accessibilityIdentifier("sync-now-button")
+
+            if isSyncing {
+                NoopButton("Stop sync", systemImage: "stop.circle", kind: .secondary, fullWidth: true) {
+                    #if os(iOS)
+                    NoopDiag.crumb("syncsheet.stop", ["chunks": Double(live.syncTotalChunks)])
+                    #endif
+                    model.ble.cancelSync()
+                }
+                .accessibilityIdentifier("sync-stop-button")
+            }
 
             NoopButton("Manage devices", kind: .tertiary, fullWidth: true) {
                 dismiss()
@@ -74,31 +82,54 @@ struct SyncNowSheet: View {
                             "has_error": live.lastSyncError != nil ? 1 : 0])
         }
         #endif
-        .onChangeCompat(of: live.backfilling) { isSyncing in
+        .onChangeCompat(of: isSyncing) { isSyncing in
             #if os(iOS)
             NoopDiag.crumb(isSyncing ? "syncsheet.sync_running" : "syncsheet.sync_stopped",
                            ["has_error": live.lastSyncError != nil ? 1 : 0, "chunks": Double(live.syncChunksThisSession)])
             #endif
-            if isSyncing {
-                outcome = nil
-                finishedJustNow = false
-            } else {
-                finishedJustNow = true
+            if isSyncing { outcome = nil }
+        }
+    }
+
+    /// A logical sync is open (it spans the gaps between chained offload sessions, where `backfilling` flickers).
+    private var isSyncing: Bool { live.backfilling || live.syncStartedAt != nil }
+
+    /// Set when the last sync ended on a hard cap or the strap going quiet; the status line then says so.
+    private var failureLine: String? {
+        guard !isSyncing else { return nil }
+        switch live.lastSyncEndReason {
+        case "stalled": return String(localized: "Sync failed: no new data from the strap for 12 minutes")
+        case "max_duration": return String(localized: "Sync failed: stopped after 45 minutes")
+        case "no_response": return String(localized: "Sync failed: the strap went quiet before sending anything")
+        default: return nil
+        }
+    }
+
+    /// "Syncing n chunks · mm:ss" ticks once a second while a sync runs; otherwise the static outcome line.
+    @ViewBuilder private var statusText: some View {
+        if isSyncing, let started = live.syncStartedAt {
+            TimelineView(.periodic(from: .now, by: 1)) { context in
+                let elapsed = max(0, Int(context.date.timeIntervalSince1970 - started))
+                let n = max(live.syncTotalChunks, live.syncChunksThisSession)
+                let clock = String(format: "%d:%02d", elapsed / 60, elapsed % 60)
+                Text(n > 0 ? String(localized: "Syncing \(n) chunks · \(clock)") : String(localized: "Syncing strap history… · \(clock)"))
             }
+        } else {
+            Text(statusLine)
         }
     }
 
     private var statusLine: String {
-        if live.backfilling {
-            let n = live.syncChunksThisSession
+        if isSyncing {
+            let n = max(live.syncTotalChunks, live.syncChunksThisSession)
             return n > 0 ? String(localized: "Syncing strap history… \(n) chunks") : String(localized: "Syncing strap history…")
         }
+        if let failureLine { return failureLine }
         if let ts = live.lastSyncedAt {
             let formatter = RelativeDateTimeFormatter()
             formatter.unitsStyle = .full
             let ago = formatter.localizedString(for: Date(timeIntervalSince1970: ts), relativeTo: Date())
-            let prefix = finishedJustNow && live.lastSyncError == nil ? String(localized: "Sync finished. ") : ""
-            return prefix + String(localized: "Last synced \(ago)")
+            return String(localized: "Synced \(ago)")
         }
         return String(localized: "No completed sync yet")
     }

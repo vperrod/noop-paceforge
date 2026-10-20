@@ -567,6 +567,18 @@ public final class LiveState: ObservableObject {
     /// Chunks acked during the current offload session — an honest progress signal (total pending is
     /// unknowable from the protocol, so a count, never a percent).
     @Published public var syncChunksThisSession: Int = 0
+    /// Start (unix seconds) of the current LOGICAL sync: the whole chain of offload sessions the auto-continue
+    /// re-kicks stitch together. nil when no sync is running. Unlike `backfilling` it does not flicker between
+    /// chained sessions, so it is what the sheet's elapsed clock and Stop button follow.
+    @Published public var syncStartedAt: TimeInterval? = nil
+    /// Chunks acked across the whole logical sync (`syncChunksThisSession` restarts at every chained session).
+    @Published public var syncTotalChunks: Int = 0
+    /// How the last logical sync ended: complete, idle_complete, no_response, stalled, max_duration, aborted,
+    /// disconnected. nil until one ends. Process-local, like `lastSyncError`.
+    @Published public var lastSyncEndReason: String? = nil
+    /// Bumped once when a logical sync that moved data ends: the single trigger for the post-sync Repository
+    /// refresh and the server push (AppModel), instead of one per chained session.
+    @Published public var syncFinishedSeq: Int = 0
 
     /// Undecodable HISTORICAL_DATA record frames seen this offload session whose raw bytes WERE
     /// preserved to the on-device archive (#77 / #91). Drives the honest "saved on this Mac" sync
