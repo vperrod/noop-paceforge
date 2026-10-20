@@ -83,7 +83,9 @@ struct RootTabView: View {
     private static let lookTabs: [LookTabItem] = [
         LookTabItem(id: "today", title: "Today", symbol: "square.grid.2x2"),
         LookTabItem(id: "trends", title: "Trends", symbol: "chart.line.uptrend.xyaxis"),
-        LookTabItem(id: "sleep", title: "Sleep", symbol: "bed.double"),
+        // Tab 2 is Sleep, or Day when Settings > Tools > New Day tab (beta) was on at launch (UnifiedDay).
+        LookTabItem(id: UnifiedDay.isOn ? "day" : "sleep", title: UnifiedDay.isOn ? "Day" : "Sleep",
+                    symbol: UnifiedDay.isOn ? "calendar" : "bed.double"),
         LookTabItem(id: "paceforge", title: "PaceForge", symbol: "figure.run"),
         LookTabItem(id: "more", title: "More", symbol: "ellipsis"),
     ]
@@ -149,7 +151,7 @@ struct RootTabView: View {
         TabView(selection: nativeTabSelection) {
             tab(LiquidTodayView(), "Today", "square.grid.2x2", path: $tabPaths[0], scrollSignal: scrollTop[0]).tag(0)
             tab(TrendsView(), "Trends", "chart.line.uptrend.xyaxis", path: $tabPaths[1], scrollSignal: scrollTop[1]).tag(1)
-            tab(SleepView(), "Sleep", "bed.double", path: $tabPaths[2], scrollSignal: scrollTop[2]).tag(2)
+            tab(SleepOrDayRoot(), UnifiedDay.tabTitle, UnifiedDay.tabIcon, path: $tabPaths[2], scrollSignal: scrollTop[2]).tag(2)
             // The PaceForge tab takes Coach's slot (tag 3) and is always present, whatever the Coach
             // master switch says. NOOP's Coach screen is untouched; it opens as a sheet (see .coach below).
             tab(PaceForgeTabView(), "PaceForge", "figure.run", path: $tabPaths[3], scrollSignal: scrollTop[3]).tag(3)
@@ -287,6 +289,8 @@ struct RootTabView: View {
                 // Sleep is a tab: a link elsewhere switches to it (and leaves the tab it came from at its root) rather than
                 // pushing a second Sleep screen over that tab.
                 tabPaths[selectedTab] = NavigationPath()
+                // With the Day tab on, tab 2 is Day: land on its Sleep chip.
+                if UnifiedDay.isOn { UserDefaults.standard.set(DayChip.sleep.rawValue, forKey: DayChip.storageKey) }
                 withAnimation(.timingCurve(0.22, 1, 0.36, 1, duration: 0.24)) { selectedTab = 2 }
                 router.requestedDestination = nil
             case nil:
@@ -563,6 +567,18 @@ struct RootTabView: View {
         .environment(\.scrollToTopSignal, scrollSignal)
         .toolbar(lookTabBar ? .hidden : .automatic, for: .tabBar)
         .tabItem { Label("More", systemImage: "ellipsis") }
+    }
+}
+
+/// The root of tab 2: the Sleep screen (build 479), or the Day screen when the New Day tab (beta) was on at launch. The choice is
+/// fixed for the life of the process, so the tab never changes identity while the app runs.
+private struct SleepOrDayRoot: View {
+    var body: some View {
+        if UnifiedDay.isOn {
+            DayHostView()
+        } else {
+            SleepView()
+        }
     }
 }
 

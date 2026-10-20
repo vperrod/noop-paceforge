@@ -57,6 +57,8 @@ struct StrandiOSApp: App {
         NoopDiag.start()
         // The New PaceForge refresh (beta) switch is read here, once per launch.
         PFBeta.captureAtLaunch()
+        // The New Day tab (beta) switch is read here, once per launch.
+        UnifiedDay.captureAtLaunch()
         #if DEBUG
         NoopPerfAutopilot.startIfRequested()
         #endif

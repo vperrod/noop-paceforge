@@ -45,6 +45,8 @@ enum TabRoute: Hashable {
     case monthlyReport
     case hydration
     case coupled
+    /// The Lift Log, from the Day tab's Activity chip (iPhone only; macOS falls back to Workouts).
+    case liftLog
 }
 
 extension View {
@@ -107,6 +109,12 @@ extension View {
                 #endif
             case .hydration: HydrationView()
             case .coupled: CoupledView()
+            case .liftLog:
+                #if os(iOS)
+                LiftLogView()
+                #else
+                WorkoutsView()
+                #endif
             }
         }
     }
