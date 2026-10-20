@@ -17,6 +17,10 @@ approximate; downloads are on the [Releases](https://github.com/NoopApp/noop/rel
 
 ---
 
+## 12.0.12 build 474 (PaceForge iPhone build): freeze diagnostics, nothing else changed
+
+- **This build changes no behaviour.** Build 473 still froze after opening the PaceForge tab. The earlier reports hid the stuck function, so this build captures the main thread's full stack (as image+offset, symbolicated offline) at 1.5 s, 4 s and 8 s into any stall of 1.5 s or more, writes it to disk immediately, and uploads it on the next launch (at most every 10 minutes after an unclean exit or a stall of 3 s or more). It also records the visible screen and the strap link and sync steps, including why Sync now fails. Build 464 remains the last known good.
+
 ## 12.0.12 build 473 (PaceForge iPhone build): freeze fixes, idle redraw fixes, strap Sync now
 
 - **Not verified on a real iPhone.** Build 472 opened the PaceForge tab but froze after about a minute (watchdog kill with the main thread inside Swift generic type resolution) and the app burned CPU while idle. This build makes the shared containers (ScreenScaffold, cards, settings rows) non-generic over their content, stops the always-on animations (liquid thread, tube, vessel, sky, body-age blob) when the app is not active, and stops the PaceForge tab re-rendering on every store publish. I put roughly 55% on the freeze fix and 45% on the idle-CPU fix. Build 464 remains the last known good.
