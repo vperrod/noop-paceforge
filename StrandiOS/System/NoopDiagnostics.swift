@@ -47,6 +47,7 @@ enum NoopDiag {
         // still found.
         NoopDiagStore.shared.beginRun(launchedOnScreen: UIApplication.shared.applicationState != .background)
         MainThreadSampler.captureMainThread()
+        FreezeStacks.load()
         MainThreadWatchdog.shared.start(tick: isPerfMode ? 0.008 : 0.05, threshold: stallThreshold)
         NoopDiagSampler.shared.start(interval: isPerfMode ? 1 : 5)
         crumb("launch", ["footprint_mb": NoopDiagSampler.footprintMB()])
@@ -148,6 +149,7 @@ enum NoopDiag {
     static func sceneActive() {
         NoopDiagStore.shared.setForeground(true)
         crumb("active", ["footprint_mb": NoopDiagSampler.footprintMB()])
+        crumb("visible \(currentLabels.screen)")
         recordAssistiveFeatures()
     }
 
@@ -336,6 +338,9 @@ final class NoopDiagStore {
 
     func clearPending() { queue.sync { writeJSON([:], "pending.json") } }
 
+    /// From the watchdog thread, never waits: a stall past 3 s is owed an upload at the next launch.
+    func markPending(_ key: String) { queue.async { self.setPending(key, true) } }
+
     func recordUpload(status: Int?, message: String, trigger: String) {
         queue.sync {
             writeJSON(["at": Self.now(), "status": status ?? -1, "message": String(message.prefix(300)), "trigger": trigger],
@@ -418,6 +423,7 @@ final class MainThreadWatchdog {
         var samples = 0
         var lastTop: String?
         var lastOngoingReport = 0.0
+        var markedPending = false
         while true {
             Thread.sleep(forTimeInterval: tick)
             let state = busy.withLockUnchecked { $0 }
@@ -427,6 +433,7 @@ final class MainThreadWatchdog {
                 // The stalled chunk has ended: it lasted at least as long as last seen, at most until now.
                 let ms = max(stall.lastMs, Double(now &- stall.since) / 1e6 - tick * 500)
                 NoopPerfStats.shared.stall(ms: ms, screen: stall.labels.screen, section: stall.labels.section)
+                FreezeStacks.finish(chunk: stall.chunk, ms: ms)
                 let place = lastTop.map { " at \($0)" } ?? ""
                 NoopDiagStore.shared.append(event: "stall \(stall.labels.section ?? stall.labels.screen)\(place)",
                                             fields: ["ms": ms.rounded(), "footprint_mb": NoopDiagSampler.footprintMB()])
@@ -438,8 +445,20 @@ final class MainThreadWatchdog {
                 samples = 0
                 lastTop = nil
                 lastOngoingReport = 0
+                markedPending = false
             }
             watched?.lastMs = ongoing * 1000
+            // First, before anything that calls dladdr (which could wait on a lock the stalled main thread holds): the whole
+            // stack, raw, at 1.5 s, 4 s, 8 s...: on disk before the next tick (see FreezeStacks).
+            if let stall = watched, let due = FreezeStacks.dueAt(FreezeStacks.captureCount(chunk: stall.chunk)), ongoing >= due {
+                let labels = NoopDiag.currentLabels
+                FreezeStacks.record(chunk: stall.chunk, stallMs: ongoing * 1000, screen: labels.screen, section: labels.section,
+                                    stack: MainThreadSampler.sample())
+            }
+            if ongoing >= 3, !markedPending {
+                markedPending = true
+                NoopDiagStore.shared.markPending("stall")
+            }
             // Where the main thread is: a sample every tick of a stall, at most 40 per stall.
             if samples < 40 {
                 samples += 1

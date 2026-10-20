@@ -48,6 +48,9 @@ struct SyncNowSheet: View {
                        systemImage: "arrow.triangle.2.circlepath",
                        kind: .primary, fullWidth: true) {
                 finishedJustNow = false
+                #if os(iOS)
+                NoopDiag.crumb("syncsheet.tap", ["backfilling": live.backfilling ? 1 : 0, "connected": live.connected ? 1 : 0])
+                #endif
                 outcome = model.ble.syncNowReporting()
             }
             .disabled(live.backfilling)
@@ -64,7 +67,18 @@ struct SyncNowSheet: View {
         #if os(iOS)
         .presentationDetents([.medium])
         #endif
+        #if os(iOS)
+        .onAppear {
+            NoopDiag.crumb("syncsheet.open @\(NoopDiag.currentLabels.screen)",
+                           ["backfilling": live.backfilling ? 1 : 0, "connected": live.connected ? 1 : 0,
+                            "has_error": live.lastSyncError != nil ? 1 : 0])
+        }
+        #endif
         .onChangeCompat(of: live.backfilling) { isSyncing in
+            #if os(iOS)
+            NoopDiag.crumb(isSyncing ? "syncsheet.sync_running" : "syncsheet.sync_stopped",
+                           ["has_error": live.lastSyncError != nil ? 1 : 0, "chunks": Double(live.syncChunksThisSession)])
+            #endif
             if isSyncing {
                 outcome = nil
                 finishedJustNow = false

@@ -377,8 +377,8 @@ struct StrandiOSApp: App {
         .onChange(of: scenePhase, initial: true) { _, phase in
             if phase == .active {
                 NoopDiag.sceneActive()
-                // A report owed by the previous run (it did not finish) or by a new MetricKit diagnostic, once, after the
-                // launch work has settled; at most every six hours (NoopDiagUpload).
+                // A report owed by the previous run (it did not finish), a stall over 3 s or a new MetricKit diagnostic, once, after the
+                // launch work has settled; at most every ten minutes (NoopDiagUpload).
                 Task(priority: .utility) {
                     try? await Task.sleep(nanoseconds: 20_000_000_000)
                     await NoopDiagUpload.sendIfOwed()

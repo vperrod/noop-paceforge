@@ -2534,6 +2534,7 @@ public final class BLEManager: NSObject, ObservableObject {
         // firing SEND_HISTORICAL ahead of hello/SET_CLOCK was part of the storm that stopped serving.
         guard connectHandshakeDone else {
             log("Backfill: deferred — connect handshake not done yet")
+            diag("sync.blocked handshake_not_done", diagLinkFields())
             return false
         }
         guard let backfiller else {
@@ -2545,6 +2546,7 @@ public final class BLEManager: NSObject, ObservableObject {
             // device is unlocked rebuilds the store and backfill proceeds. bootstrapStore() guards on
             // `collector == nil`, so this is a no-op once the store is up.
             log("Backfill: store not ready — re-attempting bootstrap, will retry next tick")
+            diag("sync.blocked store_not_ready", diagLinkFields())
             Task { @MainActor in await self.bootstrapStore() }
             return false
         }
@@ -2556,6 +2558,7 @@ public final class BLEManager: NSObject, ObservableObject {
         backfiller.begin(family: selectedModel.deviceFamily, continuedAfterRows: consecutiveAutoContinues > 0)
         backfilling = true
         state.backfilling = true
+        diag("sync.started", ["auto_continues": Double(consecutiveAutoContinues), "family": selectedModel.deviceFamily == .whoop5 ? 5 : 4])
         state.syncChunksThisSession = 0
         state.rejectedFramesThisSession = 0
         state.rejectedFramesUnarchived = 0
@@ -2976,6 +2979,16 @@ public final class BLEManager: NSObject, ObservableObject {
                                                                   bankedThisOffload: bankedThisOffload)
             }
         }
+        let endedKind: String
+        switch reason {
+        case "HISTORY_COMPLETE": endedKind = "complete"
+        case "timeout": endedKind = "timeout"
+        case "aborted by user": endedKind = "aborted"
+        default: endedKind = "other"
+        }
+        diag("sync.ended \(endedKind)",
+             ["chunks": Double(state.syncChunksThisSession), "rows": Double(backfiller?.sessionRowsPersisted ?? 0),
+              "has_error": state.lastSyncError != nil ? 1 : 0, "connected": state.connected ? 1 : 0])
         checkStrapLiveness()         // safety-net: strap ahead of us AND our frontier frozen ⇒ stuck?
         // #364 / #25: a session that ended on the 60s IDLE cap OR on a true HISTORY_COMPLETE while still
         // connected, with more backlog to fetch and the trim still advancing, immediately re-kicks another
@@ -4877,7 +4890,10 @@ public final class BLEManager: NSObject, ObservableObject {
     /// (persisted) and starts the offload.
     func requestSync(_ trigger: BackfillTrigger) {
         guard BLEManager.shouldRunPeriodicBackfill(
-            connected: state.connected, bonded: state.bonded, backfilling: backfilling) else { return }
+            connected: state.connected, bonded: state.bonded, backfilling: backfilling) else {
+            diag("sync.blocked gate \(trigger)", diagLinkFields())
+            return
+        }
         let now = Date().timeIntervalSince1970
         let last = UserDefaults.standard.object(forKey: BLEManager.backfillLastAtKey) as? Double
         // #160: a future-dated-clock strap's recurring automatic offloads (#928/#1012) are near-useless
@@ -4892,10 +4908,12 @@ public final class BLEManager: NSObject, ObservableObject {
                                        emptyStreak: max(emptySyncTracker.consecutiveEmptySyncs, consecutiveEmptyOffloads),
                                        clockUntrusted: clockUntrusted) else {
             log("Backfill: \(trigger) skipped (rate-limited; last \(last.map { Int(now - $0) } ?? -1)s ago)")
+            diag("sync.blocked rate_limited \(trigger)", ["last_s": last.map { (now - $0).rounded() } ?? -1])
             return
         }
         if beginBackfill() {
             UserDefaults.standard.set(now, forKey: BLEManager.backfillLastAtKey)
+            diag("sync.requested \(trigger)", diagLinkFields())
         }
     }
 
@@ -4940,12 +4958,50 @@ public final class BLEManager: NSObject, ObservableObject {
         case bluetoothUnsupported
         /// A ring (not the strap) is the active device.
         case otherDeviceActive
+
+        /// Stable label and number for the diagnostics breadcrumb (`result` field): started 1, alreadyRunning 2,
+        /// waitingForStrap 3, linkStillSettingUp 4, bluetoothOff 5, bluetoothDenied 6, bluetoothUnsupported 7,
+        /// otherDeviceActive 8.
+        var diagName: String {
+            switch self {
+            case .started: return "started"
+            case .alreadyRunning: return "already_running"
+            case .waitingForStrap: return "waiting_for_strap"
+            case .linkStillSettingUp: return "link_still_setting_up"
+            case .bluetoothOff: return "bluetooth_off"
+            case .bluetoothDenied: return "bluetooth_denied"
+            case .bluetoothUnsupported: return "bluetooth_unsupported"
+            case .otherDeviceActive: return "other_device_active"
+            }
+        }
+
+        var diagCode: Int {
+            switch self {
+            case .started: return 1
+            case .alreadyRunning: return 2
+            case .waitingForStrap: return 3
+            case .linkStillSettingUp: return 4
+            case .bluetoothOff: return 5
+            case .bluetoothDenied: return 6
+            case .bluetoothUnsupported: return 7
+            case .otherDeviceActive: return 8
+            }
+        }
     }
 
     /// The "Sync now" action behind the Today and PaceForge sync controls: `syncNow()` plus an honest answer for
     /// every state it cannot start in. A user gesture, so an unconnected strap gets an explicit connect.
     @discardableResult
     public func syncNowReporting() -> SyncNowOutcome {
+        var fields = diagLinkFields()
+        fields["central_state"] = Double(central.state.rawValue)
+        let outcome = performSyncNow()
+        fields["result"] = Double(outcome.diagCode)
+        diag("sync.now \(outcome.diagName)", fields)
+        return outcome
+    }
+
+    private func performSyncNow() -> SyncNowOutcome {
         switch central.state {
         case .poweredOff: return .bluetoothOff
         case .unauthorized: return .bluetoothDenied
@@ -4975,10 +5031,16 @@ public final class BLEManager: NSObject, ObservableObject {
     public func syncOnForeground(staleAfter: TimeInterval = 300) {
         let isStale = state.lastSyncedAt.map { Date().timeIntervalSince1970 - $0 > staleAfter } ?? true
         let linkReady = state.connected && state.bonded && connectHandshakeDone
+        var fields = diagLinkFields()
+        fields["stale"] = isStale ? 1 : 0
+        fields["link_ready"] = linkReady ? 1 : 0
+        fields["last_sync_age_s"] = state.lastSyncedAt.map { (Date().timeIntervalSince1970 - $0).rounded() } ?? -1
         if isStale, state.activeIsWhoop, !backfilling, !linkReady {
+            diag("sync.foreground armed", fields)
             armPendingManualSync()
             return
         }
+        diag("sync.foreground kick", fields)
         requestSync(.foreground)
     }
 
@@ -5004,6 +5066,7 @@ public final class BLEManager: NSObject, ObservableObject {
     /// Record that a manual sync was asked for before the link was ready.
     public func armPendingManualSync() {
         pendingManualSyncRequestedAt = Date()
+        diag("sync.armed", diagLinkFields())
         log("Sync now: requested before the strap link was ready — will run once the connect handshake settles.")
     }
 
@@ -5021,6 +5084,7 @@ public final class BLEManager: NSObject, ObservableObject {
         let trigger = Self.connectSyncTrigger(pendingManualRequestedAt: pendingManualSyncRequestedAt, now: Date())
         pendingManualSyncRequestedAt = nil
         if trigger == .manual { log("Sync now: running the sync requested before the link was ready.") }
+        diag("sync.connect_kick \(trigger)", diagLinkFields())
         requestSync(trigger)
     }
 
@@ -5031,6 +5095,20 @@ public final class BLEManager: NSObject, ObservableObject {
 
     private func log(_ s: String) {
         state.append(log: "[\(timestamp())] \(s)")
+    }
+
+    /// An on-device diagnostics breadcrumb (iOS: NoopDiag's ring, uploaded with the next diagnostics report) for the
+    /// strap link and sync path, tagged with the screen on show. `event` is a fixed label and `fields` are numbers
+    /// only, so nothing from the strap or the user lands in it. A no-op off iOS.
+    private func diag(_ event: String, _ fields: [String: Double] = [:]) {
+        #if os(iOS)
+        NoopDiag.crumb("\(event) @\(NoopDiag.currentLabels.screen)", fields)
+        #endif
+    }
+
+    private func diagLinkFields() -> [String: Double] {
+        ["connected": state.connected ? 1 : 0, "bonded": state.bonded ? 1 : 0, "handshake": connectHandshakeDone ? 1 : 0,
+         "backfilling": backfilling ? 1 : 0]
     }
     private func timestamp() -> String {
         BLEManager.logTimeFormatter.string(from: Date())
@@ -5778,6 +5856,7 @@ extension BLEManager: @preconcurrency CBCentralManagerDelegate {
 
     public func centralManagerDidUpdateState(_ central: CBCentralManager) {
         log("Central state: \(central.state.rawValue) (5 = poweredOn)")
+        diag("ble.central_state", ["state": Double(central.state.rawValue)])
         // #391: ANY state update means the cold-start settling window moved on — a pending
         // unauthorized-settle escalation is obsolete whether the new state is good news (poweredOn)
         // or its own banner-worthy case (poweredOff handles itself below).
@@ -5940,6 +6019,7 @@ extension BLEManager: @preconcurrency CBCentralManagerDelegate {
     }
 
     public func centralManager(_ central: CBCentralManager, didConnect peripheral: CBPeripheral) {
+        diag("ble.connected", ["failed_attempts": Double(failedConnectAttempts)])
         cancelScanFallback()
         cancelPendingConnectProbe()   // #730: the connect resolved; no pending-connect log needed
         failedConnectAttempts = 0   // a successful connect clears the reconnect backoff (#414)
@@ -6097,6 +6177,8 @@ extension BLEManager: @preconcurrency CBCentralManagerDelegate {
     public func centralManager(_ central: CBCentralManager,
                                didDisconnectPeripheral peripheral: CBPeripheral,
                                error: Error?) {
+        diag("ble.disconnected", ["was_backfilling": backfilling ? 1 : 0, "handshake": connectHandshakeDone ? 1 : 0,
+                                  "error_code": Double((error as NSError?)?.code ?? 0), "had_error": error != nil ? 1 : 0])
         Task { @MainActor in await collector?.flush() }
         // Reboot trail: if a user reboot is in flight, this drop is the strap acting on it. Log how long
         // the link stayed up (a real reboot drops within ~1-2 s) and cancel the no-disconnect watchdog. The
@@ -6406,6 +6488,7 @@ extension BLEManager: @preconcurrency CBCentralManagerDelegate {
                                didFailToConnect peripheral: CBPeripheral,
                                error: Error?) {
         cancelPendingConnectProbe()   // #730: it FAILED rather than pending — this log is the answer
+        diag("ble.connect_failed", ["error_code": Double((error as NSError?)?.code ?? 0), "attempts": Double(failedConnectAttempts + 1)])
         log("Failed to connect\(error.map { " — \($0.localizedDescription)" } ?? "")\(BLEManager.bleErrorSuffix(error))")
         // The strap wiped its bond (a firmware update, or the official WHOOP app re-bonding it). macOS keeps
         // re-presenting the now-stale pairing key, so every reconnect loops on this same error with no
@@ -6926,6 +7009,7 @@ extension BLEManager: @preconcurrency CBPeripheralDelegate {
                 connectHandshakeDone = true     // unblocks beginBackfill()'s guard
                 state.historyReady = true       // and the sync controls, which must not offer what it declines
                 log("WHOOP 5/MG: connect handshake done — backfill unblocked")
+                diag("ble.handshake_done", ["family": 5])
                 noteRebootReconnectIfNeeded()
                 // Re-apply the Broadcast-HR device-config flag if the user opted in (#181).
                 if PuffinExperiment.broadcastHrEnabled { setBroadcastHr(true) }
@@ -6979,6 +7063,7 @@ extension BLEManager: @preconcurrency CBPeripheralDelegate {
         guard !connectHandshakeDone else { return }
         connectHandshakeDone = true
         state.historyReady = true
+        diag("ble.handshake_done", ["family": 4])
         noteRebootReconnectIfNeeded()
         backfillStarted = true
 

@@ -13,7 +13,10 @@ import UIKit
 // one-line summary, "report": the object}. The kind is not "field_test" on purpose: the server hands a field_test's text
 // to the field-test parser, which would read a report as a refused measurement (or, for a short text, as a real one). A
 // server that does not know the kind answers 400 and stores nothing; the phone keeps the report (Settings > Tools > Last
-// crash report shows and shares it) and tries again at most every six hours.
+// crash report shows and shares it) and tries again at most every ten minutes.
+//
+// `freeze_stacks` carries the main thread's raw stacks from every stall of 1.5 s or more that no upload has delivered yet
+// (see FreezeStacks): "Image+0xoffset" frames, the executable's UUID and the build number, for offline symbolication.
 
 enum NoopDiagReport {
     static let maxBytes = 64 * 1024
@@ -34,6 +37,9 @@ enum NoopDiagReport {
         var previousCrumbs = (previous?["crumbs"] as? [[String: Any]]) ?? []
         var frameCap = 60
         var diagnosticCap = diagnostics.count
+        let freezeStalls = FreezeStacks.snapshot()
+        var freezeStallCap = freezeStalls.count
+        var freezeThin = false
         let summary = summaryLine(previous: previous, diagnostics: diagnostics)
 
         func object() -> [String: Any] {
@@ -51,6 +57,15 @@ enum NoopDiagReport {
                 "current_run": ["crumbs": crumbs],
                 "metrickit": Array(diagnostics.suffix(diagnosticCap)).map { trimFrames($0, cap: frameCap) },
             ]
+            if !freezeStalls.isEmpty {
+                let freeze: [String: Any] = [
+                    "exe": MainThreadSampler.executableName, "exe_uuid": MainThreadSampler.executableUUID,
+                    "build": NoopDiagStore.appBuild, "version": NoopDiagStore.appVersion,
+                    "format": "Image+0xoffset from the image's load address; frame 0 is the pc, the others return addresses (subtract 1)",
+                    "stalls": freezeStalls.suffix(freezeStallCap).map { thinCaptures($0, thin: freezeThin) },
+                ]
+                report["freeze_stacks"] = freeze
+            }
             if var previous {
                 previous["crumbs"] = previousCrumbs
                 report["unclean_previous_run"] = previous
@@ -71,6 +86,10 @@ enum NoopDiagReport {
                 frameCap -= 15
             } else if diagnosticCap > 1 {
                 diagnosticCap -= 1
+            } else if freezeStallCap > 1 {
+                freezeStallCap -= 1
+            } else if !freezeThin, !freezeStalls.isEmpty {
+                freezeThin = true
             } else if !crumbs.isEmpty || !previousCrumbs.isEmpty {
                 crumbs = Array(crumbs.suffix(crumbs.count / 2))
                 previousCrumbs = Array(previousCrumbs.suffix(previousCrumbs.count / 2))
@@ -80,6 +99,15 @@ enum NoopDiagReport {
             data = (try? JSONSerialization.data(withJSONObject: object(), options: [.sortedKeys])) ?? Data("{}".utf8)
         }
         return Built(json: data, summary: summary)
+    }
+
+    /// Keeps a stall's first and last capture only (the first shows where it started, the last where it ended up).
+    static func thinCaptures(_ stall: [String: Any], thin: Bool) -> [String: Any] {
+        guard thin, var captures = stall["captures"] as? [[String: Any]], captures.count > 2 else { return stall }
+        var copy = stall
+        captures = [captures[0], captures[captures.count - 1]]
+        copy["captures"] = captures
+        return copy
     }
 
     /// "NOOP 12.0.12 (469) diagnostics: unclean exit (last: stall ongoing pf.build 9000 ms); 1 crash, 0 hangs".
@@ -179,8 +207,9 @@ enum NoopDiagReport {
 // MARK: - Upload
 
 enum NoopDiagUpload {
-    /// Six hours between automatic attempts, so a server that refuses the report does not spend the app-log allowance.
-    static let retryInterval: TimeInterval = 6 * 3600
+    /// Ten minutes between automatic attempts: a freeze is worth hearing about soon, and the report only goes out when
+    /// something is owed (an unclean exit, a stall over 3 s, a MetricKit diagnostic).
+    static let retryInterval: TimeInterval = 10 * 60
     private static let lastAutoAttemptKey = "noop.diag.lastAutoUpload"
 
     struct Outcome {
@@ -189,8 +218,8 @@ enum NoopDiagUpload {
         var isDelivered: Bool { (200..<300).contains(status ?? 0) }
     }
 
-    /// At launch: when the previous run did not finish or MetricKit delivered a diagnostic, and none was sent in the last
-    /// six hours, send the report once.
+    /// At launch: when the previous run did not finish, a stall lasted over 3 s or MetricKit delivered a diagnostic, and no
+    /// report was attempted in the last ten minutes, send the report once.
     static func sendIfOwed() async {
         let pending = NoopDiagStore.shared.pending()
         guard !pending.isEmpty, SelfHostedPushClient.paceForgeIsConfigured else { return }
@@ -203,6 +232,7 @@ enum NoopDiagUpload {
     /// Builds the report, keeps it on the phone and posts it. Settings > Tools > Send diagnostics now calls this directly.
     @discardableResult
     static func send(trigger: String) async -> Outcome {
+        let cutoff = NoopDiagStore.now()
         let built = NoopDiagReport.build(trigger: trigger)
         NoopDiagStore.shared.saveReport(built.json)
         guard SelfHostedPushClient.paceForgeIsConfigured else {
@@ -224,7 +254,10 @@ enum NoopDiagUpload {
         }
         NoopDiagStore.shared.recordUpload(status: outcome.status, message: outcome.message, trigger: trigger)
         NoopDiag.crumb("diagnostics sent", ["status": Double(outcome.status ?? -1), "bytes": Double(built.json.count)])
-        if outcome.isDelivered { NoopDiagStore.shared.clearPending() }
+        if outcome.isDelivered {
+            NoopDiagStore.shared.clearPending()
+            FreezeStacks.clear(before: cutoff)
+        }
         return outcome
     }
 }
