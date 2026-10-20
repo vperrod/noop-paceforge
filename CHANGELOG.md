@@ -17,6 +17,10 @@ approximate; downloads are on the [Releases](https://github.com/NoopApp/noop/rel
 
 ---
 
+## 12.0.12 build 478 (PaceForge iPhone build): one refresh coordinator, change detection, three duplicate cards removed
+
+- **Not verified on a real iPhone.** Stage 1 of the Unified App Design. All PaceForge refreshes (tab, background task, daily-intel and Phase 4 stores) now go through one coordinator that asks the server's new manifest first and downloads and decodes only the documents whose fingerprint changed (a full refresh downloaded about 3.5 MB of 47 documents every time). Widgets and reminders reload only when their inputs changed. If the manifest is unavailable it falls back to the full fetch. The first refresh after installing fetches everything once. Today's call, Day in review and My plan no longer appear a second time on the PaceForge Today segment (they stay on NOOP Today). Each refresh records `refresh.docs_fetched`, `refresh.docs_unchanged` and `refresh.ms` in the diagnostics. Build 464 remains the last known good; 477 is the last build confirmed not to freeze.
+
 ## 12.0.12 build 477 (PaceForge iPhone build): Today header loop fixed, honest sync label
 
 - **Not verified on a real iPhone.** A CI simulator profile reproduced the freeze that starts when the strap sync starts (52 s of main-thread block vs 0 s without the sync; 99% inside SwiftUI graph update, a third of it ScrollView re-measure, with the Today header views being rebuilt). Cause (strong, not proven on a device): the top bar chose between two layouts with `ViewThatFits` while the sync capsule animated its width, so the choice flip-flopped, rebuilding the battery button and sync capsule each time and re-measuring the whole Today scroll view. The top bar is now one fixed layout, the battery button sits in a constant-size slot, the capsule widens without resizing the header (it can overlap the day pill for about 2 s during a sync), and the sync indicator no longer resets itself on layout churn. I put roughly 70% on this fixing the freeze. Build 464 remains the last known good.
