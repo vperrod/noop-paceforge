@@ -1,116 +1,53 @@
+# (profile-1 branch only: this file carries the profiling run, because GitHub dispatches only workflows that exist on the default branch.) Profiling run for the Today freeze (build 475: the main thread stalls inside SwiftUI's graph update when a strap sync
+# starts). Dispatch-only, on a branch. Builds the iOS app for the simulator with the optimizer on, replays the sync start
+# (-NoopPerfSimulateSync), bisects the suspects by launch switch, then records Time Profiler and SwiftUI traces with
+# xctrace. Nothing here signs, publishes or releases anything.
 name: iOS Simulator verification
 
 on:
   workflow_dispatch:
     inputs:
-      only:
-        description: "Optional space-separated -only-testing identifiers, e.g. NOOPiOSUITests/LookScreensUITests. Empty runs every UI test."
+      variants:
+        description: "Space-separated bisect variants (nosync sync nofits quiet nobattery cap0 cap2)."
         required: false
-        default: ""
-      optimized:
-        description: "true builds the Debug configuration with Release's optimizer (-O, whole-module), so a crash only the optimizer exposes shows here while the DEBUG-only test fixtures still work."
-        required: false
-        default: "false"
+        default: "nosync sync nofits quiet nobattery cap0 cap2"
 
 permissions:
   contents: read
 
 jobs:
-  verify-paceforge-menu:
+  profile:
     runs-on: macos-26
-    timeout-minutes: 240
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v5
       - name: Install XcodeGen
         run: brew install xcodegen
       - name: Generate Xcode project
         run: xcodegen generate
-      - name: Wait for the iPhone simulator
-        # CoreSimulator sometimes lists no device for the first minutes of a job, and xcodebuild then fails with
-        # "Unable to find a device matching the provided destination specifier".
-        run: |
-          for i in $(seq 1 36); do
-            if xcrun simctl list devices available | grep -q "iPhone 17 Pro ("; then echo "simulator ready after $((i * 10 - 10)) s"; exit 0; fi
-            sleep 10
-          done
-          xcrun simctl list runtimes
-          xcrun simctl list devices available
-          exit 1
-      - name: Verify PaceForge menu in iPhone Simulator
+      - name: Build, boot, seed
+        run: .github/profile-today/build.sh
+      - name: Bisect the suspects (stall per variant)
+        if: always() && !cancelled()
+        continue-on-error: true
+        timeout-minutes: 12
         env:
-          ONLY: ${{ inputs.only }}
-          OPTIMIZED: ${{ inputs.optimized }}
-        run: |
-          only=()
-          for t in $ONLY; do only+=("-only-testing:$t"); done
-          flags=()
-          if [ "$OPTIMIZED" = "true" ]; then
-            flags+=(SWIFT_OPTIMIZATION_LEVEL=-O SWIFT_COMPILATION_MODE=wholemodule GCC_OPTIMIZATION_LEVEL=s)
-          fi
-          xcodebuild -scheme NOOPiOS -configuration Debug \
-            -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=latest' \
-            -derivedDataPath build/derivedData \
-            -resultBundlePath build/NOOPiOS.xcresult \
-            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
-            "${flags[@]}" "${only[@]}" test
-      - name: Summarize test results
-        if: always()
-        run: |
-          if [ -d build/NOOPiOS.xcresult ]; then
-            xcrun xcresulttool get test-results summary --path build/NOOPiOS.xcresult --compact > build/test-summary.json || true
-            xcrun xcresulttool get test-results tests --path build/NOOPiOS.xcresult --compact > build/test-tree.json || true
-            python3 - <<'PY'
-          import json
-          try:
-              s = json.load(open("build/test-summary.json"))
-          except Exception as e:
-              print("no summary:", e); raise SystemExit
-          print("RESULT", {k: s.get(k) for k in ("result", "totalTestCount", "passedTests", "failedTests", "skippedTests", "expectedFailures")})
-          for f in s.get("testFailures", []):
-              print("FAILED", f.get("testIdentifierString") or f.get("testName"), "|", (f.get("failureText") or "")[:600])
-          PY
-          else
-            echo "No simulator result bundle was produced."
-          fi
-      - name: Export simulator screenshot
-        if: always()
-        run: |
-          if [ -d build/NOOPiOS.xcresult ]; then
-            xcrun xcresulttool export attachments \
-              --path build/NOOPiOS.xcresult \
-              --output-path build/simulator-screenshot
-          else
-            echo "No simulator result bundle was produced."
-          fi
-      - name: Upload simulator screenshot
+          VARIANTS: ${{ inputs.variants }}
+        run: .github/profile-today/variants.sh
+      - name: Record Time Profiler and SwiftUI traces
+        if: always() && !cancelled()
+        continue-on-error: true
+        timeout-minutes: 12
+        run: .github/profile-today/record.sh
+      - name: Export trace tables
+        if: always() && !cancelled()
+        continue-on-error: true
+        timeout-minutes: 10
+        run: .github/profile-today/export.sh
+      - name: Upload results
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: noop-ios-simulator-screenshot
-          path: build/simulator-screenshot
+          name: profile-today
+          path: ${{ runner.temp }}/profile-today-out
           if-no-files-found: warn
-      - name: Upload test summary
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: noop-ios-test-summary
-          path: |
-            build/test-summary.json
-            build/test-tree.json
-          if-no-files-found: ignore
-      - name: Print crash reports
-        if: always()
-        run: |
-          shopt -s nullglob
-          for f in ~/Library/Logs/DiagnosticReports/NOOP*.ips ~/Library/Logs/DiagnosticReports/Retired/NOOP*.ips; do
-            echo "=== $f"
-            head -c 80000 "$f"
-            echo
-          done
-      - name: Upload crash reports
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: noop-ios-crash-reports
-          path: ~/Library/Logs/DiagnosticReports
-          if-no-files-found: ignore
