@@ -17,6 +17,11 @@ approximate; downloads are on the [Releases](https://github.com/NoopApp/noop/rel
 
 ---
 
+## 12.0.12 build 477 (PaceForge iPhone build): Today header loop fixed, honest sync label
+
+- **Not verified on a real iPhone.** A CI simulator profile reproduced the freeze that starts when the strap sync starts (52 s of main-thread block vs 0 s without the sync; 99% inside SwiftUI graph update, a third of it ScrollView re-measure, with the Today header views being rebuilt). Cause (strong, not proven on a device): the top bar chose between two layouts with `ViewThatFits` while the sync capsule animated its width, so the choice flip-flopped, rebuilding the battery button and sync capsule each time and re-measuring the whole Today scroll view. The top bar is now one fixed layout, the battery button sits in a constant-size slot, the capsule widens without resizing the header (it can overlap the day pill for about 2 s during a sync), and the sync indicator no longer resets itself on layout churn. I put roughly 70% on this fixing the freeze. Build 464 remains the last known good.
+- **Sync label:** the sheet and the Today row now say "Connected, live" while heart-rate samples are arriving, otherwise "Latest strap data <ago>", and show "Last full history sync <time>" only when that is older than 15 minutes. Before, "Synced 44 minutes ago" contradicted data that was arriving live.
+
 ## 12.0.12 build 476 (PaceForge iPhone build): strap sync lifecycle, instant diagnostics upload
 
 - **Not verified on a real iPhone.** The sync indicator could say "syncing" for 50 minutes: a launch re-armed a manual sync every time (the last-sync stamp was read before it was loaded, and a WHOOP 4.0 usually ends on the idle timeout, which never recorded completion), and nothing bounded the chain of sync sessions. A whole sync is now one tracked unit: it records the completion time, ends exactly once with a `sync.finished` reason, aborts after 12 minutes without a chunk or 45 minutes in total, never re-arms within 5 minutes of a finished or attempted sync, and triggers exactly one refresh and one push. The Sync now sheet shows "Syncing n chunks - mm:ss", "Synced <time>" or "Sync failed: <reason>" and has a Stop button.
