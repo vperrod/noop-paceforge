@@ -1,0 +1,53 @@
+# Profiling run for the Today freeze (build 475: the main thread stalls inside SwiftUI's graph update when a strap sync
+# starts). Dispatch-only, on a branch. Builds the iOS app for the simulator with the optimizer on, replays the sync start
+# (-NoopPerfSimulateSync), bisects the suspects by launch switch, then records Time Profiler and SwiftUI traces with
+# xctrace. Nothing here signs, publishes or releases anything.
+name: Profile Today (simulator)
+
+on:
+  workflow_dispatch:
+    inputs:
+      variants:
+        description: "Space-separated bisect variants (nosync sync nofits quiet nobattery cap0 cap2)."
+        required: false
+        default: "nosync sync nofits quiet nobattery cap0 cap2"
+
+permissions:
+  contents: read
+
+jobs:
+  profile:
+    runs-on: macos-26
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Generate Xcode project
+        run: xcodegen generate
+      - name: Build, boot, seed
+        run: .github/profile-today/build.sh
+      - name: Bisect the suspects (stall per variant)
+        if: always() && !cancelled()
+        continue-on-error: true
+        timeout-minutes: 12
+        env:
+          VARIANTS: ${{ inputs.variants }}
+        run: .github/profile-today/variants.sh
+      - name: Record Time Profiler and SwiftUI traces
+        if: always() && !cancelled()
+        continue-on-error: true
+        timeout-minutes: 12
+        run: .github/profile-today/record.sh
+      - name: Export trace tables
+        if: always() && !cancelled()
+        continue-on-error: true
+        timeout-minutes: 10
+        run: .github/profile-today/export.sh
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: profile-today
+          path: ${{ runner.temp }}/profile-today-out
+          if-no-files-found: warn

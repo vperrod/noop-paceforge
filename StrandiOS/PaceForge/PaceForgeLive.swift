@@ -8,8 +8,12 @@ enum PFAPI {
         #if DEBUG
         guard ProcessInfo.processInfo.arguments.contains("-PaceForgeFixture") else { return nil }
         let environment = ProcessInfo.processInfo.environment
+        let arguments = ProcessInfo.processInfo.arguments
         let data: Data?
-        if let packed = environment["PF_FIXTURE_DEFLATE"] {
+        if let index = arguments.firstIndex(of: "-PaceForgeFixtureFile"), arguments.indices.contains(index + 1) {
+            // A real-size fixture for a profiling run that has no UI test to hand it over: the JSON file, by path.
+            data = try? Data(contentsOf: URL(fileURLWithPath: arguments[index + 1]))
+        } else if let packed = environment["PF_FIXTURE_DEFLATE"] {
             // A real-size fixture (the perf tests) is too big for one launch variable as text: base64 of raw DEFLATE.
             data = Data(base64Encoded: packed).flatMap { try? ($0 as NSData).decompressed(using: .zlib) as Data }
         } else {

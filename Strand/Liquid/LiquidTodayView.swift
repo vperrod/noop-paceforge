@@ -940,7 +940,16 @@ struct LiquidTodayView: View {
     /// At 402 pt the day pill, battery and customise button leave no room for the chip beside them, and a squeezed or clipped
     /// control is worse than a moved one: when the row cannot hold it, the chip sits on its own line under the bar. The
     /// identifier is the same either way.
-    private var lookTopBar: some View {
+    @ViewBuilder private var lookTopBar: some View {
+        #if DEBUG && os(iOS)
+        // Profiling switch (.github/workflows/profile-today.yml): the same row without the ViewThatFits wrapper.
+        if NoopPerfSwitches.noViewThatFits { lookTopBarRow(showsStreak: true) } else { lookTopBarFitting }
+        #else
+        lookTopBarFitting
+        #endif
+    }
+
+    private var lookTopBarFitting: some View {
         ViewThatFits(in: .horizontal) {
             lookTopBarRow(showsStreak: true)
             VStack(alignment: .leading, spacing: 10) {
@@ -973,7 +982,11 @@ struct LiquidTodayView: View {
             Spacer(minLength: 0)
             lookDayPill
             Spacer(minLength: 0)
+            #if DEBUG && os(iOS)
+            if !NoopPerfSwitches.noBatteryButton { LiquidBatteryButton() }
+            #else
             LiquidBatteryButton()
+            #endif
             Button { customizationDestination = .today } label: {
                 Image(systemName: "slider.horizontal.3")
                     .font(.system(size: 14, weight: .bold))
@@ -1944,6 +1957,10 @@ struct LiquidTodayView: View {
         #endif
         while true {
             try? await Task.sleep(nanoseconds: Self.mountStageDelayNanoseconds)
+            #if DEBUG && os(iOS)
+            // Profiling switch: stop mounting at this stage (0 = header + hero, 1 = + monitors, 2 = + My Day).
+            if let cap = NoopPerfSwitches.mountCap, mountStage >= cap { return }
+            #endif
             guard !Task.isCancelled else {
                 #if os(iOS)
                 NoopDiag.endStage()
