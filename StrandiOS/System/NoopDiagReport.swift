@@ -13,7 +13,11 @@ import UIKit
 // one-line summary, "report": the object}. The kind is not "field_test" on purpose: the server hands a field_test's text
 // to the field-test parser, which would read a report as a refused measurement (or, for a short text, as a real one). A
 // server that does not know the kind answers 400 and stores nothing; the phone keeps the report (Settings > Tools > Last
-// crash report shows and shares it) and tries again at most every ten minutes.
+// crash report shows and shares it) and tries again at most every two minutes.
+//
+// The automatic upload does not wait for the main thread: `NoopDiagUpload.startInBackground()` is the first line of the app's
+// init and runs on its own utility thread (no Task, no main queue, no timer), so a main thread that freezes within seconds of
+// launch cannot keep the previous run's evidence from leaving the phone.
 //
 // `freeze_stacks` carries the main thread's raw stacks from every stall of 1.5 s or more that no upload has delivered yet
 // (see FreezeStacks): "Image+0xoffset" frames, the executable's UUID and the build number, for offline symbolication.
@@ -25,10 +29,12 @@ enum NoopDiagReport {
     struct Built {
         let json: Data
         let summary: String
+        /// The ids of the freeze stalls the report carries.
+        let stallIds: [String]
     }
 
-    /// The report as JSON, cut to `maxBytes`.
-    static func build(trigger: String) -> Built {
+    /// The report as JSON, cut to `maxBytes`. `skippingStalls`: freeze stalls an earlier upload of this run delivered.
+    static func build(trigger: String, skippingStalls: Set<String> = []) -> Built {
         let store = NoopDiagStore.shared
         let previous = store.previousRun()
         let diagnostics = store.metricKitPayloads(diagnostic: true).map { compactDiagnostic($0.json, file: $0.file) }
@@ -37,7 +43,7 @@ enum NoopDiagReport {
         var previousCrumbs = (previous?["crumbs"] as? [[String: Any]]) ?? []
         var frameCap = 60
         var diagnosticCap = diagnostics.count
-        let freezeStalls = FreezeStacks.snapshot()
+        let freezeStalls = FreezeStacks.snapshot().filter { !skippingStalls.contains($0["id"] as? String ?? "") }
         var freezeStallCap = freezeStalls.count
         var freezeThin = false
         let summary = summaryLine(previous: previous, diagnostics: diagnostics)
@@ -59,7 +65,10 @@ enum NoopDiagReport {
             ]
             if !freezeStalls.isEmpty {
                 let freeze: [String: Any] = [
-                    "exe": MainThreadSampler.executableName, "exe_uuid": MainThreadSampler.executableUUID,
+                    // The stall's own record (taken in the run that froze): this run's image table may not be read yet when
+                    // the upload thread builds the report at process start.
+                    "exe": (freezeStalls.last?["exe"] as? String) ?? MainThreadSampler.executableName,
+                    "exe_uuid": (freezeStalls.last?["exe_uuid"] as? String) ?? MainThreadSampler.executableUUID,
                     "build": NoopDiagStore.appBuild, "version": NoopDiagStore.appVersion,
                     "format": "Image+0xoffset from the image's load address; frame 0 is the pc, the others return addresses (subtract 1)",
                     "stalls": freezeStalls.suffix(freezeStallCap).map { thinCaptures($0, thin: freezeThin) },
@@ -98,7 +107,7 @@ enum NoopDiagReport {
             }
             data = (try? JSONSerialization.data(withJSONObject: object(), options: [.sortedKeys])) ?? Data("{}".utf8)
         }
-        return Built(json: data, summary: summary)
+        return Built(json: data, summary: summary, stallIds: freezeStalls.compactMap { $0["id"] as? String })
     }
 
     /// Keeps a stall's first and last capture only (the first shows where it started, the last where it ended up).
@@ -207,10 +216,14 @@ enum NoopDiagReport {
 // MARK: - Upload
 
 enum NoopDiagUpload {
-    /// Ten minutes between automatic attempts: a freeze is worth hearing about soon, and the report only goes out when
-    /// something is owed (an unclean exit, a stall over 3 s, a MetricKit diagnostic).
-    static let retryInterval: TimeInterval = 10 * 60
+    /// Two minutes between automatic attempts when only an unclean exit, a stall flag or a MetricKit diagnostic is owed.
+    /// Freeze stacks waiting for delivery skip the spacing: they are the evidence that is hardest to get again.
+    static let retryInterval: TimeInterval = 2 * 60
+    /// Seconds after process start of each pass of the background upload: now, then again after a failure (or news) at +20 s
+    /// and +60 s.
+    static let passOffsets: [TimeInterval] = [0, 20, 60]
     private static let lastAutoAttemptKey = "noop.diag.lastAutoUpload"
+    private static let requestTimeout: TimeInterval = 15
 
     struct Outcome {
         let status: Int?
@@ -218,16 +231,112 @@ enum NoopDiagUpload {
         var isDelivered: Bool { (200..<300).contains(status ?? 0) }
     }
 
-    /// At launch: when the previous run did not finish, a stall lasted over 3 s or MetricKit delivered a diagnostic, and no
-    /// report was attempted in the last ten minutes, send the report once.
-    static func sendIfOwed() async {
-        let pending = NoopDiagStore.shared.pending()
-        guard !pending.isEmpty, SelfHostedPushClient.paceForgeIsConfigured else { return }
-        let last = UserDefaults.standard.double(forKey: lastAutoAttemptKey)
-        guard Date().timeIntervalSince1970 - last >= retryInterval else { return }
-        UserDefaults.standard.set(Date().timeIntervalSince1970, forKey: lastAutoAttemptKey)
-        _ = await send(trigger: pending.sorted().joined(separator: "+"))
+    // MARK: Automatic, off the main thread
+
+    /// First line of the app's init. A plain utility thread, never the main actor, a Task, the main queue or a Timer: a main
+    /// thread that is frozen cannot delay it. It reads only files (Application Support/Diagnostics), UserDefaults and the
+    /// keychain, and posts with its own ephemeral URLSession.
+    static func startInBackground() {
+        let thread = Thread { runPasses() }
+        thread.name = "app.noop.diag.upload"
+        thread.qualityOfService = .utility
+        thread.stackSize = 1 << 20
+        thread.start()
     }
+
+    private static func runPasses() {
+        let store = NoopDiagStore.shared
+        // The previous run's marker and the saved freeze stacks, read here instead of waiting for the main thread to get to
+        // `NoopDiag.start()`; both are idempotent, so the main thread's own call is then a no-op.
+        store.detectPreviousRun()
+        FreezeStacks.load()
+        var delivered = Set<String>()
+        var elapsed: TimeInterval = 0
+        for (index, offset) in passOffsets.enumerated() {
+            if offset > elapsed {
+                Thread.sleep(forTimeInterval: offset - elapsed)
+                elapsed = offset
+            }
+            let freeze = FreezeStacks.snapshot().filter { !delivered.contains($0["id"] as? String ?? "") }
+            var owed = store.pending()
+            if !freeze.isEmpty { owed.insert("freeze_stacks") }
+            guard !owed.isEmpty, let endpoint = SelfHostedPushClient.paceForgeEndpoint() else { continue }
+            let now = Date().timeIntervalSince1970
+            if index == 0, freeze.isEmpty,
+               now - UserDefaults.standard.double(forKey: lastAutoAttemptKey) < retryInterval { continue }
+            UserDefaults.standard.set(now, forKey: lastAutoAttemptKey)
+            _ = sendBlocking(trigger: owed.sorted().joined(separator: "+"), endpoint: endpoint,
+                             pass: index + 1, delivered: &delivered)
+        }
+    }
+
+    /// Builds the report, keeps it on the phone (last-report.json, before the post, so Settings shows it whatever happens
+    /// next) and posts it from the calling thread. Nothing here touches the main actor.
+    private static func sendBlocking(trigger: String, endpoint: (url: URL, token: String), pass: Int,
+                                     delivered: inout Set<String>) -> Outcome {
+        let cutoff = NoopDiagStore.now()
+        let built = NoopDiagReport.build(trigger: trigger, skippingStalls: delivered)
+        NoopDiagStore.shared.saveReport(built.json)
+        NoopDiag.crumb("diag upload attempt", ["pass": Double(pass), "bytes": Double(built.json.count),
+                                               "stalls": Double(built.stallIds.count)])
+        guard let report = try? JSONSerialization.jsonObject(with: built.json),
+              let body = try? JSONSerialization.data(withJSONObject: ["kind": "diagnostics", "type": "field_test",
+                                                                      "text": built.summary, "report": report] as [String: Any])
+        else { return Outcome(status: nil, message: "The report could not be built.") }
+        let outcome = post(body, to: SelfHostedPushClient.paceForgeURL(from: endpoint.url, path: "api/app/log"),
+                           token: endpoint.token)
+        NoopDiagStore.shared.recordUpload(status: outcome.status, message: outcome.message, trigger: trigger)
+        NoopDiag.crumb("diag upload result", ["pass": Double(pass), "status": Double(outcome.status ?? -1),
+                                              "bytes": Double(built.json.count)])
+        if outcome.isDelivered {
+            NoopDiagStore.shared.clearPending()
+            FreezeStacks.clear(before: cutoff)
+            delivered.formUnion(built.stallIds)
+        }
+        return outcome
+    }
+
+    /// A bearer POST on a private ephemeral session that follows no redirect, answered on the calling (non-cooperative) thread.
+    private static func post(_ body: Data, to url: URL, token: String) -> Outcome {
+        var request = URLRequest(url: url, timeoutInterval: requestTimeout)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.httpBody = body
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.timeoutIntervalForRequest = requestTimeout
+        configuration.timeoutIntervalForResource = requestTimeout
+        let session = URLSession(configuration: configuration, delegate: DiagNoRedirect(), delegateQueue: nil)
+        defer { session.finishTasksAndInvalidate() }
+        let done = DispatchSemaphore(value: 0)
+        let answer = OutcomeBox()
+        session.dataTask(with: request) { data, response, error in
+            if let http = response as? HTTPURLResponse {
+                let data = data ?? Data()
+                // Without a valid token the server answers 200 with its HTML login page: not a delivery.
+                if http.statusCode == 200, data.first(where: { ![0x20, 0x0A, 0x0D, 0x09].contains($0) }) == UInt8(ascii: "<") {
+                    answer.outcome = Outcome(status: nil, message: "PaceForge answered with its login page: token not accepted.")
+                } else {
+                    let message = ((try? JSONSerialization.jsonObject(with: data)) as? [String: Any])?["message"] as? String
+                    answer.outcome = Outcome(status: http.statusCode, message: message ?? "HTTP \(http.statusCode)")
+                }
+            } else {
+                answer.outcome = Outcome(status: nil,
+                                         message: "Could not reach PaceForge: \(error?.localizedDescription ?? "no answer")")
+            }
+            done.signal()
+        }.resume()
+        done.wait()
+        return answer.outcome
+    }
+
+    /// The answer, handed from the URLSession callback to the waiting thread (the semaphore orders the two).
+    private final class OutcomeBox: @unchecked Sendable {
+        var outcome = Outcome(status: nil, message: "No answer.")
+    }
+
+    // MARK: Manual
 
     /// Builds the report, keeps it on the phone and posts it. Settings > Tools > Send diagnostics now calls this directly.
     @discardableResult
@@ -259,6 +368,14 @@ enum NoopDiagUpload {
             FreezeStacks.clear(before: cutoff)
         }
         return outcome
+    }
+}
+
+/// Refuses every redirect, so the bearer never follows one to another host.
+private final class DiagNoRedirect: NSObject, URLSessionTaskDelegate {
+    func urlSession(_ session: URLSession, task: URLSessionTask, willPerformHTTPRedirection response: HTTPURLResponse,
+                    newRequest request: URLRequest, completionHandler: @escaping (URLRequest?) -> Void) {
+        completionHandler(nil)
     }
 }
 #endif

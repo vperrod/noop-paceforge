@@ -286,6 +286,7 @@ enum FreezeStacks {
     private static var stalls: [[String: Any]] = []
     /// The stall being captured: the watchdog's chunk number and the record's id.
     private static var current: (chunk: UInt64, id: String)?
+    private static var loaded = false
 
     private static var fileURL: URL? { NoopDiagStore.shared.directory?.appendingPathComponent("freeze-stacks.json") }
 
@@ -295,10 +296,13 @@ enum FreezeStacks {
         return count < marks.count ? marks[count] : marks[marks.count - 1] + repeatEvery * Double(count - marks.count + 1)
     }
 
-    /// Once, at launch, before the watchdog starts: the stalls of earlier runs that no upload has delivered yet.
+    /// Once, at launch, before the watchdog starts: the stalls of earlier runs that no upload has delivered yet. Called by
+    /// the upload thread and by `NoopDiag.start()`; the first call reads the file, the other does nothing.
     static func load() {
         lock.lock()
         defer { lock.unlock() }
+        guard !loaded else { return }
+        loaded = true
         guard let url = fileURL, let data = try? Data(contentsOf: url),
               let saved = (try? JSONSerialization.jsonObject(with: data)) as? [[String: Any]] else { return }
         stalls = saved

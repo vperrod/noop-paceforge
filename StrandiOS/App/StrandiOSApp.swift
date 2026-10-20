@@ -52,6 +52,8 @@ struct StrandiOSApp: App {
     @AppStorage(UnitPrefs.systemKey) private var unitSystemRaw = UnitSystem.metric.rawValue
 
     init() {
+        // The diagnostics upload, on its own thread, before anything else can stall the main one (NoopDiagUpload).
+        NoopDiagUpload.startInBackground()
         // Breadcrumbs, the main-thread watchdog and the "did the last run finish" marker, before anything else runs, so a
         // stall or kill during launch is on record too (NoopDiagnostics).
         NoopDiag.start()
@@ -377,12 +379,6 @@ struct StrandiOSApp: App {
         .onChange(of: scenePhase, initial: true) { _, phase in
             if phase == .active {
                 NoopDiag.sceneActive()
-                // A report owed by the previous run (it did not finish), a stall over 3 s or a new MetricKit diagnostic, once, after the
-                // launch work has settled; at most every ten minutes (NoopDiagUpload).
-                Task(priority: .utility) {
-                    try? await Task.sleep(nanoseconds: 20_000_000_000)
-                    await NoopDiagUpload.sendIfOwed()
-                }
                 // Retry any batches that were interrupted while iOS suspended the app.
                 Task(priority: .utility) {
                     await SelfHostedPushClient.pushIfEnabled(repo: model.repo)

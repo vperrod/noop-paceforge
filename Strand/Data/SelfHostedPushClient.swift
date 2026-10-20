@@ -74,6 +74,12 @@ enum SelfHostedPushClient {
     /// True when an HTTPS endpoint and a bearer token are saved, so the PaceForge screens can fetch live data.
     static var paceForgeIsConfigured: Bool { (try? configuration()) != nil }
 
+    /// The saved endpoint and bearer, nil when not set up. Touches only UserDefaults and the keychain, so the diagnostics
+    /// upload thread can call it while the main thread is busy.
+    static func paceForgeEndpoint() -> (url: URL, token: String)? {
+        (try? configuration()).map { (url: $0.0, token: $0.1) }
+    }
+
     /// Read-only GET of a PaceForge page (`api/state`, `data/...`), relative to the PaceForge instance
     /// root, which is the saved sync endpoint without its trailing `noop/push`. Uses the same token and
     /// no-redirect session as the sync.

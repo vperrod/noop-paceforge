@@ -15,7 +15,7 @@ import Darwin
 // - the MetricKit payloads iOS delivers (crash, hang, CPU and disk-write diagnostics, the daily metrics), as JSON.
 // Breadcrumbs carry labels, durations, byte counts and megabytes only: no health value, no token, no document text.
 // `NoopDiagReport` turns them into a compact report (64 KB at most) that the phone sends to PaceForge on the next
-// launch after an unclean exit or a new diagnostic, and from Settings > Tools > Send diagnostics now.
+// launch (from a background thread, see `NoopDiagUpload`) after an unclean exit or a new diagnostic, and from Settings > Tools > Send diagnostics now.
 
 enum NoopDiag {
     /// Points of Interest intervals around the sections below, so Instruments and XCTOSSignpostMetric see them.
@@ -56,7 +56,9 @@ enum NoopDiag {
 
     /// The assistive features on when the app was last active. With one of them running, iOS asks SwiftUI for the whole
     /// accessibility tree (every Text resolved, on the main thread), which costs as much as the screen itself.
-    private(set) static var assistive: [String: Double] = [:]
+    /// Read by the upload thread at process start while the main thread may still be writing it, hence the lock.
+    private static let assistiveState = OSAllocatedUnfairLock(uncheckedState: [String: Double]())
+    static var assistive: [String: Double] { assistiveState.withLockUnchecked { $0 } }
 
     @MainActor
     static func recordAssistiveFeatures() {
@@ -68,7 +70,7 @@ enum NoopDiag {
         ]
         let numbers = flags.mapValues { $0 ? 1.0 : 0.0 }
         guard numbers != assistive else { return }
-        assistive = numbers
+        assistiveState.withLockUnchecked { $0 = numbers }
         crumb("assistive", numbers)
     }
 
@@ -207,19 +209,29 @@ final class NoopDiagStore {
     /// (its breadcrumbs and build), and the next report carries it. Then marks this run as started.
     func beginRun(launchedOnScreen: Bool) {
         queue.sync {
-            let previous = readJSON("run-state.json")
-            if let previous, previous["foreground"] as? Bool == true {
-                var unclean = previous
-                unclean["crumbs"] = readRingFile()
-                unclean["detected_at"] = Self.now()
-                unclean["detected_by_build"] = Self.appBuild
-                writeJSON(unclean, "previous-run.json")
-                setPending("unclean", true)
-            }
+            detectPreviousRunLocked()
             ring = []
             writeJSON(["run": String(runId), "build": Self.appBuild, "version": Self.appVersion,
                        "started_at": Self.now(), "foreground": launchedOnScreen], "run-state.json")
         }
+    }
+
+    /// The upload thread calls this at process start, before the main thread has reached `beginRun`; whichever comes
+    /// first reads the previous run's marker, the other finds it done.
+    func detectPreviousRun() { queue.sync { detectPreviousRunLocked() } }
+
+    private var didDetectPreviousRun = false
+
+    private func detectPreviousRunLocked() {
+        guard !didDetectPreviousRun else { return }
+        didDetectPreviousRun = true
+        guard let previous = readJSON("run-state.json"), previous["foreground"] as? Bool == true else { return }
+        var unclean = previous
+        unclean["crumbs"] = readRingFile()
+        unclean["detected_at"] = Self.now()
+        unclean["detected_by_build"] = Self.appBuild
+        writeJSON(unclean, "previous-run.json")
+        setPending("unclean", true)
     }
 
     func setForeground(_ on: Bool) {
