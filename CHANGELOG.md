@@ -17,6 +17,10 @@ approximate; downloads are on the [Releases](https://github.com/NoopApp/noop/rel
 
 ---
 
+## 12.0.12 build 475 (PaceForge iPhone build): Today freeze, staged mount and calmer status values
+
+- **Not verified on a real iPhone.** The first real-device freeze stacks (build 474) showed two 16 s main-thread stalls on Today with no frame of ours on the stack: SwiftUI's own graph and layout engine was busy the whole time, starting when the first data refresh (367 days) landed while Today was on screen. This build mounts Today in stages (one step per 80 ms: header and hero, monitor tiles, My Day, then each section), makes the strap status tiles read a once-per-second snapshot instead of the live state, and records how often Today redraws and how often the strap state changes, plus which stage a stall started in, so the next report names the slow section. I put roughly 50% on this fixing the freeze. Build 464 remains the last known good.
+
 ## 12.0.12 build 474 (PaceForge iPhone build): freeze diagnostics, nothing else changed
 
 - **This build changes no behaviour.** Build 473 still froze after opening the PaceForge tab. The earlier reports hid the stuck function, so this build captures the main thread's full stack (as image+offset, symbolicated offline) at 1.5 s, 4 s and 8 s into any stall of 1.5 s or more, writes it to disk immediately, and uploads it on the next launch (at most every 10 minutes after an unclean exit or a stall of 3 s or more). It also records the visible screen and the strap link and sync steps, including why Sync now fails. Build 464 remains the last known good.
