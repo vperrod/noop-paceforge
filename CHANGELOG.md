@@ -17,6 +17,12 @@ approximate; downloads are on the [Releases](https://github.com/NoopApp/noop/rel
 
 ---
 
+## 12.0.12 build 476 (PaceForge iPhone build): strap sync lifecycle, instant diagnostics upload
+
+- **Not verified on a real iPhone.** The sync indicator could say "syncing" for 50 minutes: a launch re-armed a manual sync every time (the last-sync stamp was read before it was loaded, and a WHOOP 4.0 usually ends on the idle timeout, which never recorded completion), and nothing bounded the chain of sync sessions. A whole sync is now one tracked unit: it records the completion time, ends exactly once with a `sync.finished` reason, aborts after 12 minutes without a chunk or 45 minutes in total, never re-arms within 5 minutes of a finished or attempted sync, and triggers exactly one refresh and one push. The Sync now sheet shows "Syncing n chunks - mm:ss", "Synced <time>" or "Sync failed: <reason>" and has a Stop button.
+- **Diagnostics now upload from a background thread at process start** (and at +20 s and +60 s), so a freeze within seconds of launch no longer blocks the report.
+- **The Today freeze that starts when the strap sync starts is not fixed by this build**; it is being profiled. Build 464 remains the last known good.
+
 ## 12.0.12 build 475 (PaceForge iPhone build): Today freeze, staged mount and calmer status values
 
 - **Not verified on a real iPhone.** The first real-device freeze stacks (build 474) showed two 16 s main-thread stalls on Today with no frame of ours on the stack: SwiftUI's own graph and layout engine was busy the whole time, starting when the first data refresh (367 days) landed while Today was on screen. This build mounts Today in stages (one step per 80 ms: header and hero, monitor tiles, My Day, then each section), makes the strap status tiles read a once-per-second snapshot instead of the live state, and records how often Today redraws and how often the strap state changes, plus which stage a stall started in, so the next report names the slow section. I put roughly 50% on this fixing the freeze. Build 464 remains the last known good.
