@@ -338,7 +338,10 @@ actor PFRefreshCoordinator {
             for (index, spec) in specs.enumerated() {
                 let path = spec.path
                 let shouldParse = spec.key != nil
-                group.addTask { (index, await PFRefreshCoordinator.fetchOne(path, shouldParse: shouldParse)) }
+                group.addTask {
+                    let result = await PFRefreshCoordinator.fetchOne(path, shouldParse: shouldParse)
+                    return (index, result)
+                }
             }
             var all: [(Int, PFDocFetch)] = []
             for await item in group { all.append(item) }
