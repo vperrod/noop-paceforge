@@ -17,6 +17,13 @@ approximate; downloads are on the [Releases](https://github.com/NoopApp/noop/rel
 
 ---
 
+## 12.0.12 build 472 (PaceForge iPhone build): fix for the PaceForge tab crash
+
+- **Not verified on a real iPhone.** Build 471 crashed when the PaceForge tab opened (a stack overflow, plus a watchdog kill after more than 10 seconds on the main
+  thread). The cause was read from symbolicated real-device crash reports: the tab built one very large nested SwiftUI view type that the runtime then resolved
+  recursively. This build splits those screens into small views and type-erases the segment and card switches. Nothing on screen changed in content, order or
+  style. I put roughly 70% on this fixing it. Build 464 remains the last known good.
+
 ## 12.0.12 build 471 (PaceForge iPhone build): performance work after the first real-device freeze report
 
 - **Not verified on a real iPhone.** Builds 465-470 froze on Today for some people; this build is performance work from the first on-device report, and it was
