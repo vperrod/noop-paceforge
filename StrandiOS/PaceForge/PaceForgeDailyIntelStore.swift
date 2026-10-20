@@ -1,8 +1,8 @@
 import SwiftUI
 
 // Where daily-intel.json lives on the phone. NOOP Today, the Health monitor screen, the Sleep Planner and the metric
-// screens read it without the PaceForge tab being open, so it has one shared store: the tab's refresh hands it the file
-// it already fetched, and every other screen asks it to refresh itself when its copy is more than two minutes old.
+// screens read it without the PaceForge tab being open, so it has one shared store: the refresh coordinator hands it the
+// file, and every screen asks the coordinator to refresh when its copy is more than two minutes old.
 // Read-only: nothing here writes to the server.
 
 /// Whether the evening card shows. UI tests force it with `-PaceForgeEvening` / `-PaceForgeMorning` (fixture only), since
@@ -30,54 +30,29 @@ final class PFDailyIntelStore: ObservableObject {
     /// True once a load has finished, whether or not it found a file; a screen shows nothing before that.
     @Published private(set) var didLoad = false
 
-    private var lastFetch: Date?
-    private var inFlight: Task<Void, Never>?
-
     /// The file when it was written for the phone's today; a file from another day is not today's call.
     var current: PFDailyIntel? {
         guard let intel, intel.isCurrent(for: PFAPI.todayISO) else { return nil }
         return intel
     }
 
-    /// The PaceForge tab already fetched the file; keep it instead of fetching it a second time.
+    /// The refresh coordinator hands the store the file when it changed (or the first time), whichever screen asked for the refresh.
     func update(_ new: PFDailyIntel?) {
         // Assigning a @Published value publishes even when it is equal, and NOOP Today (the whole dashboard) observes this
         // store: only a changed file is assigned.
         if intel != new { intel = new }
         if !didLoad { didLoad = true }
-        lastFetch = Date()
     }
 
+    /// Asks the coordinator for the file when its copy is more than two minutes old. The coordinator downloads it only when the
+    /// server's hash differs from the saved copy, and shares the run with whatever else is refreshing.
     func refreshIfStale() async {
-        if let lastFetch, didLoad, Date().timeIntervalSince(lastFetch) < 120 { return }
-        await refresh()
-    }
-
-    /// Overlapping callers share the load already running.
-    func refresh() async {
-        if let inFlight {
-            await inFlight.value
-            return
-        }
-        let task = Task { [self] in
-            await load()
-            inFlight = nil
-        }
-        inFlight = task
-        await task.value
-    }
-
-    private func load() async {
         guard PFAPI.isConfigured else {
             didLoad = true
             return
         }
-        var data = await PFAPI.fetchOptional(Self.path)
-        // Offline: the copy the last good fetch left on the phone. A fixture never reads it.
-        if data == nil, PFAPI.usesPhoneState { data = PFStore.read(path: Self.path) }
-        let parsed = PFDailyIntelParse.document(PFJ(data: data))
-        if intel != parsed { intel = parsed }
-        lastFetch = Date()
+        _ = try? await PFRefreshCoordinator.shared.refreshIfStale(.dailyIntel, maxAge: 120)
+        // A refresh that failed before it published still ends the load: a screen shows nothing until `didLoad`.
         if !didLoad { didLoad = true }
     }
 }

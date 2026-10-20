@@ -79,12 +79,12 @@ enum PaceForgeBackground {
         try? BGTaskScheduler.shared.submit(request)
     }
 
-    /// Fetches PaceForge, rewrites the widget summary and notifies about a new daily brief.
+    /// Refreshes PaceForge (the widget summary is rewritten when its inputs changed) and notifies about a new daily brief.
     static func refresh() async -> Bool {
         guard PFAPI.isConfigured, !PFAPI.isFixture else { return false }
-        guard let raw = try? await PFAPI.fetchBundle(),
-              let snapshot = PFBuilder.snapshot(from: raw, today: PFFormat.isoString(Date())) else { return false }
-        PFSummaryWriter.publish(snapshot)
+        // The coordinator downloads only the documents that changed and republishes the widget summary when one of its inputs did.
+        guard let outcome = try? await PFRefreshCoordinator.shared.refresh(.everything),
+              let snapshot = outcome.snapshot else { return false }
         if let brief = snapshot.today.brief {
             await notifyIfNew(brief, today: snapshot.todayISO)
             await notifyIfUpdated(brief, today: snapshot.todayISO)

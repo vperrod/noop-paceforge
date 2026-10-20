@@ -105,7 +105,17 @@ enum PFAPI {
 
     static var isConfigured: Bool { isFixture || SelfHostedPushClient.paceForgeIsConfigured }
 
+    /// One GET, saved on the phone as the last good copy. In a UI-test fixture the file comes from the fixture and nothing is saved.
     static func fetch(_ path: String) async throws -> Data {
+        let data = try await get(path)
+        if isFixture { return data }
+        PFStore.write(data, path: path)
+        // The big documents only (state, fitness, activities, ...), so one refresh does not fill the breadcrumb ring.
+        if data.count >= 100_000 { NoopDiag.crumb("pf.doc \(path)", ["bytes": Double(data.count)]) }
+        return data
+    }
+
+    private static func get(_ path: String) async throws -> Data {
         if let files = fixture {
             #if DEBUG
             // Offline: every request fails, so the tab keeps showing what it read from the phone.
@@ -115,11 +125,18 @@ enum PFAPI {
             if let text = value as? String { return Data(text.utf8) }
             return try JSONSerialization.data(withJSONObject: value)
         }
-        let data = try await SelfHostedPushClient.paceForgeGet(path)
-        PFStore.write(data, path: path)
-        // The big documents only (state, fitness, activities, ...), so one refresh does not fill the breadcrumb ring.
-        if data.count >= 100_000 { NoopDiag.crumb("pf.doc \(path)", ["bytes": Double(data.count)]) }
-        return data
+        return try await SelfHostedPushClient.paceForgeGet(path)
+    }
+
+    /// `data/manifest.json`: the hash of every document, by path. nil when the server does not serve it (an older server, offline,
+    /// a login page) or lists nothing: the caller then downloads every document as before. Not saved on the phone.
+    static func fetchManifest() async -> [String: String]? {
+        guard let data = try? await get("data/manifest.json") else { return nil }
+        var hashes: [String: String] = [:]
+        for (path, entry) in PFJ(data: data)["docs"].dict {
+            if let sha = entry["sha1"].string { hashes[path] = sha.lowercased() }
+        }
+        return hashes.isEmpty ? nil : hashes
     }
 
     /// The server answered, or it did not; a missing optional document just leaves its section out.
@@ -186,102 +203,6 @@ enum PFAPI {
 
     static func isCancelled(_ error: Error) -> Bool {
         (error as? URLError)?.code == .cancelled || error is CancellationError
-    }
-
-    /// One more attempt when the first was cancelled client-side (URLError.cancelled, code -999).
-    static func fetchBundleRetryingCancel() async throws -> Fetched {
-        do { return try await fetchDocuments() }
-        catch where isCancelled(error) { return try await fetchDocuments() }
-    }
-
-    static func fetchBundle() async throws -> PFRawBundle { try await fetchDocuments().raw }
-
-    /// The documents of one refresh, with a digest of their bytes: an unchanged digest means the snapshot built from the last
-    /// fetch is still current, so it need not be built and published again.
-    struct Fetched {
-        var raw: PFRawBundle
-        var digest: Int
-        var bytes: Int
-    }
-
-    static func fetchDocuments() async throws -> Fetched {
-        async let projection = fetchOptional("data/projection.json")
-        async let body = fetchOptional("data/body.json")
-        async let hyrox = fetchOptional("data/hyrox_analysis.json")
-        async let activities = fetchOptional("data/activities.json")
-        async let analyses = fetchOptional("data/analyses/index.json")
-        async let bodyProgress = fetchOptional("data/body-progress.json")
-        async let alerts = fetchOptional("data/alerts.json")
-        async let readiness = fetchOptional("data/readiness-explained.json")
-        async let feelSummary = fetchOptional("data/feel-summary.json")
-        async let whatChanged = fetchOptional("data/what-changed.json")
-        async let explainers = fetchOptional("data/metric-explainers.json")
-        async let behaviour = fetchOptional("data/behaviour-impact.json")
-        async let raceWeek = fetchOptional("data/race-week.json")
-        async let hyroxSims = fetchOptional("data/hyrox-sims.json")
-        async let hyroxSimAnalysis = fetchOptional("data/hyrox-sim-analysis.json")
-        async let easyMode = fetchOptional("data/easy-mode.json")
-        async let muscle = fetchOptional("data/muscle-check.json")
-        async let tape = fetchOptional("data/tape.json")
-        async let standing = fetchOptional("data/standing.json")
-        async let insightsV2 = fetchOptional("data/insights-v2.json")
-        async let dailyIntel = fetchOptional("data/daily-intel.json")
-        async let healthspan = fetchOptional(PFDocPath.healthspan)
-        async let journalImpact = fetchOptional(PFDocPath.journalImpact)
-        async let highlights = fetchOptional(PFDocPath.highlights)
-        async let monthlyReport = fetchOptional(PFDocPath.monthlyReport)
-        async let myPlan = fetchOptional(PFDocPath.myPlan)
-        async let rideMetrics = fetchOptional("data/ride-metrics.json")
-        async let dismissed = fetchOptional("data/dismissed.json")
-        async let todayLayout = fetchOptional("data/today-layout.json")
-        async let needsYou = fetchOptional("data/needs-you.json")
-        // Not part of the bundle's view models: fetched so My Day finds it saved on the phone (PFStore).
-        async let workoutMatches = fetchOptional("data/workout-matches.json")
-        async let state = fetch("api/state")
-        async let fitness = fetch("data/fitness.json")
-        let (stateData, fitnessData) = try await (state, fitness)
-        var hasher = Hasher()
-        var bytes = 0
-        func take(_ data: Data?) -> PFJ {
-            hasher.combine(data)
-            bytes += data?.count ?? 0
-            return PFJ(data: data)
-        }
-        var raw = PFRawBundle()
-        raw.state = take(stateData)
-        raw.fitness = take(fitnessData)
-        raw.projection = take(await projection)
-        raw.body = take(await body)
-        raw.hyrox = take(await hyrox)
-        raw.activities = take(await activities)
-        raw.analysesIndex = take(await analyses)
-        raw.bodyProgress = take(await bodyProgress)
-        raw.alerts = take(await alerts)
-        raw.readiness = take(await readiness)
-        raw.feelSummary = take(await feelSummary)
-        raw.whatChanged = take(await whatChanged)
-        raw.explainers = take(await explainers)
-        raw.behaviour = take(await behaviour)
-        raw.raceWeek = take(await raceWeek)
-        raw.hyroxSims = take(await hyroxSims)
-        raw.hyroxSimAnalysis = take(await hyroxSimAnalysis)
-        raw.easyMode = take(await easyMode)
-        raw.muscle = take(await muscle)
-        raw.tape = take(await tape)
-        raw.standing = take(await standing)
-        raw.insightsV2 = take(await insightsV2)
-        raw.dailyIntel = take(await dailyIntel)
-        raw.healthspan = take(await healthspan)
-        raw.journalImpact = take(await journalImpact)
-        raw.highlights = take(await highlights)
-        raw.monthlyReport = take(await monthlyReport)
-        raw.myPlan = take(await myPlan)
-        raw.rideMetrics = take(await rideMetrics)
-        raw.dismissed = take(await dismissed)
-        raw.todayLayout = take(await todayLayout)
-        raw.needsYou = take(await needsYou)
-        _ = await workoutMatches
-        return Fetched(raw: raw, digest: hasher.finalize(), bytes: bytes)
     }
 }
 
@@ -359,9 +280,8 @@ final class PFModel: ObservableObject {
     private var needsInFlight: Set<String> = []
     /// Idempotency keys by answer signature, so a retry after a lost reply cannot apply the answer twice.
     private var needsKeys: [String: String] = [:]
-    /// The digest of the documents the snapshot on screen was built from, and the day it was built for.
-    private var lastDigest: Int?
-    private var lastBuiltToday: String?
+    /// The coordinator's generation of the snapshot on screen: the same generation again means nothing new to apply.
+    private var appliedGeneration = -1
     /// The one load in flight. It runs in its own task so SwiftUI cancelling a caller (`.task` re-run,
     /// `.refreshable` ending, a tab switch) cannot cancel the network requests with URLError.cancelled.
     private var inFlight: Task<Void, Never>?
@@ -396,41 +316,22 @@ final class PFModel: ObservableObject {
             return
         }
         let today = PFAPI.todayISO
+        let coordinator = PFRefreshCoordinator.shared
         if snapshot == nil, PFAPI.usesPhoneState {
-            // The saved documents (about 1.5 MB of JSON) are read, parsed and built off the main thread: on a phone that work
-            // blocked the tab for a noticeable time on every first open.
-            let cached = await Task.detached(priority: .userInitiated) { () -> PFSnapshot? in
-                guard let raw = NoopDiag.measure("pf.cache.read", { PFStore.cachedBundle() }) else { return nil }
-                return NoopDiag.measure("pf.build.cached") { PFBuilder.snapshot(from: raw, today: today) }
-            }.value
-            if snapshot == nil, let cached {
-                snapshot = cached
+            // The saved documents (about 1.5 MB of JSON) are read, parsed and built by the coordinator, off the main thread: on a
+            // phone that work blocked the tab for a noticeable time on every first open.
+            if let cached = await coordinator.cachedSnapshot(today: today), snapshot == nil, let saved = cached.snapshot {
+                apply(saved, generation: cached.generation)
                 savedAt = PFStore.savedAt(path: "api/state")
                 phase = .ready
             }
         }
         do {
-            let fetch = NoopDiag.begin("pf.fetch")
-            let fetched = try await PFAPI.fetchBundleRetryingCancel()
-            fetch.end(["bytes": Double(fetched.bytes)])
-            // The same bytes for the same day build the same snapshot: keep the one on screen, so neither the tab nor
-            // NOOP Today (which observes the shared stores) re-renders for nothing.
-            if fetched.digest != lastDigest || lastBuiltToday != today || snapshot == nil {
-                let built = await Task.detached(priority: .userInitiated) { () -> PFSnapshot? in
-                    NoopDiag.measure("pf.build.fetched") { PFBuilder.snapshot(from: fetched.raw, today: today) }
-                }.value
-                guard let built else { throw CocoaError(.fileReadCorruptFile) }
-                NoopDiag.measure("pf.apply") {
-                    snapshot = built
-                    // Answered items leave the list for good once the server's own list no longer has them.
-                    needsAnswered.formIntersection(built.needsYou.map { $0.id })
-                    if !needsAnswered.isEmpty { snapshot?.needsYou.removeAll { needsAnswered.contains($0.id) } }
-                    PFDailyIntelStore.shared.update(built.dailyIntel)
-                    PFPhase4Store.shared.update(built.intelDocs)
-                }
-                NoopDiag.measure("pf.summary.publish") { PFSummaryWriter.publish(built) }
-                lastDigest = fetched.digest
-                lastBuiltToday = today
+            let outcome = try await coordinator.refresh(.everything)
+            // The same generation is the snapshot already on screen: neither the tab nor NOOP Today (which observes the shared
+            // stores) re-renders for nothing.
+            if let built = outcome.snapshot, outcome.generation != appliedGeneration || snapshot == nil {
+                apply(built, generation: outcome.generation)
             }
             savedAt = Date()
             lastSuccess = Date()
@@ -448,6 +349,16 @@ final class PFModel: ObservableObject {
                 phase = .failed("Can't reach PaceForge")
             }
         }
+    }
+
+    private func apply(_ built: PFSnapshot, generation: Int) {
+        NoopDiag.measure("pf.apply") {
+            snapshot = built
+            // Answered items leave the list for good once the server's own list no longer has them.
+            needsAnswered.formIntersection(built.needsYou.map { $0.id })
+            if !needsAnswered.isEmpty { snapshot?.needsYou.removeAll { needsAnswered.contains($0.id) } }
+        }
+        appliedGeneration = generation
     }
 
     /// Files today's feel answer. The card shows it at once; on a failure the previous summary comes back

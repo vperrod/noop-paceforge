@@ -79,10 +79,142 @@ extension PFRawBundle {
     }
 }
 
+/// The parts of a snapshot that are built from their own documents: when none of a part's documents changed, a refresh keeps the
+/// part from the snapshot it already has. The one list of which document feeds which part, for both the builder and the refresh.
+enum PFLeaf: CaseIterable {
+    case insightsV2, body, bodyProgress, alerts, readiness, feel, whatChanged, behaviour, explainers, raceWeek, simulations
+    case easyMode, muscle, tape, standing, dailyIntel, intelDocs, rides, dismissed, todayLayout, needsYou, serverHidesBody
+    case activities, analyses
+
+    var docs: [String] {
+        switch self {
+        case .insightsV2: return [PFDocs.insightsV2]
+        case .body: return [PFDocs.body]
+        case .bodyProgress: return [PFDocs.bodyProgress]
+        case .alerts: return [PFDocs.alerts]
+        case .readiness: return [PFDocs.readiness]
+        case .feel: return [PFDocs.feelSummary]
+        case .whatChanged: return [PFDocs.whatChanged]
+        case .behaviour: return [PFDocs.behaviour]
+        case .explainers: return [PFDocs.explainers]
+        case .raceWeek: return [PFDocs.raceWeek, PFDocs.state]
+        case .simulations: return [PFDocs.hyroxSimAnalysis, PFDocs.hyroxSims]
+        case .easyMode: return [PFDocs.easyMode, PFDocs.state]
+        case .muscle: return [PFDocs.muscle]
+        case .tape: return [PFDocs.tape]
+        case .standing: return [PFDocs.standing]
+        case .dailyIntel: return [PFDocs.dailyIntel]
+        case .intelDocs: return PFDocPath.all
+        case .rides: return [PFDocs.rideMetrics]
+        case .dismissed: return [PFDocs.dismissed]
+        case .todayLayout: return [PFDocs.todayLayout]
+        case .needsYou: return [PFDocs.needsYou, PFDocs.state]
+        case .serverHidesBody: return [PFDocs.state]
+        case .activities: return [PFDocs.activities]
+        case .analyses: return [PFDocs.analysesIndex]
+        }
+    }
+}
+
 /// Derives the screens' view models from the server's JSON, the way the PaceForge web app derives
 /// its own Today / Body / Calendar views.
 enum PFBuilder {
-    static func snapshot(from raw: PFRawBundle, today: String) -> PFSnapshot? {
+    /// The snapshot for `raw`. With the `previous` snapshot of the same day and the paths of the documents that changed since it was
+    /// built (`changed`), only the parts built from a changed document are built again: the rest is carried over from `previous`,
+    /// and `raw` need only hold the documents `documents(needed:previous:changed:)` names. Without `previous`, everything is built.
+    static func snapshot(from raw: PFRawBundle, today: String, previous: PFSnapshot? = nil,
+                         changed: Set<String> = []) -> PFSnapshot? {
+        let reusable = previous.flatMap { $0.todayISO == today ? $0 : nil }
+        func isStale(docs: [String]) -> Bool { reusable == nil || !changed.isDisjoint(with: docs) }
+        func isStale(_ leaf: PFLeaf) -> Bool { isStale(docs: leaf.docs) }
+
+        let insightsV2 = isStale(.insightsV2) ? PFInsightsV2Parse.document(raw.insightsV2) : reusable?.insightsV2
+        var snapshot: PFSnapshot
+        if let reusable, !isStale(docs: coreInputs) {
+            snapshot = reusable
+        } else {
+            guard let fresh = core(raw: raw, today: today, insightsV2: insightsV2) else { return nil }
+            if var kept = reusable {
+                kept.generatedAt = fresh.generatedAt
+                kept.today = fresh.today
+                kept.coach = fresh.coach
+                kept.weeks = fresh.weeks
+                kept.currentWeekIndex = fresh.currentWeekIndex
+                kept.insights = fresh.insights
+                kept.sleepNights = fresh.sleepNights
+                kept.trimp = fresh.trimp
+                kept.rpe = fresh.rpe
+                snapshot = kept
+            } else {
+                snapshot = fresh
+            }
+        }
+        let state = raw.state
+        snapshot.insightsV2 = insightsV2
+        if isStale(.body) { snapshot.body = body(raw.body) }
+        if isStale(.bodyProgress) { snapshot.bodyProgress = bodyProgress(raw.bodyProgress) }
+        if isStale(.alerts) { snapshot.alerts = alerts(raw.alerts) }
+        if isStale(.readiness) { snapshot.readiness = readiness(raw.readiness) }
+        if isStale(.feel) { snapshot.feel = PFWave2Parse.feelSummary(raw.feelSummary) }
+        if isStale(.whatChanged) { snapshot.whatChanged = PFWave2Parse.whatChanged(raw.whatChanged) }
+        if isStale(.behaviour) { snapshot.behaviour = PFWave2Parse.behaviourImpact(raw.behaviour) }
+        if isStale(.explainers) { snapshot.explainers = PFWave2Parse.explainers(raw.explainers) }
+        if isStale(.raceWeek) { snapshot.raceWeek = PFWave3Parse.raceWeek(raw.raceWeek, brief: state["daily_brief"]) }
+        if isStale(.simulations) {
+            snapshot.simulations = PFWave3Parse.hyroxSims(analysis: raw.hyroxSimAnalysis, sims: raw.hyroxSims)
+        }
+        if isStale(.easyMode) {
+            // A mode with level 0 or no level is "off"; it must not shadow the brief's mode.
+            let activeMode: PFJ = [state["mode"], state["daily_brief"]["mode"]].first { ($0["level"].int ?? 0) > 0 } ?? PFJ(nil)
+            snapshot.easyMode = PFWave3Parse.easyMode(raw.easyMode, stateMode: activeMode)
+        }
+        if isStale(.muscle) { snapshot.muscle = PFWave3Parse.muscleCheck(raw.muscle) }
+        if isStale(.tape) { snapshot.tape = PFWave3Parse.tape(raw.tape) }
+        if isStale(.standing) { snapshot.standing = PFStandingParse.standing(raw.standing) }
+        if isStale(.dailyIntel) { snapshot.dailyIntel = PFDailyIntelParse.document(raw.dailyIntel) }
+        if isStale(.intelDocs) {
+            snapshot.intelDocs = PFIntelDocsParse.docs(healthspan: raw.healthspan, journalImpact: raw.journalImpact,
+                                                       highlights: raw.highlights, monthlyReport: raw.monthlyReport,
+                                                       myPlan: raw.myPlan)
+        }
+        if isStale(.rides) { snapshot.rides = PFRideParse.metrics(raw.rideMetrics) }
+        if isStale(.dismissed) { snapshot.dismissed = PFDismissStorage.parseServer(raw.dismissed) }
+        if isStale(.todayLayout) { snapshot.todayLayout = PFTodayOrder.parseServer(raw.todayLayout) }
+        // The live list document first, the copy inside /api/state when an older server serves no such file.
+        if isStale(.needsYou) { snapshot.needsYou = PFNeedsParse.items(raw.needsYou.exists ? raw.needsYou : state["needs_you"]) }
+        if isStale(.serverHidesBody) { snapshot.serverHidesBody = PFWave3Parse.hidesBodyOnLockScreen(state) }
+        if isStale(.activities) {
+            snapshot.activities = [:]
+            for item in raw.activities.array {
+                if let activity = activity(item) { snapshot.activities[activity.id] = activity }
+            }
+        }
+        if isStale(.analyses) {
+            snapshot.analyses = [:]
+            for row in raw.analysesIndex.array {
+                if let parsed = analysisRow(row) { snapshot.analyses[parsed.id] = parsed }
+            }
+        }
+        return snapshot
+    }
+
+    /// The paths of the saved documents `snapshot(from:today:previous:changed:)` reads for these arguments, so a refresh parses
+    /// exactly those and no others.
+    static func documents(needed today: String, previous: PFSnapshot?, changed: Set<String>) -> Set<String> {
+        let isSameDay = previous?.todayISO == today
+        func isStale(docs: [String]) -> Bool { !isSameDay || !changed.isDisjoint(with: docs) }
+        var out = Set<String>()
+        if isStale(docs: coreInputs) { out.formUnion(coreDocs) }
+        for leaf in PFLeaf.allCases where isStale(docs: leaf.docs) { out.formUnion(leaf.docs) }
+        return out
+    }
+
+    /// The documents behind the part of the snapshot every screen shares: the plan, today's scores and the insights.
+    static let coreDocs = [PFDocs.state, PFDocs.fitness, PFDocs.projection, PFDocs.hyrox]
+    /// The core also reads the race finish out of insights-v2.
+    private static let coreInputs = coreDocs + [PFDocs.insightsV2]
+
+    private static func core(raw: PFRawBundle, today: String, insightsV2: PFInsightsV2?) -> PFSnapshot? {
         guard raw.state.exists, raw.fitness.exists else { return nil }
         let state = raw.state
         let strength = state["strength_sessions"]
@@ -120,7 +252,6 @@ enum PFBuilder {
             .filter { $0.date == today && $0.status != "optional" }
             .sorted { ($0.name ?? "") < ($1.name ?? "") }
 
-        let insightsV2 = PFInsightsV2Parse.document(raw.insightsV2)
         var snapshot = PFSnapshot(
             generatedAt: state["generated_at"].string,
             todayISO: today,
@@ -132,32 +263,6 @@ enum PFBuilder {
                                raceFinish: insightsV2?.item(PFInsightID.raceCountdown)?.race?.finish,
                                today: today)
         )
-        snapshot.body = body(raw.body)
-        snapshot.bodyProgress = bodyProgress(raw.bodyProgress)
-        snapshot.alerts = alerts(raw.alerts)
-        snapshot.readiness = readiness(raw.readiness)
-        snapshot.feel = PFWave2Parse.feelSummary(raw.feelSummary)
-        snapshot.whatChanged = PFWave2Parse.whatChanged(raw.whatChanged)
-        snapshot.behaviour = PFWave2Parse.behaviourImpact(raw.behaviour)
-        snapshot.explainers = PFWave2Parse.explainers(raw.explainers)
-        snapshot.raceWeek = PFWave3Parse.raceWeek(raw.raceWeek, brief: state["daily_brief"])
-        snapshot.simulations = PFWave3Parse.hyroxSims(analysis: raw.hyroxSimAnalysis, sims: raw.hyroxSims)
-        // A mode with level 0 or no level is "off"; it must not shadow the brief's mode.
-        let activeMode: PFJ = [state["mode"], state["daily_brief"]["mode"]].first { ($0["level"].int ?? 0) > 0 } ?? PFJ(nil)
-        snapshot.easyMode = PFWave3Parse.easyMode(raw.easyMode, stateMode: activeMode)
-        snapshot.muscle = PFWave3Parse.muscleCheck(raw.muscle)
-        snapshot.tape = PFWave3Parse.tape(raw.tape)
-        snapshot.standing = PFStandingParse.standing(raw.standing)
-        snapshot.insightsV2 = insightsV2
-        snapshot.dailyIntel = PFDailyIntelParse.document(raw.dailyIntel)
-        snapshot.intelDocs = PFIntelDocsParse.docs(healthspan: raw.healthspan, journalImpact: raw.journalImpact,
-                                                   highlights: raw.highlights, monthlyReport: raw.monthlyReport, myPlan: raw.myPlan)
-        snapshot.rides = PFRideParse.metrics(raw.rideMetrics)
-        snapshot.dismissed = PFDismissStorage.parseServer(raw.dismissed)
-        snapshot.todayLayout = PFTodayOrder.parseServer(raw.todayLayout)
-        // The live list document first, the copy inside /api/state when an older server serves no such file.
-        snapshot.needsYou = PFNeedsParse.items(raw.needsYou.exists ? raw.needsYou : state["needs_you"])
-        snapshot.serverHidesBody = PFWave3Parse.hidesBodyOnLockScreen(state)
         snapshot.sleepNights = raw.fitness["load"]["sleep"]["stages_14d"].array.compactMap { night in
             guard let date = night["date"].string else { return nil }
             let deep = night["deep_min"].double ?? 0
@@ -165,12 +270,6 @@ enum PFBuilder {
             let light = night["light_min"].double ?? 0
             let minutes = deep + rem + light
             return minutes > 0 ? PFSleepNight(date: date, minutes: minutes) : nil
-        }
-        for item in raw.activities.array {
-            if let activity = activity(item) { snapshot.activities[activity.id] = activity }
-        }
-        for row in raw.analysesIndex.array {
-            if let parsed = analysisRow(row) { snapshot.analyses[parsed.id] = parsed }
         }
         for row in raw.fitness["load"]["daily_load"]["per_activity"].array {
             if let id = row["activity_id"].idString, let trimp = row["trimp"].double { snapshot.trimp[id] = trimp }

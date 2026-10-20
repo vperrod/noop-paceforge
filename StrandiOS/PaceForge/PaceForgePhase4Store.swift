@@ -2,8 +2,8 @@ import SwiftUI
 
 // Where the five Phase 4 documents live on the phone (healthspan, journal impact, highlights, monthly report, my plan).
 // NOOP Today (the streak chip, the My Plan card), the Highlights, Healthspan, Journal impact and Monthly report screens read
-// them without the PaceForge tab being open, so they share one store: the tab's refresh hands it the documents it already
-// fetched, and every other screen asks it to refresh itself when its copy is more than two minutes old.
+// them without the PaceForge tab being open, so they share one store: the refresh coordinator hands it the documents, and
+// every screen asks the coordinator to refresh when its copy is more than two minutes old.
 // Read-only: nothing here writes to the server. The only thing kept besides the cache is the list of Healthspan weeks the
 // phone has seen (the server holds only the current week).
 
@@ -17,9 +17,6 @@ final class PFPhase4Store: ObservableObject {
     /// The Healthspan weeks seen so far, oldest first.
     @Published private(set) var weeks: [PFHealthspanWeek]
 
-    private var lastFetch: Date?
-    private var inFlight: Task<Void, Never>?
-
     private init() {
         weeks = PFHealthspanHistory.decode(UserDefaults.standard.data(forKey: PFHealthspanHistory.storageKey))
     }
@@ -27,58 +24,24 @@ final class PFPhase4Store: ObservableObject {
     /// The highlights for the Home streak chip. Nothing when the document is missing, unavailable or has no streak alive.
     var streakChip: PFHighlightsLogic.Chip? { PFHighlightsLogic.chip(docs.highlights.value) }
 
-    /// The PaceForge tab already fetched the documents; keep them instead of fetching them a second time.
+    /// The refresh coordinator hands the store the documents when one changed (or the first time), whichever screen asked.
     func update(_ new: PFIntelDocs) {
         // NOOP Today (the whole dashboard) observes this store; an equal assignment would still publish.
         if docs != new { docs = new }
         if !didLoad { didLoad = true }
-        lastFetch = Date()
         rememberWeek()
     }
 
+    /// Asks the coordinator for the documents when its copy is more than two minutes old. The coordinator downloads only the ones
+    /// whose server hash differs from the saved copy, and shares the run with whatever else is refreshing.
     func refreshIfStale() async {
-        if let lastFetch, didLoad, Date().timeIntervalSince(lastFetch) < 120 { return }
-        await refresh()
-    }
-
-    /// Overlapping callers share the load already running.
-    func refresh() async {
-        if let inFlight {
-            await inFlight.value
-            return
-        }
-        let task = Task { [self] in
-            await load()
-            inFlight = nil
-        }
-        inFlight = task
-        await task.value
-    }
-
-    private func load() async {
         guard PFAPI.isConfigured else {
             didLoad = true
             return
         }
-        async let healthspan = Self.read(PFDocPath.healthspan)
-        async let journalImpact = Self.read(PFDocPath.journalImpact)
-        async let highlights = Self.read(PFDocPath.highlights)
-        async let monthlyReport = Self.read(PFDocPath.monthlyReport)
-        async let myPlan = Self.read(PFDocPath.myPlan)
-        let loaded = PFIntelDocsParse.docs(healthspan: PFJ(data: await healthspan), journalImpact: PFJ(data: await journalImpact),
-                                           highlights: PFJ(data: await highlights), monthlyReport: PFJ(data: await monthlyReport),
-                                           myPlan: PFJ(data: await myPlan))
-        if docs != loaded { docs = loaded }
-        lastFetch = Date()
+        _ = try? await PFRefreshCoordinator.shared.refreshIfStale(.phase4, maxAge: 120)
+        // A refresh that failed before it published still ends the load: a screen shows nothing until `didLoad`.
         if !didLoad { didLoad = true }
-        rememberWeek()
-    }
-
-    /// The server's copy, else (offline) the one the last good fetch left on the phone. A fixture never reads the cache.
-    nonisolated private static func read(_ path: String) async -> Data? {
-        let data = await PFAPI.fetchOptional(path)
-        if data == nil, PFAPI.usesPhoneState { return PFStore.read(path: path) }
-        return data
     }
 
     /// Keeps this week's body age and pace so the week stepper and the trend card have something to step through.

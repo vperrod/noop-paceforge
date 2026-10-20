@@ -212,15 +212,16 @@ enum PFMyDay {
         // changed (every PaceForge refresh rewrites them), and on the main thread it stalled Today.
         let isFixture = PFAPI.isFixture
         let task = Task.detached(priority: .userInitiated) { () -> Loaded? in
-            let bundle: PFRawBundle?
+            let snapshot: PFSnapshot?
             if isFixture {
-                bundle = try? await PFAPI.fetchBundle()
+                snapshot = (try? await PFRefreshCoordinator.shared.refresh(.everything))?.snapshot
             } else {
-                bundle = NoopDiag.measure("myday.pf.cache.read") { PFStore.cachedBundle() }
+                let bundle = NoopDiag.measure("myday.pf.cache.read") { PFStore.cachedBundle() }
+                snapshot = bundle.flatMap { saved in
+                    NoopDiag.measure("myday.pf.build") { PFBuilder.snapshot(from: saved, today: today) }
+                }
             }
-            guard let bundle,
-                  let snapshot = NoopDiag.measure("myday.pf.build", { PFBuilder.snapshot(from: bundle, today: today) })
-            else { return nil }
+            guard let snapshot else { return nil }
             return Loaded(snapshot: snapshot, planActivities: snapshot.activities.values.compactMap(planActivity))
         }
         building = (stamp, today, task)
