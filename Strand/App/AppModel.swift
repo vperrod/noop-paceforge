@@ -253,6 +253,8 @@ final class AppModel: ObservableObject {
     init() {
         let live = LiveState()
         self.live = live
+        // The Today status leaves read a once-a-second copy of the live fields, not LiveState itself.
+        LiveSnapshotStore.shared.attach(to: live)
         // SEED every subsystem with the same id (`deviceId`, "my-whoop" at launch). The store/registry
         // aren't open yet here, so the registry's active id can't be read synchronously; `bootstrapStore`
         // (write side) and `wireSourceCoordinator → adoptActiveDevice` (read spine, #814) re-point them to

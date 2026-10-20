@@ -1,6 +1,7 @@
 #if os(iOS)
 import Foundation
 import UIKit
+import Combine
 import os
 import Darwin
 
@@ -50,6 +51,7 @@ enum NoopDiag {
         FreezeStacks.load()
         MainThreadWatchdog.shared.start(tick: isPerfMode ? 0.008 : 0.05, threshold: stallThreshold)
         NoopDiagSampler.shared.start(interval: isPerfMode ? 1 : 5)
+        NoopRateCounters.shared.start()
         crumb("launch", ["footprint_mb": NoopDiagSampler.footprintMB()])
         recordAssistiveFeatures()
     }
@@ -134,6 +136,38 @@ enum NoopDiag {
         let state = signposter.beginInterval(label, id: id)
         crumb("\(label) start", fields)
         return NoopDiagInterval(label: label, state: state, start: DispatchTime.now().uptimeNanoseconds)
+    }
+
+    /// One event of a hot path (a Today body pass, a published change of the BLE objects), on every run. Summed per second by
+    /// `NoopRateCounters`, which writes a `rate` breadcrumb when the rate is high, so a report shows how fast it happened.
+    static func count(_ name: String) {
+        NoopRateCounters.shared.add(name)
+    }
+
+    private static var publishWatch: [AnyCancellable] = []
+
+    /// Counts every change `LiveState` and `BLEManager` publish as `ble.publish_count`. Once, at launch.
+    @MainActor
+    static func countPublishes(of live: LiveState, _ ble: BLEManager) {
+        guard publishWatch.isEmpty else { return }
+        publishWatch = [
+            live.objectWillChange.sink { _ in NoopDiag.count(NoopRateCounters.blePublishes) },
+            ble.objectWillChange.sink { _ in NoopDiag.count(NoopRateCounters.blePublishes) },
+        ]
+    }
+
+    /// Today is mounting this stage of its content. A stall that starts now is attributed to it, and the breadcrumb says when it began.
+    static func stage(_ name: String, _ fields: [String: Double] = [:]) {
+        labels.withLockUnchecked { $0.section = "today.stage \(name)" }
+        crumb("today.stage \(name)", fields)
+    }
+
+    /// Stalls are attributed to the screen again. `done`: Today mounted everything (otherwise the staging was cut short).
+    static func endStage(done: Bool = false) {
+        labels.withLockUnchecked { state in
+            if state.section?.hasPrefix("today.stage") == true { state.section = nil }
+        }
+        if done { crumb("today.stage done") }
     }
 
     /// Perf mode only: counts one evaluation of a view's body, so an invalidation storm shows which view it hits.
@@ -533,6 +567,57 @@ final class NoopDiagSampler {
         getrusage(RUSAGE_SELF, &usage)
         return Double(usage.ru_utime.tv_sec + usage.ru_stime.tv_sec)
             + Double(usage.ru_utime.tv_usec + usage.ru_stime.tv_usec) / 1e6
+    }
+}
+
+// MARK: - Event rates
+
+/// Counts of hot-path events, turned into per-second rates by a timer that never touches the main thread.
+/// A second with `today.body_passes` of 3 or more, or `ble.publish_count` of 5 or more, is written as a `rate`
+/// breadcrumb (at most one every 2 s, so a long sync cannot fill the ring); every 30 s the highest second since
+/// the last one is written as `rate.peak30s`. Both carry the counts as fields, so a report shows the rate itself.
+final class NoopRateCounters {
+    static let shared = NoopRateCounters()
+    static let bodyPasses = "today.body_passes"
+    static let blePublishes = "ble.publish_count"
+
+    private let counts = OSAllocatedUnfairLock(uncheckedState: [String: Int]())
+    private let queue = DispatchQueue(label: "app.noop.diag.rates", qos: .utility)
+    private var timer: DispatchSourceTimer?
+    private var peaks: [String: Int] = [:]
+    private var ticks = 0
+    private var lastRateTick = -100
+
+    func add(_ name: String) {
+        counts.withLockUnchecked { $0[name, default: 0] += 1 }
+    }
+
+    func start() {
+        guard timer == nil else { return }
+        let timer = DispatchSource.makeTimerSource(queue: queue)
+        timer.schedule(deadline: .now() + 1, repeating: 1, leeway: .milliseconds(100))
+        timer.setEventHandler { [weak self] in self?.tick() }
+        self.timer = timer
+        timer.resume()
+    }
+
+    private func tick() {
+        let second = counts.withLockUnchecked { state -> [String: Int] in
+            let taken = state
+            state.removeAll(keepingCapacity: true)
+            return taken
+        }
+        ticks += 1
+        for (name, n) in second { peaks[name] = max(peaks[name] ?? 0, n) }
+        let isBusy = (second[Self.bodyPasses] ?? 0) >= 3 || (second[Self.blePublishes] ?? 0) >= 5
+        if isBusy, ticks - lastRateTick >= 2 {
+            lastRateTick = ticks
+            NoopDiag.crumb("rate", second.mapValues { Double($0) })
+        }
+        if ticks % 30 == 0 {
+            if !peaks.isEmpty { NoopDiag.crumb("rate.peak30s", peaks.mapValues { Double($0) }) }
+            peaks.removeAll()
+        }
     }
 }
 

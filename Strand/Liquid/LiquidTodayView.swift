@@ -184,6 +184,13 @@ struct LiquidTodayView: View {
     @State private var pullHaptic = 0
     private let pullThreshold: CGFloat = 80
 
+    /// How much of Today is in the view tree. 0 is the header, the hero and what sits above it; 1 adds the monitor tiles under the
+    /// hero; 2 adds My Day and its cards; every step after that adds one more section, until `allMounted`. `mountInStages` walks it, one step per ~80 ms, so
+    /// no single frame has to build and lay out the whole dashboard (the main thread stalled for 16 s doing that on a phone).
+    @State private var mountStage = 0
+    private static let allMounted = Int.max
+    private static let mountStageDelayNanoseconds: UInt64 = 80_000_000
+
     /// Measured width of the trailing header-control cluster, feeding the day title's fade mask. Seeded
     /// with the design-system default so the first frame is not laid out against a reserve of zero.
     @State private var headerControlsWidth = NoopMetrics.headerControlReserveWidth
@@ -348,6 +355,7 @@ struct LiquidTodayView: View {
     var body: some View {
         #if os(iOS)
         let _ = NoopDiag.body("LiquidTodayView")
+        let _ = NoopDiag.count(NoopRateCounters.bodyPasses)
         #endif
         ScrollViewReader { proxy in
         ScrollView {
@@ -387,7 +395,8 @@ struct LiquidTodayView: View {
                     // sheet (the header's up/down button; native drag rows); the order persists under the
                     // byte-identical "today.sectionOrder" key Android uses. A gated-off Start-session renders
                     // nothing and keeps its slot in the saved order.
-                    ForEach(sectionOrder) { section in
+                    let order = sectionOrder
+                    ForEach(order.prefix(Self.mountedSectionCount(order, stage: mountStage))) { section in
                         switch section {
                         // The daily loop (PaceForge's daily-intel.json): the day's call above the dials, the evening
                         // wrap after 18:00. Today only; each says so itself when its item is unavailable.
@@ -418,19 +427,27 @@ struct LiquidTodayView: View {
                             #endif
                         case .hero:
                             heroCard
-                            #if os(iOS)
-                            // The dark look: monitor tiles under the dials, then My Day with today's activities.
-                            // Everything the classic stack held is still here (the My Day entry became the header).
-                            lookMonitorRow
-                            if chargeLegacyRRGap { ChargeLegacyRRGapNote() }
-                            if selectedDayOffset == 0 {
-                                LookMyDaySection(day: selectedLogicalDay)
-                                EffortTargetCard(); SleepPlannerEntryCard(); WeeklyGoalsCard()
+                            // Mounted in steps after the dials (see `mountStage`).
+                            if mountStage >= 1 {
+                                #if os(iOS)
+                                // The dark look: monitor tiles under the dials, then My Day with today's activities.
+                                // Everything the classic stack held is still here (the My Day entry became the header).
+                                lookMonitorRow
+                                if chargeLegacyRRGap { ChargeLegacyRRGapNote() }
+                                #else
+                                if chargeLegacyRRGap { ChargeLegacyRRGapNote() }
+                                #endif
                             }
-                            #else
-                            if chargeLegacyRRGap { ChargeLegacyRRGapNote() }
-                            if selectedDayOffset == 0 { MyDayEntryCard(); EffortTargetCard(); SleepPlannerEntryCard(); WeeklyGoalsCard() }
-                            #endif
+                            if mountStage >= 2 {
+                                #if os(iOS)
+                                if selectedDayOffset == 0 {
+                                    LookMyDaySection(day: selectedLogicalDay)
+                                    EffortTargetCard(); SleepPlannerEntryCard(); WeeklyGoalsCard()
+                                }
+                                #else
+                                if selectedDayOffset == 0 { MyDayEntryCard(); EffortTargetCard(); SleepPlannerEntryCard(); WeeklyGoalsCard() }
+                                #endif
+                            }
                         case .liveSession: if liveSessionsBeta { liveSessionStartRow }
                         case .synthesis: synthesisSection
                         case .keyMetrics: keyMetricsSection
@@ -458,8 +475,10 @@ struct LiquidTodayView: View {
                     // (after the cards block, before Data Sources) and the same leaf Android renders.
                     // Self-gates on the toggle AND on the detector finding an unsaved, un-dismissed window,
                     // so it renders nothing by default.
-                    AutoWorkoutCard()
-                    dataSourcesSection
+                    if mountStage == Self.allMounted {
+                        AutoWorkoutCard()
+                        dataSourcesSection
+                    }
                     Color.clear.frame(height: 90) // floating tab-bar clearance
                 }
                 .padding(.horizontal, NoopMetrics.screenHPadding)
@@ -542,6 +561,7 @@ struct LiquidTodayView: View {
         .liquidSelectionHaptic(trigger: selectedDayOffset)
         // A firm tick when the pull passes the release threshold (the custom liquid refresh).
         .liquidMediumHaptic(trigger: pullHaptic)
+        .task { await mountInStages() }
         // hydrationSeq joins the id so logging a drink re-reads the card immediately, the same trigger set
         // classic TodayView's reloadHydration() uses.
         .task(id: "\(repo.refreshSeq)-\(selectedDayOffset)-\(repo.hydrationSeq)-\(hydrationEnabled)-\(dayCycleModeRaw)") {
@@ -1905,6 +1925,53 @@ struct LiquidTodayView: View {
             .background(NoopPanelSurface(cornerRadius: 22, surfaceOpacity: cardOpacity))
     }
 
+    // MARK: - Staged mount
+
+    /// The sections of `order` that are in the tree at `stage`: everything down to the hero first, then one more per step from stage 3.
+    private static func mountedSectionCount(_ order: [TodaySection], stage: Int) -> Int {
+        guard stage != allMounted else { return order.count }
+        let heroEnd = (order.firstIndex(of: .hero) ?? 0) + 1
+        return min(order.count, heroEnd + max(0, stage - 2))
+    }
+
+    /// Walks `mountStage` up to `allMounted`, with a pause between steps so each lands in its own frame. Every step is a
+    /// breadcrumb and names the section a stall during it is attributed to, so a report says which one is the slow one.
+    @MainActor
+    private func mountInStages() async {
+        guard mountStage != Self.allMounted else { return }
+        #if os(iOS)
+        NoopDiag.stage("header+hero")
+        #endif
+        while true {
+            try? await Task.sleep(nanoseconds: Self.mountStageDelayNanoseconds)
+            guard !Task.isCancelled else {
+                #if os(iOS)
+                NoopDiag.endStage()
+                #endif
+                return
+            }
+            let order = sectionOrder
+            if Self.mountedSectionCount(order, stage: mountStage) >= order.count, mountStage >= 2 {
+                #if os(iOS)
+                NoopDiag.stage("data-sources")
+                #endif
+                mountStage = Self.allMounted
+                try? await Task.sleep(nanoseconds: Self.mountStageDelayNanoseconds)
+                break
+            }
+            let next = mountStage + 1
+            let count = Self.mountedSectionCount(order, stage: next)
+            #if os(iOS)
+            NoopDiag.stage(next <= 2 ? (next == 1 ? "hero-monitors" : "hero-myday") : order[max(0, count - 1)].rawValue,
+                           ["stage": Double(next), "sections": Double(count)])
+            #endif
+            mountStage = next
+        }
+        #if os(iOS)
+        NoopDiag.endStage(done: true)
+        #endif
+    }
+
     // MARK: - Data
 
     private func load() async {
@@ -2895,7 +2962,8 @@ private struct LiquidLiveHR: View {
     var fallbackSegments: [String] = []
     var animated: Bool
 
-    @EnvironmentObject private var live: LiveState
+    @ObservedObject private var liveStore = LiveSnapshotStore.shared
+    private var live: LiveSnapshot { liveStore.snapshot }
     @State private var samples: [Double] = []
     @State private var beat = false
     @State private var scrubX: CGFloat?
@@ -3266,7 +3334,8 @@ extension LiquidTodayView {
 /// ring. At sync start it briefly expands within the trailing control row, then settles into an in-place
 /// spinner; the layered header keeps either state from moving the Today content. Tap → Devices.
 private struct LiquidBatteryButton: View {
-    @EnvironmentObject var live: LiveState
+    @ObservedObject private var liveStore = LiveSnapshotStore.shared
+    private var live: LiveSnapshot { liveStore.snapshot }
     @EnvironmentObject var router: NavRouter
     /// Tapping the indicator opens the strap sync sheet (last sync, progress, "Sync now"), whose "Manage devices"
     /// button goes on to Devices: one tap to sync, one more for the old destination.
@@ -3316,7 +3385,7 @@ private struct LiquidBatteryButton: View {
             batteryPct: live.batteryPct,
             charging: live.charging,
             ringPct: live.ouraBatteryPct,
-            ringCharging: live.ouraWearState == .charging
+            ringCharging: live.ringCharging
         )
     }
 
@@ -3393,7 +3462,7 @@ private struct LiquidBatteryButton: View {
         #if DEBUG
         if DemoSyncHarness.active { return demoChunks }
         #endif
-        return live.syncChunksThisSession
+        return live.syncChunks
     }
 
     /// Never "Strap battery" alone for a no-reading state — that was indistinguishable from a real one.
@@ -3403,7 +3472,7 @@ private struct LiquidBatteryButton: View {
             // twin and `SyncStatusChip` already use. Reusing that exact key also means this read-out
             // inherits its existing translations rather than adding an untranslated variant.
             //
-            // The SAME accessor the ring draws from, not `live.syncChunksThisSession` directly: in
+            // The SAME accessor the ring draws from, not `live.syncChunks` directly: in
             // Release the two are identical, but under `--demo-sync` reading LiveState here would have
             // VoiceOver announcing a real count while the ring showed the synthetic one — i.e. the
             // harness could not be used to check the read-out it exists to exercise.
@@ -3516,7 +3585,8 @@ private extension View {
 /// Repository read that LiveState does not carry. That remains open in B1. Kept here in the Data Sources
 /// card as the detailed view; `LiquidBatteryButton` above is the header's ambient at-a-glance signal.
 private struct LiquidSyncStatusRow: View {
-    @EnvironmentObject var live: LiveState
+    @ObservedObject private var liveStore = LiveSnapshotStore.shared
+    private var live: LiveSnapshot { liveStore.snapshot }
     var body: some View {
         if live.backfilling {
             row(String(localized: "Strap history"), value: chunks, tone: StrandPalette.accent)
@@ -3530,8 +3600,8 @@ private struct LiquidSyncStatusRow: View {
     /// proof that the drain is actually moving. Suppressed at zero — a session that has pulled nothing yet
     /// should not claim "0 chunks pulled" as if that were progress.
     private var chunks: String {
-        live.syncChunksThisSession > 0
-            ? String(localized: "Syncing… \(live.syncChunksThisSession) chunks")
+        live.syncChunks > 0
+            ? String(localized: "Syncing… \(live.syncChunks) chunks")
             : String(localized: "Syncing…")
     }
 
@@ -3547,7 +3617,8 @@ private struct LiquidSyncStatusRow: View {
 
 /// The strap-battery readout inside the Data Sources card. Owns LiveState; display-only.
 private struct LiquidStrapBatteryRow: View {
-    @EnvironmentObject var live: LiveState
+    @ObservedObject private var liveStore = LiveSnapshotStore.shared
+    private var live: LiveSnapshot { liveStore.snapshot }
     var body: some View {
         // #2208: the strap's charge only when the strap is the active device.
         if live.connected, live.activeIsWhoop, let pct = live.batteryPct {
@@ -3574,8 +3645,7 @@ private struct LiquidStrapBatteryRow: View {
     /// Reproduced verbatim from `TodayView.estimateText`: under 48 h show hours, at two days or more round to
     /// days; nil (no banked discharge yet, or charging) hides it, so the row only ever shows an estimate we trust.
     private var estimateText: String? {
-        guard live.charging != true, let est = live.batteryEstimate else { return nil }
-        let hours = est.hoursRemaining
+        guard live.charging != true, let hours = live.estimateHoursRemaining else { return nil }
         guard hours.isFinite, hours > 0 else { return nil }
         if hours < 48 {
             return String(localized: "~\(Int(hours.rounded()))h left")
