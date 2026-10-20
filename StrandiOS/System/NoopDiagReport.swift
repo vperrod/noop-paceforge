@@ -223,7 +223,9 @@ enum NoopDiagUpload {
     static func sendIfOwed() async {
         let pending = NoopDiagStore.shared.pending()
         guard !pending.isEmpty, SelfHostedPushClient.paceForgeIsConfigured else { return }
-        let last = UserDefaults.standard.double(forKey: lastAutoAttemptKey)
+        // The early upload thread (below) may have sent, or be retrying, this very report: leave its attempts alone.
+        let last = max(UserDefaults.standard.double(forKey: lastAutoAttemptKey),
+                       UserDefaults.standard.double(forKey: NoopDiagEarlyUpload.lastAttemptKey))
         guard Date().timeIntervalSince1970 - last >= retryInterval else { return }
         UserDefaults.standard.set(Date().timeIntervalSince1970, forKey: lastAutoAttemptKey)
         _ = await send(trigger: pending.sorted().joined(separator: "+"))
@@ -259,6 +261,101 @@ enum NoopDiagUpload {
             FreezeStacks.clear(before: cutoff)
         }
         return outcome
+    }
+}
+
+// MARK: - Early upload
+
+/// The report's way out when the main thread cannot be trusted. `sendIfOwed` runs from the scene-active handler after a 20 s
+/// sleep, and a phone that freezes three or four seconds into the launch never gets there. This runs on a plain thread
+/// started from `NoopDiag.start()`: it reads the files the store already holds (freeze stacks, the previous run's crumbs
+/// and flag, the pending marks), builds the same report and posts it with a synchronous ephemeral session, with no Task,
+/// no main actor and no timer involved. An attempt at launch, then at +20 s and +60 s while the report is still owed.
+/// Stacks and marks are cleared only after an HTTP 200.
+enum NoopDiagEarlyUpload {
+    /// Two minutes between launches' attempts; none while freeze stacks are owed, which is what the owner is waiting for.
+    static let spacing: TimeInterval = 2 * 60
+    static let retryOffsets: [TimeInterval] = [0, 20, 60]
+    static let requestTimeout: TimeInterval = 15
+    static let lastAttemptKey = "noop.diag.lastEarlyUpload"
+
+    static func begin() {
+        let thread = Thread { run() }
+        thread.name = "app.noop.diag.early-upload"
+        thread.qualityOfService = .utility
+        thread.start()
+    }
+
+    private static func run() {
+        let start = Date()
+        for (index, offset) in retryOffsets.enumerated() {
+            let wait = start.addingTimeInterval(offset).timeIntervalSinceNow
+            if wait > 0 { Thread.sleep(forTimeInterval: wait) }
+            let owed = !FreezeStacks.snapshot().isEmpty || !NoopDiagStore.shared.pending().isEmpty
+            guard owed else {
+                if index == 0 { NoopDiag.crumb("diag upload skipped", ["reason": 0]) }
+                return
+            }
+            guard let credentials = SelfHostedPushClient.paceForgeCredentials() else {
+                NoopDiag.crumb("diag upload skipped", ["reason": 1])
+                return
+            }
+            let defaults = UserDefaults.standard
+            let freezeOwed = !FreezeStacks.snapshot().isEmpty
+            if index == 0, !freezeOwed,
+               Date().timeIntervalSince1970 - defaults.double(forKey: lastAttemptKey) < spacing {
+                NoopDiag.crumb("diag upload skipped", ["reason": 2])
+                return
+            }
+            defaults.set(Date().timeIntervalSince1970, forKey: lastAttemptKey)
+            if attempt(index: index, credentials: credentials) { return }
+        }
+    }
+
+    /// One build and post. True when the server answered 200 and the owed state was cleared.
+    private static func attempt(index: Int, credentials: (endpoint: URL, token: String)) -> Bool {
+        let cutoff = NoopDiagStore.now()
+        let built = NoopDiagReport.build(trigger: "early")
+        NoopDiagStore.shared.saveReport(built.json)
+        NoopDiag.crumb("diag upload attempt", ["attempt": Double(index + 1), "bytes": Double(built.json.count),
+                                                "freeze_stalls": Double(FreezeStacks.snapshot().count)])
+        guard let report = try? JSONSerialization.jsonObject(with: built.json),
+              let body = try? JSONSerialization.data(withJSONObject: [
+                  "kind": "diagnostics", "type": "field_test", "text": built.summary, "report": report,
+              ] as [String: Any]) else {
+            NoopDiag.crumb("diag upload result", ["attempt": Double(index + 1), "status": -2])
+            return false
+        }
+        var request = URLRequest(url: SelfHostedPushClient.paceForgeURL(from: credentials.endpoint, path: "api/app/log"),
+                                 timeoutInterval: requestTimeout)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue("Bearer \(credentials.token)", forHTTPHeaderField: "Authorization")
+        request.httpBody = body
+
+        let session = SelfHostedPushClient.noRedirectSession()
+        defer { session.finishTasksAndInvalidate() }
+        let done = DispatchSemaphore(value: 0)
+        var status: Int?
+        var failure: String?
+        let task = session.dataTask(with: request) { _, response, error in
+            status = (response as? HTTPURLResponse)?.statusCode
+            failure = error?.localizedDescription
+            done.signal()
+        }
+        task.resume()
+        if done.wait(timeout: .now() + requestTimeout + 5) == .timedOut {
+            task.cancel()
+            _ = done.wait(timeout: .now() + 2)
+        }
+        NoopDiag.crumb("diag upload result", ["attempt": Double(index + 1), "status": Double(status ?? -1),
+                                               "bytes": Double(built.json.count)])
+        NoopDiagStore.shared.recordUpload(status: status, message: failure ?? "HTTP \(status ?? -1)", trigger: "early")
+        guard status == 200 else { return false }
+        NoopDiagStore.shared.clearPending()
+        FreezeStacks.clear(before: cutoff)
+        return true
     }
 }
 #endif

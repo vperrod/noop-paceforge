@@ -49,6 +49,9 @@ enum NoopDiag {
         NoopDiagStore.shared.beginRun(launchedOnScreen: UIApplication.shared.applicationState != .background)
         MainThreadSampler.captureMainThread()
         FreezeStacks.load()
+        // Everything the report reads is on disk now, and the main thread is free: hand the upload to its own thread, so a
+        // freeze three seconds into the launch cannot keep the report from leaving the phone.
+        NoopDiagEarlyUpload.begin()
         MainThreadWatchdog.shared.start(tick: isPerfMode ? 0.008 : 0.05, threshold: stallThreshold)
         NoopDiagSampler.shared.start(interval: isPerfMode ? 1 : 5)
         NoopRateCounters.shared.start()
@@ -58,7 +61,9 @@ enum NoopDiag {
 
     /// The assistive features on when the app was last active. With one of them running, iOS asks SwiftUI for the whole
     /// accessibility tree (every Text resolved, on the main thread), which costs as much as the screen itself.
-    private(set) static var assistive: [String: Double] = [:]
+    /// Read by the early upload thread while the main thread may still be writing it, hence the lock.
+    private static let assistiveStore = OSAllocatedUnfairLock(uncheckedState: [String: Double]())
+    static var assistive: [String: Double] { assistiveStore.withLockUnchecked { $0 } }
 
     @MainActor
     static func recordAssistiveFeatures() {
@@ -70,7 +75,7 @@ enum NoopDiag {
         ]
         let numbers = flags.mapValues { $0 ? 1.0 : 0.0 }
         guard numbers != assistive else { return }
-        assistive = numbers
+        assistiveStore.withLockUnchecked { $0 = numbers }
         crumb("assistive", numbers)
     }
 
