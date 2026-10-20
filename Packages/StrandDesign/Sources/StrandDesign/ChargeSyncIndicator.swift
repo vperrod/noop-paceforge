@@ -217,7 +217,13 @@ public struct ChargeSyncIndicator: View {
             // Land at rest rather than freezing mid-morph. Without this the view can go away with
             // `endingSync` still armed and no task left to clear it, and a later re-appearance would
             // queue its restart behind a wind-down that is never going to finish.
-            finishSyncImmediately()
+            //
+            // Only when the sync is over or winding down. A disappear while a sync is still running is layout
+            // churn or a tab switch, not an end: resetting then threw away the spinner state, and the next
+            // appearance replayed the whole entry morph. `onAppear` resumes it from `syncing`.
+            if !syncing || endingSync {
+                finishSyncImmediately()
+            }
             restartAfterSettle = false
         }
     }

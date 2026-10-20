@@ -936,21 +936,20 @@ struct LiquidTodayView: View {
         return String(Safe.int(value))
     }
 
-    /// Top bar: profile, the streak chip, the ‹ TODAY › day pill, the strap battery / sync control and the customise button.
-    /// At 402 pt the day pill, battery and customise button leave no room for the chip beside them, and a squeezed or clipped
-    /// control is worse than a moved one: when the row cannot hold it, the chip sits on its own line under the bar. The
-    /// identifier is the same either way.
+    /// Top bar: profile, the ‹ TODAY › day pill, the strap battery / sync control and the customise button, with the
+    /// streak chip on its own line under them. At 402 pt the pill, battery and customise button leave no room for the
+    /// chip beside them, so the chip always takes the second line instead of the bar choosing between two shapes with
+    /// `ViewThatFits`: that choice flipped while the sync capsule animated, and every flip destroyed and rebuilt the
+    /// battery button and made the Today ScrollView measure its whole content again, in a loop (CI simulator profile,
+    /// 52 s main-thread stall during a simulated sync). One fixed shape keeps the header's identity and size stable.
     private var lookTopBar: some View {
-        ViewThatFits(in: .horizontal) {
-            lookTopBarRow(showsStreak: true)
-            VStack(alignment: .leading, spacing: 10) {
-                lookTopBarRow(showsStreak: false)
-                if phase4Store.streakChip != nil { PFStreakChipView() }
-            }
+        VStack(alignment: .leading, spacing: 10) {
+            lookTopBarRow
+            if phase4Store.streakChip != nil { PFStreakChipView() }
         }
     }
 
-    private func lookTopBarRow(showsStreak: Bool) -> some View {
+    private var lookTopBarRow: some View {
         HStack(spacing: 6) {
             Button { showSettings = true } label: {
                 Color.clear.frame(width: NoopMetrics.compactControlSize, height: NoopMetrics.compactControlSize)
@@ -968,8 +967,6 @@ struct LiquidTodayView: View {
             .nativeLiquidGlassPhotoFinish()
             .accessibilityLabel("Profile and settings")
             .accessibilityIdentifier("today-settings")
-            // The longest streak alive (PaceForge's highlights.json); nothing without one.
-            if showsStreak { PFStreakChipView() }
             Spacer(minLength: 0)
             lookDayPill
             Spacer(minLength: 0)
@@ -3389,6 +3386,17 @@ private struct LiquidBatteryButton: View {
         )
     }
 
+    /// The idle button including the system glass inset (iOS 26 pads the 36 pt control by `syncIndicatorGlassPadding`
+    /// on each side, see `nativeLiquidGlassSyncButton`; the fallbacks draw straight onto the 36 pt face).
+    private static var slotSize: CGFloat {
+        #if os(iOS)
+        if #available(iOS 26.0, *) {
+            return NoopMetrics.compactControlSize + 2 * NoopMetrics.syncIndicatorGlassPadding
+        }
+        #endif
+        return NoopMetrics.compactControlSize
+    }
+
     private var indicatorState: ChargeSyncIndicator.BatteryState {
         switch batteryDisplay {
         case .offline, .notActiveDevice:
@@ -3418,6 +3426,11 @@ private struct LiquidBatteryButton: View {
                 )
             }
             .nativeLiquidGlassSyncButton()
+            // The slot is the idle button's size and never changes: the capsule widens leftward out of it, over the
+            // spacer beside the day pill, instead of resizing the header (a width change here made the Today
+            // ScrollView re-measure all of its content on every frame of the expansion).
+            .frame(width: Self.slotSize, height: Self.slotSize, alignment: .trailing)
+            .transaction { $0.animation = nil }
             .accessibilityLabel(batteryAccessibility)
             .sheet(isPresented: $showSyncSheet) { SyncNowSheet() }
             .debouncedSyncSignal(syncingRaw, into: $syncing)
