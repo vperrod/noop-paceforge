@@ -544,6 +544,10 @@ public final class LiveState: ObservableObject {
     /// won't advance (likely needs a manual reboot; ~never after high-freq-sync removal). Banner-only.
     @Published public var strapNeedsReboot = false
 
+    /// Wall time (unix seconds) the newest readable live strap sample (heart rate) arrived. With `lastSyncedAt` it says how
+    /// fresh the strap's data is: a completed history sync is rare, live samples arrive continuously while connected.
+    public private(set) var lastSampleAt: TimeInterval?
+
     /// Wall time (unix seconds) of the last successfully-completed offload (a sync, even if nothing new
     /// came — i.e. caught up). Drives the sync tile + the staleness nudge.
     @Published public var lastSyncedAt: TimeInterval?
@@ -733,6 +737,9 @@ public final class LiveState: ObservableObject {
     /// silence deadline on. One timer, rescheduled at most every tenth of the wait (once a second in use), so it costs
     /// nothing while samples flow and fires once when they stop.
     public func noteReadableHeartRate() {
+        // Wall time of the newest strap sample received live. Deliberately not @Published: it moves every beat, and the
+        // Today leaves read it through `LiveSnapshot`, which holds it to ten-second steps and wakes them at most once a second.
+        lastSampleAt = Date().timeIntervalSince1970
         let now = DispatchTime.now()
         let rearmNanos = UInt64(heartRateSilence / 10 * 1_000_000_000)
         if let armed = heartRateSilenceArmedAt, now.uptimeNanoseconds &- armed.uptimeNanoseconds < rearmNanos { return }

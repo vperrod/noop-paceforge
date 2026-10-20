@@ -29,6 +29,20 @@ struct SyncNowSheet: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
 
+            if !isSyncing {
+                // Re-read every 30 s: with a steady heart rate nothing else re-renders the sheet, and "2 min ago" must not stand still.
+                TimelineView(.periodic(from: .now, by: 30)) { _ in
+                    VStack(alignment: .leading, spacing: 4) {
+                        ForEach(freshness.details, id: \.self) { line in
+                            Text(line)
+                                .font(StrandFont.subhead)
+                                .foregroundStyle(StrandPalette.textSecondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+                }
+            }
+
             if let error = live.lastSyncError, !isSyncing, failureLine == nil {
                 Text(error)
                     .font(StrandFont.subhead)
@@ -125,13 +139,12 @@ struct SyncNowSheet: View {
             return n > 0 ? String(localized: "Syncing strap history… \(n) chunks") : String(localized: "Syncing strap history…")
         }
         if let failureLine { return failureLine }
-        if let ts = live.lastSyncedAt {
-            let formatter = RelativeDateTimeFormatter()
-            formatter.unitsStyle = .full
-            let ago = formatter.localizedString(for: Date(timeIntervalSince1970: ts), relativeTo: Date())
-            return String(localized: "Synced \(ago)")
-        }
-        return String(localized: "No completed sync yet")
+        return freshness.headline
+    }
+
+    private var freshness: StrapDataFreshness.Lines {
+        StrapDataFreshness.lines(connected: live.connected, lastSyncedAt: live.lastSyncedAt,
+                                 lastSampleAt: live.lastSampleAt, now: Date().timeIntervalSince1970)
     }
 
     private var outcomeMessage: String? {
@@ -179,5 +192,50 @@ struct SyncNowButton: View {
         .accessibilityHint("Shows when the strap last synced and lets you sync now.")
         .accessibilityIdentifier("sync-strap-button")
         .sheet(isPresented: $isPresented) { SyncNowSheet() }
+    }
+}
+
+/// How fresh the strap's data is. A completed history sync is rare; live samples arrive continuously while the strap is
+/// connected, so "last synced" alone read as stale beside data that was plainly arriving. The newest of the two is the
+/// freshness, and a history sync is only mentioned separately once it is old. Pure, so the edges are unit-testable.
+enum StrapDataFreshness {
+    /// No strap sample at all for this long while connected is stale.
+    static let staleAfter: TimeInterval = 15 * 60
+    /// A live sample this recent means the strap is streaming right now.
+    static let liveWithin: TimeInterval = 30
+
+    struct Lines: Equatable {
+        var headline: String
+        var details: [String]
+    }
+
+    static func newest(lastSyncedAt: TimeInterval?, lastSampleAt: TimeInterval?) -> TimeInterval? {
+        [lastSyncedAt, lastSampleAt].compactMap { $0 }.max()
+    }
+
+    static func lines(connected: Bool, lastSyncedAt: TimeInterval?, lastSampleAt: TimeInterval?, now: TimeInterval) -> Lines {
+        let latest = newest(lastSyncedAt: lastSyncedAt, lastSampleAt: lastSampleAt)
+        let isLive = connected && lastSampleAt.map { now - $0 <= liveWithin } == true
+        var details: [String] = []
+
+        let headline: String
+        if isLive {
+            headline = String(localized: "Connected, live")
+        } else if let latest {
+            headline = String(localized: "Latest strap data \(relativeAgo(latest, now: now))")
+        } else {
+            headline = String(localized: "No strap data yet")
+        }
+
+        if !connected {
+            details.append(String(localized: "Strap not connected"))
+        } else if let latest, now - latest > staleAfter {
+            details.append(String(localized: "Stale: no strap data in the last 15 minutes"))
+        }
+        // Only when it adds something: older than the stale window, and not the very time the headline already states.
+        if let sync = lastSyncedAt, now - sync > staleAfter, sync != latest {
+            details.append(String(localized: "Last full history sync \(relativeAgo(sync, now: now))"))
+        }
+        return Lines(headline: headline, details: details)
     }
 }

@@ -18,6 +18,8 @@ struct LiveSnapshot: Equatable {
     var backfilling = false
     var syncChunks = 0
     var lastSyncedAt: TimeInterval?
+    /// `LiveState.lastSampleAt` in ten-second steps, so a steady stream wakes the readers once per step, not per beat.
+    var lastSampleAt: TimeInterval?
     var pagesBehindAtConnect: Int?
     /// `LiveState.batteryEstimate`'s remaining hours, or nil before a discharge slope exists.
     var estimateHoursRemaining: Double?
@@ -34,6 +36,7 @@ struct LiveSnapshot: Equatable {
         backfilling = live.backfilling
         syncChunks = live.syncChunksThisSession
         lastSyncedAt = live.lastSyncedAt
+        lastSampleAt = live.lastSampleAt.map { ($0 / 10).rounded(.down) * 10 }
         pagesBehindAtConnect = live.pagesBehindAtConnect
         estimateHoursRemaining = live.batteryEstimate?.hoursRemaining
     }

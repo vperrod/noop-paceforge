@@ -3603,9 +3603,19 @@ private struct LiquidSyncStatusRow: View {
     var body: some View {
         if live.backfilling {
             row(String(localized: "Strap history"), value: chunks, tone: StrandPalette.accent)
-        } else if let ts = live.lastSyncedAt {
-            row(String(localized: "Strap history"),
-                value: String(localized: "Synced \(relativeAgo(ts))"), tone: StrandPalette.textPrimary)
+        } else if live.lastSyncedAt != nil || live.lastSampleAt != nil {
+            // Re-read every 30 s so "2 min ago" moves while nothing else on Today changes.
+            TimelineView(.periodic(from: .now, by: 30)) { _ in
+                let lines = StrapDataFreshness.lines(connected: live.connected, lastSyncedAt: live.lastSyncedAt,
+                                                     lastSampleAt: live.lastSampleAt,
+                                                     now: Date().timeIntervalSince1970)
+                VStack(spacing: 4) {
+                    row(String(localized: "Strap data"), value: lines.headline, tone: StrandPalette.textPrimary)
+                    ForEach(lines.details, id: \.self) { line in
+                        row("", value: line, tone: StrandPalette.textSecondary)
+                    }
+                }
+            }
         }
     }
 
