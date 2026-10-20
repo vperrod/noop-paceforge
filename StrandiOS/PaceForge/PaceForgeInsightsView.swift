@@ -5,18 +5,21 @@ import StrandDesign
 /// PaceForge "Insights": fitness / fatigue / form, load warnings, race cards, HYROX prognosis.
 struct PFInsightsView: View {
     let snapshot: PFSnapshot
+    /// False under the Insights tab's Deep dives chip (New navigation, beta), where "Where you stand" and the insight items are
+    /// on the Overview chip instead.
+    var includesOverview = true
     @State private var showOtherRaces = false
 
     private var insights: PFInsights { snapshot.insights }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            if let standing = snapshot.standing, standing.hasContent {
+            if includesOverview, let standing = snapshot.standing, standing.hasContent {
                 PFDismissable(.standing, text: PFCardText.standing(standing), snapshot: snapshot) {
                     PFStandingInsightsCard(standing: standing)
                 }
             }
-            if let insights = snapshot.insightsV2, insights.hasContent { PFInsightsV2Section(doc: insights) }
+            if includesOverview, let insights = snapshot.insightsV2, insights.hasContent { PFInsightsV2Section(doc: insights) }
             chartCard
             if insights.history.count >= 2 {
                 PFCard("Fitness, fatigue and form over time", icon: "chart.line.uptrend.xyaxis") {
@@ -129,7 +132,7 @@ struct PFInsightsView: View {
 
     // MARK: Prognosis
 
-    @ViewBuilder private var prognosisCard: some View {
+    @ViewBuilder var prognosisCard: some View {
         if insights.hyrox != nil || insights.hyroxFinish != nil {
             PFCard("HYROX prognosis", icon: "target") {
                 VStack(alignment: .leading, spacing: 12) {
@@ -233,7 +236,7 @@ struct PFInsightsView: View {
     }
 }
 
-private struct PFRaceCard: View {
+struct PFRaceCard: View {
     let race: PFRace
 
     var body: some View {

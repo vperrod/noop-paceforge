@@ -1732,6 +1732,7 @@ struct SettingsView: View {
                 toolRow("Last crash report", icon: "exclamationmark.triangle", id: "settings-tool-crashreport") { NoopDiagnosticsView() }
                 PFRefreshBetaToggle()
                 UnifiedDayToggle()
+                UnifiedNavToggle()
                 NoopDiagSendButton()
             }
         }

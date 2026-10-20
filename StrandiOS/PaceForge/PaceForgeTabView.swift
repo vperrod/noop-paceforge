@@ -204,7 +204,7 @@ struct PaceForgeTabView: View {
 }
 
 /// The Body screen while Settings > Hide numbers hides body weight and body fat.
-private struct PFBodyHiddenView: View {
+struct PFBodyHiddenView: View {
     var body: some View {
         PFCard("Body", icon: "figure.stand") {
             PFParagraph("\(HideScoresPrefs.placeholder) \u{2014} body weight and body fat are hidden. Tap the eye above to show them, or turn this off in Settings > Hide numbers.")
@@ -216,7 +216,7 @@ private struct PFBodyHiddenView: View {
 /// Refreshes the heart-rate-recovery summary when the tab opens. It lives in its own view because it needs `Repository` and
 /// `ProfileStore` only to read them once: as `@EnvironmentObject`s on `PaceForgeTabView` they re-evaluated the whole tab
 /// (every card in it) on each of their publishes, none of which changes what the tab shows.
-private struct PFHeartRecoveryTask: View {
+struct PFHeartRecoveryTask: View {
     @EnvironmentObject private var repo: Repository
     @EnvironmentObject private var profile: ProfileStore
 

@@ -9,8 +9,8 @@ import StrandDesign
 enum UnifiedDay {
     static let defaultsKey = "unifiedDay"
 
-    /// Read once per launch; the Settings switch only writes the preference.
-    static let isOn: Bool = UserDefaults.standard.bool(forKey: defaultsKey)
+    /// Read once per launch; the Settings switch only writes the preference. New navigation (beta) implies the Day tab.
+    static let isOn: Bool = UserDefaults.standard.bool(forKey: defaultsKey) || UnifiedNav.isOn
 
     /// Called from the app's init so the value is the one the app started with, however late a screen first asks. A launch always
     /// opens the Day tab on its Sleep chip (the screen the tab replaces), never on a chip remembered from a previous run.

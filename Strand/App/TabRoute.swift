@@ -47,6 +47,8 @@ enum TabRoute: Hashable {
     case coupled
     /// The Lift Log, from the Day tab's Activity chip (iPhone only; macOS falls back to Workouts).
     case liftLog
+    /// Compare, from the Insights tab's Trends chip (New navigation, beta; iPhone only).
+    case compare
 }
 
 extension View {
@@ -115,6 +117,7 @@ extension View {
                 #else
                 WorkoutsView()
                 #endif
+            case .compare: CompareView()
             }
         }
     }

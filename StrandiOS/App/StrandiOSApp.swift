@@ -59,6 +59,8 @@ struct StrandiOSApp: App {
         PFBeta.captureAtLaunch()
         // The New Day tab (beta) switch is read here, once per launch.
         UnifiedDay.captureAtLaunch()
+        // The New navigation (beta) switch is read here, once per launch.
+        UnifiedNav.captureAtLaunch()
         #if DEBUG
         NoopPerfAutopilot.startIfRequested()
         #endif

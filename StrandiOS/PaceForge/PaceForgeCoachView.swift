@@ -77,7 +77,7 @@ struct PFCoachView: View {
 
     // MARK: Weekly review
 
-    private func weeklyReviewCard(_ review: PFWeeklyReview) -> some View {
+    func weeklyReviewCard(_ review: PFWeeklyReview) -> some View {
         PFCard(title: "Week review", icon: "calendar", trailing: {
             Text(PFFormat.span(review.period.start, review.period.end))
                 .font(StrandFont.caption)
