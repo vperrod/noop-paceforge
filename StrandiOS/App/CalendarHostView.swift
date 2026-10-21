@@ -4,7 +4,7 @@ import StrandDesign
 
 // MARK: - Calendar and Plan: the second tab with the New navigation (beta)
 //
-// Chips at the top and ONE chip mounted below them: Calendar (a week strip and a month, built from the PaceForge snapshot), Plan
+// Chips at the top and ONE chip mounted below them: Calendar (a month grid with the chosen day's sessions under it, built from the PaceForge snapshot), Plan
 // (This week, My Plan), Season (the weeks ahead and behind), Events (races) and HYROX (the prognosis and race simulations). Each chip
 // reuses views that exist in the PaceForge tab today; a day tap shows that day's sessions, which open the same results and session
 // sheets as before. NOOP's and PaceForge's numbers are never merged: this tab is PaceForge's plan and results.
@@ -135,11 +135,6 @@ private enum CalendarMath {
         return (0..<42).map { PFFormat.addDays(start, $0) }
     }
 
-    static func weekCells(_ day: String) -> [String] {
-        let start = PFFormat.monday(of: day)
-        return (0..<7).map { PFFormat.addDays(start, $0) }
-    }
-
     static func dayNumber(_ iso: String) -> String { String(Int(iso.suffix(2)) ?? 0) }
 }
 
@@ -160,29 +155,11 @@ private struct CalendarMonthChip: View {
     var body: some View {
         let index = CalendarIndex(snapshot)
         VStack(alignment: .leading, spacing: 16) {
-            CalendarWeekStrip(selected: $selected, today: today, index: index)
             CalendarMonthCard(monthStart: $monthStart, selected: $selected, today: today, index: index)
             CalendarLegend()
             CalendarDayPanel(day: selected, snapshot: snapshot, workouts: index.workouts(on: selected))
         }
         .containerIdentifier("calendar-chip-content-calendar")
-    }
-}
-
-/// The seven days of the week that holds the chosen day.
-private struct CalendarWeekStrip: View {
-    @Binding var selected: String
-    let today: String
-    let index: CalendarIndex
-
-    var body: some View {
-        HStack(spacing: 6) {
-            ForEach(CalendarMath.weekCells(selected), id: \.self) { day in
-                CalendarDayCell(day: day, today: today, isSelected: day == selected, isInMonth: true,
-                                workouts: index.workouts(on: day), height: 56) { selected = day }
-            }
-        }
-        .containerIdentifier("calendar-week-strip")
     }
 }
 

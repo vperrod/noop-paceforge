@@ -96,7 +96,8 @@ final class PFDailyIntelStore: ObservableObject {
         if data == nil, PFAPI.usesPhoneState { data = PFStore.read(path: Self.path) }
         let parsed = PFDailyIntelParse.document(PFJ(data: data))
         if intel != parsed { intel = parsed }
-        lastFetch = Date()
+        // A load that found nothing (offline with no saved copy) is not "fresh": the next screen that asks tries again.
+        if parsed != nil { lastFetch = Date() }
         if !didLoad { didLoad = true }
     }
 }

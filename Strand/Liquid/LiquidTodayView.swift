@@ -507,6 +507,14 @@ struct LiquidTodayView: View {
         // The streak chip and My Plan read a store that draws nothing until it has loaded, and an empty view never runs
         // its own .task, so Today starts the load.
         .task { await PFPhase4Store.shared.refreshIfStale() }
+        // The same for Today's call (the NOOP Charge, PaceForge readiness and Effort target dials): its host draws nothing until the
+        // store has a file, so its own .task never runs. With New navigation (beta) on there is no PaceForge tab to fill the store
+        // either, so Today starts this load itself, and says in the breadcrumbs what it ended with.
+        .task {
+            await PFDailyIntelStore.shared.refreshIfStale()
+            await crumbRings()
+        }
+        .onChangeCompat(of: ringsKey) { _ in crumbRings() }
         .overlay(alignment: .top) {
             if showsStickyDials {
                 StickyMiniDials(items: lookMiniDialItems)
@@ -871,6 +879,17 @@ struct LiquidTodayView: View {
         effortReading = EffortTargetReading.make(days: repo.days, effortScale: effortScale)
     }
 
+    /// Which dials Today has data for: NOOP's own (Charge or Rest scored) and PaceForge's (Today's call from a file of today).
+    private var ringsPresent: (noop: Bool, pf: Bool) {
+        (chargeDisplay.pct != nil || restScore != nil, intelStore.current?.call != nil)
+    }
+
+    private var ringsKey: Int { (ringsPresent.noop ? 1 : 0) + (ringsPresent.pf ? 2 : 0) }
+
+    @MainActor private func crumbRings() {
+        NoopDiag.crumb("today.rings noop=\(ringsPresent.noop) pf=\(ringsPresent.pf)")
+    }
+
     /// The three thin dials. Same scores, same taps (ring opens the metric, the label opens the scoring guide).
     private var lookHeroCard: some View {
         let band = effortReading?.progress
@@ -896,7 +915,10 @@ struct LiquidTodayView: View {
         .onGeometryChange(for: Bool.self) {
             LookSticky.isVisible(heroBottomY: Double($0.frame(in: .named(Self.pullSpace)).maxY), topInset: 0)
         } action: { showsStickyDials = $0 }
-        .onAppear { refreshEffortReading() }
+        .onAppear {
+            refreshEffortReading()
+            crumbRings()
+        }
         .onChangeCompat(of: effortReadingKey) { _ in refreshEffortReading() }
         .task { await intelStore.refreshIfStale() }
     }
