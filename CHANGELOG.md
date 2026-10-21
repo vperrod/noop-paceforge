@@ -17,6 +17,10 @@ approximate; downloads are on the [Releases](https://github.com/NoopApp/noop/rel
 
 ---
 
+## 12.0.12 build 483 (PaceForge iPhone build): PaceForge ring group on Today
+
+- **Not verified on a real iPhone.** Today now shows PaceForge's own three rings under the NOOP hero rings, as the web Overview does: a card headed "PaceForge, calculated from Garmin data" with Recovery, Sleep (PaceForge score, hours and share of need, with the Garmin sleep score as a chip) and Strain (target range), the line "NOOP and PaceForge are two different calculations, never merged", and links "About these scores" and "Why they differ". The numbers come from the saved fitness and readiness-explained documents, parsed off the main thread (the heavy snapshot builder is not used); with no PaceForge data the card says why and shows no numbers; Hide numbers is honoured. Diagnostics record `today.pfrings`. Everything else is as in 482 (all beta switches off by default). Build 464 remains the last known good; 479 had the clean day.
+
 ## 12.0.12 build 482 (PaceForge iPhone build): Today rings reload, Calendar loses the duplicate day row
 
 - **Not verified on a real iPhone.** Today's call card (the NOOP Charge, PaceForge readiness and Effort target rings) loads its data from the PaceForge daily-intel store; its own refresh trigger never ran while the card was empty, and an empty load blocked retries for 120 s. Today now triggers the store refresh itself on appear, an empty load is retried, and diagnostics record `today.rings noop=<bool> pf=<bool>`. In the new navigation (beta) the Calendar chip no longer shows a week strip above the month grid; the month grid carries the status dots and today's ring, the day panel and the analysis status. Everything else is as in 481 (all beta switches off by default). Build 464 remains the last known good; 479 had the clean day.
