@@ -17,6 +17,10 @@ approximate; downloads are on the [Releases](https://github.com/NoopApp/noop/rel
 
 ---
 
+## 12.0.12 build 482 (PaceForge iPhone build): Today rings reload, Calendar loses the duplicate day row
+
+- **Not verified on a real iPhone.** Today's call card (the NOOP Charge, PaceForge readiness and Effort target rings) loads its data from the PaceForge daily-intel store; its own refresh trigger never ran while the card was empty, and an empty load blocked retries for 120 s. Today now triggers the store refresh itself on appear, an empty load is retried, and diagnostics record `today.rings noop=<bool> pf=<bool>`. In the new navigation (beta) the Calendar chip no longer shows a week strip above the month grid; the month grid carries the status dots and today's ring, the day panel and the analysis status. Everything else is as in 481 (all beta switches off by default). Build 464 remains the last known good; 479 had the clean day.
+
 ## 12.0.12 build 481 (PaceForge iPhone build): opt-in new navigation (beta), default off
 
 - **Not verified on a real iPhone.** Stages 3 and 4 of the Unified App Design. With the default settings this build behaves like 480. New opt-in switch: Settings > Tools > "New navigation (beta)", default off, restart to apply; turning it on also turns on the Day tab. When on, the tab bar is Today, Calendar, Day, Insights, More, and the Coach button opens one Coach screen (Coach and NOOP chat chips). Calendar has chips Calendar (week strip, month grid, analysis status per activity), Plan, Season, Events, HYROX; Insights has chips Overview, Trends, Reports, Journal, Deep dives; More gains Body (PaceForge Body and Lab Book) and drops the rows that moved. Old links (widgets, notifications, Home Screen actions) redirect to the new places. Every chip is its own small view, only the selected chip is mounted, and diagnostics record `nav.tab`, `nav.chip` and each chip's mount time. Expect rough edges: Insights Overview stacks three screens and may be slow, and nothing here has run on a device. Build 464 remains the last known good; 479 is the build with the clean day so far.
