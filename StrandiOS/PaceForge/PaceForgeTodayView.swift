@@ -263,8 +263,46 @@ struct PFTodayView: View {
                     }
                 }
                 PFTrustNote(trust: today.recovery?.trust)
+                // HRV 7-night trend
+                if !hideScores, let trend = today.recovery?.hrvTrend {
+                    Text("7-night HRV trend: \(hrvTrendSymbol(trend)) \(trend)")
+                        .font(StrandFont.caption)
+                        .foregroundStyle(StrandPalette.textSecondary)
+                }
+                // Strain–recovery amber note
+                if let note = today.recovery?.strainRecoveryNote {
+                    Text(note)
+                        .font(StrandFont.caption)
+                        .foregroundStyle(Color.orange)
+                        .lineLimit(1)
+                }
+                // Per-modality ACWR row
+                if !hideScores, let byModality = today.acwrByModality, !byModality.isEmpty {
+                    Text(acwrModalityLine(byModality))
+                        .font(StrandFont.caption)
+                        .foregroundStyle(StrandPalette.textSecondary)
+                }
             }
         }
+    }
+
+    /// Arrow symbol for a given HRV trend direction string.
+    private func hrvTrendSymbol(_ trend: String) -> String {
+        switch trend {
+        case "up":   return "\u{2191}"   // ↑
+        case "down": return "\u{2193}"   // ↓
+        default:     return "\u{2192}"   // →
+        }
+    }
+
+    /// One compact line like "Run 1.12 · Strength 0.94" from the by-modality dict.
+    private func acwrModalityLine(_ dict: [String: PFModalityACWR]) -> String {
+        let order = ["run", "cycling", "strength", "other"]
+        let items = order.compactMap { key -> String? in
+            guard let v = dict[key], let acwr = v.acwr else { return nil }
+            return "\(key.capitalized) \(PFFormat.oneDecimal(acwr))"
+        }
+        return items.joined(separator: " \u{00B7} ")   // middot separator
     }
 
     private func strainTarget(_ strain: PFStrain) -> String? {

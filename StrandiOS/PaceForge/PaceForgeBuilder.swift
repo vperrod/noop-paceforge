@@ -132,7 +132,9 @@ enum PFBuilder {
         if let score = daily["recovery"]["score"].double {
             todayBlock.recovery = PFRecovery(score: score, band: daily["recovery"]["band"].string,
                                              confidence: daily["recovery"]["confidence"]["tier"].string,
-                                             trust: PFWave2Parse.trust(daily["recovery"]["trust"]))
+                                             trust: PFWave2Parse.trust(daily["recovery"]["trust"]),
+                                             hrvTrend: daily["recovery"]["hrv_trend"].string,
+                                             strainRecoveryNote: daily["recovery"]["strain_recovery_note"].text)
         }
         if let value = daily["strain"]["value"].double {
             todayBlock.strain = PFStrain(value: value, targetLow: daily["strain"]["target_low"].double,
@@ -151,6 +153,14 @@ enum PFBuilder {
         todayBlock.hrvHighMs = raw.fitness["load"]["hrv"]["normal_range_ms"][1].double
         todayBlock.restingHr = raw.fitness["load"]["resting_hr_trend"]["latest"].double
         todayBlock.acwr = raw.fitness["load"]["acwr"]["acwr"].double
+        todayBlock.acwrByModality = {
+            let dict = raw.fitness["load"]["acwr_by_modality"].dict
+            guard !dict.isEmpty else { return nil }
+            return dict.compactMapValues { j -> PFModalityACWR? in
+                guard j.exists else { return nil }
+                return PFModalityACWR(acwr: j["acwr"].double, flag: j["flag"].string)
+            }
+        }()
         todayBlock.brief = dailyBrief(state["daily_brief"])
         todayBlock.nextRace = nextRace(events: state["events"], today: today)
         todayBlock.sessions = allWorkouts
@@ -369,7 +379,9 @@ enum PFBuilder {
         if let score = daily["recovery"]["score"].double {
             todayBlock.recovery = PFRecovery(score: score, band: daily["recovery"]["band"].string,
                                              confidence: daily["recovery"]["confidence"]["tier"].string,
-                                             trust: PFWave2Parse.trust(daily["recovery"]["trust"]))
+                                             trust: PFWave2Parse.trust(daily["recovery"]["trust"]),
+                                             hrvTrend: daily["recovery"]["hrv_trend"].string,
+                                             strainRecoveryNote: daily["recovery"]["strain_recovery_note"].text)
         }
         if let value = daily["strain"]["value"].double {
             todayBlock.strain = PFStrain(value: value, targetLow: daily["strain"]["target_low"].double,
@@ -388,6 +400,14 @@ enum PFBuilder {
         todayBlock.hrvHighMs = raw.fitness["load"]["hrv"]["normal_range_ms"][1].double
         todayBlock.restingHr = raw.fitness["load"]["resting_hr_trend"]["latest"].double
         todayBlock.acwr = raw.fitness["load"]["acwr"]["acwr"].double
+        todayBlock.acwrByModality = {
+            let dict = raw.fitness["load"]["acwr_by_modality"].dict
+            guard !dict.isEmpty else { return nil }
+            return dict.compactMapValues { j -> PFModalityACWR? in
+                guard j.exists else { return nil }
+                return PFModalityACWR(acwr: j["acwr"].double, flag: j["flag"].string)
+            }
+        }()
         todayBlock.brief = dailyBrief(state["daily_brief"])
         todayBlock.nextRace = nextRace(events: state["events"], today: today)
         todayBlock.sessions = allWorkouts

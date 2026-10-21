@@ -81,9 +81,26 @@ struct PFToday {
     var restingHr: Double?
     /// Acute : chronic load ratio.
     var acwr: Double?
+    /// Per-sport ACWR breakdown keyed by modality ("run", "cycling", "strength", "other").
+    var acwrByModality: [String: PFModalityACWR]?
 }
 
-struct PFRecovery { var score: Double; var band: String?; var confidence: String?; var trust: PFTrust? }
+struct PFRecovery {
+    var score: Double
+    var band: String?
+    var confidence: String?
+    var trust: PFTrust?
+    /// 7-night OLS slope direction on ln(HRV): "up" / "flat" / "down" / nil when unavailable.
+    var hrvTrend: String? = nil
+    /// Amber warning shown when recovery is red and yesterday's load was above median.
+    var strainRecoveryNote: String? = nil
+}
+
+/// Per-sport ACWR breakdown from `load.acwr_by_modality`.
+struct PFModalityACWR {
+    var acwr: Double?
+    var flag: String?
+}
 struct PFStrain { var value: Double; var targetLow: Double?; var targetHigh: Double?; var band: String? }
 struct PFSleep {
     var score: Double
