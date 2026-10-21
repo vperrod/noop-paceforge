@@ -17,6 +17,10 @@ approximate; downloads are on the [Releases](https://github.com/NoopApp/noop/rel
 
 ---
 
+## 12.0.12 build 484 (PaceForge iPhone build): one row of six rings on Today
+
+- **Not verified on a real iPhone.** Build 483 added a third set of rings; this build replaces them. Today now has ONE row of six rings at the top: NOOP Rest, Charge, Effort (from the WHOOP strap) and PaceForge Recovery, Sleep, Strain (from Garmin data), with a divider between the groups and the line "NOOP and PaceForge are two different calculations, never merged" plus "About these scores". The separate PaceForge card and the three rings inside Today's call are gone (the call keeps its text and an "Effort target" line). NOOP rings keep their navigation; PaceForge rings open "Why they differ". Empty rings show a dash with the reason; Hide numbers applies to all six. Diagnostics record `today.rings6 noop=<n> pf=<n>`. Everything else is as in 483 (all beta switches off by default). Build 464 remains the last known good; 479 had the clean day.
+
 ## 12.0.12 build 483 (PaceForge iPhone build): PaceForge ring group on Today
 
 - **Not verified on a real iPhone.** Today now shows PaceForge's own three rings under the NOOP hero rings, as the web Overview does: a card headed "PaceForge, calculated from Garmin data" with Recovery, Sleep (PaceForge score, hours and share of need, with the Garmin sleep score as a chip) and Strain (target range), the line "NOOP and PaceForge are two different calculations, never merged", and links "About these scores" and "Why they differ". The numbers come from the saved fitness and readiness-explained documents, parsed off the main thread (the heavy snapshot builder is not used); with no PaceForge data the card says why and shows no numbers; Hide numbers is honoured. Diagnostics record `today.pfrings`. Everything else is as in 482 (all beta switches off by default). Build 464 remains the last known good; 479 had the clean day.
