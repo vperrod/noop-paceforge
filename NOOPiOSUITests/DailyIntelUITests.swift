@@ -63,9 +63,7 @@ final class DailyIntelUITests: XCTestCase {
         XCTAssertTrue(card.waitForExistence(timeout: 30), "NOOP Today should lead with Today's call.")
         attach(app, "Intel 10 NOOP Today, Today's call at the top")
         XCTAssertEqual(element(app, "pf-call-chip").label, "Keep the plan", "The verdict chip should say what the call is.")
-        XCTAssertTrue(element(app, "pf-call-charge").exists, "NOOP's Charge should be labelled on the card.")
-        XCTAssertTrue(element(app, "pf-call-readiness").exists, "PaceForge's readiness should sit beside it, labelled.")
-        XCTAssertTrue(element(app, "pf-call-effort").exists, "The Effort target dial should show.")
+        XCTAssertTrue(element(app, "pf-call-effort-target").exists, "The Effort target line should show.")
         XCTAssertTrue(element(app, "pf-call-disagreement").exists, "The fixture's two scores differ, so the card should say why.")
         XCTAssertTrue(element(app, "pf-call-session").exists, "The planned session should show.")
     }
@@ -80,12 +78,12 @@ final class DailyIntelUITests: XCTestCase {
         attach(app, "Intel 12 Today's call, action card opened to its reason")
     }
 
-    func testEffortDialCarriesTheTargetTick() throws {
+    func testCallCardCarriesTheEffortTargetLine() throws {
         let app = try launch()
         XCTAssertTrue(element(app, "pf-todays-call").waitForExistence(timeout: 30), "The call should load first.")
-        let effort = element(app, "pf-call-effort")
-        XCTAssertTrue(effort.exists, "The Effort dial of the card should show.")
-        attach(app, "Intel 13 Today's call, Effort dial with the target arc")
+        let effort = element(app, "pf-call-effort-target")
+        XCTAssertTrue(effort.exists, "The Effort target line of the card should show.")
+        attach(app, "Intel 13 Today's call, Effort target line")
     }
 
     func testTodaysCallSaysWhenItIsUnavailable() throws {

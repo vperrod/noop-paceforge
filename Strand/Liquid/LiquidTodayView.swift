@@ -396,6 +396,12 @@ struct LiquidTodayView: View {
                     // byte-identical "today.sectionOrder" key Android uses. A gated-off Start-session renders
                     // nothing and keeps its slot in the saved order.
                     let order = sectionOrder
+                    #if os(iOS)
+                    // The six-ring row leads Today, above Today's call and whatever else the saved order puts first. It is the row the
+                    // sticky mini dials measure, so it stays one view in the scroll column; the Arrange sheet still hides it with the
+                    // "Charge / Effort / Rest" section.
+                    if order.contains(.hero) { heroCard }
+                    #endif
                     ForEach(order.prefix(Self.mountedSectionCount(order, stage: mountStage))) { section in
                         switch section {
                         // The daily loop (PaceForge's daily-intel.json): the day's call above the dials, the evening
@@ -426,13 +432,12 @@ struct LiquidTodayView: View {
                             EmptyView()
                             #endif
                         case .hero:
+                            #if os(macOS)
                             heroCard
+                            #endif
                             // Mounted in steps after the dials (see `mountStage`).
                             if mountStage >= 1 {
                                 #if os(iOS)
-                                // PaceForge's Recovery, Sleep and Strain (from Garmin data) under NOOP's own three dials, never merged
-                                // with them. Today only; it reads the saved PaceForge documents and draws nothing before its first load.
-                                if selectedDayOffset == 0 { PaceForgeScoresGroup() }
                                 // The dark look: monitor tiles under the dials, then My Day with today's activities.
                                 // Everything the classic stack held is still here (the My Day entry became the header).
                                 lookMonitorRow
@@ -893,26 +898,26 @@ struct LiquidTodayView: View {
         NoopDiag.crumb("today.rings noop=\(ringsPresent.noop) pf=\(ringsPresent.pf)")
     }
 
-    /// The three thin dials. Same scores, same taps (ring opens the metric, the label opens the scoring guide).
+    /// The six thin dials in one row: NOOP's Rest, Charge and Effort, then PaceForge's Recovery, Sleep and Strain (TodaySixRings.swift).
+    /// Same scores and taps as the three-dial row it replaced (ring opens the metric, the name opens the scoring guide).
     private var lookHeroCard: some View {
         let band = effortReading?.progress
         let ownTarget = LookDial.targetArc(low: band?.lowFraction, high: band?.highFraction, max: 1)
         let target = ownTarget ?? (selectedDayOffset == 0 ? intelStore.current?.call?.effortTarget?.arc : nil)
         let chargeColor = chargeDisplay.pct.map { NoopLook.chargeColor($0) } ?? NoopLook.chargeHigh
-        return HStack(alignment: .top, spacing: 0) {
-            HeroScoreCell(label: String(localized: "Rest"), score: restScore, tint: NoopLook.rest,
-                          animated: dataLoaded, onGuide: { guideSection = .rest },
-                          detailRoute: .metric(HeroRingMetric.rest), unit: "%", caption: heroSourceLabel)
-            HeroScoreCell(label: String(localized: "Charge"), score: chargeDisplay.pct, tint: chargeColor,
-                          animated: dataLoaded, onGuide: { guideSection = .charge },
-                          detailRoute: .metric(HeroRingMetric.charge), unit: "%")
-            HeroScoreCell(label: String(localized: "Effort"),
-                          score: effortStrain(displayDay).map { UnitFormatter.effortValue($0, scale: effortScale) },
-                          tint: NoopLook.effort, animated: dataLoaded, onGuide: { guideSection = .effort },
-                          maxValue: effortScale == .whoop ? 21 : 100, decimals: effortScale == .whoop ? 1 : 0,
-                          detailRoute: .metric(HeroRingMetric.effort), target: target)
-        }
-        .padding(.horizontal, 2)
+        let isWhoopScale = effortScale == .whoop
+        let inputs = [
+            SixRingNoopInput(name: String(localized: "Rest"), score: restScore, maxValue: 100, decimals: 0, tint: NoopLook.rest,
+                             unit: "%", target: nil, route: .metric(HeroRingMetric.rest), onGuide: { guideSection = .rest }),
+            SixRingNoopInput(name: String(localized: "Charge"), score: chargeDisplay.pct, maxValue: 100, decimals: 0,
+                             tint: chargeColor, unit: "%", target: nil, route: .metric(HeroRingMetric.charge),
+                             onGuide: { guideSection = .charge }),
+            SixRingNoopInput(name: String(localized: "Effort"),
+                             score: effortStrain(displayDay).map { UnitFormatter.effortValue($0, scale: effortScale) },
+                             maxValue: isWhoopScale ? 21 : 100, decimals: isWhoopScale ? 1 : 0, tint: NoopLook.effort,
+                             unit: nil, target: target, route: .metric(HeroRingMetric.effort), onGuide: { guideSection = .effort }),
+        ]
+        return TodaySixRings(noop: inputs, isToday: selectedDayOffset == 0)
         // onGeometryChange, not a preference: the preference route never delivered a value from this scroll view. It reports the
         // Bool, so the action (and a re-render of the dashboard) runs only when the strip appears or goes, not every frame.
         .onGeometryChange(for: Bool.self) {

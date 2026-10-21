@@ -124,42 +124,8 @@ private struct PFIntelLine: View {
 
 // MARK: - Today's call
 
-/// One dial of the card: the ring, whose score it is, and a line under it.
-private struct PFCallDial: View {
-    let fraction: Double
-    let color: Color
-    let valueText: String
-    var unitText: String?
-    var target: (start: Double, end: Double)?
-    let caption: String
-    var sub: String?
-    let name: String
-    let identifier: String
-
-    var body: some View {
-        VStack(spacing: 6) {
-            RingDial(fraction: fraction, color: color, valueText: valueText, unitText: unitText, target: target,
-                     diameter: 84, accessibilityName: name)
-            Text(caption)
-                .lookCaps(10)
-                .foregroundStyle(NoopLook.textSecondary)
-                .multilineTextAlignment(.center)
-                .fixedSize(horizontal: false, vertical: true)
-            if let sub {
-                Text(sub)
-                    .font(LookFont.text(12, weight: .medium))
-                    .foregroundStyle(NoopLook.textTertiary)
-                    .multilineTextAlignment(.center)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-        }
-        .frame(maxWidth: .infinity)
-        .containerIdentifier(identifier)
-    }
-}
-
-/// TODAY'S CALL: the verdict chip, NOOP's Charge and PaceForge's readiness side by side, the Effort target, the planned
-/// session, the sentence on why the two scores differ when they do, and the actions.
+/// TODAY'S CALL: the verdict chip, the Effort target, the planned session, the sentence on why the two scores differ when they do,
+/// and the actions. The score rings live in the six-ring row at the top of Today, not here.
 struct PFTodaysCallCard: View {
     let call: PFTodaysCall
     let item: PFIntelItem
@@ -168,11 +134,7 @@ struct PFTodaysCallCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             header
-            HStack(alignment: .top, spacing: 4) {
-                chargeDial
-                readinessDial
-                effortDial
-            }
+            effortTargetLine
             if let progress = call.effortTarget?.progress?.text {
                 Text(hiding.text(progress))
                     .font(LookFont.text(13.5, weight: .medium))
@@ -221,46 +183,13 @@ struct PFTodaysCallCard: View {
         }
     }
 
-    // NOOP's Charge. The dial is labelled with whose score it is; a missing score is a dash, not a guess.
-    @ViewBuilder private var chargeDial: some View {
-        if let charge = call.charge {
-            PFCallDial(fraction: hiding.hides(.scores) ? 0 : charge.score / 100,
-                       color: hiding.hides(.scores) ? NoopLook.textTertiary : NoopLook.chargeColor(charge.score),
-                       valueText: hiding.shown(String(charge.rounded), .scores), unitText: hiding.hides(.scores) ? nil : "%",
-                       caption: "NOOP \u{00B7} Charge",
-                       sub: charge.carriedFrom.map { "from \(PFFormat.shortDate($0))" },
-                       name: "NOOP Charge", identifier: "pf-call-charge")
-        } else {
-            PFCallDial(fraction: 0, color: NoopLook.textTertiary, valueText: "\u{2013}", caption: "NOOP \u{00B7} Charge",
-                       sub: "not scored yet", name: "NOOP Charge", identifier: "pf-call-charge")
-        }
-    }
-
-    // PaceForge's readiness, from the Garmin watch. Side by side with Charge, never averaged with it.
-    @ViewBuilder private var readinessDial: some View {
-        if let readiness = call.readiness {
-            PFCallDial(fraction: hiding.hides(.scores) ? 0 : readiness.score / 100,
-                       color: hiding.hides(.scores) ? NoopLook.textTertiary : NoopLook.chargeColor(readiness.score),
-                       valueText: hiding.shown(String(readiness.rounded), .scores), unitText: hiding.hides(.scores) ? nil : "%",
-                       caption: "PaceForge \u{00B7} Readiness", name: "PaceForge readiness", identifier: "pf-call-readiness")
-        } else {
-            PFCallDial(fraction: 0, color: NoopLook.textTertiary, valueText: "\u{2013}",
-                       caption: "PaceForge \u{00B7} Readiness", sub: "not scored yet", name: "PaceForge readiness",
-                       identifier: "pf-call-readiness")
-        }
-    }
-
-    // Effort so far, with the target arc and its tick drawn on the dial.
-    @ViewBuilder private var effortDial: some View {
+    /// "Effort target 67-86": the range the day is aiming for. Its arc and tick are drawn on the Effort ring in the row above.
+    @ViewBuilder private var effortTargetLine: some View {
         if let target = call.effortTarget {
-            let hidden = hiding.hides(.scores)
-            PFCallDial(fraction: hidden ? 0 : (target.effortFraction ?? 0), color: NoopLook.effort,
-                       valueText: hiding.shown(target.effortNow.map { String(Safe.int($0)) } ?? "\u{2013}", .scores),
-                       target: target.arc, caption: "Effort target \(hiding.shown(target.rangeText, .scores))",
-                       sub: target.effortSource, name: "Effort", identifier: "pf-call-effort")
-        } else {
-            PFCallDial(fraction: 0, color: NoopLook.textTertiary, valueText: "\u{2013}", caption: "Effort target",
-                       sub: "needs a Charge first", name: "Effort target", identifier: "pf-call-effort")
+            Text(hiding.text("Effort target \(target.rangeText)"))
+                .font(LookFont.text(13.5, weight: .semibold))
+                .foregroundStyle(NoopLook.textSecondary)
+                .accessibilityIdentifier("pf-call-effort-target")
         }
     }
 

@@ -2,11 +2,11 @@
 import SwiftUI
 import StrandDesign
 
-// NOOP Today's PaceForge ring group: Recovery, Sleep and Strain from Garmin data, under the NOOP hero rings, the iPhone twin of the
-// web Overview's second ring group. NOOP's and PaceForge's scores are two calculations and are never merged or averaged.
+// The data behind NOOP Today's PaceForge rings: Recovery, Sleep and Strain from Garmin data, the right half of the six-ring row
+// (TodaySixRings.swift). NOOP's and PaceForge's scores are two calculations and are never merged or averaged.
 //
-// Built small on purpose (builds 465 to 478): every part is its own small view, there is no GeometryReader, ViewThatFits or
-// preference key, and PFBuilder is never called from here. The numbers are read from the documents the PaceForge refresh saved on the
+// Built small on purpose (builds 465 to 478): there is no GeometryReader, ViewThatFits or preference key, and PFBuilder is
+// never called from here. The numbers are read from the documents the PaceForge refresh saved on the
 // phone (`data/fitness.json` for the day's Garmin figures, `data/readiness-explained.json` for the labelled recovery and sleep
 // scores), parsed off the main actor into a tiny Equatable value. Read-only: nothing here writes to the server.
 
@@ -147,7 +147,7 @@ final class PFScoresStore: ObservableObject {
             publish(await Self.parse(PFScoresDocs(), isSetUp: false))
             return
         }
-        // The copy on the phone first (read off the main actor), so the card has its numbers while the network answers.
+        // The copy on the phone first (read off the main actor), so the rings have their numbers while the network answers.
         if values == nil, PFAPI.usesPhoneState { publish(await Self.parse(nil, isSetUp: true)) }
         var fetched: PFScoresDocs?
         var usedBeta = false
@@ -159,7 +159,7 @@ final class PFScoresStore: ObservableObject {
     }
 
     private func publish(_ new: PFScoresValues) {
-        // NOOP Today observes nothing here; only the card does, and an equal assignment would still redraw it.
+        // NOOP Today observes nothing here; only the PaceForge ring group does, and an equal assignment would still redraw it.
         if values != new { values = new }
     }
 
@@ -190,229 +190,6 @@ final class PFScoresStore: ObservableObject {
         return await Task.detached(priority: .userInitiated) {
             PFScoresParse.values(docs ?? PFScoresDocs.saved(), today: today, isSetUp: isSetUp)
         }.value
-    }
-}
-
-// MARK: - Views
-
-private enum PFScoresStyle {
-    /// The same size as the NOOP hero rings above (HeroScoreCell.vesselDiameter on iPhone).
-    static let diameter: CGFloat = 92
-    static var paceforge: Color { PFColor.sky }
-    static var garmin: Color { PFColor.positive }
-}
-
-/// The card on NOOP Today. Draws nothing until the store has loaded once.
-struct PaceForgeScoresGroup: View {
-    @ObservedObject private var store = PFScoresStore.shared
-
-    private var crumbKey: Int {
-        guard let values = store.values else { return 0 }
-        return 8 + (values.recovery != nil ? 1 : 0) + (values.sleep != nil ? 2 : 0) + (values.strain != nil ? 4 : 0)
-    }
-
-    // A stack, not a bare `if`: an empty view never runs its own .task or .onAppear, and the load must start before there is a card.
-    var body: some View {
-        VStack(spacing: 0) {
-            if let values = store.values {
-                PaceForgeScoresCard(values: values)
-            }
-        }
-        .task { await store.refreshIfStale() }
-        .onAppear { crumb() }
-        .onChangeCompat(of: crumbKey) { _ in crumb() }
-    }
-
-    private func crumb() {
-        let values = store.values
-        NoopDiag.crumb("today.pfrings recovery=\(values?.recovery != nil) sleep=\(values?.sleep != nil) strain=\(values?.strain != nil)")
-    }
-}
-
-private struct PaceForgeScoresCard: View {
-    let values: PFScoresValues
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            PaceForgeScoresHeader()
-            if let reason = values.reason {
-                PaceForgeScoresReason(text: reason)
-            }
-            PaceForgeScoresRings(values: values)
-            PaceForgeScoresFooter(why: values.why)
-        }
-        .padding(16)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: NoopLook.Metric.tileRadius, style: .continuous).fill(NoopLook.card))
-        .containerIdentifier("pf-scores-group")
-    }
-}
-
-private struct PaceForgeScoresHeader: View {
-    var body: some View {
-        HStack(alignment: .center, spacing: 8) {
-            PaceForgeSourceChip(text: "PaceForge", color: PFScoresStyle.paceforge)
-            Text("Calculated from Garmin data")
-                .lookCaps(10.5)
-                .foregroundStyle(NoopLook.textSecondary)
-                .lineLimit(2)
-                .fixedSize(horizontal: false, vertical: true)
-            Spacer(minLength: 0)
-        }
-    }
-}
-
-private struct PaceForgeSourceChip: View {
-    let text: String
-    let color: Color
-
-    var body: some View {
-        Text(text)
-            .lookCaps(10.5)
-            .foregroundStyle(color)
-            .lineLimit(1)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 3)
-            .background(Capsule(style: .continuous).fill(color.opacity(0.16)))
-    }
-}
-
-private struct PaceForgeScoresReason: View {
-    let text: String
-
-    var body: some View {
-        Text(text)
-            .font(LookFont.text(13.5, weight: .medium))
-            .foregroundStyle(NoopLook.textSecondary)
-            .fixedSize(horizontal: false, vertical: true)
-            .accessibilityIdentifier("pf-scores-reason")
-    }
-}
-
-/// The three dials side by side: Recovery, Sleep, Strain.
-private struct PaceForgeScoresRings: View {
-    let values: PFScoresValues
-    private let hiding = PFHiding()
-
-    var body: some View {
-        HStack(alignment: .top, spacing: 4) {
-            PaceForgeScoreDial(name: "Recovery", fraction: fraction(values.recovery, max: 100),
-                               color: values.recovery.map { NoopLook.chargeColor($0) } ?? NoopLook.chargeHigh,
-                               valueText: values.recovery.map { String(Safe.int($0)) } ?? "\u{2013}",
-                               unitText: values.recovery == nil ? nil : "%", target: nil,
-                               sub: values.recovery == nil ? "none yet today" : "PaceForge recovery",
-                               garminScore: nil, identifier: "pf-scores-recovery")
-            PaceForgeScoreDial(name: "Sleep", fraction: fraction(values.sleep, max: 100), color: NoopLook.rest,
-                               valueText: values.sleep.map { String(Safe.int($0)) } ?? "\u{2013}",
-                               unitText: values.sleep == nil ? nil : "%", target: nil,
-                               sub: values.sleep == nil ? "none yet today" : (values.sleepLine ?? "PaceForge score"),
-                               garminScore: hiding.hides(.scores) ? nil : values.garminSleep, identifier: "pf-scores-sleep")
-            PaceForgeScoreDial(name: "Strain", fraction: fraction(values.strain, max: 21), color: NoopLook.effort,
-                               valueText: values.strain.map { PFFormat.oneDecimal($0) } ?? "\u{2013}",
-                               unitText: nil, target: strainTarget, sub: strainSub,
-                               garminScore: nil, identifier: "pf-scores-strain")
-        }
-    }
-
-    private func fraction(_ value: Double?, max: Double) -> Double {
-        value.map { LookDial.fraction($0, max: max) } ?? 0
-    }
-
-    private var strainTarget: (start: Double, end: Double)? {
-        guard values.strain != nil else { return nil }
-        return LookDial.targetArc(low: values.strainLow, high: values.strainHigh, max: 21)
-    }
-
-    private var strainSub: String {
-        guard values.strain != nil else { return "none yet today" }
-        guard let low = values.strainLow, let high = values.strainHigh else { return "of 21" }
-        return "target \(Safe.int(low, .towardZero))\u{2013}\(Safe.int(high, .towardZero))"
-    }
-}
-
-/// One dial: the ring, its name, a line under it and, for Sleep, Garmin's own sleep score as a small chip. Under Hide numbers the
-/// ring reads "Hidden" like the NOOP hero rings, and the figures in the line under it are replaced.
-private struct PaceForgeScoreDial: View {
-    let name: String
-    let fraction: Double
-    let color: Color
-    let valueText: String
-    let unitText: String?
-    let target: (start: Double, end: Double)?
-    let sub: String
-    let garminScore: Double?
-    let identifier: String
-    private let hiding = PFHiding()
-
-    var body: some View {
-        VStack(spacing: 8) {
-            RingDial(fraction: fraction, color: color, valueText: valueText, unitText: unitText, target: target,
-                     diameter: PFScoresStyle.diameter, accessibilityName: name)
-                .hiddenWhenPrivate(.scores, name: name)
-            Text(name)
-                .lookCaps(13.5)
-                .foregroundStyle(NoopLook.textPrimary)
-                .lineLimit(1)
-            Text(hiding.text(sub))
-                .font(LookFont.text(12, weight: .medium))
-                .foregroundStyle(NoopLook.textTertiary)
-                .multilineTextAlignment(.center)
-                .fixedSize(horizontal: false, vertical: true)
-            if let garminScore {
-                PaceForgeGarminSleepChip(score: garminScore)
-            }
-        }
-        .frame(maxWidth: .infinity)
-        .containerIdentifier(identifier)
-    }
-}
-
-private struct PaceForgeGarminSleepChip: View {
-    let score: Double
-
-    var body: some View {
-        HStack(spacing: 5) {
-            PaceForgeSourceChip(text: "Garmin", color: PFScoresStyle.garmin)
-            Text("sleep score \(Safe.int(score))")
-                .font(LookFont.text(12, weight: .medium))
-                .foregroundStyle(NoopLook.textSecondary)
-                .lineLimit(1)
-        }
-        .accessibilityElement(children: .combine)
-        .accessibilityIdentifier("pf-scores-garmin-sleep")
-    }
-}
-
-/// "Never merged", and the two links: an inline note (About these scores) and the readiness explanation sheet (Why they differ).
-private struct PaceForgeScoresFooter: View {
-    let why: PFExplainer
-    @State private var isAboutOpen = false
-    @State private var isWhyOpen = false
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("NOOP and PaceForge are two different calculations, never merged.")
-                .font(LookFont.text(13, weight: .medium))
-                .foregroundStyle(NoopLook.textSecondary)
-                .fixedSize(horizontal: false, vertical: true)
-            HStack(spacing: 18) {
-                Button { isAboutOpen.toggle() } label: { InsightLink("About these scores") }
-                    .buttonStyle(.plain)
-                    .accessibilityIdentifier("pf-scores-about-link")
-                Button { isWhyOpen = true } label: { InsightLink("Why they differ") }
-                    .buttonStyle(.plain)
-                    .accessibilityIdentifier("pf-scores-why-link")
-                Spacer(minLength: 0)
-            }
-            if isAboutOpen {
-                Text("Charge, Effort and Rest run 0 to 100 and come from the strap. Recovery and the sleep score are PaceForge's own calculation from Garmin's HRV, resting heart rate and sleep; Strain runs 0 to 21. Garmin's own training readiness is a different number.")
-                    .font(LookFont.text(13, weight: .medium))
-                    .foregroundStyle(NoopLook.textTertiary)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .accessibilityIdentifier("pf-scores-about-text")
-            }
-        }
-        .sheet(isPresented: $isWhyOpen) { PFExplainerSheet(explainer: why) }
     }
 }
 #endif
