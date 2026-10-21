@@ -17,6 +17,10 @@ approximate; downloads are on the [Releases](https://github.com/NoopApp/noop/rel
 
 ---
 
+## 12.0.12 build 485 (PaceForge iPhone build): no plan card on Today
+
+- **Not verified on a real iPhone.** Today no longer draws the "My Plan" card (this week's plan progress). The Calendar tab already shows the week, so the card was a duplicate. The day picker on the Today title (swipe or calendar to move between days) is unchanged. The saved Today layout keeps the My Plan entry for Android compatibility; it just draws nothing.
+
 ## 12.0.12 build 484 (PaceForge iPhone build): one row of six rings on Today
 
 - **Not verified on a real iPhone.** Build 483 added a third set of rings; this build replaces them. Today now has ONE row of six rings at the top: NOOP Rest, Charge, Effort (from the WHOOP strap) and PaceForge Recovery, Sleep, Strain (from Garmin data), with a divider between the groups and the line "NOOP and PaceForge are two different calculations, never merged" plus "About these scores". The separate PaceForge card and the three rings inside Today's call are gone (the call keeps its text and an "Effort target" line). NOOP rings keep their navigation; PaceForge rings open "Why they differ". Empty rings show a dash with the reason; Hide numbers applies to all six. Diagnostics record `today.rings6 noop=<n> pf=<n>`. Everything else is as in 483 (all beta switches off by default). Build 464 remains the last known good; 479 had the clean day.
