@@ -430,6 +430,9 @@ struct LiquidTodayView: View {
                             // Mounted in steps after the dials (see `mountStage`).
                             if mountStage >= 1 {
                                 #if os(iOS)
+                                // PaceForge's Recovery, Sleep and Strain (from Garmin data) under NOOP's own three dials, never merged
+                                // with them. Today only; it reads the saved PaceForge documents and draws nothing before its first load.
+                                if selectedDayOffset == 0 { PaceForgeScoresGroup() }
                                 // The dark look: monitor tiles under the dials, then My Day with today's activities.
                                 // Everything the classic stack held is still here (the My Day entry became the header).
                                 lookMonitorRow
