@@ -17,6 +17,11 @@ approximate; downloads are on the [Releases](https://github.com/NoopApp/noop/rel
 
 ---
 
+## 12.0.12 build 486 (PaceForge iPhone build): morning brief from PaceForge, Needs you on Today
+
+- **Not verified on a real iPhone.** The morning brief notification now carries PaceForge's brief (written on the server, no AI key on the phone), so "Coach brief unavailable" no longer appears when PaceForge is connected. It is woken by your data, not the clock: from 04:00 it goes out once PaceForge has your night's sleep and HRV, and the time in Coach settings is the latest it waits (then it goes out saying what is missing). iOS decides when the background check really runs; opening the app also tries.
+- **Needs you leads Today.** Anything PaceForge is waiting on you for (treadmill pace, a proposal, effort, feel) shows at the very top of Today, above the rings, and leaves as soon as you answer it. Nothing shows when nothing is open.
+
 ## 12.0.12 build 485 (PaceForge iPhone build): no plan card on Today
 
 - **Not verified on a real iPhone.** Today no longer draws the "My Plan" card (this week's plan progress). The Calendar tab already shows the week, so the card was a duplicate. The day picker on the Today title (swipe or calendar to move between days) is unchanged. The saved Today layout keeps the My Plan entry for Android compatibility; it just draws nothing.
