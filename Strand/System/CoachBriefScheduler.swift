@@ -43,6 +43,8 @@ enum CoachBriefScheduler {
 
     /// 07:00 — a brief waiting when you check your phone (matches `ScheduledDebugExport`'s default).
     static let defaultTimeMinutes = 7 * 60
+    /// The earliest a data-woken PaceForge brief may go out (04:00): a night's sleep cannot be in before then.
+    static let earliestWakeMinutes = 4 * 60
     private static let minutesPerDay = 24 * 60
 
     /// Category id the posted notification carries, so `NotificationPresenter` can recognise a brief tap
@@ -265,12 +267,37 @@ enum CoachBriefScheduler {
         let cal = Calendar.current
         let comps = cal.dateComponents([.hour, .minute], from: now)
         let nowMinutes = (comps.hour ?? 0) * 60 + (comps.minute ?? 0)
-        guard nowMinutes >= timeMinutes else { return true }                                  // not yet time today
+        let timeReached = nowMinutes >= timeMinutes
+        #if os(iOS)
+        // With PaceForge the brief is woken by data, not by the clock: from the earliest wake time on, it goes out as soon as the
+        // night's sleep and HRV are in. The chosen time is only the latest it waits.
+        guard timeReached || nowMinutes >= earliestWakeMinutes else { return true }
+        #else
+        guard timeReached else { return true }                                                // not yet time today
+        #endif
         guard UserDefaults.standard.string(forKey: K.lastRun) != dayKey(now) else { return true } // already ran today
 
         // One attempt at a time; see `generationInFlight` for why the day guard alone is not enough.
         guard await claimGeneration() else { return true }
-        let generated = await generateBrief()
+        let generated: String?
+        #if os(iOS)
+        // With PaceForge connected the brief is PaceForge's own (written on the server, no AI key needed here). Not published yet
+        // means wait for the next wake quietly: the key-based path would only post "unavailable".
+        switch await PaceForgeBriefSource.today(timeReached: timeReached) {
+        case .text(let text): generated = text
+        case .notReady:
+            await releaseGeneration()
+            return true
+        case .notSetUp:
+            guard timeReached else {            // NOOP's own brief keeps its chosen time
+                await releaseGeneration()
+                return true
+            }
+            generated = await generateBrief()
+        }
+        #else
+        generated = await generateBrief()
+        #endif
         await releaseGeneration()
 
         guard let text = generated else {
@@ -428,9 +455,20 @@ enum CoachBriefScheduler {
 
     /// Submit a background-refresh request for *no earlier than* the next chosen time. iOS decides when
     /// (and whether) to actually run it — best-effort, same honesty as `ScheduledDebugExport`.
+    /// Until today's brief is out, ask again every 15 minutes (iOS decides when it really runs; opening the app also tries).
+    /// Once it is out, the next attempt is tomorrow's earliest wake time.
+    private static func secondsToNextBriefAttempt() -> TimeInterval {
+        let now = Date()
+        let cal = Calendar.current
+        guard UserDefaults.standard.string(forKey: K.lastRun) == dayKey(now),
+              let tomorrow = cal.date(byAdding: .day, value: 1, to: cal.startOfDay(for: now)),
+              let wake = cal.date(byAdding: .minute, value: earliestWakeMinutes, to: tomorrow) else { return 15 * 60 }
+        return max(60, wake.timeIntervalSince(now))
+    }
+
     private static func submitBackgroundRequest() {
         let request = BGAppRefreshTaskRequest(identifier: bgTaskIdentifier)
-        request.earliestBeginDate = Date(timeIntervalSinceNow: secondsToNextOccurrence(timeMinutes))
+        request.earliestBeginDate = Date(timeIntervalSinceNow: secondsToNextBriefAttempt())
         do {
             try BGTaskScheduler.shared.submit(request)
         } catch {

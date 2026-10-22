@@ -321,6 +321,11 @@ struct CoachSettingsView: View {
                     Text("At \(Platform.deviceNounPhrase == "Mac" ? "this time" : "or soon after"), NOOP will use your key to generate today's brief. Best-effort: \(Platform.deviceNounPhrase) decides exactly when a backgrounded app wakes.")
                         .font(StrandFont.caption).foregroundStyle(StrandPalette.textTertiary)
                         .fixedSize(horizontal: false, vertical: true)
+                    #if os(iOS)
+                    Text("With PaceForge connected, the brief is PaceForge's own and goes out as soon as your night's sleep and HRV are in. This time is the latest it waits.")
+                        .font(StrandFont.caption).foregroundStyle(StrandPalette.textTertiary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    #endif
                     NoopButton(briefGenerating ? "Generating…" : "Generate now", systemImage: "sparkles", kind: .secondary) {
                         generateBriefNow()
                     }

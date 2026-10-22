@@ -402,6 +402,8 @@ struct LiquidTodayView: View {
                     // The six-ring row leads Today, above Today's call and whatever else the saved order puts first. It is the row the
                     // sticky mini dials measure, so it stays one view in the scroll column; the Arrange sheet still hides it with the
                     // "Charge / Effort / Rest" section.
+                    // Anything PaceForge is waiting on him for leads everything, until he answers it.
+                    if selectedDayOffset == 0 { PFTodayNeedsYouHost() }
                     if order.contains(.hero) { heroCard }
                     #endif
                     ForEach(order.prefix(Self.mountedSectionCount(order, stage: mountStage))) { section in
