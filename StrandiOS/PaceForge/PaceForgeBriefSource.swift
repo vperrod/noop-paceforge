@@ -19,7 +19,7 @@ enum PaceForgeBriefSource {
         case .ready: break
         default: return .notReady
         }
-        guard let snapshot = model.snapshot, let brief = snapshot.brief, !brief.headline.isEmpty,
+        guard let snapshot = model.snapshot, let brief = snapshot.today.brief, !brief.headline.isEmpty,
               brief.date == nil || brief.date == snapshot.todayISO else { return .notReady }
         // The server rewrites the brief when the night's sleep and HRV arrive; `missing` lists what it is still waiting for.
         // That arrival is the wake-up signal, so hold the notification until it is in, or until the latest time.
