@@ -18,6 +18,16 @@ struct CoachSettingsView: View {
     @EnvironmentObject var coach: AICoachEngine
     @Environment(\.dismiss) private var dismiss
 
+    /// Every iPhone brief uses the unified PaceForge Coach, even when this shared view is reached
+    /// through an older settings route. macOS retains its configured local provider.
+    private var usesSharedCoach: Bool {
+        #if os(iOS)
+        true
+        #else
+        sharedBrainMode
+        #endif
+    }
+
     /// Morning-brief settings, read from `CoachBriefScheduler` on init exactly as `CoachView` did
     /// before the split. This screen can now be the first to render them.
     @State private var briefEnabled: Bool = CoachBriefScheduler.isEnabled
@@ -38,8 +48,8 @@ struct CoachSettingsView: View {
         // ScrollView with no NavigationStack, so a toolbar item presented in a sheet would render
         // nowhere, and a macOS sheet has no swipe-to-dismiss: that combination would leave this screen
         // with no way out. (#2206 is the same mistake in the other direction.)
-        ScreenScaffold(title: sharedBrainMode ? "Coach notifications" : "Coach settings",
-                       subtitle: sharedBrainMode
+        ScreenScaffold(title: usesSharedCoach ? "Coach notifications" : "Coach settings",
+                       subtitle: usesSharedCoach
                         ? "Choose whether the shared Coach sends a morning briefing and when it arrives."
                         : "What the coach may read, how it is told to answer, and when it writes to you.",
                        topBackground: liquidScaffoldSky(),
@@ -50,7 +60,7 @@ struct CoachSettingsView: View {
                                .foregroundStyle(StrandPalette.accent)
                                .accessibilityLabel("Close coach settings")
                        }) {
-            if sharedBrainMode {
+            if usesSharedCoach {
                 morningBriefBar
             } else {
                 modelBar
@@ -67,7 +77,7 @@ struct CoachSettingsView: View {
         // Opening this screen is the moment a stale catalogue is worth refreshing: a key exists here by
         // definition, and the picker above is about to be read. Rate-limited and silent on failure.
         .task {
-            if !sharedBrainMode { await coach.refreshModelsIfStale() }
+            if !usesSharedCoach { await coach.refreshModelsIfStale() }
         }
     }
 
@@ -298,11 +308,7 @@ struct CoachSettingsView: View {
                         .accessibilityHidden(true)
                     VStack(alignment: .leading, spacing: 1) {
                         Text("Morning brief").font(StrandFont.subhead).foregroundStyle(StrandPalette.textPrimary)
-                        Text(briefEnabled
-                             ? (sharedBrainMode
-                                ? "A local notification from the shared Coach. NOOP must be connected to PaceForge."
-                                : "A local notification with today's coaching read. It uses PaceForge when connected; otherwise your Coach provider and data permission.")
-                             : "Off: nothing is generated or sent on a schedule.")
+                        Text(briefEnabled ? briefEnabledDescription : "Off: nothing is generated or sent on a schedule.")
                             .font(StrandFont.footnote).foregroundStyle(StrandPalette.textTertiary)
                             .fixedSize(horizontal: false, vertical: true)
                     }
@@ -329,19 +335,19 @@ struct CoachSettingsView: View {
                             .labelsHidden()
                             .accessibilityLabel("Morning brief time")
                     }
-                    Text(sharedBrainMode
+                        Text(usesSharedCoach
                          ? "The shared Coach sends the briefing when PaceForge has today's data. Background delivery is best-effort: \(Platform.deviceNounPhrase) decides when the app wakes."
                          : "The brief is delivered at this time or later. Without PaceForge, it uses your selected Coach provider and data permission. Background delivery is best-effort: \(Platform.deviceNounPhrase) decides when the app wakes.")
                         .font(StrandFont.caption).foregroundStyle(StrandPalette.textTertiary)
                         .fixedSize(horizontal: false, vertical: true)
                     #if os(iOS)
-                    if !sharedBrainMode {
+                    if !usesSharedCoach {
                         Text("With PaceForge connected, the brief is PaceForge's own and goes out as soon as your night's sleep and HRV are in. This time is the latest it waits.")
                             .font(StrandFont.caption).foregroundStyle(StrandPalette.textTertiary)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                     #endif
-                    if !sharedBrainMode {
+                    if !usesSharedCoach {
                         NoopButton(briefGenerating ? "Generating…" : "Generate now", systemImage: "sparkles", kind: .secondary) {
                             generateBriefNow()
                         }
@@ -354,7 +360,7 @@ struct CoachSettingsView: View {
                     }
                     if let briefStatus {
                         Text(briefStatus).font(StrandFont.footnote).foregroundStyle(StrandPalette.textTertiary)
-                    } else if sharedBrainMode, let reason = CoachBriefScheduler.lastFailureReason {
+                    } else if usesSharedCoach, let reason = CoachBriefScheduler.lastFailureReason {
                         Text("Latest morning brief issue: \(reason)")
                             .font(StrandFont.footnote)
                             .foregroundStyle(StrandPalette.textTertiary)
@@ -363,6 +369,15 @@ struct CoachSettingsView: View {
                 }
             }
         }
+    }
+
+    private var briefEnabledDescription: String {
+        if usesSharedCoach { return "A local notification from the shared Coach. NOOP must be connected to PaceForge." }
+        #if os(iOS)
+        return "The iPhone morning brief uses the shared PaceForge Coach. Connect NOOP to PaceForge first."
+        #else
+        return "A local notification with today's coaching read. It uses PaceForge when connected; otherwise your Coach provider and data permission."
+        #endif
     }
 
     private var briefTimeBinding: Binding<Date> {
@@ -389,7 +404,7 @@ struct CoachSettingsView: View {
             defer { briefGenerating = false }
             let text = await CoachBriefScheduler.generateNow { await coach.generateBrief() }
             if let text {
-                if sharedBrainMode {
+                if usesSharedCoach {
                     #if os(iOS)
                     await PFUnified.model.refresh()
                     #else

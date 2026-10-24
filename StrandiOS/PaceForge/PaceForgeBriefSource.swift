@@ -3,7 +3,7 @@ import Foundation
 /// PaceForge's morning brief as the text NOOP's brief scheduler stores and notifies, so the brief needs no AI key on the phone.
 enum PaceForgeBriefSource {
     enum Outcome {
-        /// PaceForge is not connected: the scheduler falls back to NOOP's own key-based brief.
+        /// PaceForge is not connected: the unified iPhone Coach cannot generate a brief yet.
         case notSetUp
         /// A refresh is still loading or today's overnight data has not arrived; retry at the next wake without an alert.
         case notReady

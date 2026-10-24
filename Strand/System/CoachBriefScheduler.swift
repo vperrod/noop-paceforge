@@ -5,9 +5,10 @@ import BackgroundTasks
 import WidgetKit
 #endif
 
-/// PRD-K5: a user-scheduled, local notification for the morning coaching brief. On iOS, a connected
-/// PaceForge account supplies its server-written brief; otherwise the user's configured Coach provider
-/// generates it. Tap → opens Coach with the full brief. Default OFF, like every NOOP automation.
+/// PRD-K5: a user-scheduled, local notification for the morning coaching brief. On iOS, the unified
+/// Coach requires PaceForge and uses its server-written brief; it does not fall back to a separate
+/// on-device Coach when PaceForge is disconnected. macOS uses the configured on-device Coach provider.
+/// Tap → opens Coach with the full brief. Default OFF, like every NOOP automation.
 ///
 /// Cross-platform (macOS + iOS), same architecture as `ScheduledDebugExport`:
 /// - **macOS** — the app is usually running; a foreground `DispatchSourceTimer` fires at the chosen
@@ -18,10 +19,9 @@ import WidgetKit
 ///   `activateIfEnabled` catches up and generates then instead — same honest "best-effort" posture
 ///   `ScheduledDebugExport`'s Settings copy already uses.
 ///
-/// Triple-gated network call: `enabled` (this feature, default OFF) + a saved Coach key + the existing
-/// `dataConsent`. `generateBrief` is `AICoachEngine.generateBrief()`, itself gated on both of those; this
-/// scheduler additionally never marks a day "done" on a failed generation, so a missing key/consent (or
-/// a transient network failure) simply retries next wake rather than going permanently silent.
+/// Each platform uses its unified Coach source: PaceForge on iOS and the configured provider on macOS.
+/// Generation additionally requires this feature's default-off `enabled` setting. A failed attempt never
+/// marks the day "done", so the next wake retries instead of going permanently silent.
 @MainActor
 enum CoachBriefScheduler {
 
@@ -231,7 +231,7 @@ enum CoachBriefScheduler {
     /// The explicit "Generate now" button: always generates and stores, ignoring the once-per-day dedup,
     /// so a tap produces a fresh brief there and then. Does NOT post a notification (the user is already
     /// looking at Coach) and does NOT touch `lastRun`, so today's scheduled slot still fires normally.
-    /// Returns the brief text, or nil on failure (no key/consent/network) — the caller surfaces that.
+    /// Returns the brief text, or nil on failure — the caller surfaces the recorded reason.
     @discardableResult
     static func generateNow(generateBrief: () async -> String?) async -> String? {
         recordFailureReason(nil)
@@ -341,8 +341,8 @@ enum CoachBriefScheduler {
         await releaseGeneration()
 
         guard let text = generated else {
-            // No key/consent/network, or the provider returned nothing. Never mark the day done, so the
-            // next wake (BGTask retry, or the next foreground open) tries again. iOS can wake this path
+            // No brief arrived from the platform's Coach source. Never mark the day done, so the next
+            // wake (BGTask retry, or the next foreground open) tries again. iOS can wake this path
             // repeatedly in one day, so notify once per local day; keep lastFailureReason current for
             // Coach Settings, where the athlete can see what needs fixing.
             let today = dayKey(now)
