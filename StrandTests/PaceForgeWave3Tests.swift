@@ -330,7 +330,7 @@ final class PaceForgeLocalExplainerTests: XCTestCase {
     }
 
     func testTheExplainerIdsAreDistinct() {
-        XCTAssertEqual(PFLocalExplainers.fallback.count, 6)
+        XCTAssertEqual(PFLocalExplainers.fallback.count, 9)
     }
 }
 
