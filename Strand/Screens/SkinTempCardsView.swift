@@ -763,7 +763,7 @@ struct BodyClockCard: View {
     }
 }
 
-// MARK: - 3. Heads-Up card (illness early-warning, confounder-suppressed)
+// MARK: - 3. Overnight pattern card (contextual wearable signals)
 
 /// The confounder-suppressed illness "heads-up". Renders the engine's already-decided level +
 /// copy; the host only mounts it when the engine returns a non-quiet level. On-device estimate
@@ -810,10 +810,9 @@ struct HeadsUpCard: View {
                     whyRow(label: "Explained by", values: reasons,
                            tint: StrandPalette.textTertiary)
                 }
-                // Optional confidence read from the parallel Mahalanobis distance, only when the level is
-                // raised. Subtle by design: it augments, never gates (the engine already decided to raise).
-                if let confidence = confidenceLine {
-                    Text(confidence)
+                // A numeric baseline distance adds context; it is not a probability or confidence score.
+                if let baselineDistance = baselineDistanceLine {
+                    Text(baselineDistance)
                         .font(StrandFont.caption)
                         .foregroundStyle(StrandPalette.textTertiary)
                 }
@@ -858,37 +857,27 @@ struct HeadsUpCard: View {
 
     private var title: String {
         switch result.level {
-        case .raised:        return String(localized: "Heads-up")
+        case .raised:        return String(localized: "Overnight pattern check")
         case .alreadyUnwell: return String(localized: "Rest up")
-        case .suppressed:    return String(localized: "Probably not illness")
-        case .mild:          return String(localized: "A few signals are up")
+        case .suppressed:    return String(localized: "Some signals have logged context")
+        case .mild:          return String(localized: "A few overnight signals moved together")
         case .quiet:         return String(localized: "Nothing notable")
         }
     }
 
-    /// A subtle confidence read from the parallel Mahalanobis distance, surfaced ONLY on the RAISED state
-    /// (and when a distance is present). nil otherwise. The already-unwell state is driven purely by the
-    /// user's own log and can have a near-zero distance (0-1 present features), giving a misleading
-    /// "Confidence: slight (distance 0.0)", so it's excluded. The raised path always has >= 2 present
-    /// features, so its distance is meaningful. The band mirrors Android exactly. (Augment-only, never gates.)
-    private var confidenceLine: String? {
+    /// A numeric difference from baseline, shown only for a raised pattern. It is neither a probability
+    /// nor a confidence estimate, and never affects the engine's decision.
+    private var baselineDistanceLine: String? {
         guard result.level == .raised,
               let d = distance else { return nil }
-        return String(localized: "Confidence: \(IllnessConfidence.band(d.distance)) (distance \(IllnessConfidence.formatted(d.distance)))")
+        return String(localized: "Pattern distance from baseline: \(PatternDistanceFormatting.formatted(d.distance)). A larger value means a less usual combination of readings; it is not an illness probability.")
     }
 }
 
-// MARK: - Illness confidence band (shared wording, mirrored byte-for-byte on Android)
+// MARK: - Pattern distance formatting
 
-/// Maps the parallel Mahalanobis distance to a plain confidence word + a one-decimal display value.
-/// This is presentation-only: it NEVER decides whether the Heads-Up card shows (the engine's level
-/// already did). Bands: >= 3.5 strong, >= 2.5 moderate, else slight. Identical to the Kotlin twin.
-enum IllnessConfidence {
-    static func band(_ distance: Double) -> String {
-        if distance >= 3.5 { return String(localized: "strong") }
-        if distance >= 2.5 { return String(localized: "moderate") }
-        return String(localized: "slight")
-    }
+/// This value is descriptive only and never decides whether a pattern card appears.
+enum PatternDistanceFormatting {
     static func formatted(_ distance: Double) -> String {
         String(format: "%.1f", locale: AppLanguage.activeLocale, distance)
     }
@@ -985,15 +974,15 @@ private func localizedIllnessCopy(_ result: IllnessSignalEngine.Result) -> Strin
     let message = result.message ?? fallbackIllnessMessage(result.level)
     switch message {
     case .raised:
-        return String(localized: "Your body looks strained. Signals up: \(signals). No alcohol or travel was logged, so consider taking it easy. On-device estimate, not a diagnosis.")
+        return String(localized: "Several overnight signals are outside your usual range: \(signals). No tracked confounder was logged. Check how you feel; if you also feel run-down, consider an easier session. These signals are not illness-specific and cannot identify a cause.")
     case .alreadyUnwellAgree:
-        return String(localized: "You logged feeling unwell, and your signals agree. Take it easy today. On-device estimate, not a diagnosis.")
+        return String(localized: "You logged feeling unwell, and several overnight signals are outside your usual range. Consider rest or easy activity if that matches how you feel; these readings cannot identify a cause.")
     case .alreadyUnwell:
-        return String(localized: "You logged feeling unwell. Take it easy today. On-device estimate, not a diagnosis.")
+        return String(localized: "You logged feeling unwell. Consider rest or easy activity if that matches how you feel. The wearable estimate cannot identify a cause.")
     case .suppressed:
-        return String(localized: "Some signals are up, but you logged \(reasons). That is the more likely explanation. On-device estimate, not a diagnosis.")
+        return String(localized: "Some overnight signals are outside your usual range: \(signals). You logged \(reasons), which may contribute; other causes are possible. These signals are not illness-specific.")
     case .mild:
-        return String(localized: "A few signals are mildly up: \(signals). Nothing alarming, but a calmer day may help. On-device estimate, not a diagnosis.")
+        return String(localized: "A few overnight signals moved together: \(signals). Compare the next reading and how you feel; this pattern alone does not decide training.")
     case .learningBaseline:
         return String(localized: "Still learning your baseline and keeping an eye on your signals.")
     case .normal:
@@ -1069,13 +1058,13 @@ private func localizedList(_ values: [String]) -> String {
                 score: 64, level: .raised,
                 firedSignals: ["RHR +6", "HRV −22%", "skin temp +0.7 °C"],
                 suppressedBy: [], signalCount: 3,
-                copy: "Heads-up — your body looks strained. RHR +6, HRV −22%, skin temp +0.7 °C. With no alcohol or travel logged, consider taking it easy. On-device estimate — not a diagnosis."))
+                copy: "Several overnight signals are outside your usual range. Check how you feel; if you also feel run-down, consider an easier session. These readings cannot identify a cause."))
 
             HeadsUpCard(result: IllnessSignalEngine.Result(
                 score: 28, level: .suppressed,
                 firedSignals: ["RHR +5", "skin temp +0.6 °C"],
                 suppressedBy: ["alcohol"], signalCount: 2,
-                copy: "Some signals are up (RHR +5, skin temp +0.6 °C), but you logged alcohol — likely that, not illness. On-device estimate — not a diagnosis."))
+                copy: "Some overnight signals are outside your usual range. You logged alcohol, which may contribute; other causes are possible. These readings cannot identify a cause."))
         }
         .padding(NoopMetrics.screenPadding)
     }

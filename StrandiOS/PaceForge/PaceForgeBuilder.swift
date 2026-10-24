@@ -9,7 +9,9 @@ struct PFRawBundle {
     var body = PFJ(nil)
     var hyrox = PFJ(nil)
     var activities = PFJ(nil)
+    var workoutMatches = PFJ(nil)
     var analysesIndex = PFJ(nil)
+    var analysisStatus = PFJ(nil)
     var bodyProgress = PFJ(nil)
     var alerts = PFJ(nil)
     var readiness = PFJ(nil)
@@ -49,7 +51,9 @@ extension PFRawBundle {
         raw.body = PFJ(data: read("data/body.json"))
         raw.hyrox = PFJ(data: read("data/hyrox_analysis.json"))
         raw.activities = PFJ(data: read("data/activities.json"))
+        raw.workoutMatches = PFJ(data: read(PFDocs.workoutMatches))
         raw.analysesIndex = PFJ(data: read("data/analyses/index.json"))
+        raw.analysisStatus = PFJ(data: read(PFDocs.analysisStatus))
         raw.bodyProgress = PFJ(data: read("data/body-progress.json"))
         raw.alerts = PFJ(data: read("data/alerts.json"))
         raw.readiness = PFJ(data: read("data/readiness-explained.json"))
@@ -110,8 +114,8 @@ enum PFLeaf: CaseIterable {
         case .todayLayout: return [PFDocs.todayLayout]
         case .needsYou: return [PFDocs.needsYou, PFDocs.state]
         case .serverHidesBody: return [PFDocs.state]
-        case .activities: return [PFDocs.activities]
-        case .analyses: return [PFDocs.analysesIndex]
+        case .activities: return [PFDocs.activities, PFDocs.workoutMatches]
+        case .analyses: return [PFDocs.analysesIndex, PFDocs.analysisStatus]
         }
     }
 }
@@ -206,8 +210,12 @@ enum PFBuilder {
         for item in raw.activities.array {
             if let activity = activity(item) { snapshot.activities[activity.id] = activity }
         }
+        addStandaloneNOOPActivities(raw.workoutMatches, to: &snapshot.activities)
         for row in raw.analysesIndex.array {
             if let parsed = analysisRow(row) { snapshot.analyses[parsed.id] = parsed }
+        }
+        for row in raw.analysisStatus["items"].array {
+            if let parsed = analysisStatusRow(row) { snapshot.analysisStatuses[parsed.id] = parsed }
         }
         for row in raw.fitness["load"]["daily_load"]["per_activity"].array {
             if let id = row["activity_id"].idString, let trimp = row["trimp"].double { snapshot.trimp[id] = trimp }
@@ -314,11 +322,16 @@ enum PFBuilder {
             for item in raw.activities.array {
                 if let activity = activity(item) { snapshot.activities[activity.id] = activity }
             }
+            addStandaloneNOOPActivities(raw.workoutMatches, to: &snapshot.activities)
         }
         if stale(.analyses) {
             snapshot.analyses = [:]
             for row in raw.analysesIndex.array {
                 if let parsed = analysisRow(row) { snapshot.analyses[parsed.id] = parsed }
+            }
+            snapshot.analysisStatuses = [:]
+            for row in raw.analysisStatus["items"].array {
+                if let parsed = analysisStatusRow(row) { snapshot.analysisStatuses[parsed.id] = parsed }
             }
         }
     }
@@ -455,6 +468,7 @@ enum PFBuilder {
         }
 
         var out = PFWorkout(id: id, date: date, status: status)
+        out.coachSessionID = id.isEmpty ? nil : id
         out.name = w["name"].string
         out.kind = w["workout_type"].string
         out.sport = w["sport"].string
@@ -732,7 +746,15 @@ enum PFBuilder {
         var out = PFCoach()
         let daily = state["daily_brief"]
         if let headline = daily["headline"].text {
-            out.brief = PFBrief(date: daily["date"].string, headline: headline, outlook: daily["outlook"].strings)
+            let sources = daily["source_context"]
+            let garminDate = sources["garmin_date"].string.map { "Garmin \(String($0.prefix(10)))" } ?? "Garmin not in this snapshot"
+            let noopDate = sources["noop_date"].string.map { "NOOP \(String($0.prefix(10)))" } ?? "NOOP not in this snapshot"
+            let appleDate = sources["apple_health_date"].string.map {
+                "Apple Health via NOOP \(String($0.prefix(10)))"
+            } ?? "Apple Health not in this snapshot"
+            let sourceContext = sources.exists ? "Evidence dates · \(garminDate) · \(noopDate) · \(appleDate)" : nil
+            out.brief = PFBrief(date: daily["date"].string, headline: headline,
+                                outlook: daily["outlook"].strings, sourceContext: sourceContext)
         }
         if let headline = fitness["headline"].text {
             let readiness = fitness["coach_input"]["readiness"]
@@ -754,6 +776,22 @@ enum PFBuilder {
         if let headline = review["headline"].text, let start = review["period"]["start"].string,
            let end = review["period"]["end"].string {
             let weekly = state["weekly"]
+            let sourceContext = weekly["source_context"]
+            let garminContext = sourceContext["garmin"]
+            let garminDays = garminContext["days"].strings
+            let noopContext = weekly["source_context"]["noop"]
+            let noopDays = noopContext["days"].strings
+            let appleContext = sourceContext["apple_health"]
+            let appleDays = appleContext["days"].strings
+            let weeklySourceContext = sourceContext.exists
+                ? [garminDays.isEmpty ? "No Garmin readings in this review week."
+                                      : "Garmin · \(garminDays.count) dates · \(garminDays.joined(separator: ", "))",
+                   appleDays.isEmpty ? "No Apple Health daily records in this review week."
+                                     : "Apple Health via NOOP · \(appleDays.count) dates · \(appleDays.joined(separator: ", "))",
+                   noopDays.isEmpty ? "No NOOP strap readings in this review week."
+                                    : "NOOP strap · \(noopDays.count) nights · \(noopDays.joined(separator: ", "))"]
+                    .joined(separator: "\n")
+                : nil
             out.weeklyReview = PFWeeklyReview(
                 week: review["week"].string ?? "",
                 period: PFPeriod(start: start, end: end),
@@ -773,7 +811,8 @@ enum PFBuilder {
                 },
                 strengthSaid: review["strength"]["said"].text,
                 thisWeek: weekly["this_week"].strings,
-                fullRead: weekly["content_md"].text ?? weekly["content"].text)
+                fullRead: weekly["content_md"].text ?? weekly["content"].text,
+                sourceContext: weeklySourceContext)
         }
         out.chat = state["chat"]["turns"].array.suffix(6).compactMap { t in
             guard let role = t["role"].string, let text = t["text"].text, let ts = t["ts"].string else { return nil }
@@ -924,6 +963,25 @@ enum PFBuilder {
         return out
     }
 
+    private static func addStandaloneNOOPActivities(_ matches: PFJ, to activities: inout [String: PFActivity]) {
+        for workout in matches["workouts"].array {
+            let c = workout["canonical"]
+            guard ["whoop", "apple-health"].contains(c["source"].text ?? ""),
+                  let id = c["key"].idString, activities[id] == nil else { continue }
+            var out = PFActivity(id: id)
+            let source = c["source"].text == "apple-health" ? "Apple Health via NOOP" : "NOOP strap"
+            out.name = (c["name"].text ?? c["sport"].text ?? "Workout") + " · " + source
+            out.type = c["sport"].text
+            out.startTime = c["start"].text
+            out.durationS = c["duration_seconds"].double ?? c["minutes"].double.map { $0 * 60 }
+            out.distanceM = c["distance_meters"].double
+            out.avgHr = c["avg_hr"].double
+            out.maxHr = c["max_hr"].double
+            out.calories = c["calories"].double
+            activities[id] = out
+        }
+    }
+
     static func detail(_ d: PFJ) -> PFDetail {
         var out = PFDetail()
         out.hrr1 = hrr1(d["hrr1"])
@@ -976,5 +1034,11 @@ enum PFBuilder {
         out.actualKm = plan["actual_km"].double
         out.actualMin = plan["actual_minutes"].double
         return out
+    }
+
+    static func analysisStatusRow(_ r: PFJ) -> PFAnalysisStatus? {
+        guard let id = r["id"].idString else { return nil }
+        return PFAnalysisStatus(id: id, status: r["status"].text,
+                                reason: r["reason"].text)
     }
 }

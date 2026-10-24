@@ -7,6 +7,7 @@ import StrandDesign
 struct PFResultsSheet: View {
     let workout: PFWorkout
     let snapshot: PFSnapshot
+    var onAskCoach: ((String) -> Void)? = nil
 
     @EnvironmentObject private var model: PFModel
     @Environment(\.dismiss) private var dismiss
@@ -22,7 +23,6 @@ struct PFResultsSheet: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
                     PFResultsHeader(workout: workout, activity: activity, weather: results?.detail?.weather)
-                    if let activity { PFStatTiles(activity: activity) }
                     if let results {
                         content(results)
                     } else {
@@ -55,6 +55,21 @@ struct PFResultsSheet: View {
 
     @ViewBuilder private func content(_ results: PFSessionResults) -> some View {
         let detail = results.detail
+        coachCard(results.analysis)
+        if let onAskCoach, let sessionID = workout.coachSessionID {
+            Button {
+                dismiss()
+                onAskCoach(sessionID)
+            } label: {
+                Label("Ask Coach about this workout", systemImage: "bubble.left.and.bubble.right")
+                    .font(StrandFont.subhead.weight(.semibold))
+                    .frame(maxWidth: .infinity, minHeight: 48)
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(StrandPalette.accent)
+            .accessibilityIdentifier("pf-ask-coach-workout")
+        }
+        if let activity { PFStatTiles(activity: activity) }
         if let detail {
             PFHeartRateCard(samples: detail.samples, splits: detail.splits, avgHr: activity?.avgHr)
             if !detail.zones.isEmpty { PFZonesCard(zones: detail.zones) }
@@ -82,7 +97,6 @@ struct PFResultsSheet: View {
                 }
             }
         }
-        coachCard(results.analysis)
         if let rpe {
             PFCard("How hard it felt", icon: "gauge.with.dots.needle.67percent") {
                 HStack(alignment: .firstTextBaseline, spacing: 6) {
@@ -116,6 +130,20 @@ struct PFResultsSheet: View {
             }
         } else if let note = workout.completionAnalysis {
             PFCard("Coach analysis", icon: "sparkles") { PFParagraph(note) }
+        } else if let status = workout.activityId.flatMap({ snapshot.analysisStatuses[$0] }) {
+            PFCard(String(localized: "Coach review"), icon: "sparkles") {
+                Text(status.reason ?? "Coach review is not available yet.")
+                    .font(StrandFont.subhead)
+                    .foregroundStyle(StrandPalette.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        } else {
+            PFCard(String(localized: "Coach review"), icon: "sparkles") {
+                Text("No written Coach review is available for this session yet. The workout data below shows what was recorded.")
+                    .font(StrandFont.subhead)
+                    .foregroundStyle(StrandPalette.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         }
     }
 }

@@ -17,15 +17,16 @@ import kotlin.math.sqrt
  * Same windows, same thresholds, same outputs.
  *
  * Signals and their references:
- * - **HRV readiness** — z-score of today's HRV against the personal trailing baseline. A drop of
- *   roughly half a standard deviation flags autonomic fatigue (Plews et al. 2013; Buchheit 2014).
- * - **Resting-HR drift** — elevated resting HR vs baseline is a classic overtraining / illness
- *   signal (Lamberts et al. 2004).
- * - **Respiratory-rate drift** — a rise in sleeping respiratory rate is an early illness signal.
- * - **Training Stress Balance (ACWR)** — acute (7-day) vs chronic (28-day) strain. The 0.8–1.3
- *   band is the "sweet spot"; >1.5 is associated with higher injury risk (Gabbett 2016).
- * - **Training monotony** — mean/SD of daily strain over a week; high monotony (low variety) is
- *   associated with higher strain and illness (Foster 1998).
+ * - **HRV readiness** — z-score of today's HRV against the personal trailing baseline. A lower
+ *   reading is a trend to review with sleep, training and how the athlete feels; it has no single cause.
+ * - **Resting-HR drift** — elevated resting HR vs baseline can have many causes and is not a diagnosis
+ *   of overtraining or illness.
+ * - **Respiratory-rate drift** — a rise in sleeping respiratory rate is context to compare across
+ *   nights, not an early illness diagnosis.
+ * - **Training load ratio (ACWR)** — recent (7-day) vs prior (28-day) load. Reference bands are
+ *   descriptive context only and do not vote on recovery readiness or predict injury.
+ * - **Training monotony** — mean/SD of daily strain over a week. Group-level associations do not
+ *   make this ratio a personal illness or injury prediction.
  *
  * Not medical advice. These are approximations from a consumer strap; they describe trends in
  * *your own* data, nothing more.
@@ -35,9 +36,9 @@ object ReadinessEngine {
     // MARK: Output types
 
     enum class Level {
-        PRIMED,       // signals aligned, load supported
+        PRIMED,       // recovery signals aligned, no standout load warning
         BALANCED,     // nothing notable either way
-        STRAINED,     // one meaningful signal down / load high
+        STRAINED,     // one meaningful recovery signal down
         RUNDOWN,      // several recovery signals down
         INSUFFICIENT, // not enough history yet
     }
@@ -385,7 +386,7 @@ object ReadinessEngine {
             )
             ratio < 1.3 -> Signal(
                 key = "acwr", labelRes = Copy.TODAY_READINESS_SIGNAL_TRAINING_LOAD,
-                detailRes = Copy.TODAY_READINESS_LOAD_SWEET_SPOT, flag = Flag.GOOD,
+                detailRes = Copy.TODAY_READINESS_LOAD_SWEET_SPOT, flag = Flag.NEUTRAL,
                 evidence = evidence,
             )
             ratio < 1.5 -> Signal(
@@ -395,7 +396,7 @@ object ReadinessEngine {
             )
             else -> Signal(
                 key = "acwr", labelRes = Copy.TODAY_READINESS_SIGNAL_TRAINING_LOAD,
-                detailRes = Copy.TODAY_READINESS_LOAD_SPIKING, flag = Flag.BAD,
+                detailRes = Copy.TODAY_READINESS_LOAD_SPIKING, flag = Flag.WATCH,
                 evidence = evidence,
             )
         }
@@ -404,25 +405,26 @@ object ReadinessEngine {
     // MARK: Synthesis
 
     private fun synthesize(signals: List<Signal>, hasHistory: Boolean): Triple<Level, Copy, Copy> {
-        if (!hasHistory || signals.isEmpty()) {
+        // Load ratios and monotony stay visible as evidence, but do not vote on recovery readiness.
+        val readinessSignals = signals.filter { it.key !in setOf("acwr", "monotony") }
+        if (!hasHistory || readinessSignals.isEmpty()) {
             return Triple(
                 Level.INSUFFICIENT, Copy.TODAY_READINESS_TITLE,
                 Copy.TODAY_READINESS_MORE_NIGHTS,
             )
         }
-        val bad = signals.filter { it.flag == Flag.BAD }
-        val watch = signals.filter { it.flag == Flag.WATCH }
-        val good = signals.filter { it.flag == Flag.GOOD }
-        val recoveryDown = signals.any { it.key in listOf("hrv", "rhr", "respRate") && it.flag == Flag.BAD }
-        val loadHigh = signals.any { it.key == "acwr" && it.flag == Flag.BAD }
+        val bad = readinessSignals.filter { it.flag == Flag.BAD }
+        val watch = readinessSignals.filter { it.flag == Flag.WATCH }
+        val good = readinessSignals.filter { it.flag == Flag.GOOD }
+        val recoveryDown = readinessSignals.any { it.key in listOf("hrv", "rhr", "respRate") && it.flag == Flag.BAD }
 
-        if (bad.size >= 2 || (recoveryDown && loadHigh)) {
+        if (bad.size >= 2) {
             return Triple(
                 Level.RUNDOWN, Copy.TODAY_READINESS_RUN_DOWN,
                 Copy.TODAY_READINESS_RUN_DOWN_SUMMARY,
             )
         }
-        if (recoveryDown || loadHigh || bad.size >= 1) {
+        if (recoveryDown || bad.size >= 1) {
             return Triple(
                 Level.STRAINED, Copy.TODAY_READINESS_STRAINED,
                 Copy.TODAY_READINESS_STRAINED_SUMMARY,

@@ -1731,7 +1731,6 @@ struct SettingsView: View {
                 toolRow("Power saving", icon: "battery.25", id: "settings-tool-powersaving") { PowerSavingView() }
                 toolRow("Last crash report", icon: "exclamationmark.triangle", id: "settings-tool-crashreport") { NoopDiagnosticsView() }
                 PFRefreshBetaToggle()
-                UnifiedDayToggle()
                 UnifiedNavToggle()
                 NoopDiagSendButton()
             }

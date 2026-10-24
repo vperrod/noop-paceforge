@@ -2,7 +2,7 @@
 import SwiftUI
 import StrandDesign
 
-/// Gives one chip of the New navigation (beta) the PaceForge snapshot: the lock, the load states (loading, not set up, failed, saved
+/// Gives one chip of the unified navigation the PaceForge snapshot: the lock, the load states (loading, not set up, failed, saved
 /// data with a banner), the "Where you stand" and insight sheets, and the environment the PaceForge cards read. It is what
 /// PaceForgeTabView does around its five segments, for chips that sit in other tabs. It draws a column only: the tab's host owns the
 /// scroll view, the chips and the pull-to-refresh.

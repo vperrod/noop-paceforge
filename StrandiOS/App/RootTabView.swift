@@ -82,7 +82,7 @@ struct RootTabView: View {
     private static let classicTabs: [LookTabItem] = [
         LookTabItem(id: "today", title: "Today", symbol: "square.grid.2x2"),
         LookTabItem(id: "workouts", title: "Workouts", symbol: "figure.run"),
-        // Tab 2 is Sleep, or Day when Settings > Tools > New Day tab (beta) was on at launch (UnifiedDay).
+        // Sleep stays directly reachable; the old Day-tab preference no longer replaces it.
         LookTabItem(id: UnifiedDay.isOn ? "day" : "sleep", title: UnifiedDay.isOn ? "Day" : "Sleep",
                     symbol: UnifiedDay.isOn ? "calendar" : "bed.double"),
         LookTabItem(id: "paceforge", title: "PaceForge", symbol: "figure.run"),
@@ -111,7 +111,7 @@ struct RootTabView: View {
         withAnimation(.timingCurve(0.22, 1, 0.36, 1, duration: 0.24)) { selectedTab = 3 }
     }
 
-    /// With New navigation (beta) on there is no PaceForge tab: the PaceForge link a widget, a notification, `noop://paceforge/...` or the
+    /// With unified navigation on there is no PaceForge tab: the PaceForge link a widget, a notification, `noop://paceforge/...` or the
     /// Home Screen menu left lands on the screen that now holds that segment.
     private func openUnifiedLanding() {
         let raw = UserDefaults.standard.string(forKey: "noop.paceforge.segment") ?? PFSegment.today.rawValue
@@ -201,8 +201,8 @@ struct RootTabView: View {
             tab(LiquidTodayView(), "Today", "square.grid.2x2", path: $tabPaths[0], scrollSignal: scrollTop[0]).tag(0)
             tab(WorkoutsOrCalendarRoot(), UnifiedNav.secondTabTitle, UnifiedNav.secondTabIcon, path: $tabPaths[1], scrollSignal: scrollTop[1]).tag(1)
             tab(SleepOrDayRoot(), UnifiedDay.tabTitle, UnifiedDay.tabIcon, path: $tabPaths[2], scrollSignal: scrollTop[2]).tag(2)
-            // The PaceForge tab takes Coach's slot (tag 3) and is always present, whatever the Coach
-            // master switch says. NOOP's Coach screen is untouched; it opens as a sheet (see .coach below).
+            // The fourth tab is PaceForge in the classic map and Insights in the unified map. Coach has
+            // one visible entry in the floating bar; Coach deep links route to that same surface below.
             tab(PaceForgeOrInsightsRoot(), UnifiedNav.fourthTabTitle, UnifiedNav.fourthTabIcon, path: $tabPaths[3], scrollSignal: scrollTop[3]).tag(3)
             moreTab(path: $tabPaths[4], scrollSignal: scrollTop[4]).tag(4)
         }
@@ -269,7 +269,7 @@ struct RootTabView: View {
         .sheet(item: $quickAction) { action in
             quickActionDestination(action)
         }
-        // Widgets, the PaceForge brief notification and the Control Center control land on PaceForge > Today.
+        // PaceForge links and Control Center land on their requested section; brief taps route to the shared Coach.
         .onReceive(NotificationCenter.default.publisher(for: .pfOpenToday)) { _ in openPaceForgeToday() }
         .onAppear { if PFDeepLink.pending { openPaceForgeToday() } }
         // `noop://myday` and PaceForge's "Open My Day" button land on the Today tab's My Day.
@@ -313,7 +313,7 @@ struct RootTabView: View {
                 routedPillar = dest
                 router.requestedDestination = nil
             case .trends:
-                // Trends stays under More in classic navigation and is a chip of Insights in New navigation.
+                // Trends stays under More in classic navigation and is a chip of Insights in unified navigation.
                 if UnifiedNav.isOn {
                     showUnified(.insights(.trends))
                 } else {
@@ -340,8 +340,6 @@ struct RootTabView: View {
                 // Sleep is a tab: a link elsewhere switches to it (and leaves the tab it came from at its root) rather than
                 // pushing a second Sleep screen over that tab.
                 tabPaths[selectedTab] = NavigationPath()
-                // With the Day tab on, tab 2 is Day: land on its Sleep chip.
-                if UnifiedDay.isOn { UserDefaults.standard.set(DayChip.sleep.rawValue, forKey: DayChip.storageKey) }
                 withAnimation(.timingCurve(0.22, 1, 0.36, 1, duration: 0.24)) { selectedTab = 2 }
                 router.requestedDestination = nil
             case nil:
@@ -576,7 +574,7 @@ struct RootTabView: View {
             ScreenScaffold(title: "More", subtitle: "Everything else, two taps away",
                            onRefresh: { await repo.refresh() },
                            topBackground: liquidScaffoldSky()) {
-                // With New navigation (beta) on, these three are chips of the Insights tab and Body (with the Lab Book) is one row here.
+                // With unified navigation on, these three are chips of the Insights tab and Body (with the Lab Book) is one row here.
                 if !UnifiedNav.isOn {
                     IndexSection("Insights") {
                         IndexRow("Insights", "lightbulb.fill", MoreDestination.insights, id: "more-row-insights")
@@ -630,7 +628,7 @@ struct RootTabView: View {
     }
 }
 
-/// Tab 1 gives Workouts a direct home in classic navigation, or Calendar and Plan in New navigation (beta).
+/// Tab 1 gives Workouts a direct home in classic navigation and as the first Training screen in unified navigation.
 private struct WorkoutsOrCalendarRoot: View {
     var body: some View {
         if UnifiedNav.isOn {
@@ -641,7 +639,7 @@ private struct WorkoutsOrCalendarRoot: View {
     }
 }
 
-/// The root of tab 3: the PaceForge tab (build 480), or Insights when New navigation (beta) was on at launch.
+/// The root of tab 3: the PaceForge tab (build 480), or Insights when unified navigation was on at launch.
 private struct PaceForgeOrInsightsRoot: View {
     var body: some View {
         if UnifiedNav.isOn {
@@ -659,15 +657,10 @@ private struct CoachOrUnifiedCoach: View {
     }
 }
 
-/// The root of tab 2: the Sleep screen (build 479), or the Day screen when the New Day tab (beta) was on at launch. The choice is
-/// fixed for the life of the process, so the tab never changes identity while the app runs.
+/// Sleep stays directly available in both navigation modes; the former Day hub remains reachable through its existing links.
 private struct SleepOrDayRoot: View {
     var body: some View {
-        if UnifiedDay.isOn {
-            DayHostView()
-        } else {
-            SleepView()
-        }
+        SleepView()
     }
 }
 
@@ -679,7 +672,7 @@ private enum MoreDestination: String, Hashable {
     case insights, trends, explore, compare
     case liftLog, health, stress, labBook, rhythm, alarms
     case data, settings
-    /// Body and the Lab Book as chips; the row exists only with New navigation (beta) on.
+    /// Body and the Lab Book as chips; the row exists only with unified navigation on.
     case body
 
     @ViewBuilder var destination: some View {

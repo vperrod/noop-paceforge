@@ -10,6 +10,9 @@ import StrandDesign
 struct CoachUnifiedView: View {
     @EnvironmentObject private var coach: AICoachEngine
     @State private var showBriefSettings = false
+    @AppStorage("coachBrief.state") private var briefState = ""
+    @AppStorage("coachBrief.lastFailureReason") private var briefFailureReason = ""
+    @AppStorage("coachBrief.backgroundIssue") private var briefBackgroundIssue = ""
 
     var body: some View {
         ScreenScaffold(title: "Coach", subtitle: "One coach for your training, recovery, sleep and progress.",
@@ -23,6 +26,7 @@ struct CoachUnifiedView: View {
             .foregroundStyle(StrandPalette.accent)
             .accessibilityIdentifier("coach-brief-settings")
         }) {
+            briefStatusCard
             CoachPaceForgeChip()
         }
         .containerIdentifier("coach-host")
@@ -30,6 +34,42 @@ struct CoachUnifiedView: View {
             CoachSettingsView(sharedBrainMode: true)
                 .environmentObject(coach)
         }
+    }
+
+    private var briefStatusCard: some View {
+        PFCard("Morning briefing", icon: "bell.badge") {
+            VStack(alignment: .leading, spacing: 6) {
+                Text(briefState.isEmpty ? (CoachBriefScheduler.isEnabled
+                    ? "No briefing attempt is recorded yet. Check Brief settings and diagnostics."
+                    : "The morning briefing is off. Enable it in Brief settings.") : briefState)
+                    .font(StrandFont.subhead)
+                    .foregroundStyle(StrandPalette.textPrimary)
+                    .fixedSize(horizontal: false, vertical: true)
+                if !briefFailureReason.isEmpty {
+                    Text("Latest issue: \(briefFailureReason)")
+                        .font(StrandFont.caption)
+                        .foregroundStyle(PFColor.warning)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                if CoachBriefScheduler.shouldExplainBackgroundRefreshUnavailable {
+                    Text("Background App Refresh is unavailable in iOS. Automatic brief delivery may be delayed. Open Brief settings and tap Check now to try immediately.")
+                        .font(StrandFont.caption)
+                        .foregroundStyle(PFColor.warning)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                if !briefBackgroundIssue.isEmpty {
+                    Text("iOS background refresh issue: \(briefBackgroundIssue). Brief delivery may be delayed; open Coach to check now.")
+                        .font(StrandFont.caption)
+                        .foregroundStyle(PFColor.warning)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Button("Brief settings and diagnostics") { showBriefSettings = true }
+                    .font(StrandFont.caption.weight(.semibold))
+                    .foregroundStyle(StrandPalette.accent)
+                    .buttonStyle(.plain)
+            }
+        }
+        .accessibilityIdentifier("coach-morning-brief-status")
     }
 }
 

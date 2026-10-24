@@ -8,15 +8,16 @@ import WhoopStore
 /// deterministic function of the rows you pass in — no networking, no strap commands, no state.
 ///
 /// Signals and their references:
-/// - **HRV readiness** — z-score of today's HRV against the personal trailing baseline. A drop of
-///   roughly half a standard deviation flags autonomic fatigue (Plews et al. 2013; Buchheit 2014).
-/// - **Resting-HR drift** — elevated resting HR vs baseline is a classic overtraining / illness
-///   signal (Lamberts et al. 2004).
-/// - **Respiratory-rate drift** — a rise in sleeping respiratory rate is an early illness signal.
-/// - **Training load ratio (ACWR)** — a comparison of recent (7-day) and prior (28-day) load.
+/// - **HRV readiness** — z-score of today's HRV against the personal trailing baseline. A change
+///   describes a wearable trend; by itself it does not identify fatigue or its cause.
+/// - **Resting-HR drift** — elevated resting HR vs baseline can have many causes and is not a
+///   diagnosis of overtraining or illness.
+/// - **Respiratory-rate drift** — a rise in sleeping respiratory rate is context to compare across
+///   nights, not an early illness diagnosis.
+/// - **Training load ratio (ACWR)** — a comparison of recent (7-day) and prior (28-day) load, shown as context.
 ///   Reference bands are descriptive heuristics, not safety targets or injury predictions.
-/// - **Training monotony** — mean/SD of daily strain over a week; high monotony (low variety) is
-///   associated with higher strain and illness (Foster 1998).
+/// - **Training monotony** — mean/SD of daily strain over a week. Group-level associations do not
+///   make this ratio a personal illness or injury prediction.
 ///
 /// Not medical advice. These are approximations from a consumer strap; they describe trends in
 /// *your own* data, nothing more.
@@ -27,7 +28,7 @@ public enum ReadinessEngine {
     public enum Level: String, Sendable, Equatable {
         case primed       // signals aligned, load supported
         case balanced     // nothing notable either way
-        case strained     // one meaningful signal down / load high
+        case strained     // one meaningful recovery signal down
         case rundown      // several recovery signals down
         case insufficient // not enough history yet
     }
@@ -155,10 +156,10 @@ public enum ReadinessEngine {
             higherIsBetter: true,
             logDomain: true,   // RD1: lnRMSSD — HRV is right-skewed
             cfg: Baselines.readinessHRVLnCfg,   // RD2: ln-space spine, reject off
-            goodText: "above your baseline - well recovered",
+            goodText: "above your baseline today; one signal, not a recovery verdict",
             neutralText: "in your normal range",
             watchText: "a touch below baseline",
-            badText: "suppressed - a sign of autonomic fatigue")
+            badText: "below your baseline; check the trend with sleep, training and how you feel")
         if let s = hrvSignal { signals.append(s) }
 
         // Resting-HR drift ---------------------------------------------------
@@ -173,10 +174,10 @@ public enum ReadinessEngine {
             goodText: "at or below baseline",
             neutralText: "in your normal range",
             watchText: "running a little high",
-            badText: "elevated - overtraining or illness can do this")
+            badText: "above your baseline; training, sleep, illness and other factors can affect it")
         if let s = rhrSignal { signals.append(s) }
 
-        // Respiratory-rate drift (illness early signal) ----------------------
+        // Respiratory-rate drift ---------------------------------------------
         // respRateBpm may be a clean cloud value OR a higher-variance on-device RSA estimate, so gate
         // BOTH the latest value and the baseline mean to the plausible sleeping-RR band (8–25 bpm) and
         // use wider resp-only z thresholds (WATCH 1.5 / BAD 2.0) than HRV/RHR so a single noisy night
@@ -190,7 +191,7 @@ public enum ReadinessEngine {
                     signals.append(Signal(key: "respRate", label: "Respiratory rate",
                         evidence: evidence(value: rr, baseline: m, unit: "rpm", decimals: 1),
                         evidenceData: .metric(value: rr, baseline: m, unit: "rpm", decimals: 1),
-                        detail: "up vs baseline - sometimes an early sign of getting sick", flag: .bad))
+                        detail: "above baseline; a sustained change is context, not a diagnosis", flag: .bad))
                 } else if z >= 1.5 {
                     signals.append(Signal(key: "respRate", label: "Respiratory rate",
                         evidence: evidence(value: rr, baseline: m, unit: "rpm", decimals: 1),
@@ -221,7 +222,7 @@ public enum ReadinessEngine {
                     signals.append(Signal(key: "monotony", label: "Training variety",
                         evidence: "monotony \(String(format: "%.1f", mono))",
                         evidenceData: .monotony(mono),
-                        detail: "low - similar strain every day raises strain/illness risk", flag: .watch))
+                        detail: "daily strain was similar across the week; review session variety and recovery, not as a risk score", flag: .watch))
                 }
             }
         }
@@ -301,7 +302,7 @@ public enum ReadinessEngine {
             return Signal(key: "acwr", label: "Training load",
                 evidence: evidence,
                 evidenceData: .trainingLoad(acute: acute, chronic: chronic),
-                detail: "inside the reference band (acute:chronic \(pct)); not a safety score", flag: .good)
+                detail: "inside the reference band (acute:chronic \(pct)); not a safety score", flag: .neutral)
         case 1.3..<1.5:
             return Signal(key: "acwr", label: "Training load",
                 evidence: evidence,
@@ -311,7 +312,7 @@ public enum ReadinessEngine {
             return Signal(key: "acwr", label: "Training load",
                 evidence: evidence,
                 evidenceData: .trainingLoad(acute: acute, chronic: chronic),
-                detail: "recent load is markedly above prior weeks (acute:chronic \(pct)); review recovery and the sessions ahead", flag: .bad)
+                detail: "recent load is markedly above prior weeks (acute:chronic \(pct)); review recovery and the sessions ahead", flag: .watch)
         }
     }
 
@@ -328,30 +329,31 @@ public enum ReadinessEngine {
     // MARK: Synthesis
 
     private static func synthesize(signals: [Signal], hasHistory: Bool) -> (Level, String, String) {
-        guard hasHistory, !signals.isEmpty else {
+        // Load ratios and monotony stay visible as evidence, but do not vote on recovery readiness.
+        let readinessSignals = signals.filter { !["acwr", "monotony"].contains($0.key) }
+        guard hasHistory, !readinessSignals.isEmpty else {
             return (.insufficient, "Readiness",
                     "A few more nights of data and your readiness read will sharpen.")
         }
-        let bad = signals.filter { $0.flag == .bad }
-        let watch = signals.filter { $0.flag == .watch }
-        let good = signals.filter { $0.flag == .good }
-        let recoveryDown = signals.contains { ["hrv", "rhr", "respRate"].contains($0.key) && ($0.flag == .bad) }
-        let loadHigh = signals.contains { $0.key == "acwr" && $0.flag == .bad }
+        let bad = readinessSignals.filter { $0.flag == .bad }
+        let watch = readinessSignals.filter { $0.flag == .watch }
+        let good = readinessSignals.filter { $0.flag == .good }
+        let recoveryDown = readinessSignals.contains { ["hrv", "rhr", "respRate"].contains($0.key) && ($0.flag == .bad) }
 
-        if bad.count >= 2 || (recoveryDown && loadHigh) {
-            return (.rundown, "Run down",
-                    "Several signals are down at once. Treat today as recovery - easy movement, real sleep tonight.")
+        if bad.count >= 2 {
+            return (.rundown, "Several signals to review",
+                    "Several recovery signals are outside your personal range. Check their source and dates; the Coach can weigh them with your plan and how you feel.")
         }
-        if recoveryDown || loadHigh || bad.count >= 1 {
-            return (.strained, "Strained",
-                    "One of your signals is flagging. You can train, but keep it controlled and bank the recovery.")
+        if recoveryDown || bad.count >= 1 {
+            return (.strained, "One signal to review",
+                    "A recovery signal is outside your personal range. Compare it with sleep, recent training and how you feel; this read alone does not decide today's session.")
         }
         if good.count >= 2 && watch.isEmpty {
             return (.primed, "Primed",
-                    "Your signals are aligned and your load is supported. A harder session is well backed today.")
+                    "Your recovery signals are aligned. Keep your plan and how you feel in view today.")
         }
         return (.balanced, "Balanced",
-                "Nothing's flagging. Train to feel - your body's holding steady.")
+                "No strong recovery signal stands out. Keep your plan and how you feel in view.")
     }
 
     // MARK: Stats helpers

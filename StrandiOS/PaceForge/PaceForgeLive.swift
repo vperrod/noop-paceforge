@@ -166,13 +166,14 @@ enum PFAPI {
 
     /// Send one user message to the shared PaceForge Coach. The server runs the same coach job and
     /// stores its reply in `api/state`, which the iPhone refreshes into the existing transcript.
-    static func postCoachMessage(_ message: String) async throws -> (status: Int, data: Data) {
+    static func postCoachMessage(_ message: String, sessionID: String? = nil) async throws -> (status: Int, data: Data) {
         if let fixture {
             guard let reply = fixture["api/app/chat"] else { throw CocoaError(.fileNoSuchFile) }
             return (200, try JSONSerialization.data(withJSONObject: reply))
         }
-        return try await SelfHostedPushClient.paceForgePostReturningStatus(
-            "api/app/chat", body: ["message": String(message.prefix(2_000))])
+        var body: [String: Any] = ["message": String(message.prefix(2_000))]
+        if let sessionID, !sessionID.isEmpty { body["session_id"] = sessionID }
+        return try await SelfHostedPushClient.paceForgePostReturningStatus("api/app/chat", body: body)
     }
 
     /// One line for the error card: the server host and why the request failed. No token, no path.
@@ -291,7 +292,7 @@ enum PFAPI {
         raw.dismissed = take(await dismissed)
         raw.todayLayout = take(await todayLayout)
         raw.needsYou = take(await needsYou)
-        _ = await workoutMatches
+        raw.workoutMatches = take(await workoutMatches)
         return Fetched(raw: raw, digest: hasher.finalize(), bytes: bytes)
     }
 }

@@ -1,5 +1,8 @@
 import SwiftUI
 import StrandDesign
+#if os(iOS)
+import UIKit
+#endif
 
 /// Coach settings, split out of `CoachView` so the coach screen is the conversation and nothing else
 /// (#2243). Holds the surfaces that used to stack above the transcript: the data-sharing consent, the
@@ -34,6 +37,7 @@ struct CoachSettingsView: View {
     @State private var briefMinutes: Int = CoachBriefScheduler.timeMinutes
     @State private var briefGenerating = false
     @State private var briefStatus: String?
+    @AppStorage("coachBrief.backgroundIssue") private var briefBackgroundIssue = ""
 
     /// The coach-instructions editor, collapsed until asked for.
     @State private var promptExpanded: Bool = false
@@ -366,6 +370,33 @@ struct CoachSettingsView: View {
                             .foregroundStyle(StrandPalette.textTertiary)
                             .fixedSize(horizontal: false, vertical: true)
                     }
+                    if usesSharedCoach, let state = CoachBriefScheduler.state {
+                        Text("Brief status: \(state)")
+                            .font(StrandFont.footnote)
+                            .foregroundStyle(StrandPalette.textTertiary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    #if os(iOS)
+                    if usesSharedCoach, !briefBackgroundIssue.isEmpty {
+                        Text("iOS background refresh issue: \(briefBackgroundIssue). Brief delivery may be delayed; open Coach to check now.")
+                            .font(StrandFont.footnote)
+                            .foregroundStyle(StrandPalette.statusWarning)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    #endif
+                    #if os(iOS)
+                    if usesSharedCoach {
+                        Button {
+                            UIPasteboard.general.string = CoachBriefScheduler.diagnosticsSummary
+                            briefStatus = "Privacy-safe Coach brief diagnostics copied."
+                        } label: {
+                            Label("Copy brief diagnostics", systemImage: "doc.on.doc")
+                                .font(StrandFont.footnote)
+                        }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(StrandPalette.accent)
+                    }
+                    #endif
                 }
             }
         }
@@ -414,7 +445,11 @@ struct CoachSettingsView: View {
                     coach.appendGeneratedBrief(text)
                 }
             } else {
-                briefStatus = "Couldn't generate the brief. \(CoachBriefScheduler.lastFailureReason ?? "Check your Coach provider and data access settings.")"
+                // A nil result includes an expected wait for today's NOOP/PaceForge data.
+                // Show the state machine's recorded reason instead of labelling every wait a failure.
+                briefStatus = CoachBriefScheduler.lastFailureReason
+                    ?? CoachBriefScheduler.state
+                    ?? "Check your Coach provider and data access settings."
             }
         }
     }

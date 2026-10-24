@@ -29030,70 +29030,6 @@
         }
       }
     },
-    "Acute (7-day) vs chronic (28-day) training load. 0.8–1.3 is the sweet spot.": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Akute (7 Tage) vs. chronische (28 Tage) Trainingslast. 0,8–1,3 ist der ideale Bereich."
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Acute (7-day) vs chronic (28-day) training load. 0.8–1.3 is the sweet spot."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Carga de entrenamiento aguda (7 días) frente a crónica (28 días). 0,8–1,3 es el rango ideal."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Charge d'entraînement aiguë (7 jours) vs chronique (28 jours). 0,8–1,3 est la zone idéale."
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Carico di allenamento acuto (7 giorni) rispetto a cronico (28 giorni). 0,8–1,3 è la fascia ideale."
-          }
-        },
-        "pt-PT": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Carga de treino aguda (7 dias) versus crónica (28 dias). 0,8–1,3 é o ponto ideal."
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Соотношение острой (7-дневной) и хронической (28-дневной) тренировочной нагрузки. Оптимальный коэффициент, 0,8–1,3."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "急性（7 天）与慢性（28 天）训练负荷之比。0.8–1.3 是理想区间。"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "急性（7 天）與慢性（28 天）訓練負荷之比。0.8–1.3 是理想區間。"
-          }
-        },
-        "pl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ostre (7-dniowe) vs chroniczne (28-dniowe) obciążenie treningowe. Optymalny poziom to 0,8–1,3."
-          }
-        }
-      }
-    },
     "Add": {
       "localizations": {
         "de": {
@@ -117310,64 +117246,6 @@
         }
       }
     },
-    "Nothing's flagging. Train to feel - your body's holding steady.": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Nichts schlägt Alarm. Trainiere nach Gefühl - dein Körper hält stabil."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Nada está en alerta. Entrena según cómo te sientas: tu cuerpo se mantiene estable."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Rien ne clignote. Entraînez-vous selon vos sensations - votre corps tient bon."
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Niente è in allerta. Allenati in base a come ti senti - il tuo corpo si mantiene stabile."
-          }
-        },
-        "pt-PT": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Nada está a sinalizar. Treine para sentir que o teu corpo está firme."
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ничего не вызывает тревоги. Тренируйтесь по самочувствию — организм держится стабильно."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "没有异常信号。按感觉训练——你的身体状态平稳。"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "沒有異常信號。按感覺訓練——你的身體狀態平穩。"
-          }
-        },
-        "pl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Nic nie szwankuje. Trenuj, aby czuć – Twoje ciało trzyma się stabilnie."
-          }
-        }
-      }
-    },
     "Notifications": {
       "localizations": {
         "de": {
@@ -188134,64 +188012,6 @@
         }
       }
     },
-    "Your signals are aligned and your load is supported. A harder session is well backed today.": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Deine Werte stimmen überein und deine Belastung ist gedeckt. Eine härtere Einheit ist heute gut abgesichert."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Tus señales están alineadas y tu carga está respaldada. Hoy una sesión más dura está bien respaldada."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Vos signaux sont alignés et votre charge est soutenue. Une séance plus intense est bien étayée aujourd'hui."
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "I tuoi segnali sono allineati e il tuo carico è supportato. Una sessione più dura è ben sostenuta oggi."
-          }
-        },
-        "pt-PT": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Os teus sinais estão alinhados e a tua carga é suportada. Uma sessão mais difícil está bem apoiada hoje."
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ваши сигналы согласованы, и нагрузка поддержана. Сегодня более тяжёлая тренировка хорошо обоснована."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "各项指标一致，你的负荷也有支撑。今天适合安排一次更高强度的训练。"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "各項指標一致，你的負荷也有支撐。今天適合安排一次更高強度的訓練。"
-          }
-        },
-        "pl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Twoje sygnały są wyrównane, a obciążenie jest obsługiwane. Dzisiejsza trudniejsza sesja jest dobrze wspierana."
-          }
-        }
-      }
-    },
     "Your strap in real time, heart rate and frames as they arrive.": {
       "extractionState": "stale",
       "localizations": {
@@ -189970,64 +189790,6 @@
         }
       }
     },
-    "above your baseline - well recovered": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "über deiner Basislinie - gut erholt"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "por encima de tu línea base: bien recuperado"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "au-dessus de votre ligne de base - bien récupéré"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "sopra la tua linea di base - ben recuperato"
-          }
-        },
-        "pt-PT": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "acima da tua linha de base - bem recuperado"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "выше вашей нормы — хорошо восстановились"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "高于你的基线——恢复良好"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "高於你的基線——恢復良好"
-          }
-        },
-        "pl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "powyżej wartości wyjściowej – dobrze wyzdrowiał"
-          }
-        }
-      }
-    },
     "active": {
       "localizations": {
         "de": {
@@ -191264,64 +191026,6 @@
         }
       }
     },
-    "building fast (acute:chronic %@) - watch fatigue": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "steigt schnell (akut:chronisch %@) - achte auf Ermüdung"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "aumentando rápido (agudo:crónico %@) - vigila la fatiga"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "augmente rapidement (aigu:chronique %@) - surveillez la fatigue"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "in aumento rapido (acuto:cronico %@) - attenzione alla fatica"
-          }
-        },
-        "pt-PT": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "crescendo rápido (agudo: crónico %@) - note a fadiga"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "быстро растёт (острое:хроническое %@) — следите за усталостью"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "上升过快（急性：慢性 %@）——请留意疲劳"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "上升過快（急性：慢性 %@）——請留意疲勞"
-          }
-        },
-        "pl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "budowanie szybko (ostre: chroniczne %@) - obserwuj zmęczenie"
-          }
-        }
-      }
-    },
     "cal": {
       "localizations": {
         "de": {
@@ -192460,64 +192164,6 @@
         }
       }
     },
-    "elevated - overtraining or illness can do this": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "erhöht - Übertraining oder Krankheit können das verursachen"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "elevada: el sobreentrenamiento o una enfermedad pueden causar esto"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "élevée - le surentraînement ou une maladie peuvent en être la cause"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "elevata - il sovrallenamento o una malattia possono causarlo"
-          }
-        },
-        "pt-PT": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "elevado - o overtraining ou a doença podem fazer com que"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "повышено - причиной может быть перетренированность или болезнь"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "偏高——过度训练或生病都可能导致这种情况"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "偏高——過度訓練或生病都可能導致這種情況"
-          }
-        },
-        "pl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "podwyższony - może to spowodować przetrenowanie lub choroba"
-          }
-        }
-      }
-    },
     "est.": {
       "localizations": {
         "de": {
@@ -193390,64 +193036,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "W"
-          }
-        }
-      }
-    },
-    "in the sweet spot (acute:chronic %@)": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "im optimalen Bereich (akut:chronisch %@)"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "en el punto óptimo (agudo:crónico %@)"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "dans la zone optimale (aigu:chronique %@)"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "nella zona ottimale (acuto:cronico %@)"
-          }
-        },
-        "pt-PT": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "no ponto ideal (agudo:crónico %@)"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "в оптимальной зоне (остр.:хрон. %@)"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "处于最佳区间（急性：慢性 %@）"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "處於最佳區間（急性：慢性 %@）"
-          }
-        },
-        "pl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "w słodkim punkcie (ostry: chroniczny %@)"
           }
         }
       }
@@ -194446,64 +194034,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Niski"
-          }
-        }
-      }
-    },
-    "low - similar strain every day raises strain/illness risk": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "niedrig - ähnliche Belastung an jedem Tag erhöht das Risiko für Überlastung/Krankheit"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "baja: un esfuerzo similar cada día aumenta el riesgo de sobrecarga o enfermedad"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "faible - un effort similaire chaque jour augmente le risque de surcharge/maladie"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "bassa - uno sforzo simile ogni giorno aumenta il rischio di sovraccarico/malattia"
-          }
-        },
-        "pt-PT": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "baixo - tensão semelhante todos os dias aumenta o risco de tensão/doença"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "низкая - одинаковая нагрузка изо дня в день повышает риск избыточной нагрузки или болезни"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "偏低——每天强度雷同会增加过度负荷/患病风险"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "偏低——每天強度雷同會增加過度負荷/患病風險"
-          }
-        },
-        "pl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "niski – podobny wysiłek każdego dnia zwiększa ryzyko napięcia/choroby"
           }
         }
       }
@@ -197881,64 +197411,6 @@
         }
       }
     },
-    "ramping down (acute:chronic %@) - room to build": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "im Rückgang (akut:chronisch %@) - Raum zum Aufbauen"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "en descenso (agudo:crónico %@) - hay margen para aumentar"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "en baisse (aigu:chronique %@) - de la marge pour progresser"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "in calo (acuto:cronico %@) - margine per aumentare"
-          }
-        },
-        "pt-PT": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "desaceleração (aguda:crónica %@) - espaço para construir"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "снижается (остр.:хрон. %@) - есть запас для роста"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "正在下降（急性：慢性 %@）——还有提升空间"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "正在下降（急性：慢性 %@）——還有提升空間"
-          }
-        },
-        "pl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "opadanie (ostre: chroniczne %@) - miejsce do zbudowania"
-          }
-        }
-      }
-    },
     "reading…": {
       "localizations": {
         "de": {
@@ -198983,64 +198455,6 @@
         }
       }
     },
-    "spiking (acute:chronic %@) - higher injury risk": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "schnellt hoch (akut:chronisch %@) - höheres Verletzungsrisiko"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "disparándose (agudo:crónico %@) - mayor riesgo de lesión"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "en pic (aigu:chronique %@) - risque de blessure accru"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "in impennata (acuto:cronico %@) - rischio di infortunio più alto"
-          }
-        },
-        "pt-PT": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "pico (agudo:crónico %@) - maior risco de lesões"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "резкий скачок (остр.:хрон. %@) - повышенный риск травмы"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "急剧上升（急性：慢性 %@）——受伤风险更高"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "急劇上升（急性：慢性 %@）——受傷風險更高"
-          }
-        },
-        "pl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "kolce (ostre:przewlekłe %@) - większe ryzyko kontuzji"
-          }
-        }
-      }
-    },
     "stale · %@": {
       "localizations": {
         "de": {
@@ -199385,64 +198799,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "mocny"
-          }
-        }
-      }
-    },
-    "suppressed - a sign of autonomic fatigue": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "unterdrückt - ein Zeichen für autonome Erschöpfung"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "suprimida: un signo de fatiga autónoma"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "supprimée - un signe de fatigue autonome"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "soppressa - un segno di affaticamento autonomo"
-          }
-        },
-        "pt-PT": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "suprimido - um sinal de fadiga autonómica"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "подавлено - признак вегетативной усталости"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "受抑制——自主神经疲劳的迹象"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "受抑制——自主神經疲勞的跡象"
-          }
-        },
-        "pl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "stłumiony - oznaka zmęczenia autonomicznego"
           }
         }
       }
@@ -200633,64 +199989,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "w górę o 1 punkt"
-          }
-        }
-      }
-    },
-    "up vs baseline - sometimes an early sign of getting sick": {
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "höher als die Basislinie - manchmal ein frühes Anzeichen einer beginnenden Krankheit"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "por encima de tu línea base: a veces un signo temprano de estar enfermando"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "en hausse par rapport à votre ligne de base - parfois un signe précoce de maladie"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "in aumento rispetto alla tua linea di base - a volte un segno precoce di malattia in arrivo"
-          }
-        },
-        "pt-PT": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "up vs linha de base - por vezes um sinal precoce de doença"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "выше нормы - иногда ранний признак болезни"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "高于基线——有时是即将生病的早期迹象"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "高於基線——有時是即將生病的早期跡象"
-          }
-        },
-        "pl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "wzrost w porównaniu z wartością wyjściową – czasami jest to wczesny objaw choroby"
           }
         }
       }
@@ -219176,7 +218474,1512 @@
         "Date of birth": {"localizations": {"de": {"stringUnit": {"state": "translated", "value": "Geburtsdatum"}}, "es": {"stringUnit": {"state": "translated", "value": "Fecha de nacimiento"}}, "fr": {"stringUnit": {"state": "translated", "value": "Date de naissance"}}, "it": {"stringUnit": {"state": "translated", "value": "Data di nascita"}}, "pl": {"stringUnit": {"state": "translated", "value": "Data urodzenia"}}, "pt-PT": {"stringUnit": {"state": "translated", "value": "Data de nascimento"}}, "ru": {"stringUnit": {"state": "translated", "value": "Дата рождения"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "出生日期"}}, "zh-Hant": {"stringUnit": {"state": "translated", "value": "出生日期"}}}},
         "Day cycle": {"localizations": {"de": {"stringUnit": {"state": "translated", "value": "Tageszyklus"}}, "es": {"stringUnit": {"state": "translated", "value": "Ciclo diario"}}, "fr": {"stringUnit": {"state": "translated", "value": "Cycle journalier"}}, "it": {"stringUnit": {"state": "translated", "value": "Ciclo giornaliero"}}, "pl": {"stringUnit": {"state": "translated", "value": "Cykl dobowy"}}, "pt-PT": {"stringUnit": {"state": "translated", "value": "Ciclo diário"}}, "ru": {"stringUnit": {"state": "translated", "value": "Суточный цикл"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "每日周期"}}, "zh-Hant": {"stringUnit": {"state": "translated", "value": "每日週期"}}}},
         "Raw on-device stages": {"localizations": {"de": {"stringUnit": {"state": "translated", "value": "Rohe Phasen vom Gerät"}}, "es": {"stringUnit": {"state": "translated", "value": "Fases sin procesar del dispositivo"}}, "fr": {"stringUnit": {"state": "translated", "value": "Stades bruts de l'appareil"}}, "it": {"stringUnit": {"state": "translated", "value": "Fasi grezze dal dispositivo"}}, "pl": {"stringUnit": {"state": "translated", "value": "Surowe fazy z urządzenia"}}, "pt-PT": {"stringUnit": {"state": "translated", "value": "Estágios brutos do dispositivo"}}, "ru": {"stringUnit": {"state": "translated", "value": "Исходные стадии с устройства"}}, "zh-Hans": {"stringUnit": {"state": "translated", "value": "设备端原始睡眠阶段"}}, "zh-Hant": {"stringUnit": {"state": "translated", "value": "裝置端原始睡眠階段"}}}},
-        "Oura": {"shouldTranslate": false}
+        "Oura": {"shouldTranslate": false},
+    "A recovery signal is outside your personal range. Compare it with sleep, recent training and how you feel; this read alone does not decide today's session.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A recovery signal is outside your personal range. Compare it with sleep, recent training and how you feel; this read alone does not decide today's session."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ein Erholungssignal liegt außerhalb deines persönlichen Bereichs. Vergleiche es mit Schlaf, Training und deinem Befinden; dieser Messwert allein entscheidet nicht über die heutige Einheit."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Una señal de recuperación está fuera de tu rango personal. Compárala con el sueño, el entrenamiento reciente y cómo te sientes; esta lectura por sí sola no decide la sesión de hoy."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un signal de récupération est en dehors de ta plage habituelle. Compare-le au sommeil, à l’entraînement récent et à ton ressenti ; cette mesure seule ne décide pas de la séance du jour."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un segnale di recupero è fuori dal tuo intervallo personale. Confrontalo con sonno, allenamento recente e sensazioni; da solo non decide la sessione di oggi."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Um sinal de recuperação está fora do teu intervalo pessoal. Compara-o com o sono, o treino recente e como te sentes; esta leitura, por si só, não decide a sessão de hoje."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Один из показателей восстановления вышел за ваш обычный диапазон. Сопоставьте его со сном, недавними тренировками и самочувствием; только этот показатель не определяет сегодняшнюю тренировку."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "一项恢复信号超出你的个人范围。结合睡眠、近期训练和身体感受观察；仅凭这一读数不决定今天的训练。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "一項恢復訊號超出你的個人範圍。結合睡眠、近期訓練和身體感受觀察；僅憑這個讀數不決定今天的訓練。"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Jeden sygnał regeneracji wykracza poza Twój indywidualny zakres. Porównaj go ze snem, ostatnimi treningami i samopoczuciem; sam odczyt nie decyduje o dzisiejszej sesji."
+          }
+        }
+      }
+    },
+    "Ask Coach about this workout": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Coach zu diesem Training fragen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Preguntar al Coach sobre este entrenamiento"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Demander au Coach à propos de cette séance"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chiedi al Coach di questo allenamento"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Perguntar ao Coach sobre este treino"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Спросить тренера об этой тренировке"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "向教练询问这次训练"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "向教練詢問這次訓練"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zapytaj Coach o ten trening"
+          }
+        }
+      }
+    },
+    "Coach review": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Coach review"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Coach-Bewertung"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Análisis del Coach"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Analyse du Coach"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Analisi del Coach"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ocena trenera"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Análise do Coach"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Разбор тренера"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "教练评估"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "教練評估"
+          }
+        }
+      }
+    },
+    "No briefing attempt is recorded yet. Check Brief settings and diagnostics.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No briefing attempt is recorded yet. Check Brief settings and diagnostics."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Es ist noch kein Briefing-Versuch gespeichert. Prüfe die Briefing-Einstellungen und Diagnose."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aún no se ha registrado ningún intento de briefing. Revisa la configuración y los diagnósticos."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucune tentative de briefing n’est encore enregistrée. Consultez les réglages et les diagnostics."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Non è ancora registrato alcun tentativo di briefing. Controlla le impostazioni e la diagnostica."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nie zapisano jeszcze próby wygenerowania briefingu. Sprawdź ustawienia i diagnostykę."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ainda não foi registada nenhuma tentativa de briefing. Consulte as definições e o diagnóstico."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Попытка создать брифинг ещё не записана. Проверьте настройки и диагностику."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "尚未记录简报生成尝试。请检查简报设置和诊断信息。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "尚未記錄簡報產生嘗試。請檢查簡報設定和診斷資訊。"
+          }
+        }
+      }
+    },
+    "Background App Refresh is unavailable in iOS. Automatic brief delivery may be delayed. Open Brief settings and tap Check now to try immediately.": {
+      "localizations": {
+        "en": { "stringUnit": { "state": "translated", "value": "Background App Refresh is unavailable in iOS. Automatic brief delivery may be delayed. Open Brief settings and tap Check now to try immediately." } },
+        "de": { "stringUnit": { "state": "translated", "value": "Die Hintergrundaktualisierung ist in iOS nicht verfügbar. Das Briefing kann sich verzögern. Öffne die Briefing-Einstellungen und tippe auf „Jetzt prüfen“, um es sofort zu versuchen." } },
+        "es": { "stringUnit": { "state": "translated", "value": "La actualización en segundo plano no está disponible en iOS. El briefing puede retrasarse. Abre sus ajustes y pulsa «Comprobar ahora» para intentarlo de inmediato." } },
+        "fr": { "stringUnit": { "state": "translated", "value": "L’actualisation en arrière-plan n’est pas disponible dans iOS. Le briefing peut être retardé. Ouvrez ses réglages et touchez « Vérifier maintenant » pour réessayer tout de suite." } },
+        "it": { "stringUnit": { "state": "translated", "value": "L’aggiornamento in background non è disponibile in iOS. Il briefing potrebbe arrivare in ritardo. Apri le impostazioni e tocca «Controlla ora» per riprovare subito." } },
+        "pl": { "stringUnit": { "state": "translated", "value": "Odświeżanie w tle jest niedostępne w iOS. Briefing może być opóźniony. Otwórz jego ustawienia i wybierz „Sprawdź teraz”, aby spróbować od razu." } },
+        "pt-PT": { "stringUnit": { "state": "translated", "value": "A atualização em segundo plano não está disponível no iOS. O briefing pode atrasar. Abra as definições e toque em «Verificar agora» para tentar imediatamente." } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Фоновое обновление недоступно в iOS. Брифинг может задержаться. Откройте его настройки и нажмите «Проверить сейчас», чтобы попробовать немедленно." } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "iOS 当前无法后台刷新，简报可能延迟。打开简报设置并点按“立即检查”以马上重试。" } },
+        "zh-Hant": { "stringUnit": { "state": "translated", "value": "iOS 目前無法背景更新，簡報可能延遲。開啟簡報設定並點選「立即檢查」以立刻重試。" } }
+      }
+    },
+    "No strong recovery signal stands out. Keep your plan and how you feel in view today.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kein deutliches Erholungssignal sticht hervor. Behalte heute deinen Plan und dein Befinden im Blick."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No destaca ninguna señal clara de recuperación. Ten en cuenta tu plan y cómo te sientes hoy."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucun signal de récupération marqué ne ressort. Garde ton plan et ton ressenti en tête aujourd’hui."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Non emerge un segnale di recupero marcato. Tieni presenti il piano e le tue sensazioni oggi."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Não se destaca nenhum sinal forte de recuperação. Tem em conta o plano e como te sentes hoje."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выраженных сигналов восстановления не выделяется. Учитывай план и своё самочувствие сегодня."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "没有明显的恢复信号突出。请结合训练计划和自身感受安排今天的训练。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "沒有明顯的恢復訊號突出。請結合訓練計畫和自身感受安排今天的訓練。"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nie wyróżnia się wyraźny sygnał regeneracji. Uwzględnij dziś swój plan i samopoczucie."
+          }
+        }
+      }
+    },
+    "No written Coach review is available for this session yet. The workout data below shows what was recorded.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No written Coach review is available for this session yet. The workout data below shows what was recorded."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Für diese Einheit liegt noch keine schriftliche Coach-Bewertung vor. Unten siehst du die aufgezeichneten Trainingsdaten."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Todavía no hay un análisis escrito del Coach para esta sesión. Los datos de entrenamiento registrados aparecen abajo."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucune analyse écrite du Coach n’est encore disponible pour cette séance. Les données enregistrées figurent ci-dessous."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Per questa sessione non è ancora disponibile un’analisi scritta del Coach. Qui sotto trovi i dati registrati."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nie ma jeszcze pisemnej analizy trenera dla tej sesji. Zapisane dane treningowe znajdziesz poniżej."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ainda não há uma análise escrita do Coach para esta sessão. Os dados registados aparecem abaixo."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Для этой тренировки пока нет письменного разбора тренера. Ниже показаны записанные данные."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "这次训练暂时没有文字教练点评。下方显示已记录的训练数据。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "這次訓練目前沒有文字教練評估。下方顯示已記錄的訓練資料。"
+          }
+        }
+      }
+    },
+    "One signal to review": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "One signal to review"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ein Signal im Blick behalten"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Una señal que conviene revisar"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un signal à examiner"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un segnale da valutare"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Um sinal a rever"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Один сигнал для проверки"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "有一项信号值得关注"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "有一項訊號值得留意"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Jeden sygnał do sprawdzenia"
+          }
+        }
+      }
+    },
+    "PaceForge data updated": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "PaceForge data updated"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "PaceForge-Daten aktualisiert"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Datos de PaceForge actualizados"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Données PaceForge mises à jour"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dati PaceForge aggiornati"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dane PaceForge zaktualizowane"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dados do PaceForge atualizados"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Данные PaceForge обновлены"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "PaceForge 数据已更新"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "PaceForge 資料已更新"
+          }
+        }
+      }
+    },
+    "Review signals": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Review signals"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Signale prüfen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Revisa las señales"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Examiner les signaux"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Esamina i segnali"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rever os sinais"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Проверьте сигналы"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "查看各项信号"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "查看各項訊號"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sprawdź sygnały"
+          }
+        }
+      }
+    },
+    "Several recovery signals are outside your personal range. Check their source and dates; the Coach can weigh them with your plan and how you feel.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Several recovery signals are outside your personal range. Check their source and dates; the Coach can weigh them with your plan and how you feel."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mehrere Erholungssignale liegen außerhalb deines persönlichen Bereichs. Prüfe Quelle und Datum; der Coach kann sie mit deinem Plan und deinem Befinden einordnen."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Varias señales de recuperación están fuera de tu rango personal. Comprueba la fuente y las fechas; el Coach puede valorarlas junto con tu plan y cómo te sientes."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Plusieurs signaux de récupération sont en dehors de ta plage habituelle. Vérifie leur source et leur date ; le Coach peut les mettre en regard de ton plan et de ton ressenti."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Più segnali di recupero sono fuori dal tuo intervallo personale. Controlla fonti e date; il Coach può valutarli insieme al piano e alle tue sensazioni."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vários sinais de recuperação estão fora do teu intervalo pessoal. Confirma a origem e as datas; o Coach pode avaliá-los tendo em conta o teu plano e como te sentes."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Несколько показателей восстановления вышли за ваш обычный диапазон. Проверьте их источник и даты; Coach сопоставит их с планом и самочувствием."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "多项恢复信号超出你的个人范围。请核对来源和日期；Coach 会结合你的计划和身体感受一起判断。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "多項恢復訊號超出你的個人範圍。請核對來源和日期；Coach 會結合你的計畫和身體感受一起判讀。"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kilka sygnałów regeneracji wykracza poza Twój indywidualny zakres. Sprawdź ich źródło i daty; Coach oceni je razem z planem i samopoczuciem."
+          }
+        }
+      }
+    },
+    "Several signals to review": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Several signals to review"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mehrere Signale im Blick behalten"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Varias señales que conviene revisar"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Plusieurs signaux à examiner"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Più segnali da valutare"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vários sinais a rever"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Несколько сигналов для проверки"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "有多项信号值得关注"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "有多項訊號值得留意"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kilka sygnałów do sprawdzenia"
+          }
+        }
+      }
+    },
+    "Signals aligned": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Signals aligned"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Signale im Einklang"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Señales alineadas"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Signaux cohérents"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Segnali allineati"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sinais alinhados"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сигналы согласованы"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "信号一致"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "訊號一致"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sygnały są spójne"
+          }
+        }
+      }
+    },
+    "The morning briefing is off. Enable it in Brief settings.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The morning briefing is off. Enable it in Brief settings."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Das Morgenbriefing ist ausgeschaltet. Aktiviere es in den Briefing-Einstellungen."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El resumen matinal está desactivado. Actívalo en la configuración del briefing."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le briefing du matin est désactivé. Activez-le dans les réglages du briefing."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Il briefing del mattino è disattivato. Attivalo nelle impostazioni del briefing."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Poranny briefing jest wyłączony. Włącz go w ustawieniach briefingu."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O briefing da manhã está desativado. Ative-o nas definições do briefing."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Утренний брифинг выключен. Включите его в настройках брифинга."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "晨间简报已关闭。请在简报设置中启用。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "晨間簡報已關閉。請在簡報設定中啟用。"
+          }
+        }
+      }
+    },
+    "Today's read": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Today's read"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Heutige Einordnung"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lectura de hoy"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lecture du jour"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La lettura di oggi"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dzisiejszy odczyt"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Leitura de hoje"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сегодняшняя оценка"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "今日解读"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "今日解讀"
+          }
+        }
+      }
+    },
+    "Watch signal": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Watch signal"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Signal im Blick behalten"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vigila esta señal"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Signal à surveiller"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Segnale da monitorare"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sinal a acompanhar"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Следите за сигналом"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "关注这项信号"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "留意這項訊號"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Obserwuj sygnał"
+          }
+        }
+      }
+    },
+    "What is affecting you": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "What is affecting you"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Was dich beeinflusst"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Qué te está afectando"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ce qui vous affecte"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cosa ti sta influenzando"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Co na Ciebie wpływa"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O que está a afetar-te"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Что на вас влияет"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "影响你的因素"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "影響你的因素"
+          }
+        }
+      }
+    },
+    "What to do next": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "What to do next"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Was als Nächstes zu tun ist"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Qué hacer ahora"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La prochaine étape"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cosa fare ora"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Co zrobić dalej"
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O que fazer a seguir"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Что делать дальше"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "接下来做什么"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "接下來做什麼"
+          }
+        }
+      }
+    },
+    "Your recovery signals are aligned. Keep your plan and how you feel in view today.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Deine Erholungssignale passen zusammen. Behalte heute deinen Plan und dein Körpergefühl im Blick."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tus señales de recuperación están alineadas. Ten en cuenta tu plan y cómo te sientes hoy."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tes signaux de récupération sont cohérents. Garde ton plan et tes sensations à l’esprit aujourd’hui."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "I segnali di recupero sono coerenti. Tieni presenti il piano e come ti senti oggi."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Os sinais de recuperação estão alinhados. Tem em conta o teu plano e como te sentes hoje."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Показатели восстановления согласованы. Сегодня учитывайте план и свои ощущения."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "恢复信号整体一致。今天请结合训练计划和身体感受安排训练。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "恢復訊號整體一致。今天請結合訓練計畫和身體感受安排訓練。"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sygnały regeneracji są spójne. Weź dziś pod uwagę plan i samopoczucie."
+          }
+        }
+      }
+    },
+    "above baseline; a sustained change is context, not a diagnosis": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Über dem üblichen Wert; eine anhaltende Veränderung ist Kontext, keine Diagnose."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Por encima de tu referencia; un cambio sostenido aporta contexto, no es un diagnóstico."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Au-dessus de ta référence ; un changement durable apporte du contexte, pas un diagnostic."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sopra il tuo riferimento; un cambiamento persistente dà contesto, non una diagnosi."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Acima da tua referência; uma alteração persistente dá contexto, não é um diagnóstico."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выше вашей нормы; устойчивое изменение — это контекст, а не диагноз."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "高于你的基线；持续变化可作为参考，但不能用于诊断。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "高於你的基線；持續變化可作為參考，但不能用於診斷。"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Powyżej Twojej normy; utrzymująca się zmiana to kontekst, nie diagnoza."
+          }
+        }
+      }
+    },
+    "above your baseline today; one signal, not a recovery verdict": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Heute über deiner Basislinie; ein einzelnes Signal, kein Urteil über die Erholung."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hoy por encima de tu referencia; es una señal, no una valoración de la recuperación."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Au-dessus de ta référence aujourd’hui ; un seul signal, pas un verdict sur la récupération."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Oggi sopra il tuo riferimento; è un segnale, non un giudizio sul recupero."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hoje acima da tua referência; é um sinal, não uma avaliação da recuperação."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сегодня выше вашей нормы; это один сигнал, а не оценка восстановления."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "今天高于你的基线；这只是一个信号，并不代表恢复结论。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "今天高於你的基線；這只是一個訊號，並不代表恢復結論。"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dziś powyżej Twojej normy; to pojedynczy sygnał, nie ocena regeneracji."
+          }
+        }
+      }
+    },
+    "above your baseline; training, sleep, illness and other factors can affect it": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Über deiner Basislinie; Training, Schlaf, Krankheit und andere Faktoren können den Wert beeinflussen."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Por encima de tu referencia; el entrenamiento, el sueño, una enfermedad y otros factores pueden influir."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Au-dessus de ta référence ; l’entraînement, le sommeil, une maladie et d’autres facteurs peuvent l’influencer."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sopra il tuo riferimento; allenamento, sonno, malattia e altri fattori possono influirvi."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Acima da tua referência; o treino, o sono, uma doença e outros fatores podem influenciar o valor."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выше вашей нормы; на показатель могут влиять тренировки, сон, болезнь и другие факторы."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "高于你的基线；训练、睡眠、疾病等因素都可能影响这一数值。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "高於你的基線；訓練、睡眠、疾病等因素都可能影響這個數值。"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Powyżej Twojej normy; wpływać na ten wynik mogą trening, sen, choroba i inne czynniki."
+          }
+        }
+      }
+    },
+    "below your baseline; check the trend with sleep, training and how you feel": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unter deiner Basislinie; vergleiche den Verlauf mit Schlaf, Training und deinem Befinden."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Por debajo de tu referencia; compáralo con el sueño, el entrenamiento y cómo te sientes."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sous ta référence ; compare la tendance au sommeil, à l’entraînement et à ton ressenti."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sotto il tuo riferimento; confronta l’andamento con sonno, allenamento e sensazioni."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abaixo da tua referência; compara a tendência com o sono, o treino e como te sentes."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ниже вашей нормы; сопоставьте динамику со сном, тренировками и самочувствием."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "低于你的基线；结合睡眠、训练和身体感受观察趋势。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "低於你的基線；結合睡眠、訓練和身體感受觀察趨勢。"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Poniżej Twojej normy; porównaj trend ze snem, treningiem i samopoczuciem."
+          }
+        }
+      }
+    },
+    "daily strain was similar across the week; review session variety and recovery, not as a risk score": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Deine tägliche Belastung war diese Woche ähnlich; prüfe Abwechslung und Erholung, nicht als Risikowert."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La carga diaria fue similar esta semana; revisa la variedad de sesiones y la recuperación, no lo tomes como un indicador de riesgo."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La charge quotidienne a été similaire cette semaine ; examine la variété des séances et la récupération, sans y voir un score de risque."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Il carico quotidiano è stato simile durante la settimana; valuta la varietà delle sessioni e il recupero, non come un indice di rischio."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A carga diária foi semelhante ao longo da semana; reveja a variedade das sessões e a recuperação, sem interpretar isto como um indicador de risco."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ежедневная нагрузка на этой неделе была похожей; оцените разнообразие тренировок и восстановление, не считая это оценкой риска."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "本周每天的负荷相近；可结合训练多样性和恢复情况查看，不要将其视为风险评分。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "本週每天的負荷相近；可結合訓練多樣性和恢復情況查看，不要將其視為風險評分。"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Codzienne obciążenie było w tym tygodniu podobne; sprawdź różnorodność treningów i regenerację, nie traktuj tego jako wskaźnika ryzyka."
+          }
+        }
+      }
+    },
+    "Waiting until the selected brief time: connect NOOP to PaceForge for the shared Coach.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Waiting until the selected brief time: connect NOOP to PaceForge for the shared Coach."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Warte bis zur ausgewählten Briefing-Zeit: Verbinde NOOP mit PaceForge, um den gemeinsamen Coach zu nutzen."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Espera hasta la hora elegida para el informe: conecta NOOP con PaceForge para usar el Coach compartido."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Attendez l’heure choisie pour le briefing : connectez NOOP à PaceForge pour utiliser le Coach partagé."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Attendi fino all’orario scelto per il briefing: collega NOOP a PaceForge per usare il Coach condiviso."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Poczekaj do wybranej godziny briefingu: połącz NOOP z PaceForge, aby korzystać ze wspólnego Coach."
+          }
+        },
+        "pt-PT": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aguarde até à hora escolhida para o briefing: ligue o NOOP ao PaceForge para usar o Coach partilhado."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Дождитесь выбранного времени брифинга: подключите NOOP к PaceForge, чтобы использовать общий Coach."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "请等待至所选简报时间：将 NOOP 连接到 PaceForge 以使用共享 Coach。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "請等待至所選簡報時間：將 NOOP 連接到 PaceForge 以使用共享 Coach。"
+          }
+        }
+      }
+    },
+    "Speed per heartbeat on steady outdoor runs. Compare similar routes and conditions; pace, hills, heat, effort or heart-rate sensor changes can also shift it.": {"localizations":{"en":{"stringUnit":{"state":"translated","value":"Speed per heartbeat on steady outdoor runs. Compare similar routes and conditions; pace, hills, heat, effort or heart-rate sensor changes can also shift it."}},"de":{"stringUnit":{"state":"translated","value":"Geschwindigkeit pro Herzschlag bei gleichmäßigen Läufen im Freien. Vergleiche ähnliche Strecken und Bedingungen; Tempo, Steigungen, Hitze, Anstrengung oder Änderungen des Herzfrequenzsensors können den Wert ebenfalls verschieben."}},"es":{"stringUnit":{"state":"translated","value":"Velocidad por latido en carreras continuas al aire libre. Compara rutas y condiciones similares; el ritmo, las cuestas, el calor, el esfuerzo o los cambios del sensor de frecuencia cardiaca también pueden alterarla."}},"fr":{"stringUnit":{"state":"translated","value":"Vitesse par battement lors de sorties régulières en extérieur. Comparez des parcours et des conditions similaires ; l’allure, les côtes, la chaleur, l’effort ou un changement de capteur cardiaque peuvent aussi la faire varier."}},"it":{"stringUnit":{"state":"translated","value":"Velocità per battito nelle corse regolari all’aperto. Confronta percorsi e condizioni simili; ritmo, salite, caldo, sforzo o cambiamenti del sensore di frequenza cardiaca possono modificarla."}},"pl":{"stringUnit":{"state":"translated","value":"Prędkość na uderzenie serca podczas równych biegów na zewnątrz. Porównuj podobne trasy i warunki; tempo, podbiegi, upał, wysiłek lub zmiana czujnika tętna też mogą wpływać na wynik."}},"pt-PT":{"stringUnit":{"state":"translated","value":"Velocidade por batimento em corridas regulares ao ar livre. Compare percursos e condições semelhantes; o ritmo, as subidas, o calor, o esforço ou mudanças no sensor de frequência cardíaca também podem alterá-la."}},"ru":{"stringUnit":{"state":"translated","value":"Скорость на один удар сердца во время ровных пробежек на улице. Сравнивайте похожие маршруты и условия: темп, подъёмы, жара, усилие и смена датчика пульса тоже могут влиять на показатель."}},"zh-Hans":{"stringUnit":{"state":"translated","value":"户外稳定跑步时每次心跳对应的速度。请比较路线和条件相近的跑步；配速、坡度、炎热、用力程度或心率传感器变化也会影响该指标。"}},"zh-Hant":{"stringUnit":{"state":"translated","value":"戶外穩定跑步時每次心跳所對應的速度。請比較路線和條件相近的跑步；配速、坡度、炎熱、用力程度或心率感測器變化也會影響此指標。"}}}},
+    "A rising trend can reflect better running efficiency, but it is not proof of a fitness change by itself.": {"localizations":{"en":{"stringUnit":{"state":"translated","value":"A rising trend can reflect better running efficiency, but it is not proof of a fitness change by itself."}},"de":{"stringUnit":{"state":"translated","value":"Ein steigender Trend kann auf eine bessere Laufeffizienz hindeuten, beweist für sich allein aber keine Veränderung der Fitness."}},"es":{"stringUnit":{"state":"translated","value":"Una tendencia al alza puede reflejar una mejor eficiencia al correr, pero por sí sola no demuestra un cambio en la forma física."}},"fr":{"stringUnit":{"state":"translated","value":"Une tendance à la hausse peut refléter une meilleure efficacité de course, mais ne prouve pas à elle seule un changement de forme physique."}},"it":{"stringUnit":{"state":"translated","value":"Una tendenza in aumento può riflettere una migliore efficienza nella corsa, ma da sola non dimostra un cambiamento della forma fisica."}},"pl":{"stringUnit":{"state":"translated","value":"Trend wzrostowy może wskazywać na lepszą ekonomikę biegu, ale sam w sobie nie potwierdza zmiany formy."}},"pt-PT":{"stringUnit":{"state":"translated","value":"Uma tendência ascendente pode refletir uma melhor eficiência na corrida, mas, por si só, não prova uma mudança na condição física."}},"ru":{"stringUnit":{"state":"translated","value":"Рост показателя может отражать улучшение беговой эффективности, но сам по себе не доказывает изменение физической формы."}},"zh-Hans":{"stringUnit":{"state":"translated","value":"上升趋势可能反映跑步效率提高，但它本身不能证明体能发生了变化。"}},"zh-Hant":{"stringUnit":{"state":"translated","value":"上升趨勢可能反映跑步效率提升，但它本身不能證明體能有所改變。"}}}},
+    "iOS background refresh issue: %@. Brief delivery may be delayed; open Coach to check now.": {"localizations":{"en":{"stringUnit":{"state":"translated","value":"iOS background refresh issue: %@. Brief delivery may be delayed; open Coach to check now."}},"de":{"stringUnit":{"state":"translated","value":"Problem mit der iOS-Hintergrundaktualisierung: %@. Das Briefing kann sich verzögern; öffne Coach, um jetzt nachzusehen."}},"es":{"stringUnit":{"state":"translated","value":"Problema con la actualización en segundo plano de iOS: %@. El informe puede retrasarse; abre Coach para comprobarlo ahora."}},"fr":{"stringUnit":{"state":"translated","value":"Problème d’actualisation en arrière-plan d’iOS : %@. Le briefing peut être retardé ; ouvrez Coach pour vérifier maintenant."}},"it":{"stringUnit":{"state":"translated","value":"Problema di aggiornamento in background di iOS: %@. Il briefing potrebbe arrivare in ritardo; apri Coach per controllare ora."}},"pl":{"stringUnit":{"state":"translated","value":"Problem z odświeżaniem w tle iOS: %@. Briefing może się opóźnić; otwórz Coach, aby sprawdzić teraz."}},"pt-PT":{"stringUnit":{"state":"translated","value":"Problema na atualização em segundo plano do iOS: %@. O briefing pode atrasar-se; abra o Coach para verificar agora."}},"ru":{"stringUnit":{"state":"translated","value":"Проблема фонового обновления iOS: %@. Брифинг может задержаться; откройте Coach, чтобы проверить сейчас."}},"zh-Hans":{"stringUnit":{"state":"translated","value":"iOS 后台刷新问题：%@。简报可能延迟；现在打开 Coach 查看。"}},"zh-Hant":{"stringUnit":{"state":"translated","value":"iOS 背景重新整理問題：%@。簡報可能延遲；現在開啟 Coach 查看。"}}}}
   },
   "version": "1.0"
 }

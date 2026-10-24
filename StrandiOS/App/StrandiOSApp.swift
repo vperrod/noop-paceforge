@@ -57,9 +57,9 @@ struct StrandiOSApp: App {
         NoopDiag.start()
         // The New PaceForge refresh (beta) switch is read here, once per launch.
         PFBeta.captureAtLaunch()
-        // The New Day tab (beta) switch is read here, once per launch.
+        // Clear the retired Day-tab preference so it cannot hide the first-level Sleep tab.
         UnifiedDay.captureAtLaunch()
-        // The New navigation (beta) switch is read here, once per launch.
+        // The unified navigation switch is read here, once per launch.
         UnifiedNav.captureAtLaunch()
         #if DEBUG
         NoopPerfAutopilot.startIfRequested()
@@ -98,7 +98,9 @@ struct StrandiOSApp: App {
         let router = NavRouter()
         _router = StateObject(wrappedValue: router)
         NotificationPresenter.shared.onCoachBriefTapped = { [weak router] in router?.openCoach() }
-        NotificationPresenter.shared.onPaceForgeBriefTapped = { Task { @MainActor in PFDeepLink.openToday() } }
+        NotificationPresenter.shared.onPaceForgeBriefTapped = { [weak router] in
+            Task { @MainActor in router?.openCoach() }
+        }
         PaceForgeBackground.register()
         PFMyDay.install()
         // A summary written before the privacy choice existed gets its body flag now, not at the next fetch.

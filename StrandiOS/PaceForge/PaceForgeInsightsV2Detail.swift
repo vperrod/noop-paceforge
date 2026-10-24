@@ -715,11 +715,11 @@ struct PFEfficiencyDetail: View {
                         LookTrendHost(metrics: [
                             PFLook.metric(id: "ef", title: "Speed per heartbeat", icon: "figure.run", decimals: 2, higherIsBetter: true,
                                           rows: run.series.compactMap { p in p.ef.map { (date: p.date, value: $0) } },
-                                          what: "How fast you run for each heartbeat on steady outdoor runs. A rising line means you are getting more efficient.")
+                                          what: String(localized: "Speed per heartbeat on steady outdoor runs. Compare similar routes and conditions; pace, hills, heat, effort or heart-rate sensor changes can also shift it."))
                         ])
                         .accessibilityElement(children: .contain)
                         .accessibilityIdentifier("pf-eff-run-chart")
-                        PFParagraph("Each dot is one steady run: speed per heartbeat. Higher is more efficient.")
+                        PFParagraph(String(localized: "A rising trend can reflect better running efficiency, but it is not proof of a fitness change by itself."))
                     }
                 } else {
                     PFInsufficient(title: "Not enough steady outdoor runs yet",

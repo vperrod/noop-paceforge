@@ -23,7 +23,7 @@ final class NotificationPresenter: NSObject, UNUserNotificationCenterDelegate {
     /// root has wired it.
     var onCoachBriefTapped: (() -> Void)?
 
-    /// Wired on iOS to open PaceForge > Today when the PaceForge daily-brief notification is tapped.
+    /// Wired on iOS to open the shared Coach when the PaceForge daily-brief notification is tapped.
     var onPaceForgeBriefTapped: (() -> Void)?
 
     func userNotificationCenter(

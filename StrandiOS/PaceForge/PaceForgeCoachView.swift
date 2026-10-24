@@ -16,26 +16,100 @@ struct PFCoachView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            if let brief = coach.brief { briefCard(brief) }
-            if let take = coach.take { takeCard(take) }
+            if coach.brief != nil || coach.take != nil {
+                todayReadCard(brief: coach.brief, take: coach.take)
+            }
             if let review = coach.weeklyReview { weeklyReviewCard(review) }
             if let monthlyRead { monthlyReviewCard(monthlyRead) }
+            if !pendingWorkoutReviews.isEmpty { pendingWorkoutReviewsCard }
             if !recentWorkoutReads.isEmpty { workoutReadsCard }
             chatCard
         }
         .task(id: snapshot.todayISO) { await loadMonthlyRead() }
         .task(id: noopCoach.pendingPrompt) {
             guard let prompt = noopCoach.pendingPrompt, !prompt.isEmpty else { return }
+            let sessionID = noopCoach.pendingSessionID
             noopCoach.pendingPrompt = nil
-            await sendMessage(prompt)
+            noopCoach.pendingSessionID = nil
+            await sendMessage(prompt, sessionID: sessionID)
         }
         .sheet(item: $selectedWorkout) { workout in
-            PFResultsSheet(workout: workout, snapshot: snapshot)
+            PFResultsSheet(workout: workout, snapshot: snapshot, onAskCoach: { sessionID in
+                noopCoach.pendingSessionID = sessionID
+                noopCoach.pendingPrompt = "Explain this workout's review and what it means for my training plan."
+            })
                 .environmentObject(model)
         }
     }
 
     // MARK: Recent workout reads
+
+    private var pendingWorkoutReviews: [PFAnalysisStatus] {
+        snapshot.analysisStatuses.values
+            .sorted { statusDate($0) > statusDate($1) }
+            .prefix(5)
+            .map { $0 }
+    }
+
+    private func statusDate(_ item: PFAnalysisStatus) -> String {
+        snapshot.activities[item.id]?.startTime ?? item.id
+    }
+
+    private var pendingWorkoutReviewsCard: some View {
+        PFCard("Workout reviews", icon: "clock") {
+            VStack(alignment: .leading, spacing: 9) {
+                ForEach(pendingWorkoutReviews, id: \.id) { item in
+                    let activity = snapshot.activities[item.id]
+                    if let activity {
+                        Button {
+                            selectedWorkout = pendingWorkout(item, activity)
+                        } label: {
+                            pendingWorkoutStatusRow(item, activity: activity)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityHint("Opens this workout and its Coach review status.")
+                    } else {
+                        pendingWorkoutStatusRow(item, activity: nil)
+                    }
+                    .accessibilityIdentifier("coach-workout-status-\(item.id)")
+                }
+            }
+        }
+        .accessibilityIdentifier("coach-workout-review-status")
+    }
+
+    private func pendingWorkoutStatusRow(_ item: PFAnalysisStatus, activity: PFActivity?) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            HStack {
+                Text(activity?.name ?? activity?.type ?? (item.id.hasPrefix("bike:") ? "Bike ride" : "Workout"))
+                    .font(StrandFont.subhead.weight(.semibold))
+                    .foregroundStyle(StrandPalette.textPrimary)
+                Spacer()
+                Text(activity?.startTime.map { String($0.prefix(10)) }
+                     ?? (item.id.hasPrefix("bike:") ? String(item.id.dropFirst(5).prefix(10)) : ""))
+                    .font(StrandFont.caption)
+                    .foregroundStyle(StrandPalette.textTertiary)
+            }
+            Text(item.reason ?? "Coach review is not available yet.")
+                .font(StrandFont.caption)
+                .foregroundStyle(item.status == "needs_input" ? PFColor.warning : StrandPalette.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private func pendingWorkout(_ item: PFAnalysisStatus, _ activity: PFActivity) -> PFWorkout {
+        let date = activity.startTime.map { String($0.prefix(10)) } ?? snapshot.todayISO
+        var result = PFWorkout(id: "coach-pending-\(item.id)", date: date, status: "done",
+                               name: activity.name ?? activity.type, kind: activity.type, sport: activity.type,
+                               durationMin: activity.durationS.map { $0 / 60 },
+                               distanceKm: activity.distanceM.map { $0 / 1000 }, targetRpe: nil,
+                               userRpe: snapshot.rpe[item.id], cadenceTarget: nil, description: nil, briefing: nil,
+                               steps: [], exercises: [], compliance: nil, completionAnalysis: nil, notes: nil,
+                               activityId: item.id)
+        result.coachSessionID = snapshot.weeks.flatMap { $0.workouts }
+            .first(where: { $0.activityId == item.id })?.coachSessionID
+        return result
+    }
 
     private var recentWorkoutReads: [(PFAnalysisRow, PFActivity)] {
         snapshot.analyses.values.compactMap { row in
@@ -90,13 +164,16 @@ struct PFCoachView: View {
 
     private func resultWorkout(_ row: PFAnalysisRow, _ activity: PFActivity) -> PFWorkout {
         let date = activity.startTime.map { String($0.prefix(10)) } ?? snapshot.todayISO
-        return PFWorkout(id: "coach-\(row.id)", date: date, status: "done",
-                         name: activity.name ?? activity.type, kind: activity.type, sport: activity.type,
-                         durationMin: activity.durationS.map { $0 / 60 },
-                         distanceKm: activity.distanceM.map { $0 / 1000 }, targetRpe: nil,
-                         userRpe: snapshot.rpe[row.id], cadenceTarget: nil, description: nil, briefing: nil,
-                         steps: [], exercises: [], compliance: nil, completionAnalysis: nil, notes: nil,
-                         activityId: row.id)
+        var result = PFWorkout(id: "coach-\(row.id)", date: date, status: "done",
+                               name: activity.name ?? activity.type, kind: activity.type, sport: activity.type,
+                               durationMin: activity.durationS.map { $0 / 60 },
+                               distanceKm: activity.distanceM.map { $0 / 1000 }, targetRpe: nil,
+                               userRpe: snapshot.rpe[row.id], cadenceTarget: nil, description: nil, briefing: nil,
+                               steps: [], exercises: [], compliance: nil, completionAnalysis: nil, notes: nil,
+                               activityId: row.id)
+        result.coachSessionID = snapshot.weeks.flatMap { $0.workouts }
+            .first(where: { $0.activityId == row.id })?.coachSessionID
+        return result
     }
 
     // MARK: Monthly review
@@ -159,55 +236,79 @@ struct PFCoachView: View {
         monthlyRead = read
     }
 
-    // MARK: Daily brief
+    // MARK: Today's Coach read
 
-    private func briefCard(_ brief: PFBrief) -> some View {
-        PFCard("Daily brief" + (brief.date.map { " \u{00B7} \(PFFormat.shortDate($0))" } ?? ""), icon: "sparkles") {
-            VStack(alignment: .leading, spacing: 10) {
-                Text(brief.headline)
-                    .font(StrandFont.body.weight(.semibold))
-                    .foregroundStyle(StrandPalette.textPrimary)
-                    .fixedSize(horizontal: false, vertical: true)
-                ForEach(Array((brief.outlook ?? []).enumerated()), id: \.offset) { _, paragraph in
-                    PFParagraph(paragraph)
+    private func todayReadCard(brief: PFBrief?, take: PFTake?) -> some View {
+        PFCard(String(localized: "Today's read"), icon: "sparkles", trailing: {
+            HStack(spacing: 6) {
+                if let date = brief?.date {
+                    Text(PFFormat.shortDate(date)).font(StrandFont.caption).foregroundStyle(StrandPalette.textTertiary)
                 }
+                if let take { readinessChip(take) }
             }
-        }
-    }
-
-    // MARK: Coach's Take
-
-    private func takeCard(_ take: PFTake) -> some View {
-        PFCard(title: "Coach's Take", icon: "sparkles", trailing: { readinessChip(take) }) {
-            VStack(alignment: .leading, spacing: 12) {
-                Text(take.headline)
-                    .font(StrandFont.body.weight(.semibold))
-                    .foregroundStyle(StrandPalette.textPrimary)
-                    .fixedSize(horizontal: false, vertical: true)
-
-                let limiters = take.limiters ?? []
-                if !limiters.isEmpty {
-                    Text("Your top limiters").strandOverline()
-                    ForEach(Array(limiters.enumerated()), id: \.offset) { index, l in
-                        PFLimiterRow(rank: index + 1, limiter: l)
+        }) {
+            VStack(alignment: .leading, spacing: 10) {
+                if let brief {
+                    Text(brief.headline)
+                        .font(StrandFont.body.weight(.semibold))
+                        .foregroundStyle(StrandPalette.textPrimary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    if let sourceContext = brief.sourceContext {
+                        Text(sourceContext)
+                            .font(StrandFont.caption)
+                            .foregroundStyle(StrandPalette.textTertiary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    ForEach(Array((brief.outlook ?? []).enumerated()), id: \.offset) { _, paragraph in
+                        PFParagraph(paragraph)
                     }
                 }
+                if let take {
+                    if brief != nil { Rectangle().fill(StrandPalette.hairline).frame(height: 1).padding(.vertical, 2) }
+                    Text(take.headline)
+                        .font(StrandFont.body.weight(.semibold))
+                        .foregroundStyle(StrandPalette.textPrimary)
+                        .fixedSize(horizontal: false, vertical: true)
 
-                let actions = take.weekActions ?? []
-                if !actions.isEmpty {
-                    Text("This week's actions").strandOverline()
-                    ForEach(Array(actions.enumerated()), id: \.offset) { _, a in
-                        HStack(alignment: .top, spacing: 8) {
-                            Text("\u{2022}").foregroundStyle(StrandPalette.accent)
-                            Text(a.action)
-                                .font(StrandFont.subhead)
-                                .foregroundStyle(StrandPalette.textSecondary)
-                                .fixedSize(horizontal: false, vertical: true)
+                    let limiters = take.limiters ?? []
+                    if !limiters.isEmpty {
+                        Text("What is affecting you").strandOverline()
+                        ForEach(Array(limiters.enumerated()), id: \.offset) { index, limiter in
+                            PFLimiterRow(rank: index + 1, limiter: limiter)
+                        }
+                    }
+                    let actions = take.weekActions ?? []
+                    if !actions.isEmpty {
+                        Text("What to do next").strandOverline()
+                        ForEach(Array(actions.enumerated()), id: \.offset) { _, action in
+                            HStack(alignment: .top, spacing: 8) {
+                                Text("\u{2022}").foregroundStyle(StrandPalette.accent)
+                                Text(action.action)
+                                    .font(StrandFont.subhead)
+                                    .foregroundStyle(StrandPalette.textSecondary)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
                         }
                     }
                 }
+                if let generatedAt = snapshot.generatedAt {
+                    HStack(alignment: .firstTextBaseline) {
+                        Text("PaceForge snapshot assembled")
+                        Spacer(minLength: 8)
+                        Text(PFFormat.relative(generatedAt) ?? generatedAt)
+                    }
+                    .font(StrandFont.caption)
+                    .foregroundStyle(StrandPalette.textTertiary)
+                }
+                if let offlineNote = model.offlineNote {
+                    Text(offlineNote)
+                        .font(StrandFont.caption)
+                        .foregroundStyle(PFColor.warning)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
         }
+        .accessibilityIdentifier("coach-todays-read")
     }
 
     @ViewBuilder private func readinessChip(_ take: PFTake) -> some View {
@@ -231,6 +332,18 @@ struct PFCoachView: View {
                     .font(StrandFont.body.weight(.semibold))
                     .foregroundStyle(StrandPalette.textPrimary)
                     .fixedSize(horizontal: false, vertical: true)
+
+                if let sourceContext = review.sourceContext {
+                    DisclosureGroup("Evidence sources and dates") {
+                        Text(sourceContext)
+                            .font(StrandFont.caption)
+                            .foregroundStyle(StrandPalette.textSecondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .padding(.top, 6)
+                    }
+                    .font(StrandFont.caption.weight(.semibold))
+                    .tint(StrandPalette.accent)
+                }
 
                 if let fullRead = review.fullRead, !fullRead.isEmpty {
                     DisclosureGroup("Read the full week") {
@@ -331,7 +444,7 @@ struct PFCoachView: View {
         }
     }
 
-    @MainActor private func sendMessage(_ suppliedMessage: String? = nil) async {
+    @MainActor private func sendMessage(_ suppliedMessage: String? = nil, sessionID: String? = nil) async {
         let message = (suppliedMessage ?? draft).trimmingCharacters(in: .whitespacesAndNewlines)
         guard !message.isEmpty, !sending else { return }
         guard CoachBriefScheduler.coachMasterEnabled else {
@@ -343,7 +456,7 @@ struct PFCoachView: View {
         chatStatus = nil
         defer { sending = false }
         do {
-            let result = try await PFAPI.postCoachMessage(message)
+            let result = try await PFAPI.postCoachMessage(message, sessionID: sessionID)
             guard (200..<300).contains(result.status) else {
                 chatStatus = PFJ(data: result.data)["message"].text
                     ?? "The server refused the message (HTTP \(result.status))."
@@ -425,7 +538,10 @@ private struct PFMonthlyCoachRead {
         wentWell = narrative["went_well"].strings
         toImprove = narrative["to_improve"].strings
         focus = narrative["focus"].text
-        sourceContext = root["source_context"]["noop"].text
+        let contexts = [root["source_context"]["noop"].text,
+                        root["source_context"]["apple_health"].text]
+            .compactMap { $0 }.filter { !$0.isEmpty }
+        sourceContext = contexts.isEmpty ? nil : contexts.joined(separator: "\n\n")
     }
 
     static func day(_ value: String) -> Date? {

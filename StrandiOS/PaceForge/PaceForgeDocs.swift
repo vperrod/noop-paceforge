@@ -19,6 +19,7 @@ enum PFDocs {
     static let hyrox = "data/hyrox_analysis.json"
     static let activities = "data/activities.json"
     static let analysesIndex = "data/analyses/index.json"
+    static let analysisStatus = "data/analyses/status.json"
     static let bodyProgress = "data/body-progress.json"
     static let alerts = "data/alerts.json"
     static let readiness = "data/readiness-explained.json"
@@ -49,6 +50,7 @@ enum PFDocs {
         PFDocSpec(path: hyrox, key: \PFRawBundle.hyrox),
         PFDocSpec(path: activities, key: \PFRawBundle.activities),
         PFDocSpec(path: analysesIndex, key: \PFRawBundle.analysesIndex),
+        PFDocSpec(path: analysisStatus, key: \PFRawBundle.analysisStatus),
         PFDocSpec(path: bodyProgress, key: \PFRawBundle.bodyProgress),
         PFDocSpec(path: alerts, key: \PFRawBundle.alerts),
         PFDocSpec(path: readiness, key: \PFRawBundle.readiness),
@@ -75,13 +77,13 @@ enum PFDocs {
         PFDocSpec(path: todayLayout, key: \PFRawBundle.todayLayout),
         PFDocSpec(path: needsYou, key: \PFRawBundle.needsYou),
         // Not part of the bundle's view models: fetched so My Day finds it saved on the phone (PFStore).
-        PFDocSpec(path: workoutMatches, key: nil),
+        PFDocSpec(path: workoutMatches, key: \PFRawBundle.workoutMatches),
     ]
 
     /// The documents the widget summary and the reminders are made from: everything except the ones they never read. A document
     /// added later counts as read until it is listed here, so a missed entry costs a widget reload, never a stale widget.
     static let summaryInputs: Set<String> = Set(all.map { $0.path }).subtracting(
-        [analysesIndex, bodyProgress, whatChanged, explainers, behaviour, hyroxSims, hyroxSimAnalysis, easyMode, muscle, tape,
+        [analysesIndex, analysisStatus, bodyProgress, whatChanged, explainers, behaviour, hyroxSims, hyroxSimAnalysis, easyMode, muscle, tape,
          dailyIntel, dismissed, todayLayout, needsYou, workoutMatches] + PFDocPath.all)
 
     static func specs(for scope: PFRefreshScope) -> [PFDocSpec] {

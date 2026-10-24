@@ -2,7 +2,7 @@
 import SwiftUI
 import StrandDesign
 
-// MARK: - Insights: the fourth tab with the New navigation (beta)
+// MARK: - Insights: the fourth tab with the unified navigation
 //
 // Chips at the top and ONE chip mounted below them: Overview (What moves you, Intelligence, and PaceForge's "Where you stand" and
 // insight items), Trends (the Trends screen, with Compare and the Metric Explorer one tap away), Reports (the weekly review, then the

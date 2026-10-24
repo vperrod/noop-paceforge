@@ -15,6 +15,7 @@ struct PFSnapshot {
     var body: PFBodyDoc?
     var activities: [String: PFActivity] = [:]
     var analyses: [String: PFAnalysisRow] = [:]
+    var analysisStatuses: [String: PFAnalysisStatus] = [:]
     var trimp: [String: Double] = [:]
     var rpe: [String: Double] = [:]
     /// Recent nights of sleep (minutes asleep), oldest first, for the sleep and HRV trend widget.
@@ -140,6 +141,8 @@ struct PFWorkout: Identifiable {
     var notes: String?
     /// The Garmin activity this session was matched to, if it has been done.
     var activityId: String?
+    /// The real planned/calendar session id, or nil for activity-only and synthetic review rows.
+    var coachSessionID: String?
 
     var hasResults: Bool { (status == "done" || status == "partial") && activityId != nil }
 }
@@ -235,6 +238,13 @@ struct PFAnalysisRow {
     var actualMin: Double?
 }
 
+/// Status-only review metadata; it carries no workout health readings.
+struct PFAnalysisStatus {
+    var id: String
+    var status: String?
+    var reason: String?
+}
+
 // MARK: Coach
 
 struct PFCoach {
@@ -243,7 +253,7 @@ struct PFCoach {
     var weeklyReview: PFWeeklyReview?
     var chat: [PFChatTurn] = []
 }
-struct PFBrief { var date: String?; var headline: String; var outlook: [String]? }
+struct PFBrief { var date: String?; var headline: String; var outlook: [String]?; var sourceContext: String? = nil }
 struct PFTake {
     var headline: String
     var readinessScore: Double?
@@ -266,6 +276,7 @@ struct PFWeeklyReview {
     var strengthSaid: String?
     var thisWeek: [String]?
     var fullRead: String?
+    var sourceContext: String? = nil
 }
 struct PFPeriod { var start: String; var end: String }
 struct PFReviewSession { var date: String; var name: String; var completed: Bool; var quality: Bool; var status: String? }

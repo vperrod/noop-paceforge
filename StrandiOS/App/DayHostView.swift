@@ -4,7 +4,7 @@ import StrandDesign
 
 // MARK: - Day: the one tab
 //
-// The beta Day tab (Settings > Tools > New Day tab) replaces the Sleep tab. A row of chips at the top and ONE chip mounted below it
+// Legacy Day overview retained for existing deep links. It no longer replaces the first-level Sleep tab. A row of chips at the top and ONE chip mounted below it
 // (like Insights and Data): My Day, Sleep, Recovery, Workouts, Activity, Health. Each chip is the content of a screen that already exists,
 // unchanged, drawn in this screen's scroll view. Sleep and Recovery start with a card that sets NOOP's numbers beside PaceForge's
 // and Garmin's (DayReadings.swift); the numbers are never merged.

@@ -985,27 +985,27 @@ enum StressMath {
         switch band {
         case .high:
             if rhrUp && hrvDn {
-                return String(localized: "Resting HR is elevated and HRV is below your baseline, both classic signs of high activation. Prioritise rest, hydration and an easy day.")
+                return String(localized: "Resting HR is above your baseline and HRV is below it today. That pattern can accompany hard training, poor sleep, illness or other stress, but these readings cannot identify the cause. Check how you feel and what your plan calls for.")
             } else if hrvDn {
-                return String(localized: "HRV has dropped well below your baseline, pointing to elevated stress or fatigue. Ease off and give your body time to recover.")
+                return String(localized: "HRV is below your baseline today. It can vary with training, sleep and other factors, so use it with your other signals and how you feel rather than as a stand-alone fatigue verdict.")
             } else if rhrUp {
-                return String(localized: "Resting heart rate is running high versus your norm. Your body is under load today. Keep effort light.")
+                return String(localized: "Resting HR is above your usual range today. This can happen for several reasons and does not identify the cause. Check your other recovery signals and how you feel before changing the session.")
             }
-            return String(localized: "Your autonomic markers are skewed toward stress today. Treat it as a recovery-focused day.")
+            return String(localized: "These autonomic markers are outside your usual pattern today. They are context for your plan and perceived effort, not a diagnosis or a training decision on their own.")
         case .medium:
             if rhrUp || hrvDn {
                 return rhrUp
-                    ? String(localized: "Slightly off baseline (resting HR is a touch high), so you're moderately activated. Nothing alarming; just don't overreach.")
-                    : String(localized: "Slightly off baseline (HRV is a little low), so you're moderately activated. Nothing alarming; just don't overreach.")
+                    ? String(localized: "Resting HR is a little above your baseline. Check the trend alongside sleep, training and how you feel.")
+                    : String(localized: "HRV is a little below your baseline. Check the trend alongside sleep, training and how you feel.")
             }
-            return String(localized: "You're sitting around your typical autonomic baseline: moderate stress, a normal, balanced day.")
+            return String(localized: "These autonomic readings are near your typical range. That is useful context, but it does not guarantee readiness for a hard session.")
         case .low:
             if rhrDn && hrvUp {
-                return String(localized: "Resting heart rate is low and HRV is up. Your nervous system looks well-recovered and calm. A great day to push if you want to.")
+                return String(localized: "Resting HR is below and HRV above your baseline today. Those are favourable directions for these signals, but they do not guarantee full recovery; follow your plan and how you feel.")
             } else if hrvUp {
-                return String(localized: "HRV is above baseline, a sign of a relaxed, well-recovered nervous system. Stress is low.")
+                return String(localized: "HRV is above your baseline today. One reading cannot establish recovery by itself; consider the wider trend, your plan and how you feel.")
             }
-            return String(localized: "Resting heart rate and HRV are sitting at or below baseline: low physiological stress. You're in a calm, recovered state.")
+            return String(localized: "These readings fall in NOOP's lower-stress range today. Treat the score as a summary of these signals, not proof that you are fully recovered.")
         }
     }
 }

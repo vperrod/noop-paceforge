@@ -6,7 +6,7 @@ extension Notification.Name {
     static let pfOpenToday = Notification.Name("noop.paceforge.openToday")
 }
 
-/// Opens the app on PaceForge > Today from a widget tap, a notification tap or the Control Center control.
+/// Opens the app on its requested PaceForge section from a widget, notification or Control Center tap.
 @MainActor
 enum PFDeepLink {
     /// Held until the tab shell exists, so a cold launch from a widget still lands on the right tab.
@@ -20,7 +20,7 @@ enum PFDeepLink {
 
     static func openToday() { open(.today) }
 
-    /// `noop://paceforge` opens Today; `noop://paceforge/week` (or coach, insights, body) opens that screen;
+    /// `noop://paceforge` opens Today; `noop://paceforge/coach` opens the shared Coach; week, insights and body open their sections;
     /// `noop://paceforge/standing` opens Insights with the "Where you stand" scorecard on top.
     /// `noop://paceforge/insights/power-curve` (or race-countdown, weight-goal, efficiency, sleep) opens Insights with that
     /// item's detail on top; `next-best-action` opens Today with its detail. The short form `noop://paceforge/sleep` works too.
@@ -100,7 +100,13 @@ enum PaceForgeBackground {
     }
 
     private static func deliver(_ snapshot: PFSnapshot) async -> Bool {
-        if let brief = snapshot.today.brief {
+        // One notification owner for the shared Coach. When the scheduled brief is enabled it
+        // handles delivery and status; this background refresh must not send a second, differently
+        // routed notification for the same brief. Keep the existing new/updated notices when the
+        // scheduled briefing is off.
+        if CoachBriefScheduler.coachMasterEnabled,
+           !CoachBriefScheduler.isEnabled,
+           let brief = snapshot.today.brief {
             await notifyIfNew(brief, today: snapshot.todayISO)
             await notifyIfUpdated(brief, today: snapshot.todayISO)
         }

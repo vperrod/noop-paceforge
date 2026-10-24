@@ -203,6 +203,8 @@ final class AICoachEngine: ObservableObject {
     /// which already has all of that, consumes it exactly once and clears it. Nil is the normal state, and
     /// setting it performs NO network work by itself.
     @Published var pendingPrompt: String?
+    /// Optional PaceForge session to attach to a contextual Coach handoff. Nil for ordinary questions.
+    @Published var pendingSessionID: String?
     @Published var provider: AIProvider {
         didSet {
             guard provider != oldValue else { return }

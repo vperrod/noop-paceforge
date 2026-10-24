@@ -191,13 +191,13 @@ public enum IllnessSignalEngine {
                           message: .learningBaseline)
         }
 
-        // Already-unwell path: the user told us. Switch from "early warning" to a gentle "rest up" and
-        // never scare — regardless of score (their log is the ground truth).
+        // Already-unwell path: use the athlete's own report to offer gentle, conditional guidance;
+        // wearable readings still cannot confirm a cause or independently validate symptoms.
         if context.alreadyUnwell {
             let agreeing = score >= mildThreshold && signalCount >= 1
             let copy = agreeing
-                ? "Rest up - you logged feeling unwell, and your numbers agree. \(disclaimerTail)"
-                : "Rest up - you logged feeling unwell. Take it easy today. \(disclaimerTail)"
+                ? "You logged feeling unwell, and several overnight signals are outside your usual range. Consider rest or easy activity if that matches how you feel; these readings cannot identify a cause. \(disclaimerTail)"
+                : "You logged feeling unwell. Consider rest or easy activity if that matches how you feel. The wearable estimate cannot identify a cause. \(disclaimerTail)"
             return Result(score: score, level: .alreadyUnwell, firedSignals: firedSignals,
                           suppressedBy: [], signalCount: signalCount, copy: copy,
                           message: agreeing ? .alreadyUnwellAgree : .alreadyUnwell)
@@ -229,8 +229,8 @@ public enum IllnessSignalEngine {
         if !suppressedBy.isEmpty {
             let dampened = score * confounderDampen
             let reason = joinReasons(suppressedBy)
-            let copy = "Some signals are up (\(signalsPhrase)), but you logged \(reason) - likely that, "
-                + "not illness. \(disclaimerTail)"
+            let copy = "Some overnight signals are outside your usual range (\(signalsPhrase)). You logged \(reason), "
+                + "which may contribute; other causes are possible. These signals are not illness-specific. \(disclaimerTail)"
             return Result(score: dampened, level: .suppressed, firedSignals: firedSignals,
                           suppressedBy: suppressedBy, signalCount: signalCount, copy: copy,
                           message: .suppressed, suppressionReasons: suppressionReasons)
@@ -238,15 +238,14 @@ public enum IllnessSignalEngine {
 
         // No confounder. Mild stays in the detail view; a strong composite raises.
         if score < raiseThreshold {
-            let copy = "A few signals are mildly up (\(signalsPhrase)). Nothing alarming - worth a calmer "
-                + "day. \(disclaimerTail)"
+            let copy = "A few overnight signals moved together (\(signalsPhrase)). Compare the next reading and how you feel; "
+                + "this pattern alone does not decide training. These signals are not illness-specific. \(disclaimerTail)"
             return Result(score: score, level: .mild, firedSignals: firedSignals,
                           suppressedBy: [], signalCount: signalCount, copy: copy, message: .mild)
         }
 
-        let ruledOut = "no alcohol or travel logged"
-        let copy = "Heads-up - your body looks strained. \(signalsPhrase). With \(ruledOut), consider "
-            + "taking it easy. \(disclaimerTail)"
+        let copy = "Several overnight signals are outside your usual range (\(signalsPhrase)). No tracked confounder was logged. "
+            + "Check how you feel; if you also feel run-down, consider an easier session. These signals are not illness-specific. \(disclaimerTail)"
         return Result(score: score, level: .raised, firedSignals: firedSignals,
                       suppressedBy: [], signalCount: signalCount, copy: copy, message: .raised)
     }

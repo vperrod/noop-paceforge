@@ -2,23 +2,24 @@
 import SwiftUI
 import StrandDesign
 
-// MARK: - Calendar and Plan: the second tab with the New navigation (beta)
+// MARK: - Training: the second tab with the unified navigation
 //
-// Chips at the top and ONE chip mounted below them: Calendar (a month grid with the chosen day's sessions under it, built from the PaceForge snapshot), Plan
+// Chips at the top and ONE chip mounted below them: Workouts, Calendar (a month grid with the chosen day's sessions under it, built from the PaceForge snapshot), Plan
 // (This week, My Plan), Season (the weeks ahead and behind), Events (races) and HYROX (the prognosis and race simulations). Each chip
 // reuses views that exist in the PaceForge tab today; a day tap shows that day's sessions, which open the same results and session
 // sheets as before. NOOP's and PaceForge's numbers are never merged: this tab is PaceForge's plan and results.
 
 enum CalendarChip: String, CaseIterable, Identifiable {
-    case calendar, plan, season, events, hyrox
+    case workouts, calendar, plan, season, events, hyrox
 
-    /// The chip on show, shared with the shell so an old PaceForge link can land on a chip. Reset to Calendar at every launch.
+    /// The chip on show, shared with the shell so a PaceForge link can land on a chip. Reset to Workouts at every launch.
     static let storageKey = "noop.calendar.chip"
 
     var id: String { rawValue }
 
     var title: String {
         switch self {
+        case .workouts: return "Workouts"
         case .calendar: return "Calendar"
         case .plan: return "Plan"
         case .season: return "Season"
@@ -30,9 +31,9 @@ enum CalendarChip: String, CaseIterable, Identifiable {
 
 /// The Calendar tab's root.
 struct CalendarHostView: View {
-    @AppStorage(CalendarChip.storageKey) private var chipRaw = CalendarChip.calendar.rawValue
+    @AppStorage(CalendarChip.storageKey) private var chipRaw = CalendarChip.workouts.rawValue
 
-    private var chip: CalendarChip { CalendarChip(rawValue: chipRaw) ?? .calendar }
+    private var chip: CalendarChip { CalendarChip(rawValue: chipRaw) ?? .workouts }
 
     private var selection: Binding<CalendarChip> {
         Binding(
@@ -46,7 +47,7 @@ struct CalendarHostView: View {
     }
 
     var body: some View {
-        ScreenScaffold(title: "Calendar and Plan", subtitle: "Your week, your plan and your races.",
+        ScreenScaffold(title: "Training", subtitle: "Your workouts, calendar, plan and races.",
                        onRefresh: { await PFUnified.model.refresh() }, lazy: true, topBackground: liquidScaffoldSky()) {
             CalendarColumn(selection: selection)
         }
@@ -83,6 +84,7 @@ private struct CalendarChipHost: View {
 private enum CalendarChipBody {
     static func content(_ chip: CalendarChip, _ snapshot: PFSnapshot) -> AnyView {
         switch chip {
+        case .workouts: return AnyView(WorkoutsView())
         case .calendar: return AnyView(CalendarMonthChip(snapshot: snapshot))
         case .plan: return AnyView(CalendarPlanChip(snapshot: snapshot))
         case .season: return AnyView(CalendarSeasonChip(snapshot: snapshot))

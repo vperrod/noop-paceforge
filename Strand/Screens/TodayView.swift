@@ -862,16 +862,17 @@ struct TodayView: View {
         RecoveryScorer.skinTempRelative(deviationC: chargeBreakdownRow?.skinTempDevC)
     }
 
-    /// #205 (one-word readiness read kept on the hero: Push / Maintain / Rest). PURE mapping of the
+    /// #205 (one-word readiness context kept on the hero). PURE mapping of the
     /// existing `ReadinessEngine.Level` so the hero keeps a glanceable verdict even though the full
     /// Readiness card folds into the Charge breakdown sheet (S4). `insufficient` returns nil (the hero then
-    /// shows no readiness word, matching the old card hiding itself). Mirror EXACTLY in Kotlin.
+    /// shows no readiness word, matching the old card hiding itself). The metric states stay aligned with
+    /// Android; this iPhone wording describes signals rather than prescribing a session from the bucket.
     static func readinessWord(_ level: ReadinessEngine.Level) -> String? {
         switch level {
-        case .primed:       return String(localized: "Push")
-        case .balanced:     return String(localized: "Maintain")
-        case .strained:     return String(localized: "Rest")
-        case .rundown:      return String(localized: "Rest")
+        case .primed:       return String(localized: "Signals aligned")
+        case .balanced:     return String(localized: "Balanced")
+        case .strained:     return String(localized: "Watch signal")
+        case .rundown:      return String(localized: "Review signals")
         case .insufficient: return nil
         }
     }
@@ -1727,8 +1728,8 @@ struct TodayView: View {
 
     /// S4: Readiness now lives behind the Charge-ring tap (in `chargeBreakdownSheet`), not as a standalone
     /// home-screen card. This wrapper is retained for the sheet's use: a titled header + the card body. A
-    /// one-word readiness read (Push / Maintain / Rest, #205) stays on the hero so the home screen keeps a
-    /// glanceable verdict. Hidden when there isn't enough history (the `.insufficient` level).
+    /// concise readiness context (#205) stays on the hero so the home screen keeps a
+    /// glanceable signal read. Hidden when there isn't enough history (the `.insufficient` level).
     @ViewBuilder
     private func readinessCard(_ r: ReadinessEngine.Readiness) -> some View {
         let headline = readinessHeadlineText(r.level)
@@ -1810,8 +1811,8 @@ struct TodayView: View {
         switch level {
         case .primed: return String(localized: "Primed")
         case .balanced: return String(localized: "Balanced")
-        case .strained: return String(localized: "Strained")
-        case .rundown: return String(localized: "Run down")
+        case .strained: return String(localized: "One signal to review")
+        case .rundown: return String(localized: "Several signals to review")
         case .insufficient: return String(localized: "Readiness")
         }
     }
@@ -1819,13 +1820,13 @@ struct TodayView: View {
     private func readinessSummaryText(_ level: ReadinessEngine.Level) -> String {
         switch level {
         case .primed:
-            return String(localized: "Your signals are aligned and your load is supported. A harder session is well backed today.")
+            return String(localized: "Your recovery signals are aligned. Keep your plan and how you feel in view today.")
         case .balanced:
-            return String(localized: "Nothing's flagging. Train to feel - your body's holding steady.")
+            return String(localized: "No strong recovery signal stands out. Keep your plan and how you feel in view today.")
         case .strained:
-            return String(localized: "One of your signals is flagging. You can train, but keep it controlled and bank the recovery.")
+            return String(localized: "A recovery signal is outside your personal range. Compare it with sleep, recent training and how you feel; this read alone does not decide today's session.")
         case .rundown:
-            return String(localized: "Several signals are down at once. Treat today as recovery - easy movement, real sleep tonight.")
+            return String(localized: "Several recovery signals are outside your personal range. Check their source and dates; the Coach can weigh them with your plan and how you feel.")
         case .insufficient:
             return String(localized: "A few more nights of data and your readiness read will sharpen.")
         }
@@ -1862,6 +1863,9 @@ struct TodayView: View {
         if signal.key == "acwr", let evidence = signal.evidenceData,
            case .trainingLoad(let acute, let chronic) = evidence {
             let ratio = readinessNumber(chronic > 0 ? acute / chronic : 0, decimals: 2)
+            if chronic > 0, acute / chronic >= 1.5 {
+                return String(localized: "recent load is markedly above prior weeks (acute:chronic \(ratio)); review recovery and the sessions ahead")
+            }
             switch signal.flag {
             case .good: return String(localized: "inside the reference band (acute:chronic \(ratio)); not a safety score")
             case .bad: return String(localized: "recent load is markedly above prior weeks (acute:chronic \(ratio)); review recovery and the sessions ahead")
@@ -1872,16 +1876,16 @@ struct TodayView: View {
             }
         }
         switch (signal.key, signal.flag) {
-        case ("hrv", .good): return String(localized: "above your baseline - well recovered")
+        case ("hrv", .good): return String(localized: "above your baseline today; one signal, not a recovery verdict")
         case ("hrv", .neutral), ("rhr", .neutral): return String(localized: "in your normal range")
         case ("hrv", .watch): return String(localized: "a touch below baseline")
-        case ("hrv", .bad): return String(localized: "suppressed - a sign of autonomic fatigue")
+        case ("hrv", .bad): return String(localized: "below your baseline; check the trend with sleep, training and how you feel")
         case ("rhr", .good): return String(localized: "at or below baseline")
         case ("rhr", .watch): return String(localized: "running a little high")
-        case ("rhr", .bad): return String(localized: "elevated - overtraining or illness can do this")
-        case ("respRate", .bad): return String(localized: "up vs baseline - sometimes an early sign of getting sick")
+        case ("rhr", .bad): return String(localized: "above your baseline; training, sleep, illness and other factors can affect it")
+        case ("respRate", .bad): return String(localized: "above your baseline; a sustained change is context, not a diagnosis")
         case ("respRate", .watch): return String(localized: "slightly raised vs baseline")
-        case ("monotony", _): return String(localized: "low - similar strain every day raises strain/illness risk")
+        case ("monotony", _): return String(localized: "daily strain was similar across the week; review session variety and recovery, not as a risk score")
         default: return String(localized: "in your normal range")
         }
     }
@@ -1896,8 +1900,8 @@ struct TodayView: View {
         switch l {
         case .primed:       return String(localized: "Primed")
         case .balanced:     return String(localized: "Balanced")
-        case .strained:     return String(localized: "Strained")
-        case .rundown:      return String(localized: "Run down")
+        case .strained:     return String(localized: "One signal to review")
+        case .rundown:      return String(localized: "Several signals to review")
         case .insufficient: return String(localized: "Not enough data")
         }
     }
@@ -1926,7 +1930,7 @@ struct TodayView: View {
         case .primed:       return StrandPalette.accent
         case .balanced:     return StrandPalette.statusPositive
         case .strained:     return StrandPalette.statusWarning
-        case .rundown:      return StrandPalette.metricRose
+        case .rundown:      return StrandPalette.statusWarning
         case .insufficient: return StrandPalette.textTertiary
         }
     }
@@ -2310,7 +2314,7 @@ struct TodayView: View {
                     .minimumScaleFactor(0.8)
                 Spacer(minLength: 8)
                 // S4 (#205): the one-word readiness read kept on the hero now the full Readiness card folded
-                // into the Charge-ring tap. Push / Maintain / Rest, derived from the existing Readiness
+                // into the Charge-ring tap. Signal context, derived from the existing Readiness
                 // level; hidden when there isn't enough history (nil word). Sits beside the confidence pill.
                 if let word = Self.readinessWord(readiness.level) {
                     readinessHeroPill(word)
@@ -2414,7 +2418,7 @@ struct TodayView: View {
         }
     }
 
-    /// S4 (#205): the one-word readiness pill on the hero (Push / Maintain / Rest). A small tinted capsule
+    /// S4 (#205): the one-word readiness context on the hero. A small tinted capsule
     /// matching the score-pill chrome, coloured by the readiness level. Tapping it opens the Charge
     /// breakdown sheet, where the FULL Readiness card now lives, so the glanceable word still leads to the
     /// detail it summarises.
@@ -5285,7 +5289,7 @@ struct TodayView: View {
     private func synthesisWord(_ score: Double?) -> String {
         guard let s = score else { return String(localized: "No Data") }
         // #1405: these are CHARGE/recovery-level words, a different axis from the ReadinessEngine training
-        // verdict (Run down / Strained / Balanced / Primed). They must NOT share a word, or the Synthesis
+        // signal context (Several signals / One signal / Balanced / Signals aligned). They must NOT share a word, or the Synthesis
         // card ("Steady") and the Charge-breakdown Readiness card ("Primed") read as the same thing
         // contradicting itself. So the [70,88) band is "Strong" (which also matches this card's own "Charge
         // is strong" detail copy), leaving "Primed" exclusively to the readiness engine. Keep parity with Kotlin.
