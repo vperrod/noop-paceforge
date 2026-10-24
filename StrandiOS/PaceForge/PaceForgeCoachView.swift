@@ -58,7 +58,7 @@ struct PFCoachView: View {
     private var pendingWorkoutReviewsCard: some View {
         PFCard("Workout reviews", icon: "clock") {
             VStack(alignment: .leading, spacing: 9) {
-                ForEach(pendingWorkoutReviews.indices, id: \.self) { index in
+                ForEach(0..<pendingWorkoutReviews.count, id: \.self) { index in
                     let item = pendingWorkoutReviews[index]
                     let activity = snapshot.activities[item.id]
                     if let activity {
