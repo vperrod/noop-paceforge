@@ -58,7 +58,7 @@ struct PFCoachView: View {
     private var pendingWorkoutReviewsCard: some View {
         PFCard("Workout reviews", icon: "clock") {
             VStack(alignment: .leading, spacing: 9) {
-                ForEach(pendingWorkoutReviews, id: \.id) { item in
+                ForEach(Array(pendingWorkoutReviews.enumerated()), id: \.offset) { _, item in
                     let activity = snapshot.activities[item.id]
                     if let activity {
                         Button {
@@ -106,7 +106,7 @@ struct PFCoachView: View {
                                userRpe: snapshot.rpe[item.id], cadenceTarget: nil, description: nil, briefing: nil,
                                steps: [], exercises: [], compliance: nil, completionAnalysis: nil, notes: nil,
                                activityId: item.id)
-        result.coachSessionID = snapshot.weeks.flatMap { $0.workouts }
+        result.coachSessionID = snapshot.weeks.flatMap { $0.days }.flatMap { $0.workouts }
             .first(where: { $0.activityId == item.id })?.coachSessionID
         return result
     }
@@ -171,7 +171,7 @@ struct PFCoachView: View {
                                userRpe: snapshot.rpe[row.id], cadenceTarget: nil, description: nil, briefing: nil,
                                steps: [], exercises: [], compliance: nil, completionAnalysis: nil, notes: nil,
                                activityId: row.id)
-        result.coachSessionID = snapshot.weeks.flatMap { $0.workouts }
+        result.coachSessionID = snapshot.weeks.flatMap { $0.days }.flatMap { $0.workouts }
             .first(where: { $0.activityId == row.id })?.coachSessionID
         return result
     }
@@ -239,7 +239,7 @@ struct PFCoachView: View {
     // MARK: Today's Coach read
 
     private func todayReadCard(brief: PFBrief?, take: PFTake?) -> some View {
-        PFCard(String(localized: "Today's read"), icon: "sparkles", trailing: {
+        PFCard(title: String(localized: "Today's read"), icon: "sparkles", trailing: {
             HStack(spacing: 6) {
                 if let date = brief?.date {
                     Text(PFFormat.shortDate(date)).font(StrandFont.caption).foregroundStyle(StrandPalette.textTertiary)
