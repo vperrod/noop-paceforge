@@ -239,7 +239,7 @@ struct PFAnalysisRow {
 }
 
 /// Status-only review metadata; it carries no workout health readings.
-struct PFAnalysisStatus: Identifiable {
+struct PFAnalysisStatus {
     var id: String
     var status: String?
     var reason: String?
