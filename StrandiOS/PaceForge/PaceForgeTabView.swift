@@ -7,6 +7,10 @@ enum PFSegment: String, CaseIterable, Identifiable {
 
     var id: String { rawValue }
 
+    /// Coach has one entry point in the tab-bar button. Keep `.coach` for old saved routes, but don't
+    /// offer a second Coach destination inside the PaceForge dashboard.
+    static var dashboardCases: [PFSegment] { allCases.filter { $0 != .coach } }
+
     var title: String {
         switch self {
         case .today: return "Today"
@@ -35,7 +39,10 @@ struct PaceForgeTabView: View {
 
     private var segment: Binding<PFSegment> {
         Binding(
-            get: { PFSegment(rawValue: segmentRaw) ?? .today },
+            get: {
+                let value = PFSegment(rawValue: segmentRaw) ?? .today
+                return value == .coach ? .today : value
+            },
             set: { segmentRaw = $0.rawValue }
         )
     }
@@ -64,6 +71,7 @@ struct PaceForgeTabView: View {
         }
         // Diagnostics: the segment on show names the screen, and memory is sampled into the breadcrumbs while the tab is open.
         .onAppear {
+            if segmentRaw == PFSegment.coach.rawValue { segmentRaw = PFSegment.today.rawValue }
             NoopDiagSampler.shared.isWatchingClosely = true
             NoopDiag.screen("pf.\(segment.wrappedValue.rawValue)")
             openedAt = model.phase == .ready ? nil : DispatchTime.now().uptimeNanoseconds
@@ -165,7 +173,7 @@ struct PaceForgeTabView: View {
 
     @ViewBuilder private func readySections(_ snapshot: PFSnapshot) -> some View {
         Picker("PaceForge section", selection: segment) {
-            ForEach(PFSegment.allCases) { Text($0.title).tag($0) }
+            ForEach(PFSegment.dashboardCases) { Text($0.title).tag($0) }
         }
         .pickerStyle(.segmented)
         .accessibilityIdentifier("pf-segments")

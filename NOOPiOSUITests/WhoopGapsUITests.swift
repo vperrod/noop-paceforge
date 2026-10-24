@@ -112,8 +112,9 @@ final class WhoopGapsUITests: XCTestCase {
 
     func testTrendsReportSheetOffersTheHealthReport() {
         let app = launch()
-        let trends = app.shellTab("Trends")
-        XCTAssertTrue(trends.waitForExistence(timeout: 30))
+        app.shellTab("More").tap()
+        let trends = element(app, "more-row-trends")
+        XCTAssertTrue(reveal(trends, in: app), "More should expose Trends.")
         trends.tap()
         let export = element(app, "trends-export-report")
         XCTAssertTrue(reveal(export, in: app, maxSwipes: 20), "Trends should offer the report export.")

@@ -14,6 +14,7 @@ import StrandDesign
 /// sheet), and a sheet is the one presentation that behaves the same in all three without depending on
 /// an enclosing NavigationStack.
 struct CoachSettingsView: View {
+    var sharedBrainMode = false
     @EnvironmentObject var coach: AICoachEngine
     @Environment(\.dismiss) private var dismiss
 
@@ -37,8 +38,10 @@ struct CoachSettingsView: View {
         // ScrollView with no NavigationStack, so a toolbar item presented in a sheet would render
         // nowhere, and a macOS sheet has no swipe-to-dismiss: that combination would leave this screen
         // with no way out. (#2206 is the same mistake in the other direction.)
-        ScreenScaffold(title: "Coach settings",
-                       subtitle: "What the coach may read, how it is told to answer, and when it writes to you.",
+        ScreenScaffold(title: sharedBrainMode ? "Coach notifications" : "Coach settings",
+                       subtitle: sharedBrainMode
+                        ? "Choose whether the shared Coach sends a morning briefing and when it arrives."
+                        : "What the coach may read, how it is told to answer, and when it writes to you.",
                        topBackground: liquidScaffoldSky(),
                        trailing: {
                            Button("Done") { dismiss() }
@@ -47,19 +50,25 @@ struct CoachSettingsView: View {
                                .foregroundStyle(StrandPalette.accent)
                                .accessibilityLabel("Close coach settings")
                        }) {
-            modelBar
-            responseLengthBar
-            consentBar
-            // v5: a SECOND opt-in, only meaningful once data access is on, folds a summary of the
-            // new on-device signals (your strongest patterns + Lab Book) into the coach context.
-            if coach.dataConsent { onDeviceSignalsBar }
-            if coach.dataConsent && coach.provider == .gemini { multimodalChartBar }
-            systemPromptBar
-            morningBriefBar
+            if sharedBrainMode {
+                morningBriefBar
+            } else {
+                modelBar
+                responseLengthBar
+                consentBar
+                // v5: a SECOND opt-in, only meaningful once data access is on, folds a summary of the
+                // new on-device signals (your strongest patterns + Lab Book) into the coach context.
+                if coach.dataConsent { onDeviceSignalsBar }
+                if coach.dataConsent && coach.provider == .gemini { multimodalChartBar }
+                systemPromptBar
+                morningBriefBar
+            }
         }
         // Opening this screen is the moment a stale catalogue is worth refreshing: a key exists here by
         // definition, and the picker above is about to be read. Rate-limited and silent on failure.
-        .task { await coach.refreshModelsIfStale() }
+        .task {
+            if !sharedBrainMode { await coach.refreshModelsIfStale() }
+        }
     }
 
     /// Which model answers, and the control that refreshes the list of them.
@@ -290,7 +299,9 @@ struct CoachSettingsView: View {
                     VStack(alignment: .leading, spacing: 1) {
                         Text("Morning brief").font(StrandFont.subhead).foregroundStyle(StrandPalette.textPrimary)
                         Text(briefEnabled
-                             ? "A local notification with today's readiness + training plan, generated on-device each morning."
+                             ? (sharedBrainMode
+                                ? "A local notification from the shared Coach. NOOP must be connected to PaceForge."
+                                : "A local notification with today's coaching read. It uses PaceForge when connected; otherwise your Coach provider and data permission.")
                              : "Off: nothing is generated or sent on a schedule.")
                             .font(StrandFont.footnote).foregroundStyle(StrandPalette.textTertiary)
                             .fixedSize(horizontal: false, vertical: true)
@@ -318,20 +329,36 @@ struct CoachSettingsView: View {
                             .labelsHidden()
                             .accessibilityLabel("Morning brief time")
                     }
-                    Text("At \(Platform.deviceNounPhrase == "Mac" ? "this time" : "or soon after"), NOOP will use your key to generate today's brief. Best-effort: \(Platform.deviceNounPhrase) decides exactly when a backgrounded app wakes.")
+                    Text(sharedBrainMode
+                         ? "The shared Coach sends the briefing when PaceForge has today's data. Background delivery is best-effort: \(Platform.deviceNounPhrase) decides when the app wakes."
+                         : "The brief is delivered at this time or later. Without PaceForge, it uses your selected Coach provider and data permission. Background delivery is best-effort: \(Platform.deviceNounPhrase) decides when the app wakes.")
                         .font(StrandFont.caption).foregroundStyle(StrandPalette.textTertiary)
                         .fixedSize(horizontal: false, vertical: true)
                     #if os(iOS)
-                    Text("With PaceForge connected, the brief is PaceForge's own and goes out as soon as your night's sleep and HRV are in. This time is the latest it waits.")
-                        .font(StrandFont.caption).foregroundStyle(StrandPalette.textTertiary)
-                        .fixedSize(horizontal: false, vertical: true)
-                    #endif
-                    NoopButton(briefGenerating ? "Generating…" : "Generate now", systemImage: "sparkles", kind: .secondary) {
-                        generateBriefNow()
+                    if !sharedBrainMode {
+                        Text("With PaceForge connected, the brief is PaceForge's own and goes out as soon as your night's sleep and HRV are in. This time is the latest it waits.")
+                            .font(StrandFont.caption).foregroundStyle(StrandPalette.textTertiary)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
-                    .disabled(briefGenerating)
+                    #endif
+                    if !sharedBrainMode {
+                        NoopButton(briefGenerating ? "Generating…" : "Generate now", systemImage: "sparkles", kind: .secondary) {
+                            generateBriefNow()
+                        }
+                        .disabled(briefGenerating)
+                    } else {
+                        NoopButton(briefGenerating ? "Checking…" : "Check now", systemImage: "arrow.clockwise", kind: .secondary) {
+                            generateBriefNow()
+                        }
+                        .disabled(briefGenerating)
+                    }
                     if let briefStatus {
                         Text(briefStatus).font(StrandFont.footnote).foregroundStyle(StrandPalette.textTertiary)
+                    } else if sharedBrainMode, let reason = CoachBriefScheduler.lastFailureReason {
+                        Text("Latest morning brief issue: \(reason)")
+                            .font(StrandFont.footnote)
+                            .foregroundStyle(StrandPalette.textTertiary)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
                 }
             }
@@ -362,9 +389,17 @@ struct CoachSettingsView: View {
             defer { briefGenerating = false }
             let text = await CoachBriefScheduler.generateNow { await coach.generateBrief() }
             if let text {
-                coach.appendGeneratedBrief(text)
+                if sharedBrainMode {
+                    #if os(iOS)
+                    await PFUnified.model.refresh()
+                    #else
+                    coach.appendGeneratedBrief(text)
+                    #endif
+                } else {
+                    coach.appendGeneratedBrief(text)
+                }
             } else {
-                briefStatus = "Couldn't generate a brief right now — check your key and data access."
+                briefStatus = "Couldn't generate the brief. \(CoachBriefScheduler.lastFailureReason ?? "Check your Coach provider and data access settings.")"
             }
         }
     }

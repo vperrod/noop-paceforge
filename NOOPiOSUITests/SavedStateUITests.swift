@@ -140,7 +140,7 @@ final class SavedStateUITests: XCTestCase {
 
     func testEveryTabOpensFromTheBuild464State() throws {
         let app = try launch(["-NoopSeedBuild464State"])
-        for title in ["Trends", "Sleep", "More", "Today"] {
+        for title in ["Workouts", "Sleep", "More", "Today"] {
             let tab = app.shellTab(title)
             XCTAssertTrue(tab.waitForExistence(timeout: 30), "The \(title) tab should be present.")
             tab.tap()

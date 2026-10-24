@@ -772,7 +772,8 @@ enum PFBuilder {
                     return PFFatigue(kind: f["kind"].string, text: text)
                 },
                 strengthSaid: review["strength"]["said"].text,
-                thisWeek: weekly["this_week"].strings)
+                thisWeek: weekly["this_week"].strings,
+                fullRead: weekly["content_md"].text ?? weekly["content"].text)
         }
         out.chat = state["chat"]["turns"].array.suffix(6).compactMap { t in
             guard let role = t["role"].string, let text = t["text"].text, let ts = t["ts"].string else { return nil }

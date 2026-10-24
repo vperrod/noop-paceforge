@@ -1033,14 +1033,58 @@ final class AICoachEngine: ObservableObject {
         // Same master-switch gate as `send`, because this entry has NO UI at all: it is what the scheduler
         // calls, and a caller that skipped the scheduler's own gate would otherwise reach a provider with
         // the AI switched off.
-        guard CoachBriefScheduler.coachMasterEnabled else { return nil }
-        guard isConfigured, dataConsent, let key = resolvedKey else { return nil }
+        guard CoachBriefScheduler.coachMasterEnabled else {
+            CoachBriefScheduler.recordFailureReason("Coach is turned off in Settings.")
+            return nil
+        }
+        guard isConfigured else {
+            CoachBriefScheduler.recordFailureReason("No Coach provider key is set up.")
+            return nil
+        }
+        guard dataConsent else {
+            CoachBriefScheduler.recordFailureReason("Coach data access is turned off in Settings.")
+            return nil
+        }
+        guard let key = resolvedKey else {
+            CoachBriefScheduler.recordFailureReason("The saved Coach provider key is unavailable.")
+            return nil
+        }
         let context = await buildFullContext()
         let wire: [(role: ChatMessage.Role, content: String)] =
             [(.user, context + "\n\n---\n\n" + Self.briefInstruction)]
-        guard let reply = try? await callProvider(key: key, messages: wire) else { return nil }
+        let reply: String
+        do {
+            reply = try await callProvider(key: key, messages: wire)
+        } catch let error as AICoachError {
+            CoachBriefScheduler.recordFailureReason(Self.briefFailureReason(for: error))
+            return nil
+        } catch {
+            CoachBriefScheduler.recordFailureReason("The Coach provider could not be reached.")
+            return nil
+        }
         let clean = reply.trimmingCharacters(in: .whitespacesAndNewlines)
-        return clean.isEmpty ? nil : clean
+        guard !clean.isEmpty else {
+            CoachBriefScheduler.recordFailureReason("The Coach provider returned an empty reply.")
+            return nil
+        }
+        CoachBriefScheduler.recordFailureReason(nil)
+        return clean
+    }
+
+    /// Notification-safe wording: name the kind of failure without putting server responses, URLs or
+    /// account details on the lock screen.
+    private static func briefFailureReason(for error: AICoachError) -> String {
+        switch error {
+        case .noKey, .keySaveFailed: return "No usable Coach provider key is saved."
+        case .badKey: return "The provider rejected the saved key."
+        case .rateLimited: return "The provider is rate-limiting requests."
+        case .server: return "The Coach provider returned an error."
+        case .network: return "The Coach provider could not be reached."
+        case .decode: return "The provider reply could not be read."
+        case .emptyReply: return "The Coach provider returned an empty reply."
+        case .badCustomURL: return "The custom provider URL is invalid."
+        case .emptyQuestion: return "The brief request was empty."
+        }
     }
 
     /// Full data context = the metrics summary + recent workouts (+ an OPT-IN on-device-signals summary

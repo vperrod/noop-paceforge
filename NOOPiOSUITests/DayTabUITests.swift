@@ -1,6 +1,6 @@
 import XCTest
 
-/// The New Day tab (beta), Settings > Tools: with the switch on at launch, tab 2 is Day and shows My Day, Sleep, Recovery, Activity
+/// The New Day tab (beta), Settings > Tools: with the switch on at launch, tab 2 is Day and shows My Day, Sleep, Recovery, Workouts, Activity
 /// and Health as chips, one mounted at a time. With the switch off the tab is Sleep, as in build 479. The switch is a launch
 /// argument here (`-unifiedDay YES`); like the other UI tests these run on `--demo-seed` data.
 final class DayTabUITests: XCTestCase {

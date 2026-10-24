@@ -178,29 +178,33 @@ final class LookScreensUITests: XCTestCase {
         attach(app, "Look A3 PaceForge Body metric menu")
     }
 
-    func testPaceForgeThisWeekAndCoachUseTheCards() throws {
+    func testPaceForgeThisWeekAndSharedCoachUseTheCards() throws {
         let app = try launch(fixture: true)
         try openSegment(app, "This week")
         attach(app, "Look A4 PaceForge This week")
-        try openSegment(app, "Coach")
-        attach(app, "Look A5 PaceForge Coach")
+        element(app, "look-coach").tap()
+        XCTAssertTrue(element(app, "coach-full-brain").waitForExistence(timeout: 30))
+        attach(app, "Look A5 Shared Coach")
     }
 
     // MARK: Floating tab bar
 
     func testFloatingTabBarSwitchesTabs() throws {
         let app = try launch()
-        let trends = app.shellTab("Trends")
-        XCTAssertTrue(trends.waitForExistence(timeout: 30), "The floating bar should show its tabs.")
+        let workouts = app.shellTab("Workouts")
+        XCTAssertTrue(workouts.waitForExistence(timeout: 30), "The floating bar should show its tabs.")
         XCTAssertTrue(element(app, "look-coach").exists, "The floating bar should carry the coach button.")
         attach(app, "Look B0 floating tab bar on Today")
-        trends.tap()
-        XCTAssertTrue(reveal(element(app, "look-noop-trends"), in: app), "Trends should open from the floating bar.")
-        attach(app, "Look B1 floating tab bar on Trends")
+        workouts.tap()
+        XCTAssertTrue(app.staticTexts["Workouts"].waitForExistence(timeout: 20), "Workouts should open from the floating bar.")
+        attach(app, "Look B1 floating tab bar on Workouts")
         app.shellTab("Sleep").tap()
         XCTAssertTrue(reveal(element(app, "look-last-night"), in: app), "Sleep should open from the floating bar.")
         attach(app, "Look B2 floating tab bar on Sleep")
         app.shellTab("More").tap()
+        XCTAssertTrue(reveal(element(app, "more-row-trends"), in: app), "More should expose Trends after it leaves the tab bar.")
+        element(app, "more-row-trends").tap()
+        XCTAssertTrue(reveal(element(app, "look-noop-trends"), in: app), "Trends should remain available from More.")
         attach(app, "Look B3 floating tab bar on More")
     }
 }

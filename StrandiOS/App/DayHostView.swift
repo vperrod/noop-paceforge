@@ -5,7 +5,7 @@ import StrandDesign
 // MARK: - Day: the one tab
 //
 // The beta Day tab (Settings > Tools > New Day tab) replaces the Sleep tab. A row of chips at the top and ONE chip mounted below it
-// (like Insights and Data): My Day, Sleep, Recovery, Activity, Health. Each chip is the content of a screen that already exists,
+// (like Insights and Data): My Day, Sleep, Recovery, Workouts, Activity, Health. Each chip is the content of a screen that already exists,
 // unchanged, drawn in this screen's scroll view. Sleep and Recovery start with a card that sets NOOP's numbers beside PaceForge's
 // and Garmin's (DayReadings.swift); the numbers are never merged.
 //
@@ -13,7 +13,7 @@ import StrandDesign
 // reads a live strap value, and there is no GeometryReader, ViewThatFits or preference key.
 
 enum DayChip: String, CaseIterable, Identifiable {
-    case myDay, sleep, recovery, activity, health
+    case myDay, sleep, recovery, workouts, activity, health
 
     /// The chip on show, shared with the shell so a link to Sleep can land on the Sleep chip. Reset to Sleep at every launch.
     static let storageKey = "noop.day.chip"
@@ -25,6 +25,7 @@ enum DayChip: String, CaseIterable, Identifiable {
         case .myDay: return "My Day"
         case .sleep: return "Sleep"
         case .recovery: return "Recovery"
+        case .workouts: return "Workouts"
         case .activity: return "Activity"
         case .health: return "Health"
         }
@@ -100,6 +101,7 @@ private struct DayChipBody: View {
         case .myDay: return AnyView(DayMyDayChip())
         case .sleep: return AnyView(DaySleepChip())
         case .recovery: return AnyView(DayRecoveryChip())
+        case .workouts: return AnyView(WorkoutsView().containerIdentifier("day-chip-content-workouts"))
         case .activity: return AnyView(DayActivityChip())
         case .health: return AnyView(DayHealthChip())
         }
@@ -151,14 +153,13 @@ private struct DayRecoveryChooser: View {
     }
 }
 
-/// Activity: Workouts, as it is, with the Lift Log one tap away.
+/// Strength and activity tools, with the Lift Log one tap away. The workout history has its own chip.
 private struct DayActivityChip: View {
     var body: some View {
         VStack(alignment: .leading, spacing: NoopMetrics.sectionSpacing) {
             IndexSection("Lifts") {
                 IndexRow("Lift Log", "dumbbell.fill", TabRoute.liftLog, id: "day-activity-lifts")
             }
-            WorkoutsView()
         }
         .containerIdentifier("day-chip-content-activity")
     }

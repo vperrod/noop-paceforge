@@ -24,7 +24,6 @@ enum UnifiedNav {
         let defaults = UserDefaults.standard
         defaults.set(CalendarChip.calendar.rawValue, forKey: CalendarChip.storageKey)
         defaults.set(InsightsChip.overview.rawValue, forKey: InsightsChip.storageKey)
-        defaults.set(CoachChip.coach.rawValue, forKey: CoachChip.storageKey)
         defaults.set(BodyChip.body.rawValue, forKey: BodyChip.storageKey)
         NoopDiag.crumb("nav.unified enabled")
     }
@@ -35,9 +34,9 @@ enum UnifiedNav {
     static let insightsTab = 3
     static let moreTab = 4
 
-    /// The titles and icons of the two tabs the switch renames (Trends becomes Calendar, PaceForge becomes Insights).
-    static var secondTabTitle: LocalizedStringKey { isOn ? "Calendar" : "Trends" }
-    static var secondTabIcon: String { isOn ? "calendar.badge.clock" : "chart.line.uptrend.xyaxis" }
+    /// The second tab is Workouts in classic navigation and Calendar in New navigation.
+    static var secondTabTitle: LocalizedStringKey { isOn ? "Calendar" : "Workouts" }
+    static var secondTabIcon: String { isOn ? "calendar.badge.clock" : "figure.run" }
     static var fourthTabTitle: LocalizedStringKey { isOn ? "Insights" : "PaceForge" }
     static var fourthTabIcon: String { isOn ? "chart.line.uptrend.xyaxis" : "figure.run" }
 

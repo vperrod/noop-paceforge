@@ -5,11 +5,9 @@ import BackgroundTasks
 import WidgetKit
 #endif
 
-/// PRD-K5: a user-scheduled, LOCAL notification that delivers a one-line morning coaching brief,
-/// generated on-device via the user's already-configured Coach provider, at a chosen time each day.
-/// Tap → opens Coach with the full brief. No push server, no cloud — the network call is the SAME
-/// bring-your-own-key request Coach already makes on every send, just user-armed on a daily timer
-/// instead of triggered by a tap. Default OFF, like every NOOP automation.
+/// PRD-K5: a user-scheduled, local notification for the morning coaching brief. On iOS, a connected
+/// PaceForge account supplies its server-written brief; otherwise the user's configured Coach provider
+/// generates it. Tap → opens Coach with the full brief. Default OFF, like every NOOP automation.
 ///
 /// Cross-platform (macOS + iOS), same architecture as `ScheduledDebugExport`:
 /// - **macOS** — the app is usually running; a foreground `DispatchSourceTimer` fires at the chosen
@@ -35,6 +33,7 @@ enum CoachBriefScheduler {
         static let lastRun = "coachBrief.lastRunDayKey"    // yyyy-MM-dd of the last GENERATED brief (dedup)
         static let storedBrief = "coachBrief.storedText"   // the full brief, for the notification tap-through
         static let hasUnconsumed = "coachBrief.hasUnconsumedBrief"
+        static let lastFailureReason = "coachBrief.lastFailureReason"
         // K10: the brief text mirrored into the App Group so the widget extension (separate process)
         // can read it. The app's own UserDefaults.standard isn't visible to the widget.
         static let widgetBriefKey = "coachBrief.widgetText"
@@ -111,6 +110,18 @@ enum CoachBriefScheduler {
     /// The most recently generated full brief text (for the notification tap-through), or nil before the
     /// first successful generation.
     static var storedBrief: String? { UserDefaults.standard.string(forKey: K.storedBrief) }
+
+    /// Short, non-sensitive reason from the last failed provider attempt. Kept locally so both the
+    /// scheduled notification and the Settings retry button can explain what needs attention.
+    static var lastFailureReason: String? { UserDefaults.standard.string(forKey: K.lastFailureReason) }
+
+    static func recordFailureReason(_ reason: String?) {
+        if let reason {
+            UserDefaults.standard.set(reason, forKey: K.lastFailureReason)
+        } else {
+            UserDefaults.standard.removeObject(forKey: K.lastFailureReason)
+        }
+    }
 
     /// True when a generated brief hasn't yet been surfaced in the Coach transcript. Set right after a
     /// successful generation; cleared by `consumeStoredBrief()`.
@@ -222,7 +233,27 @@ enum CoachBriefScheduler {
     /// Returns the brief text, or nil on failure (no key/consent/network) — the caller surfaces that.
     @discardableResult
     static func generateNow(generateBrief: () async -> String?) async -> String? {
-        await generateBrief()
+        recordFailureReason(nil)
+        let text: String?
+        #if os(iOS)
+        // Use the same source as the scheduled path so “Generate now” cannot produce a second, different
+        // brief while PaceForge is the connected Coach source.
+        switch await PaceForgeBriefSource.today(timeReached: true) {
+        case .text(let paceForgeText): text = paceForgeText
+        case .notReady:
+            recordFailureReason("PaceForge has not published today's brief yet, or the server could not be reached.")
+            return nil
+        case .notSetUp:
+            recordFailureReason("Connect NOOP to PaceForge to use the shared Coach for morning briefs.")
+            return nil
+        }
+        #else
+        text = await generateBrief()
+        #endif
+        if text == nil, lastFailureReason == nil {
+            recordFailureReason("The Coach provider did not return a brief.")
+        }
+        return text
     }
 
     // MARK: - Due check + generation
@@ -279,6 +310,7 @@ enum CoachBriefScheduler {
 
         // One attempt at a time; see `generationInFlight` for why the day guard alone is not enough.
         guard await claimGeneration() else { return true }
+        recordFailureReason(nil)
         let generated: String?
         #if os(iOS)
         // With PaceForge connected the brief is PaceForge's own (written on the server, no AI key needed here). Not published yet
@@ -289,11 +321,12 @@ enum CoachBriefScheduler {
             await releaseGeneration()
             return true
         case .notSetUp:
-            guard timeReached else {            // NOOP's own brief keeps its chosen time
+            guard timeReached else {            // Wait until the selected latest time before reporting missing PaceForge setup.
                 await releaseGeneration()
                 return true
             }
-            generated = await generateBrief()
+            recordFailureReason("Connect NOOP to PaceForge to use the shared Coach for morning briefs.")
+            generated = nil
         }
         #else
         generated = await generateBrief()
@@ -305,11 +338,12 @@ enum CoachBriefScheduler {
             // next wake (BGTask retry, or the next foreground open) tries again. Post a low-key retry
             // notification rather than silently doing nothing — the PRD's "unavailable, tap to retry".
             postNotification(title: String(localized: "Coach brief unavailable"),
-                              body: String(localized: "Couldn't generate today's brief. Tap to try again in Coach."),
+                              body: failureNotificationBody,
                               isRetry: true)
             return false
         }
 
+        recordFailureReason(nil)
         UserDefaults.standard.set(dayKey(now), forKey: K.lastRun)
         UserDefaults.standard.set(text, forKey: K.storedBrief)
         UserDefaults.standard.set(true, forKey: K.hasUnconsumed)
@@ -346,6 +380,11 @@ enum CoachBriefScheduler {
         let request = UNNotificationRequest(identifier: requestIdPrefix + dayKey(Date()),
                                             content: content, trigger: nil)
         UNUserNotificationCenter.current().add(request)
+    }
+
+    private static var failureNotificationBody: String {
+        let reason = lastFailureReason ?? "The provider did not return a brief."
+        return "Today's brief couldn't be generated: \(reason) Open Coach to fix it or retry."
     }
 
     /// yyyy-MM-dd local-day key for the once-per-day dedup. POSIX locale so the key is stable everywhere.

@@ -14,8 +14,16 @@ struct AskCoachButton: View {
     @EnvironmentObject private var coach: AICoachEngine
     @EnvironmentObject private var router: NavRouter
 
+    private var isAvailable: Bool {
+        #if os(iOS)
+        PFAPI.isConfigured && CoachBriefScheduler.coachMasterEnabled
+        #else
+        coach.isConfigured && CoachBriefScheduler.coachMasterEnabled
+        #endif
+    }
+
     var body: some View {
-        if coach.isConfigured && CoachBriefScheduler.coachMasterEnabled {
+        if isAvailable {
             Button {
                 coach.pendingPrompt = CoachAskPrompt.question(about: metric)
                 onClose()

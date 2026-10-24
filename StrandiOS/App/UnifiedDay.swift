@@ -3,7 +3,7 @@ import SwiftUI
 import StrandDesign
 
 // The opt-in "New Day tab (beta)". Off by default: with the switch off the tab bar and every screen are the ones build 479 has
-// (tab 2 is Sleep). On, tab 2 is labelled Day and hosts My Day, Sleep, Recovery, Activity and Health as chips (DayHostView). The
+// (tab 2 is Sleep). On, tab 2 is labelled Day and hosts My Day, Sleep, Recovery, Workouts, Activity and Health as chips (DayHostView). The
 // switch is read once, at launch, so a change applies after the app is restarted.
 
 enum UnifiedDay {
@@ -40,7 +40,7 @@ struct UnifiedDayToggle: View {
             .tint(StrandPalette.accent)
             .frame(minHeight: 44)
             .accessibilityIdentifier("settings-tool-unifiedday")
-            Text("Replaces the Sleep tab by a Day tab: My Day, Sleep, Recovery, Activity and Health in one place. Off keeps the tabs you have today. Restart NOOP to apply a change.")
+            Text("Replaces the Sleep tab by a Day tab: My Day, Sleep, Recovery, Workouts, Activity and Health in one place. Off keeps the tabs you have today. Restart NOOP to apply a change.")
                 .font(StrandFont.caption)
                 .foregroundStyle(StrandPalette.textTertiary)
                 .fixedSize(horizontal: false, vertical: true)

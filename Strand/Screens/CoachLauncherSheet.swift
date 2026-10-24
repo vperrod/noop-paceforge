@@ -21,11 +21,23 @@ struct CoachLauncherSheet: View {
 
     @State private var draft = ""
 
+    private var coachAvailable: Bool {
+        #if os(iOS)
+        PFAPI.isConfigured && CoachBriefScheduler.coachMasterEnabled
+        #else
+        coach.isConfigured && CoachBriefScheduler.coachMasterEnabled
+        #endif
+    }
+
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
-                    if coach.isConfigured {
+                    if !CoachBriefScheduler.coachMasterEnabled {
+                        Text("Coach is turned off in Settings.")
+                            .font(StrandFont.footnote)
+                            .foregroundStyle(StrandPalette.textTertiary)
+                    } else if coachAvailable {
                         configured
                     } else {
                         unconfigured
@@ -54,7 +66,7 @@ struct CoachLauncherSheet: View {
 
     @ViewBuilder
     private var configured: some View {
-        Text("Ask about your charge, effort, rest and workouts, grounded in your own numbers.")
+        Text("Your Coach uses your latest synced NOOP and PaceForge data.")
             .font(StrandFont.footnote)
             .foregroundStyle(StrandPalette.textTertiary)
 
@@ -101,17 +113,25 @@ struct CoachLauncherSheet: View {
 
     @ViewBuilder
     private var unconfigured: some View {
-        // The SAME explanation the Coach screen shows, so the bring-your-own-key model is described
-        // once. The button routes to that screen, which stays the only place a key is entered.
+        #if os(iOS)
+        Text("Connect NOOP to your PaceForge server to use the shared Coach with both data sources.")
+            .font(StrandFont.footnote)
+            .foregroundStyle(StrandPalette.textTertiary)
+        #else
         Text("Coach uses your own API key. Pick a provider, paste a key, and choose a model. Your key is stored securely in the Keychain and never leaves \(Platform.deviceNounPhrase) except as the request you make.")
             .font(StrandFont.footnote)
             .foregroundStyle(StrandPalette.textTertiary)
+        #endif
 
         Button {
             dismiss()
             router.openCoach()
         } label: {
+            #if os(iOS)
+            Text("Open Coach")
+            #else
             Text("Connect a provider")
+            #endif
                 .font(StrandFont.caption)
                 .foregroundStyle(StrandPalette.textPrimary)
                 .padding(.horizontal, 14).padding(.vertical, 10)

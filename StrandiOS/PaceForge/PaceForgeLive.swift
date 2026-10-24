@@ -164,6 +164,17 @@ enum PFAPI {
         return try await SelfHostedPushClient.paceForgePostReturningStatus("api/app/answer", body: body)
     }
 
+    /// Send one user message to the shared PaceForge Coach. The server runs the same coach job and
+    /// stores its reply in `api/state`, which the iPhone refreshes into the existing transcript.
+    static func postCoachMessage(_ message: String) async throws -> (status: Int, data: Data) {
+        if let fixture {
+            guard let reply = fixture["api/app/chat"] else { throw CocoaError(.fileNoSuchFile) }
+            return (200, try JSONSerialization.data(withJSONObject: reply))
+        }
+        return try await SelfHostedPushClient.paceForgePostReturningStatus(
+            "api/app/chat", body: ["message": String(message.prefix(2_000))])
+    }
+
     /// One line for the error card: the server host and why the request failed. No token, no path.
     static func failureDetail(_ error: Error) -> String {
         let host = SelfHostedPushClient.paceForgeHost ?? "no endpoint"
@@ -593,6 +604,10 @@ final class PFModel: ObservableObject {
             if !trimmed.isEmpty { out.analysis = trimmed }
         }
         return out
+    }
+
+    func monthlyCoachRead(monthKey: String) async -> Data? {
+        await Self.fetchWithCache("data/reviews/\(monthKey).json")
     }
 
     private static func fetchWithCache(_ path: String) async -> Data? {

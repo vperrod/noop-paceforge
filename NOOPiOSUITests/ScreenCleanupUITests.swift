@@ -102,9 +102,9 @@ final class ScreenCleanupUITests: XCTestCase {
         XCTAssertTrue(today.waitForExistence(timeout: 30), "The Today tab should be present.")
         XCTAssertTrue(element(app, "today-settings").waitForExistence(timeout: 20), "Today should open its top bar.")
 
-        app.shellTab("Trends").tap()
-        XCTAssertTrue(reveal(element(app, "look-noop-trends"), in: app), "Trends should open on one tap.")
-        alive(app, "opening Trends")
+        app.shellTab("Workouts").tap()
+        XCTAssertTrue(app.staticTexts["Workouts"].waitForExistence(timeout: 20), "Workouts should open on one tap.")
+        alive(app, "opening Workouts")
         app.shellTab("Sleep").tap()
         XCTAssertTrue(reveal(element(app, "look-last-night"), in: app), "Sleep should open on one tap.")
         alive(app, "opening Sleep")
@@ -116,7 +116,7 @@ final class ScreenCleanupUITests: XCTestCase {
 
         let coach = element(app, "look-coach")
         XCTAssertTrue(coach.exists, "The centre button should be NOOP Coach.")
-        XCTAssertEqual(coach.label, "NOOP Coach", "NOOP's Coach button is told apart from PaceForge's Coach segment.")
+        XCTAssertEqual(coach.label, "NOOP Coach", "The Coach button is the single Coach entry point.")
         coach.tap()
         XCTAssertTrue(app.buttons["Done"].waitForExistence(timeout: 20), "The Coach button should open Coach in one tap.")
         alive(app, "opening Coach")

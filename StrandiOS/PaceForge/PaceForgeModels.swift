@@ -265,6 +265,7 @@ struct PFWeeklyReview {
     var fatigue: [PFFatigue]?
     var strengthSaid: String?
     var thisWeek: [String]?
+    var fullRead: String?
 }
 struct PFPeriod { var start: String; var end: String }
 struct PFReviewSession { var date: String; var name: String; var completed: Bool; var quality: Bool; var status: String? }

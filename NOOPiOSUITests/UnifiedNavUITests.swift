@@ -62,7 +62,7 @@ final class UnifiedNavUITests: XCTestCase {
     func testFlagOffKeepsTheBuild480Tabs() throws {
         let app = try launch(unifiedNav: false)
         XCTAssertTrue(app.shellTab("PaceForge").waitForExistence(timeout: 20), "With the switch off, tab 4 is PaceForge.")
-        XCTAssertTrue(app.shellTab("Trends").exists, "With the switch off, tab 2 is Trends.")
+        XCTAssertTrue(app.shellTab("Workouts").exists, "With the switch off, tab 2 is Workouts.")
         XCTAssertFalse(app.shellTab("Calendar").exists, "With the switch off there is no Calendar tab.")
         XCTAssertFalse(app.shellTab("Insights").exists, "With the switch off there is no Insights tab.")
     }
@@ -119,12 +119,11 @@ final class UnifiedNavUITests: XCTestCase {
         XCTAssertTrue(element(app, "coach-host").waitForExistence(timeout: 30), "The Coach button opens the one Coach screen.")
     }
 
-    func testCoachHasBothChips() throws {
+    func testUnifiedCoachShowsOneSharedConversation() throws {
         let app = try launch(unifiedNav: true)
         element(app, "look-coach").tap()
-        XCTAssertTrue(element(app, "coach-chip-coach").waitForExistence(timeout: 30), "The Coach chip should be there.")
-        choose("chat", prefix: "coach", in: app)
-        XCTAssertTrue(element(app, "coach-chip-content-chat").waitForExistence(timeout: 30), "The NOOP chat chip should mount.")
+        XCTAssertTrue(element(app, "coach-full-brain").waitForExistence(timeout: 30), "The Coach screen should load the shared PaceForge brain.")
+        XCTAssertTrue(element(app, "pf-chat-input").waitForExistence(timeout: 30), "The same screen should offer the shared Coach conversation.")
     }
 
     // MARK: More
