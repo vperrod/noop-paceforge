@@ -22,6 +22,14 @@ approximate; downloads are on the [Releases](https://github.com/NoopApp/noop/rel
 - **Not verified on a real iPhone.** The morning brief notification now carries PaceForge's brief (written on the server, no AI key on the phone), so "Coach brief unavailable" no longer appears when PaceForge is connected. It is woken by your data, not the clock: from 04:00 it goes out once PaceForge has your night's sleep and HRV, and the time in Coach settings is the latest it waits (then it goes out saying what is missing). iOS decides when the background check really runs; opening the app also tries.
 - **Needs you leads Today.** Anything PaceForge is waiting on you for (treadmill pace, a proposal, effort, feel) shows at the very top of Today, above the rings, and leaves as soon as you answer it. Nothing shows when nothing is open.
 
+## 12.0.12 build 487 (PaceForge iPhone build): one Coach, direct Sleep and Training, clearer brief status
+
+- **One Coach across NOOP and PaceForge.** The Coach entry point opens the shared Coach surface for daily reads, workout analysis, planning and reviews. Workout commentary is shown before the supporting metrics, and dated NOOP and PaceForge evidence stays source-labelled.
+- **Sleep and Workouts stay easy to find.** The unified navigation defaults to direct Sleep and Training destinations, with Training opening on Workouts and one Coach entry point.
+- **Morning brief failures explain themselves.** Coach shows whether it is waiting for data or needs an action, the latest attempt and success, and a privacy-safe diagnostics summary. iOS still decides when background refresh runs; Check now remains available.
+- **Load ratio stays context.** ACWR no longer blocks a GO training call or changes the calendar by itself; direct planned-volume limits remain in place.
+- **Not verified on a real iPhone.** This source has not yet been installed or exercised on-device.
+
 ## 12.0.12 build 485 (PaceForge iPhone build): no plan card on Today
 
 - **Not verified on a real iPhone.** Today no longer draws the "My Plan" card (this week's plan progress). The Calendar tab already shows the week, so the card was a duplicate. The day picker on the Today title (swipe or calendar to move between days) is unchanged. The saved Today layout keeps the My Plan entry for Android compatibility; it just draws nothing.
