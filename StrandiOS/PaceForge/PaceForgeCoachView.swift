@@ -58,25 +58,35 @@ struct PFCoachView: View {
     private var pendingWorkoutReviewsCard: some View {
         PFCard("Workout reviews", icon: "clock") {
             VStack(alignment: .leading, spacing: 9) {
-                ForEach(0..<pendingWorkoutReviews.count) { index in
-                    let item = pendingWorkoutReviews[index]
-                    let activity = snapshot.activities[item.id]
-                    if let activity {
-                        Button {
-                            selectedWorkout = pendingWorkout(item, activity)
-                        } label: {
-                            pendingWorkoutStatusRow(item, activity: activity)
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityHint("Opens this workout and its Coach review status.")
-                    } else {
-                        pendingWorkoutStatusRow(item, activity: nil)
-                    }
-                    .accessibilityIdentifier("coach-workout-status-\(item.id)")
+                ForEach<[PFAnalysisStatus], String, AnyView>(
+                    pendingWorkoutReviews,
+                    id: \PFAnalysisStatus.id
+                ) { item in
+                    workoutReviewStatusView(item)
                 }
             }
         }
         .accessibilityIdentifier("coach-workout-review-status")
+    }
+
+
+    private func workoutReviewStatusView(_ item: PFAnalysisStatus) -> AnyView {
+        let activity = snapshot.activities[item.id]
+        let row: AnyView
+        if let activity {
+            row = AnyView(
+                Button {
+                    selectedWorkout = pendingWorkout(item, activity)
+                } label: {
+                    pendingWorkoutStatusRow(item, activity: activity)
+                }
+                .buttonStyle(.plain)
+                .accessibilityHint("Opens this workout and its Coach review status.")
+            )
+        } else {
+            row = AnyView(pendingWorkoutStatusRow(item, activity: nil))
+        }
+        return AnyView(row.accessibilityIdentifier("coach-workout-status-\(item.id)"))
     }
 
     private func pendingWorkoutStatusRow(_ item: PFAnalysisStatus, activity: PFActivity?) -> some View {
