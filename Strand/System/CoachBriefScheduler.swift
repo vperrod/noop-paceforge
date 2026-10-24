@@ -242,7 +242,10 @@ enum CoachBriefScheduler {
         switch await PaceForgeBriefSource.today(timeReached: true) {
         case .text(let paceForgeText): text = paceForgeText
         case .notReady:
-            recordFailureReason("PaceForge has not published today's brief yet, or the server could not be reached.")
+            recordFailureReason("PaceForge is still loading today's brief. Try again after the next refresh.")
+            return nil
+        case .unavailable(let reason):
+            recordFailureReason(reason)
             return nil
         case .notSetUp:
             recordFailureReason("Connect NOOP to PaceForge to use the shared Coach for morning briefs.")
@@ -321,6 +324,9 @@ enum CoachBriefScheduler {
         case .notReady:
             await releaseGeneration()
             return true
+        case .unavailable(let reason):
+            recordFailureReason(reason)
+            generated = nil
         case .notSetUp:
             guard timeReached else {            // Wait until the selected latest time before reporting missing PaceForge setup.
                 await releaseGeneration()
