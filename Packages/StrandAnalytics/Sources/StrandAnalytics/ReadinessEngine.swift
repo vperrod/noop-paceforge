@@ -13,8 +13,8 @@ import WhoopStore
 /// - **Resting-HR drift** — elevated resting HR vs baseline is a classic overtraining / illness
 ///   signal (Lamberts et al. 2004).
 /// - **Respiratory-rate drift** — a rise in sleeping respiratory rate is an early illness signal.
-/// - **Training Stress Balance (ACWR)** — acute (7-day) vs chronic (28-day) strain. The 0.8–1.3
-///   band is the "sweet spot"; >1.5 is associated with higher injury risk (Gabbett 2016).
+/// - **Training load ratio (ACWR)** — a comparison of recent (7-day) and prior (28-day) load.
+///   Reference bands are descriptive heuristics, not safety targets or injury predictions.
 /// - **Training monotony** — mean/SD of daily strain over a week; high monotony (low variety) is
 ///   associated with higher strain and illness (Foster 1998).
 ///
@@ -296,22 +296,22 @@ public enum ReadinessEngine {
             return Signal(key: "acwr", label: "Training load",
                 evidence: evidence,
                 evidenceData: .trainingLoad(acute: acute, chronic: chronic),
-                detail: "ramping down (acute:chronic \(pct)) - room to build", flag: .watch)
+                detail: "below the prior-weeks comparison (acute:chronic \(pct)); use your plan and recovery to guide any increase", flag: .watch)
         case 0.8..<1.3:
             return Signal(key: "acwr", label: "Training load",
                 evidence: evidence,
                 evidenceData: .trainingLoad(acute: acute, chronic: chronic),
-                detail: "in the sweet spot (acute:chronic \(pct))", flag: .good)
+                detail: "inside the reference band (acute:chronic \(pct)); not a safety score", flag: .good)
         case 1.3..<1.5:
             return Signal(key: "acwr", label: "Training load",
                 evidence: evidence,
                 evidenceData: .trainingLoad(acute: acute, chronic: chronic),
-                detail: "building fast (acute:chronic \(pct)) - watch fatigue", flag: .watch)
+                detail: "recent load is rising vs prior weeks (acute:chronic \(pct)); check fatigue and recovery", flag: .watch)
         default:
             return Signal(key: "acwr", label: "Training load",
                 evidence: evidence,
                 evidenceData: .trainingLoad(acute: acute, chronic: chronic),
-                detail: "spiking (acute:chronic \(pct)) - higher injury risk", flag: .bad)
+                detail: "recent load is markedly above prior weeks (acute:chronic \(pct)); review recovery and the sessions ahead", flag: .bad)
         }
     }
 

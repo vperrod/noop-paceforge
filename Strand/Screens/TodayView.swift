@@ -1751,7 +1751,7 @@ struct TodayView: View {
                                 Text("load \(String(format: "%.2f", locale: AppLanguage.activeLocale, acwr))")
                                     .font(StrandFont.captionNumber)
                                     .foregroundStyle(StrandPalette.textTertiary)
-                                    .help("Acute (7-day) vs chronic (28-day) training load. 0.8–1.3 is the sweet spot.")
+                                    .help("Acute (7-day) vs chronic (28-day) training load. A reference comparison, not a safety score.")
                             }
                         }
                         // #1405: mark this as a DIFFERENT axis from the home Synthesis word (the Charge-%
@@ -1863,12 +1863,12 @@ struct TodayView: View {
            case .trainingLoad(let acute, let chronic) = evidence {
             let ratio = readinessNumber(chronic > 0 ? acute / chronic : 0, decimals: 2)
             switch signal.flag {
-            case .good: return String(localized: "in the sweet spot (acute:chronic \(ratio))")
-            case .bad: return String(localized: "spiking (acute:chronic \(ratio)) - higher injury risk")
+            case .good: return String(localized: "inside the reference band (acute:chronic \(ratio)); not a safety score")
+            case .bad: return String(localized: "recent load is markedly above prior weeks (acute:chronic \(ratio)); review recovery and the sessions ahead")
             case .watch: return acute < chronic
-                ? String(localized: "ramping down (acute:chronic \(ratio)) - room to build")
-                : String(localized: "building fast (acute:chronic \(ratio)) - watch fatigue")
-            case .neutral: return String(localized: "in the sweet spot (acute:chronic \(ratio))")
+                ? String(localized: "below the prior-weeks comparison (acute:chronic \(ratio)); use your plan and recovery to guide any increase")
+                : String(localized: "recent load is rising vs prior weeks (acute:chronic \(ratio)); check fatigue and recovery")
+            case .neutral: return String(localized: "inside the reference band (acute:chronic \(ratio)); not a safety score")
             }
         }
         switch (signal.key, signal.flag) {
