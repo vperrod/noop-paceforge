@@ -34,6 +34,7 @@ enum CoachBriefScheduler {
         static let storedBrief = "coachBrief.storedText"   // the full brief, for the notification tap-through
         static let hasUnconsumed = "coachBrief.hasUnconsumedBrief"
         static let lastFailureReason = "coachBrief.lastFailureReason"
+        static let lastFailureNotificationDay = "coachBrief.lastFailureNotificationDay"
         // K10: the brief text mirrored into the App Group so the widget extension (separate process)
         // can read it. The app's own UserDefaults.standard isn't visible to the widget.
         static let widgetBriefKey = "coachBrief.widgetText"
@@ -335,11 +336,16 @@ enum CoachBriefScheduler {
 
         guard let text = generated else {
             // No key/consent/network, or the provider returned nothing. Never mark the day done, so the
-            // next wake (BGTask retry, or the next foreground open) tries again. Post a low-key retry
-            // notification rather than silently doing nothing — the PRD's "unavailable, tap to retry".
-            postNotification(title: String(localized: "Coach brief unavailable"),
-                              body: failureNotificationBody,
-                              isRetry: true)
+            // next wake (BGTask retry, or the next foreground open) tries again. iOS can wake this path
+            // repeatedly in one day, so notify once per local day; keep lastFailureReason current for
+            // Coach Settings, where the athlete can see what needs fixing.
+            let today = dayKey(now)
+            if UserDefaults.standard.string(forKey: K.lastFailureNotificationDay) != today {
+                UserDefaults.standard.set(today, forKey: K.lastFailureNotificationDay)
+                postNotification(title: String(localized: "Coach brief unavailable"),
+                                  body: failureNotificationBody,
+                                  isRetry: true)
+            }
             return false
         }
 
@@ -374,10 +380,11 @@ enum CoachBriefScheduler {
         content.body = body
         content.sound = .default
         content.categoryIdentifier = notificationCategoryId
-        // Immediate delivery (trigger nil) — this fires the moment generation completes, it is not a
-        // pre-scheduled fixed-content trigger like `WindDownNudge`'s. One id per day, so a retry
-        // replaces rather than stacks the earlier attempt's notification.
-        let request = UNNotificationRequest(identifier: requestIdPrefix + dayKey(Date()),
+        // Immediate delivery (trigger nil) — this fires when generation completes, not at a
+        // pre-scheduled fixed-content time like `WindDownNudge`. Separate retry and success IDs let a
+        // brief that recovers later the same day still announce success.
+        let kind = isRetry ? "retry" : "success"
+        let request = UNNotificationRequest(identifier: requestIdPrefix + kind + "-" + dayKey(Date()),
                                             content: content, trigger: nil)
         UNUserNotificationCenter.current().add(request)
     }
