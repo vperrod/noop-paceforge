@@ -127,11 +127,13 @@ struct CoachLauncherSheet: View {
             dismiss()
             router.openCoach()
         } label: {
+            Group {
             #if os(iOS)
-            Text("Open Coach")
+                Text("Open Coach")
             #else
-            Text("Connect a provider")
+                Text("Connect a provider")
             #endif
+            }
                 .font(StrandFont.caption)
                 .foregroundStyle(StrandPalette.textPrimary)
                 .padding(.horizontal, 14).padding(.vertical, 10)

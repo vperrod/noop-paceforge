@@ -102,7 +102,7 @@ struct PFCoachView: View {
     // MARK: Monthly review
 
     private func monthlyReviewCard(_ read: PFMonthlyCoachRead) -> some View {
-        PFCard(title: "\(read.label) review", icon: "calendar") {
+        PFCard("\(read.label) review", icon: "calendar") {
             VStack(alignment: .leading, spacing: 10) {
                 if let overview = read.overview {
                     Text(overview).font(StrandFont.subhead).foregroundStyle(StrandPalette.textSecondary)
