@@ -13,6 +13,10 @@ concurrency:
 jobs:
   build-iphone-ipa:
     name: Build iPhone IPA only
+    outputs:
+      version: ${{ steps.publish.outputs.version }}
+      build: ${{ steps.publish.outputs.build }}
+      tag: ${{ steps.publish.outputs.tag }}
     runs-on: macos-26
     timeout-minutes: 40
     steps:
@@ -34,6 +38,7 @@ jobs:
           build
 
       - name: Verify, package, and publish the iPhone IPA
+        id: publish
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -78,4 +83,56 @@ jobs:
               --notes "Unsigned iPhone IPA. Bundle: $BUNDLE; version: $VERSION; build: $BUILD."
           fi
 
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "build=$BUILD" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           echo "Published $IPA"
+
+  update-altstore-source:
+    name: Update AltStore source
+    if: ${{ inputs.publish == 'true' }}
+    needs: build-iphone-ipa
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Check out the catalog branch
+        uses: actions/checkout@v5
+        with:
+          ref: main
+      - name: Add this build to the AltStore source
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VER: ${{ needs.build-iphone-ipa.outputs.version }}
+          BUILD: ${{ needs.build-iphone-ipa.outputs.build }}
+          TAG: ${{ needs.build-iphone-ipa.outputs.tag }}
+        run: |
+          set -euo pipefail
+          IPA="NOOP-v${VER}-b${BUILD}.ipa"
+          SIZE=$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets \
+            --jq '.assets[] | select(.name=="'"$IPA"'") | .size')
+          test -n "$SIZE" || { echo "Release asset $IPA is missing"; exit 1; }
+          DATE=$(date -u +%Y-%m-%d)
+          URL="https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/${IPA}"
+          DESC="NOOP PaceForge ${VER}, build ${BUILD}. See the release notes for details."
+          MINOS=$(jq -r '.apps[0].minOSVersion // "17.0"' altstore-source.json)
+          tmp=$(mktemp)
+          jq --arg v "$VER" --arg b "$BUILD" --arg d "$DATE" --arg desc "$DESC" \
+            --arg url "$URL" --argjson size "$SIZE" --arg min "$MINOS" \
+            '.apps[0].versions = ([{version:$v,buildVersion:$b,date:$d,localizedDescription:$desc,downloadURL:$url,size:$size,minOSVersion:$min}] + ((.apps[0].versions // []) | map(select(.version != $v))))
+             | .apps[0].version=$v | .apps[0].buildVersion=$b | .apps[0].versionDate=$d
+             | .apps[0].versionDescription=$desc | .apps[0].downloadURL=$url | .apps[0].size=$size' \
+            altstore-source.json > "$tmp"
+          mv "$tmp" altstore-source.json
+          if git diff --quiet -- altstore-source.json; then
+            echo "AltStore source is already current for ${VER}."
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add altstore-source.json
+          git commit -m "Release ${VER} build ${BUILD}: update AltStore source"
+          git push origin HEAD:main || {
+            echo "::error::Could not update the AltStore source on main."
+            exit 1
+          }
