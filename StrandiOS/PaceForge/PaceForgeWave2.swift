@@ -376,3 +376,55 @@ enum PFWave2Parse {
         return out.hasAny ? out : nil
     }
 }
+
+// MARK: page-notes.json
+
+/// One screen's note: the short paragraph PaceForge writes about the whole picture, with its tone and the facts behind it.
+struct PFPageNoteItem: Equatable {
+    /// ok, careful or alert.
+    var tone: String
+    var text: String
+    var facts: [String] = []
+}
+
+/// `data/page-notes.json`: a note per screen (today, coach, training, sleep, recovery, effort, vitals, stress, insights, body).
+struct PFPageNotes: Equatable {
+    var date: String?
+    var generatedAt: String?
+    var pages: [String: PFPageNoteItem] = [:]
+
+    /// A file written longer ago than this is not shown: a note about the picture of three days ago would mislead.
+    static let maxAgeDays = 2
+
+    /// The note for `key`, or nil when there is none, its text is empty, or the file's day is older than two days (or unknown).
+    func note(_ key: String, today: String) -> PFPageNoteItem? {
+        guard let note = pages[key], let date, date.count >= 10 else { return nil }
+        guard PFFormat.daysBetween(String(date.prefix(10)), today) <= Self.maxAgeDays else { return nil }
+        return note
+    }
+
+    /// When the file was written, as the server wrote it: the clock time for today's file, else the short date. Nil with neither.
+    func updatedLabel(today: String) -> String? {
+        if let stamp = generatedAt, stamp.count >= 16 {
+            let day = String(stamp.prefix(10))
+            if day == today { return String(stamp.dropFirst(11).prefix(5)) }
+            return PFFormat.shortDate(day)
+        }
+        guard let date, date.count >= 10 else { return nil }
+        return PFFormat.shortDate(String(date.prefix(10)))
+    }
+}
+
+extension PFWave2Parse {
+    /// Absent unless the file holds a page with text; a page without text is left out, so a screen shows nothing for it.
+    static func pageNotes(_ j: PFJ) -> PFPageNotes? {
+        guard j.exists else { return nil }
+        var pages: [String: PFPageNoteItem] = [:]
+        for (key, page) in j["pages"].dict {
+            guard let text = page["text"].text else { continue }
+            pages[key] = PFPageNoteItem(tone: page["tone"].text ?? "ok", text: text, facts: page["facts"].strings)
+        }
+        guard !pages.isEmpty else { return nil }
+        return PFPageNotes(date: j["date"].text, generatedAt: j["generated_at"].text, pages: pages)
+    }
+}

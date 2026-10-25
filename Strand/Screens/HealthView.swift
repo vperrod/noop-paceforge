@@ -36,6 +36,7 @@ struct HealthView: View {
                        topBackground: liquidScaffoldSky()) {
             #if os(iOS)
             // PaceForge's Health monitor (each vital against its own 30-day range) leads the one Health screen.
+            PFPageNote(key: "vitals")
             PFHealthMonitorSection()
             #endif
             if repo.days.isEmpty {

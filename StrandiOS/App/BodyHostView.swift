@@ -93,7 +93,10 @@ private struct BodyPaceForgeContent: View {
         if hiding.hides(.body) {
             PFBodyHiddenView()
         } else {
-            PFBodyView(snapshot: snapshot)
+            VStack(alignment: .leading, spacing: 16) {
+                PFPageNote(key: "body")
+                PFBodyView(snapshot: snapshot)
+            }
         }
     }
 }

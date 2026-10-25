@@ -183,6 +183,7 @@ struct SleepView: View {
                             .padding(.top, -24)
                             .staggeredAppear(index: 0)
                         #if os(iOS)
+                        PFPageNote(key: "sleep")
                         LookLastNightSleepCard(model: resolved)
                         LookRepoTrends(specs: LookRepoTrends.sleepSpecs, initialKey: "sleep_total_min",
                                        identifier: "look-sleep-trends")

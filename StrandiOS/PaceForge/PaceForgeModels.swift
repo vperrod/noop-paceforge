@@ -528,10 +528,20 @@ struct PFAlert: Identifiable {
     var title: String
     var body: String?
     var actions: [PFAlertAction] = []
+    /// The numbers behind a live (intraday) alert: its reading, his own normal, the source and what it does to the plan.
+    var live: PFLiveAlertFacts?
 
     var rank: Int { severity == "act" ? 0 : (severity == "watch" ? 1 : 2) }
 }
 struct PFAlertAction: Identifiable { var id: String; var label: String }
+
+/// `metrics` of a `live_*` alert in alerts.json. The reading is always there; the rest read as missing when the server leaves them out.
+struct PFLiveAlertFacts: Equatable {
+    var reading: String
+    var hisNormal: String?
+    var source: String?
+    var planEffect: String?
+}
 
 // MARK: Readiness
 

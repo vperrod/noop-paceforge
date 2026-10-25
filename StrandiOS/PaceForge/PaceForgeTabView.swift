@@ -185,6 +185,7 @@ struct PaceForgeTabView: View {
                 Task { await model.refresh() }
             }
         }
+        PFPageNote(key: segment.wrappedValue.pageNoteKey)
         screen(for: segment.wrappedValue, snapshot: snapshot)
     }
 

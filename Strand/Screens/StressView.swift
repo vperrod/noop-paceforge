@@ -84,6 +84,7 @@ struct StressView: View {
                        topBackground: liquidScaffoldSky()) {
             #if os(iOS)
             // The monitor (latest reading, the day line, average / peak / time in high) leads the one Stress screen.
+            PFPageNote(key: "stress")
             LookStressMonitorSection()
             #endif
             if let model {

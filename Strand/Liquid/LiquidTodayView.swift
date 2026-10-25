@@ -137,7 +137,28 @@ struct LiquidTodayView: View {
     /// loader banks a day-keyed 30-day superset; render filters down, so a window change applies instantly.
     @AppStorage("today.keyMetricsWindowDays") private var keyMetricsWindowDays = 14
     @State private var kSparks: [String: [(String, Double)]] = [:]
-    private var enabledKeyMetrics: [KeyMetric] { KeyMetricPrefs.decodeEnabled(keyMetricsRaw) }
+    private var enabledKeyMetrics: [KeyMetric] {
+        #if os(iOS)
+        // The six rings above already carry Charge, Effort and Rest (and open the same details), so a grid the user never
+        // customised leaves those three tiles out. A saved layout is drawn as saved; the editor still offers all ten.
+        if keyMetricsRaw.trimmingCharacters(in: .whitespaces).isEmpty {
+            return KeyMetric.defaultOrder.filter { $0 != .charge && $0 != .effort && $0 != .rest }
+        }
+        #endif
+        return KeyMetricPrefs.decodeEnabled(keyMetricsRaw)
+    }
+
+    /// Your Cards as drawn. A selection the user never customised leaves out HRV and Resting HR (Key Metrics tiles show both) and
+    /// Stress (the stress monitor tile shows it); a saved selection is drawn as saved.
+    private var enabledDashboardCards: [DashboardCard] {
+        let cards = DashboardCardPrefs.decodeEnabled(dashboardCardsRaw)
+        #if os(iOS)
+        if dashboardCardsRaw.trimmingCharacters(in: .whitespaces).isEmpty {
+            return cards.filter { $0 != .hrv && $0 != .restingHr && $0 != .stress }
+        }
+        #endif
+        return cards
+    }
 
     /// #1001: TODAY's in-progress Effort, scored live in `load()` over the same window this view already
     /// resolves for its other reads. nil for a navigated past day, and nil when the scorer has too few
@@ -404,6 +425,8 @@ struct LiquidTodayView: View {
                     // "Charge / Effort / Rest" section.
                     // Anything PaceForge is waiting on him for leads everything, until he answers it.
                     if selectedDayOffset == 0 { PFTodayNeedsYouHost() }
+                    // PaceForge's one paragraph about the day's metrics, right under it. Draws nothing without a fresh note.
+                    if selectedDayOffset == 0 { PFPageNote(key: "today") }
                     if order.contains(.hero) { heroCard }
                     #endif
                     ForEach(order.prefix(Self.mountedSectionCount(order, stage: mountStage))) { section in
@@ -1113,7 +1136,7 @@ struct LiquidTodayView: View {
             // Data-driven off the SAME @AppStorage the CUSTOMISE editor writes, so add / remove /
             // reorder in Customise reflects on the home screen live. The hydration filter mirrors classic
             // TodayView's `enabledDashboardCards` and Android's `it != HYDRATION || hydrationEnabled`.
-            ForEach(DashboardCardPrefs.decodeEnabled(dashboardCardsRaw)
+            ForEach(enabledDashboardCards
                         .filter { hydrationEnabled || $0 != .hydration }
                         // Coach off means the AI is off, so the launcher card goes with the tab: leaving it
                         // on Today would offer a feature the wearer has just switched off. Same gate shape

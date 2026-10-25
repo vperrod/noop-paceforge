@@ -26,6 +26,7 @@ struct CoachUnifiedView: View {
             .foregroundStyle(StrandPalette.accent)
             .accessibilityIdentifier("coach-brief-settings")
         }) {
+            PFPageNote(key: "coach")
             briefStatusCard
             CoachPaceForgeChip()
         }

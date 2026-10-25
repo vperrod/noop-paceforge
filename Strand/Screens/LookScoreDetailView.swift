@@ -90,6 +90,15 @@ struct LookScoreDetailView: View {
         }
     }
 
+    /// PaceForge's page note for this score: Charge reads the recovery note, Effort the effort note; Rest has none of its own.
+    private var noteKey: String? {
+        switch kind {
+        case .charge: return "recovery"
+        case .effort: return "effort"
+        case .rest: return nil
+        }
+    }
+
     private var mainPoints: [LookPoint] { points(kind.metricKey) }
     private var latest: LookPoint? { LookSeries.latest(mainPoints) }
 
@@ -116,6 +125,7 @@ struct LookScoreDetailView: View {
     var body: some View {
         VStack(spacing: 16) {
             LookDetailTitleBar(onInfo: { showInfo = true })
+            if let noteKey { PFPageNote(key: noteKey) }
             ring
             asOfCaption
             rowsCard

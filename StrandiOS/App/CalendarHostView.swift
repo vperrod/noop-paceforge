@@ -60,6 +60,7 @@ private struct CalendarColumn: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
+            PFPageNote(key: "training")
             SectionChips(options: CalendarChip.allCases, selection: $selection, idPrefix: "calendar-chip",
                          id: { $0.rawValue }, title: { $0.title })
             CalendarChipHost(chip: selection)

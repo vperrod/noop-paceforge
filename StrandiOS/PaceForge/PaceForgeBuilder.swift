@@ -702,8 +702,14 @@ enum PFBuilder {
                 guard let label = action["label"].text else { return nil }
                 return PFAlertAction(id: action["id"].string ?? label, label: label)
             }
-            return PFAlert(id: id, kind: a["kind"].string, severity: a["severity"].string ?? "info",
-                           createdAt: a["created_at"].string, title: title, body: a["body"].text, actions: actions)
+            let kind = a["kind"].string
+            var live: PFLiveAlertFacts?
+            if kind?.hasPrefix("live_") == true, let reading = a["metrics"]["reading"].text {
+                live = PFLiveAlertFacts(reading: reading, hisNormal: a["metrics"]["his_normal"].text,
+                                        source: a["metrics"]["source"].text, planEffect: a["metrics"]["plan_effect"].text)
+            }
+            return PFAlert(id: id, kind: kind, severity: a["severity"].string ?? "info",
+                           createdAt: a["created_at"].string, title: title, body: a["body"].text, actions: actions, live: live)
         }
         return open.sorted { lhs, rhs in
             lhs.rank != rhs.rank ? lhs.rank < rhs.rank : (lhs.createdAt ?? "") > (rhs.createdAt ?? "")

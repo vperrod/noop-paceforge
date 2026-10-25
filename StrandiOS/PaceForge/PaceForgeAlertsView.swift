@@ -57,6 +57,7 @@ private struct PFAlertRow: View {
                         .foregroundStyle(StrandPalette.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
+                if let live = alert.live { liveFacts(live) }
                 if !alert.actions.isEmpty {
                     LazyVGrid(columns: [GridItem(.adaptive(minimum: 84), spacing: 6, alignment: .leading)],
                               alignment: .leading, spacing: 6) {
@@ -69,6 +70,26 @@ private struct PFAlertRow: View {
             Spacer(minLength: 0)
         }
         .accessibilityElement(children: .combine)
+    }
+
+    /// A live alert's reading, his own normal, the source and what it does to the plan, each on its own line.
+    private func liveFacts(_ live: PFLiveAlertFacts) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            liveLine("Current reading", live.reading)
+            if let normal = live.hisNormal { liveLine("Your normal", normal) }
+            if let source = live.source { liveLine("Source", source) }
+            if let effect = live.planEffect { liveLine("Plan effect", effect) }
+        }
+    }
+
+    private func liveLine(_ label: LocalizedStringKey, _ value: String) -> some View {
+        VStack(alignment: .leading, spacing: 1) {
+            Text(label).strandOverline()
+            Text(verbatim: value)
+                .font(StrandFont.caption)
+                .foregroundStyle(StrandPalette.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
     }
 }
 

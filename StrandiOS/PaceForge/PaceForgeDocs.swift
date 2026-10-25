@@ -41,6 +41,7 @@ enum PFDocs {
     static let todayLayout = "data/today-layout.json"
     static let needsYou = "data/needs-you.json"
     static let workoutMatches = "data/workout-matches.json"
+    static let pageNotes = "data/page-notes.json"
 
     static let all: [PFDocSpec] = [
         PFDocSpec(path: state, key: \PFRawBundle.state, isRequired: true),
@@ -78,13 +79,15 @@ enum PFDocs {
         PFDocSpec(path: needsYou, key: \PFRawBundle.needsYou),
         // Not part of the bundle's view models: fetched so My Day finds it saved on the phone (PFStore).
         PFDocSpec(path: workoutMatches, key: \PFRawBundle.workoutMatches),
+        // No key: the notes are read from the saved copy by PFPageNotesStore, so a change never rebuilds the snapshot.
+        PFDocSpec(path: pageNotes, key: nil),
     ]
 
     /// The documents the widget summary and the reminders are made from: everything except the ones they never read. A document
     /// added later counts as read until it is listed here, so a missed entry costs a widget reload, never a stale widget.
     static let summaryInputs: Set<String> = Set(all.map { $0.path }).subtracting(
         [analysesIndex, analysisStatus, bodyProgress, whatChanged, explainers, behaviour, hyroxSims, hyroxSimAnalysis, easyMode, muscle, tape,
-         dailyIntel, dismissed, todayLayout, needsYou, workoutMatches] + PFDocPath.all)
+         dailyIntel, dismissed, todayLayout, needsYou, workoutMatches, pageNotes] + PFDocPath.all)
 
     static func specs(for scope: PFRefreshScope) -> [PFDocSpec] {
         if scope.contains(.snapshot) { return all }

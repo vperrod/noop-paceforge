@@ -20,7 +20,7 @@ struct PFBodyView: View {
                 if !doc.assessment.isEmpty { compositionCard(doc) }
                 massCard(doc)
                 if !doc.segments.isEmpty { PFSegmentalCard(doc: doc) }
-                goalsCard(doc)
+                if !uncoveredGoals(doc).isEmpty || doc.goals.isEmpty { goalsCard(doc) }
                 readingsCard(doc)
             }
         } else {
@@ -50,7 +50,7 @@ struct PFBodyView: View {
     private static let massOrder = [
         "weight_kg", "bmi", "body_fat_pct", "fat_mass_kg", "subcutaneous_fat_kg", "ffm_kg", "lean_mass_kg",
         "muscle_mass_kg", "skeletal_muscle_kg", "bone_mass_kg", "organ_mass_kg", "total_body_water_kg",
-        "total_body_water_pct", "ecw_kg", "icw_kg", "body_cell_mass_kg", "visceral_fat_index", "metabolic_age",
+        "total_body_water_pct", "ecw_kg", "icw_kg", "body_cell_mass_kg", "visceral_fat_index",
         "bmr_kcal", "whole_body_impedance_ohm", "android_gynoid_ratio",
     ]
 
@@ -74,13 +74,19 @@ struct PFBodyView: View {
 
     // MARK: Goals
 
+    /// The goals the Progress card above does not list: it already shows each goal it tracks, with its pace.
+    private func uncoveredGoals(_ doc: PFBodyDoc) -> [PFBodyGoal] {
+        let covered = Set((snapshot.bodyProgress?.goals ?? []).map { $0.metric })
+        return doc.goals.filter { !covered.contains($0.metric) }
+    }
+
     @ViewBuilder private func goalsCard(_ doc: PFBodyDoc) -> some View {
         PFCard("Goals", icon: "target") {
             if doc.goals.isEmpty {
                 PFParagraph("No goals yet. Set targets for weight, body fat, muscle and more in PaceForge, and progress is tracked against your latest reading.")
             } else {
                 VStack(alignment: .leading, spacing: 16) {
-                    ForEach(doc.goals) { PFGoalRow(goal: $0) }
+                    ForEach(uncoveredGoals(doc)) { PFGoalRow(goal: $0) }
                 }
             }
         }
@@ -288,7 +294,7 @@ private struct PFScoreCard: View {
                 Divider().overlay(StrandPalette.hairline)
                 HStack(alignment: .top, spacing: 8) {
                     stat("Age", doc.age.map { String($0) }, "yrs")
-                    stat("Metabolic age", doc.latest["metabolic_age"].map { String(Safe.int($0)) }, "yrs")
+                    stat("Metabolic age", doc.latest["metabolic_age"].map { PFBodyFormat.number($0, dp: doc.metrics["metabolic_age"]?.dp ?? 0) }, "yrs")
                     stat("Height", doc.heightCm.map { PFFormat.trimmed($0) }, "cm")
                 }
             }
