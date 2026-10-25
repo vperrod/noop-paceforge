@@ -399,7 +399,7 @@ struct PFPageNotes: Equatable {
     /// The note for `key`, or nil when there is none, its text is empty, or the file's day is older than two days (or unknown).
     func note(_ key: String, today: String) -> PFPageNoteItem? {
         guard let note = pages[key], let date, date.count >= 10 else { return nil }
-        guard PFFormat.daysBetween(String(date.prefix(10)), today) <= Self.maxAgeDays else { return nil }
+        guard let age = PFFormat.daysBetween(String(date.prefix(10)), today), age <= Self.maxAgeDays else { return nil }
         return note
     }
 
