@@ -21,6 +21,15 @@
       "versions": [
         {
           "version": "12.0.12",
+          "buildVersion": "490",
+          "date": "2026-10-25",
+          "localizedDescription": "Build 490: a short assessment paragraph at the top of each screen, live alerts for stress, heart rate and Body Battery on Today, and less repeated content on Today and Body.",
+          "downloadURL": "https://github.com/vperrod/noop-paceforge/releases/download/noop-ios-v12.0.12-b490/NOOP-v12.0.12-b490.ipa",
+          "size": 30552975,
+          "minOSVersion": "17.0"
+        },
+        {
+          "version": "12.0.12",
           "buildVersion": "489",
           "date": "2026-10-25",
           "localizedDescription": "Build 489: every metric's info sheet now shows where it stands for you and what PaceForge does with it, on top of build 488's restored readiness safety gates.",
@@ -53,11 +62,11 @@
         }
       },
       "version": "12.0.12",
-      "buildVersion": "489",
+      "buildVersion": "490",
       "versionDate": "2026-10-25",
-      "versionDescription": "Build 489: every metric's info sheet now shows where it stands for you and what PaceForge does with it, on top of build 488's restored readiness safety gates.",
-      "downloadURL": "https://github.com/vperrod/noop-paceforge/releases/download/noop-ios-v12.0.12-b489/NOOP-v12.0.12-b489.ipa",
-      "size": 30516157,
+      "versionDescription": "Build 490: a short assessment paragraph at the top of each screen, live alerts for stress, heart rate and Body Battery on Today, and less repeated content on Today and Body.",
+      "downloadURL": "https://github.com/vperrod/noop-paceforge/releases/download/noop-ios-v12.0.12-b490/NOOP-v12.0.12-b490.ipa",
+      "size": 30552975,
       "minOSVersion": "17.0"
     }
   ],
