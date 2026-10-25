@@ -21,6 +21,41 @@ enum PFFNV {
     }
 }
 
+// MARK: - Keys
+
+/// The keys of the cards that exist once per item. dismissed.json documents `alert:<key>`; the page notes use
+/// `pagenote:<page>` in the same style. The text hashed is made only of what the card says, never of a reading that ticks.
+enum PFDismissKey {
+    /// `alert:<kind>`, for example `alert:live_stress_sustained`. An alert without a kind falls back to its id.
+    static func alertKey(_ alert: PFAlert) -> String { "alert:\(alert.kind ?? alert.id)" }
+
+    /// `pagenote:<page>`, with the server's page name (today, coach, sleep, ...).
+    static func pageNoteKey(_ page: String) -> String { "pagenote:\(page)" }
+
+    /// An alert comes back when its severity, title or body changes; its live reading is left out because it moves.
+    static func alertText(_ alert: PFAlert) -> String { "\(alert.severity)|\(alert.title)|\(alert.body ?? "")" }
+
+    /// A page note comes back when its tone or its text changes.
+    static func pageNoteText(_ note: PFPageNoteItem) -> String { "\(note.tone)|\(note.text)" }
+
+    /// The screen's name as the restore list shows it.
+    static func pageTitle(_ page: String) -> String {
+        switch page {
+        case "today": return "Today"
+        case "coach": return "Coach"
+        case "training": return "Training"
+        case "sleep": return "Sleep"
+        case "recovery": return "Charge"
+        case "effort": return "Effort"
+        case "vitals": return "Health Monitor"
+        case "stress": return "Stress"
+        case "insights": return "Insights"
+        case "body": return "Body"
+        default: return page
+        }
+    }
+}
+
 // MARK: - Model
 
 /// One hidden card. `until` set means a snooze (hidden while today is before that day); otherwise it is a

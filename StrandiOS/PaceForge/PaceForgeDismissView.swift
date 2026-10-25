@@ -60,6 +60,15 @@ struct PFHiddenCard: Identifiable {
     var id: String { card.kind.rawValue }
 }
 
+/// A hidden alert or page note: these exist once per item, so they are named by key (`alert:<kind>`, `pagenote:<page>`)
+/// and not by a PFCardKind.
+struct PFHiddenKeyed: Identifiable {
+    let key: String
+    let title: String
+    let source: PFDismissSource
+    var id: String { key }
+}
+
 /// The text of each card, built from the same fields the card draws. Times that tick (the clock marker, "updated
 /// 08:12") are left out, so a card does not come back just because a minute went by.
 enum PFCardText {
@@ -115,6 +124,15 @@ enum PFCardText {
         return lines.joined(separator: "\n")
     }
 
+    /// Today's call hashes the verdict and the two bands, not the scores, so a score moving a point does not bring it back.
+    static func todaysCall(_ call: PFTodaysCall) -> String {
+        "\(call.call.chipText)|\(call.charge?.band ?? "")|\(call.readiness?.band ?? "")|\(call.agreement ?? "")"
+    }
+
+    static func dayInReview(_ review: PFDayReview) -> String {
+        "\(review.outcomeText)|\(review.tonight?.bedtime ?? "")|\(review.tomorrow?.name ?? "")"
+    }
+
     static func nextRace(_ race: PFNextRace) -> String { "\(race.name)|\(race.date)|\(race.daysOut)" }
 
     static func standing(_ s: PFStanding) -> String {
@@ -135,6 +153,27 @@ enum PFCardText {
         }
     }
 
+    /// The alerts and page notes that are hidden right now, and which list hides each.
+    static func hiddenKeyed(_ s: PFSnapshot, notes: PFPageNotes?, local: [PFDismissal]) -> [PFHiddenKeyed] {
+        var out: [PFHiddenKeyed] = []
+        for alert in s.alerts {
+            let key = PFDismissKey.alertKey(alert)
+            guard let source = PFDismissLogic.hiddenBy(key: key, text: PFDismissKey.alertText(alert), today: s.todayISO,
+                                                        local: local, server: s.dismissed) else { continue }
+            out.append(PFHiddenKeyed(key: key, title: "Alert: \(alert.title)", source: source))
+        }
+        if let notes {
+            for page in notes.pages.keys.sorted() {
+                guard let note = notes.note(page, today: PFAPI.todayISO) else { continue }
+                let key = PFDismissKey.pageNoteKey(page)
+                guard let source = PFDismissLogic.hiddenBy(key: key, text: PFDismissKey.pageNoteText(note),
+                                                            today: PFAPI.todayISO, local: local, server: s.dismissed) else { continue }
+                out.append(PFHiddenKeyed(key: key, title: "Note on \(PFDismissKey.pageTitle(page))", source: source))
+            }
+        }
+        return out
+    }
+
     /// Every card the snapshot has right now, in screen order.
     static func all(_ s: PFSnapshot) -> [PFCardRef] {
         var out: [PFCardRef] = []
@@ -152,6 +191,11 @@ enum PFCardText {
         if let standing = s.standing, standing.hasContent { out.append(PFCardRef(kind: .standing, text: Self.standing(standing))) }
         if let race = s.today.nextRace, s.raceWeek == nil { out.append(PFCardRef(kind: .nextRace, text: nextRace(race))) }
         if let b = s.behaviour { out.append(PFCardRef(kind: .behaviour, text: behaviour(b))) }
+        // Only the real cards: the "not worked out yet" and "not available" notes are stale-data notices and stay.
+        if let intel = s.dailyIntel, intel.isCurrent(for: s.todayISO) {
+            if let call = intel.call, intel.callItem != nil { out.append(PFCardRef(kind: .todaysCall, text: todaysCall(call))) }
+            if let review = intel.review, intel.reviewItem != nil { out.append(PFCardRef(kind: .dayInReview, text: dayInReview(review))) }
+        }
         if let next = s.insightsV2?.todayCard { out.append(PFCardRef(kind: .nextBestAction, text: next.dismissText)) }
         return out
     }
@@ -179,13 +223,13 @@ final class PFDismissStore: ObservableObject {
         local = PFDismissStorage.load(defaults: self.defaults, today: PFAPI.todayISO)
     }
 
-    func hide(_ kind: PFCardKind, text: String, mode: PFDismissMode, today: String) {
-        local = PFDismissLogic.dismissing(local, key: kind.rawValue, text: text, mode: mode, today: today, now: Date())
+    func hide(key: String, text: String, mode: PFDismissMode, today: String) {
+        local = PFDismissLogic.dismissing(local, key: key, text: text, mode: mode, today: today, now: Date())
         PFDismissStorage.save(local, defaults: defaults)
     }
 
-    func restore(_ kind: PFCardKind) {
-        local = PFDismissLogic.restoring(local, key: kind.rawValue)
+    func restore(key: String) {
+        local = PFDismissLogic.restoring(local, key: key)
         PFDismissStorage.save(local, defaults: defaults)
     }
 }
@@ -196,35 +240,54 @@ final class PFDismissStore: ObservableObject {
 struct PFDismissable<Content: View>: View {
     let kind: PFCardKind
     let text: String
-    let snapshot: PFSnapshot
+    let todayISO: String
+    let server: [PFDismissal]
     private let content: Content
     @ObservedObject private var store = PFDismissStore.shared
 
     init(_ kind: PFCardKind, text: String, snapshot: PFSnapshot, @ViewBuilder content: () -> Content) {
+        self.init(kind, text: text, todayISO: snapshot.todayISO, server: snapshot.dismissed, content: content)
+    }
+
+    /// For a card drawn where no snapshot is at hand: the day and the server's dismissed.json are passed in.
+    init(_ kind: PFCardKind, text: String, todayISO: String, server: [PFDismissal], @ViewBuilder content: () -> Content) {
         self.kind = kind
         self.text = text
-        self.snapshot = snapshot
+        self.todayISO = todayISO
+        self.server = server
         self.content = content()
     }
 
     var body: some View {
-        if PFDismissLogic.isHidden(key: kind.rawValue, text: text, today: snapshot.todayISO,
-                                   local: store.local, server: snapshot.dismissed) {
+        if PFDismissLogic.isHidden(key: kind.rawValue, text: text, today: todayISO, local: store.local, server: server) {
             EmptyView()
         } else {
-            content.overlay(alignment: .topTrailing) { menu }
+            content.overlay(alignment: .topTrailing) {
+                PFDismissMenu(key: kind.rawValue, title: kind.title, text: text, todayISO: todayISO)
+                    .offset(x: 13, y: -13)
+            }
         }
     }
+}
 
-    private var menu: some View {
+/// The small x with "Hide until it changes" and "Snooze until tomorrow". It sits on a card's corner (PFDismissable) or
+/// inside a row (one alert, a page note). `key` is what dismissed.json stores, `title` only names the card for VoiceOver.
+struct PFDismissMenu: View {
+    let key: String
+    let title: String
+    let text: String
+    let todayISO: String
+    @ObservedObject private var store = PFDismissStore.shared
+
+    var body: some View {
         Menu {
             Button {
-                store.hide(kind, text: text, mode: .untilChanged, today: snapshot.todayISO)
+                store.hide(key: key, text: text, mode: .untilChanged, today: todayISO)
             } label: {
                 Label("Hide until it changes", systemImage: "eye.slash")
             }
             Button {
-                store.hide(kind, text: text, mode: .untilTomorrow, today: snapshot.todayISO)
+                store.hide(key: key, text: text, mode: .untilTomorrow, today: todayISO)
             } label: {
                 Label("Snooze until tomorrow", systemImage: "moon.zzz")
             }
@@ -235,10 +298,9 @@ struct PFDismissable<Content: View>: View {
                 .frame(width: 32, height: 32)
                 .contentShape(Rectangle())
         }
-        .offset(x: 13, y: -13)
         .accessibilityLabel("Not today")
-        .accessibilityHint("Hides \(kind.title) until it changes, or until tomorrow")
-        .accessibilityIdentifier("pf-dismiss-\(kind.rawValue)")
+        .accessibilityHint("Hides \(title) until it changes, or until tomorrow")
+        .accessibilityIdentifier("pf-dismiss-\(key)")
     }
 }
 
@@ -246,10 +308,12 @@ struct PFDismissable<Content: View>: View {
 struct PFHiddenCardsRow: View {
     let snapshot: PFSnapshot
     @ObservedObject private var store = PFDismissStore.shared
+    @ObservedObject private var pageNotes = PFPageNotesStore.shared
     @State private var isShowing = false
 
     var body: some View {
-        let items = PFCardText.hidden(snapshot, local: store.local)
+        let items = PFCardText.hidden(snapshot, local: store.local).map { $0.card.kind.title }
+            + PFCardText.hiddenKeyed(snapshot, notes: pageNotes.notes, local: store.local).map { $0.title }
         if !items.isEmpty {
             Button { isShowing = true } label: {
                 HStack(spacing: 10) {
@@ -286,10 +350,12 @@ struct PFHiddenCardsRow: View {
 struct PFHiddenCardsSheet: View {
     let snapshot: PFSnapshot
     @ObservedObject var store: PFDismissStore
+    @ObservedObject private var pageNotes = PFPageNotesStore.shared
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         let items = PFCardText.hidden(snapshot, local: store.local)
+        let keyed = PFCardText.hiddenKeyed(snapshot, notes: pageNotes.notes, local: store.local)
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 12) {
@@ -301,7 +367,7 @@ struct PFHiddenCardsSheet: View {
                                 .foregroundStyle(StrandPalette.textPrimary)
                             Spacer(minLength: 8)
                             if item.source == .local {
-                                Button("Show again") { store.restore(item.card.kind) }
+                                Button("Show again") { store.restore(key: item.card.kind.rawValue) }
                                     .buttonStyle(.bordered)
                                     .tint(StrandPalette.accent)
                                     .accessibilityIdentifier("pf-restore-\(item.card.kind.rawValue)")
@@ -315,7 +381,29 @@ struct PFHiddenCardsSheet: View {
                         .padding(14)
                         .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(StrandPalette.surfaceInset))
                     }
-                    if items.isEmpty {
+                    ForEach(keyed) { item in
+                        HStack(alignment: .center, spacing: 10) {
+                            Text(verbatim: item.title)
+                                .font(StrandFont.subhead.weight(.semibold))
+                                .foregroundStyle(StrandPalette.textPrimary)
+                                .lineLimit(2)
+                            Spacer(minLength: 8)
+                            if item.source == .local {
+                                Button("Show again") { store.restore(key: item.key) }
+                                    .buttonStyle(.bordered)
+                                    .tint(StrandPalette.accent)
+                                    .accessibilityIdentifier("pf-restore-\(item.key)")
+                            } else {
+                                Text("Hidden in PaceForge")
+                                    .font(StrandFont.caption)
+                                    .foregroundStyle(StrandPalette.textTertiary)
+                                    .accessibilityIdentifier("pf-hidden-server-\(item.key)")
+                            }
+                        }
+                        .padding(14)
+                        .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(StrandPalette.surfaceInset))
+                    }
+                    if items.isEmpty && keyed.isEmpty {
                         PFParagraph("Nothing is hidden.")
                             .accessibilityIdentifier("pf-hidden-empty")
                     }

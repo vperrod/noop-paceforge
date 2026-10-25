@@ -57,11 +57,16 @@ struct PFPageNote: View {
     let key: String
 
     @ObservedObject private var store = PFPageNotesStore.shared
+    @ObservedObject private var dismissals = PFDismissStore.shared
     private let hiding = PFHiding()
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            if let notes = store.notes, let note = notes.note(key, today: PFAPI.todayISO) {
+            // "Not today" on the note: key `pagenote:<page>`, hidden until its text changes or for the day. Only the phone's list is
+            // read here; the Hidden cards row on Today brings it back.
+            if let notes = store.notes, let note = notes.note(key, today: PFAPI.todayISO),
+               !PFDismissLogic.isHidden(key: PFDismissKey.pageNoteKey(key), text: PFDismissKey.pageNoteText(note),
+                                        today: PFAPI.todayISO, local: dismissals.local, server: []) {
                 card(note, updated: notes.updatedLabel(today: PFAPI.todayISO))
             }
         }
@@ -70,21 +75,26 @@ struct PFPageNote: View {
     }
 
     private func card(_ note: PFPageNoteItem, updated: String?) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            paragraph(note)
-                .lineSpacing(2)
-                .fixedSize(horizontal: false, vertical: true)
-            if let updated {
-                Text("Updated \(updated)")
-                    .font(StrandFont.caption)
-                    .foregroundStyle(StrandPalette.textTertiary)
+        HStack(alignment: .top, spacing: 4) {
+            VStack(alignment: .leading, spacing: 6) {
+                paragraph(note)
+                    .lineSpacing(2)
+                    .fixedSize(horizontal: false, vertical: true)
+                if let updated {
+                    Text("Updated \(updated)")
+                        .font(StrandFont.caption)
+                        .foregroundStyle(StrandPalette.textTertiary)
+                }
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .accessibilityElement(children: .combine)
+            .accessibilityIdentifier("pf-page-note-\(key)")
+            PFDismissMenu(key: PFDismissKey.pageNoteKey(key), title: "the note on this screen", text: PFDismissKey.pageNoteText(note),
+                          todayISO: PFAPI.todayISO)
         }
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(RoundedRectangle(cornerRadius: NoopLook.Metric.tileRadius, style: .continuous).fill(NoopLook.card))
-        .accessibilityElement(children: .combine)
-        .accessibilityIdentifier("pf-page-note-\(key)")
     }
 
     /// The tone word first (nothing for ok), then the server's text with Hide numbers applied.

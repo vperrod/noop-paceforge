@@ -165,4 +165,97 @@ final class PaceForgeDismissTests: XCTestCase {
                               defaults: defaults)
         XCTAssertEqual(PFDismissStorage.load(defaults: defaults, today: "2030-03-14"), [])
     }
+
+    // MARK: Alerts and page notes
+
+    private func alert(kind: String?, id: String = "a1", title: String = "Stress stays high", body: String? = "Since noon.") -> PFAlert {
+        PFAlert(id: id, kind: kind, severity: "watch", createdAt: nil, title: title, body: body)
+    }
+
+    func testAlertKeyNamesTheAlertKind() {
+        XCTAssertEqual(PFDismissKey.alertKey(alert(kind: "live_stress_sustained")), "alert:live_stress_sustained")
+    }
+
+    func testAlertWithoutAKindIsKeyedByItsId() {
+        XCTAssertEqual(PFDismissKey.alertKey(alert(kind: nil, id: "x9")), "alert:x9")
+    }
+
+    func testPageNoteKeyNamesThePage() {
+        XCTAssertEqual(PFDismissKey.pageNoteKey("sleep"), "pagenote:sleep")
+    }
+
+    func testKeysFitWhatTheServerAccepts() {
+        // dismissed.py: 1-120 characters of letters, digits and : . _ -
+        XCTAssertNotNil(PFDismissKey.alertKey(alert(kind: "live_hr_rest_high")).range(of: "^[A-Za-z0-9:._-]{1,120}$", options: .regularExpression))
+    }
+
+    func testAlertTextHashIsTheFnvOfSeverityTitleAndBody() {
+        XCTAssertEqual(PFFNV.hash(PFDismissKey.alertText(alert(kind: "k"))), PFFNV.hash("watch|Stress stays high|Since noon."))
+    }
+
+    func testAlertTextIgnoresItsLiveReading() {
+        var ticking = alert(kind: "live_stress_sustained")
+        ticking.live = PFLiveAlertFacts(reading: "Stress 81", hisNormal: nil, source: nil, planEffect: nil)
+        XCTAssertEqual(PFDismissKey.alertText(ticking), PFDismissKey.alertText(alert(kind: "live_stress_sustained")))
+    }
+
+    func testHiddenAlertStaysHiddenWhileItsTextIsTheSame() {
+        let a = alert(kind: "live_stress_sustained")
+        let items = PFDismissLogic.dismissing([], key: PFDismissKey.alertKey(a), text: PFDismissKey.alertText(a), mode: .untilChanged,
+                                              today: "2030-03-13", now: now)
+        XCTAssertTrue(PFDismissLogic.isHidden(key: PFDismissKey.alertKey(a), text: PFDismissKey.alertText(a), today: "2030-03-14",
+                                              local: items, server: []))
+    }
+
+    func testHiddenAlertReturnsWhenItsBodyChanges() {
+        let a = alert(kind: "live_stress_sustained")
+        let items = PFDismissLogic.dismissing([], key: PFDismissKey.alertKey(a), text: PFDismissKey.alertText(a), mode: .untilChanged,
+                                              today: "2030-03-13", now: now)
+        let worse = alert(kind: "live_stress_sustained", body: "Since 10:00.")
+        XCTAssertFalse(PFDismissLogic.isHidden(key: PFDismissKey.alertKey(worse), text: PFDismissKey.alertText(worse), today: "2030-03-13",
+                                               local: items, server: []))
+    }
+
+    func testHidingOneAlertKindDoesNotHideAnother() {
+        let a = alert(kind: "live_stress_sustained")
+        let items = PFDismissLogic.dismissing([], key: PFDismissKey.alertKey(a), text: PFDismissKey.alertText(a), mode: .untilChanged,
+                                              today: "2030-03-13", now: now)
+        let other = alert(kind: "live_hr_rest_high")
+        XCTAssertFalse(PFDismissLogic.isHidden(key: PFDismissKey.alertKey(other), text: PFDismissKey.alertText(a), today: "2030-03-13",
+                                               local: items, server: []))
+    }
+
+    func testSnoozedAlertReturnsTheNextDayWithTheSameText() {
+        let a = alert(kind: "live_stress_sustained")
+        let items = PFDismissLogic.dismissing([], key: PFDismissKey.alertKey(a), text: PFDismissKey.alertText(a), mode: .untilTomorrow,
+                                              today: "2030-03-13", now: now)
+        XCTAssertFalse(PFDismissLogic.isHidden(key: PFDismissKey.alertKey(a), text: PFDismissKey.alertText(a), today: "2030-03-14",
+                                               local: items, server: []))
+    }
+
+    func testPageNoteReturnsWhenItsToneChanges() {
+        let calm = PFPageNoteItem(tone: "ok", text: "Weight is steady.")
+        let items = PFDismissLogic.dismissing([], key: PFDismissKey.pageNoteKey("body"), text: PFDismissKey.pageNoteText(calm),
+                                              mode: .untilChanged, today: "2030-03-13", now: now)
+        let careful = PFPageNoteItem(tone: "careful", text: "Weight is steady.")
+        XCTAssertFalse(PFDismissLogic.isHidden(key: PFDismissKey.pageNoteKey("body"), text: PFDismissKey.pageNoteText(careful),
+                                               today: "2030-03-13", local: items, server: []))
+    }
+
+    func testPageNoteHiddenOnTheServerStaysHidden() {
+        let note = PFPageNoteItem(tone: "ok", text: "Weight is steady.")
+        let server = [PFDismissal(key: "pagenote:body", until: nil, dismissedAt: nil, textHash: PFFNV.hash(PFDismissKey.pageNoteText(note)))]
+        XCTAssertTrue(PFDismissLogic.isHidden(key: PFDismissKey.pageNoteKey("body"), text: PFDismissKey.pageNoteText(note),
+                                              today: "2030-03-13", local: [], server: server))
+    }
+
+    func testPageTitlesAreReadable() {
+        XCTAssertEqual(["recovery", "vitals", "sleep"].map(PFDismissKey.pageTitle), ["Charge", "Health Monitor", "Sleep"])
+    }
+
+    func testRestoringAnAlertRemovesOnlyItsKey() {
+        var items = PFDismissLogic.dismissing([], key: "alert:a", text: "x", mode: .untilChanged, today: "2030-03-13", now: now)
+        items = PFDismissLogic.dismissing(items, key: "pagenote:today", text: "x", mode: .untilChanged, today: "2030-03-13", now: now)
+        XCTAssertEqual(PFDismissLogic.restoring(items, key: "alert:a").map(\.key), ["pagenote:today"])
+    }
 }

@@ -22,6 +22,11 @@ approximate; downloads are on the [Releases](https://github.com/NoopApp/noop/rel
 - **Not verified on a real iPhone.** The morning brief notification now carries PaceForge's brief (written on the server, no AI key on the phone), so "Coach brief unavailable" no longer appears when PaceForge is connected. It is woken by your data, not the clock: from 04:00 it goes out once PaceForge has your night's sleep and HRV, and the time in Coach settings is the latest it waits (then it goes out saying what is missing). iOS decides when the background check really runs; opening the app also tries.
 - **Needs you leads Today.** Anything PaceForge is waiting on you for (treadmill pace, a proposal, effort, feel) shows at the very top of Today, above the rings, and leaves as soon as you answer it. Nothing shows when nothing is open.
 
+## 12.0.12 build 491 (PaceForge iPhone build): dismiss alerts, the paragraph on each screen and more
+
+- **Not verified on a real iPhone.** Each live alert in the Alerts card on Today has a small x: "Hide until it changes" hides that alert until its wording changes, "Snooze until tomorrow" hides it for the rest of the day. The paragraph at the top of each screen, Today's call, the evening Day in review and the race-week card on the Calendar have the same x. A "Hidden cards" row appears on Today as soon as anything is hidden; it lists every hidden alert, paragraph and card and brings each one back.
+- Left as they were on purpose: the health warning banner when it is raised, the "needs you" questions, the stale-data and not-available notes, and the workout in progress.
+
 ## 12.0.12 build 490 (PaceForge iPhone build): a paragraph on each screen, live alerts with their numbers, fewer repeats
 
 - **Not verified on a real iPhone.** Each main screen now opens with one short paragraph from PaceForge about all the metrics on it: Today, Coach, Training, Sleep, Insights, Charge, Effort, Health Monitor, Stress and Body. It starts with "Careful" or "Alert" when PaceForge thinks it matters, says when it was written, and is not shown at all when it is empty or more than two days old. Hide numbers applies to it.

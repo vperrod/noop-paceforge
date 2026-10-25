@@ -213,6 +213,8 @@ struct PFTodaysCallCard: View {
 struct PFTodaysCallHost: View {
     let intel: PFDailyIntel?
     let todayISO: String
+    /// The server's dismissed.json, so a Today's call put away in PaceForge stays away here too.
+    var server: [PFDismissal] = []
 
     var body: some View {
         if let intel {
@@ -229,7 +231,10 @@ struct PFTodaysCallHost: View {
                         text: "Today's call has not been worked out yet. The last one is from \(when).",
                         identifier: "pf-todays-call-stale")
         } else if let call = intel.call, let item = intel.callItem {
-            PFTodaysCallCard(call: call, item: item)
+            // Only the real card can be put away; the two notes around it are notices and stay.
+            PFDismissable(.todaysCall, text: PFCardText.todaysCall(call), todayISO: todayISO, server: server) {
+                PFTodaysCallCard(call: call, item: item)
+            }
         } else {
             PFIntelNote(title: "Today's call", icon: "scope",
                         text: intel.unavailableReason(PFIntelID.todaysCall) ?? "Today's call is not available yet.",
@@ -241,9 +246,10 @@ struct PFTodaysCallHost: View {
 /// NOOP Today's Today's call: reads the shared store and refreshes it when its copy is old.
 struct PFTodaysCallStoreHost: View {
     @ObservedObject private var store = PFDailyIntelStore.shared
+    @ObservedObject private var model = PFUnified.model
 
     var body: some View {
-        PFTodaysCallHost(intel: store.intel, todayISO: PFAPI.todayISO)
+        PFTodaysCallHost(intel: store.intel, todayISO: PFAPI.todayISO, server: model.snapshot?.dismissed ?? [])
             .task { await store.refreshIfStale() }
     }
 }
@@ -321,11 +327,16 @@ struct PFDayReviewCard: View {
 struct PFDayReviewHost: View {
     let intel: PFDailyIntel?
     let todayISO: String
+    /// The server's dismissed.json, so a Day in review put away in PaceForge stays away here too.
+    var server: [PFDismissal] = []
 
     var body: some View {
         if let intel, PFIntelClock.isEvening(), intel.isCurrent(for: todayISO), intel.item(PFIntelID.dayInReview) != nil {
             if let review = intel.review, let item = intel.reviewItem {
-                PFDayReviewCard(review: review, item: item)
+                // Only the real card can be put away; the "not available yet" note below is a notice and stays.
+                PFDismissable(.dayInReview, text: PFCardText.dayInReview(review), todayISO: todayISO, server: server) {
+                    PFDayReviewCard(review: review, item: item)
+                }
             } else {
                 PFIntelNote(title: "Day in review", icon: "moon.stars",
                             text: intel.unavailableReason(PFIntelID.dayInReview) ?? "The day's review is not available yet.",
@@ -337,9 +348,10 @@ struct PFDayReviewHost: View {
 
 struct PFDayReviewStoreHost: View {
     @ObservedObject private var store = PFDailyIntelStore.shared
+    @ObservedObject private var model = PFUnified.model
 
     var body: some View {
-        PFDayReviewHost(intel: store.intel, todayISO: PFAPI.todayISO)
+        PFDayReviewHost(intel: store.intel, todayISO: PFAPI.todayISO, server: model.snapshot?.dismissed ?? [])
             .task { await store.refreshIfStale() }
     }
 }

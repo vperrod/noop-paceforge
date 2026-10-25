@@ -450,7 +450,11 @@ private struct CalendarEventsChip: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            if let week = snapshot.raceWeek { PFRaceWeekCard(week: week, todayISO: snapshot.todayISO) }
+            if let week = snapshot.raceWeek {
+                PFDismissable(.raceWeek, text: PFCardText.raceWeek(week), snapshot: snapshot) {
+                    PFRaceWeekCard(week: week, todayISO: snapshot.todayISO)
+                }
+            }
             if snapshot.insights.races.isEmpty {
                 PFCard("No races yet", icon: "flag.checkered") {
                     PFParagraph("Races PaceForge knows about show here with the days to go and how ready you are.")

@@ -10,6 +10,8 @@ import StrandDesign
 /// answered in Telegram.
 struct PFAlertsCard: View {
     let alerts: [PFAlert]
+    /// Set where each alert can be put away on its own (NOOP Today): its day and the server's dismissed.json. Nil leaves the rows as they were.
+    var snapshot: PFSnapshot?
 
     var body: some View {
         PFCard(title: "Alerts", icon: "exclamationmark.triangle.fill", trailing: {
@@ -17,7 +19,7 @@ struct PFAlertsCard: View {
         }) {
             VStack(alignment: .leading, spacing: 12) {
                 ForEach(alerts) { alert in
-                    PFAlertRow(alert: alert)
+                    PFAlertRow(alert: alert, snapshot: snapshot)
                 }
                 if alerts.contains(where: { !$0.actions.isEmpty }) {
                     Text("Answer in Telegram. This app only shows the alert.")
@@ -31,14 +33,21 @@ struct PFAlertsCard: View {
 }
 
 /// NOOP Today's live alerts: the open `live_*` alerts in the Alerts card, and nothing else. The daily alert kinds stay on the
-/// PaceForge Today screen. Draws nothing when none is open.
+/// PaceForge Today screen. Each alert has the "Not today" menu (key `alert:<kind>`); the Hidden cards row under the card
+/// brings hidden alerts, page notes and cards back. Draws nothing when no alert is open and nothing is hidden.
 struct PFTodayLiveAlertsHost: View {
     @ObservedObject private var model = PFUnified.model
+    @ObservedObject private var dismissals = PFDismissStore.shared
 
     var body: some View {
         Group {
-            if let alerts = model.snapshot?.alerts.filter({ $0.isLive }), !alerts.isEmpty {
-                PFAlertsCard(alerts: alerts)
+            if let snapshot = model.snapshot {
+                let open = snapshot.alerts.filter { alert in
+                    alert.isLive && !PFDismissLogic.isHidden(key: PFDismissKey.alertKey(alert), text: PFDismissKey.alertText(alert),
+                                                             today: snapshot.todayISO, local: dismissals.local, server: snapshot.dismissed)
+                }
+                if !open.isEmpty { PFAlertsCard(alerts: open, snapshot: snapshot) }
+                PFHiddenCardsRow(snapshot: snapshot)
             }
         }
         .task { await model.refreshIfStale() }
@@ -47,6 +56,7 @@ struct PFTodayLiveAlertsHost: View {
 
 private struct PFAlertRow: View {
     let alert: PFAlert
+    let snapshot: PFSnapshot?
 
     private var color: Color {
         switch alert.severity {
@@ -57,6 +67,16 @@ private struct PFAlertRow: View {
     }
 
     var body: some View {
+        HStack(alignment: .top, spacing: 4) {
+            content
+            if let snapshot {
+                PFDismissMenu(key: PFDismissKey.alertKey(alert), title: alert.title, text: PFDismissKey.alertText(alert),
+                              todayISO: snapshot.todayISO)
+            }
+        }
+    }
+
+    private var content: some View {
         HStack(alignment: .top, spacing: 10) {
             RoundedRectangle(cornerRadius: 2, style: .continuous)
                 .fill(color)
