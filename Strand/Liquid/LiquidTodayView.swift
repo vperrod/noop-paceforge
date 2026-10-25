@@ -411,8 +411,9 @@ struct LiquidTodayView: View {
                     // #105: the live "workout in progress" card, dropped in the liquid Home rewrite. Restored
                     // here as the SAME leaf the classic TodayView renders (and Android's WorkoutInProgressCard),
                     // pinned above the reorderable block so an active manual workout is immediately visible
-                    // and opens the existing workout flow. Today also offers Start when no workout is active.
-                    ActiveWorkoutIndicatorSection(showStart: selectedDayOffset == 0)
+                    // and opens the existing workout flow. No Start bar here: Victor never starts a workout from Today (the
+                    // Workouts screen still has its Start button), so with no active workout this draws nothing.
+                    ActiveWorkoutIndicatorSection()
                     // #today-layout (parity with Android): every Today section — the Charge/Effort/Rest hero
                     // and Start-session included — renders in the user's saved order. Reorder via the Arrange
                     // sheet (the header's up/down button; native drag rows); the order persists under the
