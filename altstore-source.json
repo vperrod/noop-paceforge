@@ -21,6 +21,15 @@
       "versions": [
         {
           "version": "12.0.12",
+          "buildVersion": "489",
+          "date": "2026-10-25",
+          "localizedDescription": "Build 489: every metric's info sheet now shows where it stands for you and what PaceForge does with it, on top of build 488's restored readiness safety gates.",
+          "downloadURL": "https://github.com/vperrod/noop-paceforge/releases/download/noop-ios-v12.0.12-b489/NOOP-v12.0.12-b489.ipa",
+          "size": 30516157,
+          "minOSVersion": "17.0"
+        },
+        {
+          "version": "12.0.12",
           "buildVersion": "487",
           "date": "2026-10-24",
           "localizedDescription": "Build 487: unified Coach entry and shared NOOP/PaceForge context, clearer briefing status, and direct Sleep and Training navigation.",
@@ -44,11 +53,11 @@
         }
       },
       "version": "12.0.12",
-      "buildVersion": "487",
-      "versionDate": "2026-10-24",
-      "versionDescription": "Build 487: unified Coach entry and shared NOOP/PaceForge context, clearer briefing status, and direct Sleep and Training navigation.",
-      "downloadURL": "https://github.com/vperrod/noop-paceforge/releases/download/noop-ios-v12.0.12-b487/NOOP-v12.0.12-b487.ipa",
-      "size": 30513905,
+      "buildVersion": "489",
+      "versionDate": "2026-10-25",
+      "versionDescription": "Build 489: every metric's info sheet now shows where it stands for you and what PaceForge does with it, on top of build 488's restored readiness safety gates.",
+      "downloadURL": "https://github.com/vperrod/noop-paceforge/releases/download/noop-ios-v12.0.12-b489/NOOP-v12.0.12-b489.ipa",
+      "size": 30516157,
       "minOSVersion": "17.0"
     }
   ],
