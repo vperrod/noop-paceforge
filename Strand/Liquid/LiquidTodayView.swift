@@ -424,9 +424,13 @@ struct LiquidTodayView: View {
                     // sticky mini dials measure, so it stays one view in the scroll column; the Arrange sheet still hides it with the
                     // "Charge / Effort / Rest" section.
                     // Anything PaceForge is waiting on him for leads everything, until he answers it.
-                    if selectedDayOffset == 0 { PFTodayNeedsYouHost() }
-                    // PaceForge's one paragraph about the day's metrics, right under it. Draws nothing without a fresh note.
-                    if selectedDayOffset == 0 { PFPageNote(key: "today") }
+                    // Then the open live alerts (stress, heart rate at rest, Body Battery) and PaceForge's one paragraph about the
+                    // day's metrics. One `if`, so the column gains no children; each draws nothing when it has nothing to show.
+                    if selectedDayOffset == 0 {
+                        PFTodayNeedsYouHost()
+                        PFTodayLiveAlertsHost()
+                        PFPageNote(key: "today")
+                    }
                     if order.contains(.hero) { heroCard }
                     #endif
                     ForEach(order.prefix(Self.mountedSectionCount(order, stage: mountStage))) { section in

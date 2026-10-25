@@ -200,6 +200,10 @@ final class PaceForgeWave2Tests: XCTestCase {
         XCTAssertNil(PFBuilder.alerts(json(liveAlertJSON)).first { $0.kind == "sleep_debt" }?.live)
     }
 
+    func testLiveOnlyFilterKeepsTheLiveKindsAndDropsTheDailyOnes() {
+        XCTAssertEqual(PFBuilder.alerts(json(liveAlertJSON)).filter { $0.isLive }.map { $0.kind }, ["live_stress_sustained"])
+    }
+
     func testLiveAlertWithoutMetricsStillShowsWithNoFacts() {
         let doc = json(#"{"alerts":[{"id":"a1","kind":"live_stress_sustained","title":"t","status":"open"}]}"#)
         XCTAssertNil(PFBuilder.alerts(doc).first?.live)

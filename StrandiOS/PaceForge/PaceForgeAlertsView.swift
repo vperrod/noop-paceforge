@@ -30,6 +30,21 @@ struct PFAlertsCard: View {
     }
 }
 
+/// NOOP Today's live alerts: the open `live_*` alerts in the Alerts card, and nothing else. The daily alert kinds stay on the
+/// PaceForge Today screen. Draws nothing when none is open.
+struct PFTodayLiveAlertsHost: View {
+    @ObservedObject private var model = PFUnified.model
+
+    var body: some View {
+        Group {
+            if let alerts = model.snapshot?.alerts.filter({ $0.isLive }), !alerts.isEmpty {
+                PFAlertsCard(alerts: alerts)
+            }
+        }
+        .task { await model.refreshIfStale() }
+    }
+}
+
 private struct PFAlertRow: View {
     let alert: PFAlert
 

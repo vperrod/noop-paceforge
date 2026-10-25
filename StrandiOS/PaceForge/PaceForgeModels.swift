@@ -532,6 +532,9 @@ struct PFAlert: Identifiable {
     var live: PFLiveAlertFacts?
 
     var rank: Int { severity == "act" ? 0 : (severity == "watch" ? 1 : 2) }
+
+    /// An intraday alert from the live rules (stress, heart rate at rest, Body Battery); the older daily kinds are not.
+    var isLive: Bool { kind?.hasPrefix("live_") == true }
 }
 struct PFAlertAction: Identifiable { var id: String; var label: String }
 
