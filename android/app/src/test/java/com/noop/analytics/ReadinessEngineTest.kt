@@ -65,7 +65,7 @@ class ReadinessEngineTest {
         assertEquals(ReadinessEngine.Level.PRIMED, r.level)
         assertEquals(ReadinessEngine.Flag.GOOD, r.signals.firstOrNull { it.key == "hrv" }?.flag)
         assertEquals(ReadinessEngine.Flag.GOOD, r.signals.firstOrNull { it.key == "rhr" }?.flag)
-        assertEquals(ReadinessEngine.Flag.NEUTRAL, r.signals.firstOrNull { it.key == "acwr" }?.flag)
+        assertEquals(ReadinessEngine.Flag.GOOD, r.signals.firstOrNull { it.key == "acwr" }?.flag)
     }
 
     @Test
@@ -76,15 +76,15 @@ class ReadinessEngineTest {
     }
 
     @Test
-    fun acwrSpikeStaysLoadContextAndDoesNotChangeReadiness() {
-        // Recovery signals neutral; the ACWR remains visible but is not a readiness vote.
+    fun acwrSpikeStrains() {
+        // Recovery signals neutral, but acute load spikes above chronic.
         val days = mutableListOf<DailyMetric>()
         for (i in 1..21) days.add(d(i, hrv = 60.0, rhr = 52, strain = 5.0))
         for (i in 22..28) days.add(d(i, hrv = 60.0, rhr = 52, strain = 15.0))
         days.add(d(29, hrv = 60.0, rhr = 52, strain = 15.0))
         val r = ReadinessEngine.evaluate(days)
-        assertEquals(ReadinessEngine.Flag.WATCH, r.signals.firstOrNull { it.key == "acwr" }?.flag)
-        assertEquals(ReadinessEngine.Level.BALANCED, r.level)
+        assertEquals(ReadinessEngine.Flag.BAD, r.signals.firstOrNull { it.key == "acwr" }?.flag)
+        assertEquals(ReadinessEngine.Level.STRAINED, r.level)
         assertNotNull(r.acwr)
         assertTrue(r.acwr!! > 1.5)
     }
