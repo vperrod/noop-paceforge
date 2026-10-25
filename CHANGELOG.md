@@ -22,6 +22,12 @@ approximate; downloads are on the [Releases](https://github.com/NoopApp/noop/rel
 - **Not verified on a real iPhone.** The morning brief notification now carries PaceForge's brief (written on the server, no AI key on the phone), so "Coach brief unavailable" no longer appears when PaceForge is connected. It is woken by your data, not the clock: from 04:00 it goes out once PaceForge has your night's sleep and HRV, and the time in Coach settings is the latest it waits (then it goes out saying what is missing). iOS decides when the background check really runs; opening the app also tries.
 - **Needs you leads Today.** Anything PaceForge is waiting on you for (treadmill pace, a proposal, effort, feel) shows at the very top of Today, above the rings, and leaves as soon as you answer it. Nothing shows when nothing is open.
 
+## 12.0.12 build 488 (PaceForge iPhone build): readiness gates restored, Android edits reverted
+
+- **Not verified on a real iPhone.** Readiness is again voted on by training load and monotony: a load spike (acute:chronic above 1.5) flags bad, can make the verdict Strained or Run down, and cannot read Primed. The recovery and illness texts that tell you what to do are back to their earlier wording. This restores the Swift ReadinessEngine and IllnessSignalEngine to their build 486 behaviour.
+- The 11 Android files Codex edited in build 487 are back to their build 486 state (no Android build was made or is wanted).
+- The Coach unification, brief status and the rest of build 487 stay.
+
 ## 12.0.12 build 487 (PaceForge iPhone build): one Coach, direct Sleep and Training, clearer brief status
 
 - **One Coach across NOOP and PaceForge.** The Coach entry point opens the shared Coach surface for daily reads, workout analysis, planning and reviews. Workout commentary is shown before the supporting metrics, and dated NOOP and PaceForge evidence stays source-labelled.
