@@ -21,6 +21,15 @@
       "versions": [
         {
           "version": "12.0.12",
+          "buildVersion": "491",
+          "date": "2026-10-25",
+          "localizedDescription": "Build 491: dismiss or snooze live alerts, page paragraphs, Today's call, Day in review and race week; no Start workout bar at the top of Today.",
+          "downloadURL": "https://github.com/vperrod/noop-paceforge/releases/download/noop-ios-v12.0.12-b491/NOOP-v12.0.12-b491.ipa",
+          "size": 30715470,
+          "minOSVersion": "17.0"
+        },
+        {
+          "version": "12.0.12",
           "buildVersion": "490",
           "date": "2026-10-25",
           "localizedDescription": "Build 490: a short assessment paragraph at the top of each screen, live alerts for stress, heart rate and Body Battery on Today, and less repeated content on Today and Body.",
@@ -62,11 +71,11 @@
         }
       },
       "version": "12.0.12",
-      "buildVersion": "490",
+      "buildVersion": "491",
       "versionDate": "2026-10-25",
-      "versionDescription": "Build 490: a short assessment paragraph at the top of each screen, live alerts for stress, heart rate and Body Battery on Today, and less repeated content on Today and Body.",
-      "downloadURL": "https://github.com/vperrod/noop-paceforge/releases/download/noop-ios-v12.0.12-b490/NOOP-v12.0.12-b490.ipa",
-      "size": 30552975,
+      "versionDescription": "Build 491: dismiss or snooze live alerts, page paragraphs, Today's call, Day in review and race week; no Start workout bar at the top of Today.",
+      "downloadURL": "https://github.com/vperrod/noop-paceforge/releases/download/noop-ios-v12.0.12-b491/NOOP-v12.0.12-b491.ipa",
+      "size": 30715470,
       "minOSVersion": "17.0"
     }
   ],
