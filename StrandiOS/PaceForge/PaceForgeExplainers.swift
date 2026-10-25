@@ -143,6 +143,8 @@ struct PFExplainerSheet: View {
                             .fixedSize(horizontal: false, vertical: true)
                             .accessibilityIdentifier("pf-explainer-plain")
                     }
+                    section("For you", explainer.forYou)
+                    section("What PaceForge does with it", explainer.effect)
                     section("How it is made", explainer.how)
                     section("Usual range", explainer.usualRange)
                     section("Worth knowing", explainer.caveat)

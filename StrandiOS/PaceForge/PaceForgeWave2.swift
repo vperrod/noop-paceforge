@@ -131,6 +131,10 @@ struct PFExplainer: Identifiable, Equatable {
     var caveat: String?
     var unlocks: String?
     var calibration: PFCalibration?
+    /// Where the metric stands against his own usual range, and his strongest personal link (PaceForge computes both).
+    var forYou: String?
+    /// What PaceForge does with the number.
+    var effect: String?
 }
 
 // MARK: Behaviour impact
@@ -309,7 +313,8 @@ enum PFWave2Parse {
             guard let id = m["id"].text, let title = m["title"].text else { return nil }
             return PFExplainer(id: id, title: title, plain: m["plain"].text, how: m["how"].text,
                                usualRange: m["usual_range"].text, caveat: m["caveat"].text,
-                               unlocks: m["unlocks"].text, calibration: calibration(m["calibration"]))
+                               unlocks: m["unlocks"].text, calibration: calibration(m["calibration"]),
+                               forYou: m["you"].text, effect: m["effect"].text)
         }
     }
 

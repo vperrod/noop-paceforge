@@ -100,6 +100,13 @@ final class PaceForgeWave2Tests: XCTestCase {
         XCTAssertEqual(list.first?.calibration?.need, 5)
     }
 
+    func testExplainersCarryTheForYouAndEffectLines() {
+        let list = PFWave2Parse.explainers(json("""
+        {"metrics":[{"id":"recovery","title":"Recovery","you":"Latest 91%.","effect":"Sets the strain target."}]}
+        """))
+        XCTAssertEqual([list.first?.forYou, list.first?.effect], ["Latest 91%.", "Sets the strain target."])
+    }
+
     func testBehaviourWithNoQualifyingQuestionKeepsTheWaitingList() {
         let impact = PFWave2Parse.behaviourImpact(json("""
         {"min_each":5,"items":[],"insufficient":[{"question":"Did you use a sauna?","label":"sauna","yes":2,"no":30}]}
