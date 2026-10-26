@@ -22,6 +22,12 @@ approximate; downloads are on the [Releases](https://github.com/NoopApp/noop/rel
 - **Not verified on a real iPhone.** The morning brief notification now carries PaceForge's brief (written on the server, no AI key on the phone), so "Coach brief unavailable" no longer appears when PaceForge is connected. It is woken by your data, not the clock: from 04:00 it goes out once PaceForge has your night's sleep and HRV, and the time in Coach settings is the latest it waits (then it goes out saying what is missing). iOS decides when the background check really runs; opening the app also tries.
 - **Needs you leads Today.** Anything PaceForge is waiting on you for (treadmill pace, a proposal, effort, feel) shows at the very top of Today, above the rings, and leaves as soon as you answer it. Nothing shows when nothing is open.
 
+## 12.0.12 build 492 (PaceForge iPhone build): Needs you on Today only, readable proposals, fewer repeats
+
+- **Not verified on a real iPhone.** A proposal in the Needs you card now shows its full text, with Accept and Dismiss on a row below it. The card lives only on Today: the Coach tab no longer shows it.
+- **The morning briefing warning only appears when it matters.** The orange "iOS background refresh issue" line on Coach shows only while today's brief has not arrived; once the brief is ready it is hidden there and stays in Brief settings.
+- **Less repeating.** The Sleep tab starts without the Stages vs typical card (the stage shares and durations are in Stages and Last night's sleep; Customize brings it back, and a layout you saved is unchanged). Charge, Effort and Rest no longer repeat the last seven days as bars above the trend chart (the chart's W view and the readings show the same days). Insights shows the fitness, fatigue and form chart once.
+
 ## 12.0.12 build 491 (PaceForge iPhone build): dismiss alerts, the paragraph on each screen and more
 
 - **Not verified on a real iPhone.** Each live alert in the Alerts card on Today has a small x: "Hide until it changes" hides that alert until its wording changes, "Snooze until tomorrow" hides it for the rest of the day. The paragraph at the top of each screen, Today's call, the evening Day in review and the race-week card on the Calendar have the same x. A "Hidden cards" row appears on Today as soon as anything is hidden; it lists every hidden alert, paragraph and card and brings each one back.
