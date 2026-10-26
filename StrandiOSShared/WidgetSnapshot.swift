@@ -176,7 +176,10 @@ public struct WidgetSnapshot: Codable, Equatable {
     /// key is somehow absent (each process reads its OWN bundle, so the app and the widget extension
     /// each carry the key in their generated Info.plist).
     public static let suiteName: String = {
-        resolveSuiteName(infoDictionary: Bundle.main.infoDictionary ?? [:])
+        resolveSuiteName(infoDictionary: Bundle.main.infoDictionary ?? [:],
+                         bundleIdentifier: Bundle.main.bundleIdentifier) {
+            FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: $0) != nil
+        }
     }()
     public static let storageKey = "noop.widget.snapshot"
 
@@ -209,6 +212,40 @@ public struct WidgetSnapshot: Codable, Equatable {
             return configured
         }
         return "group.com.noopapp.noop"
+    }
+
+    /// Every App Group this process might be entitled to, best guess first.
+    ///
+    /// The sideloader on the mini PC (AltKeeper / isideload) does not publish `ALTAppGroups` for NOOP. It
+    /// creates `group.<signed main bundle id>` (the bundle id with the team id appended) and signs EVERY
+    /// bundle with the main app's profile, so that is the only group the app, the widgets and the watch are
+    /// actually entitled to. The build-time `AppGroupIdentifier` names a group that was never created, so the
+    /// app and the widget each got a private, unshared store and the widget showed "Open NOOP to refresh".
+    /// The extra candidates are the group named after this bundle and after the bundles above it (an
+    /// extension drops its own suffix: `.widgets`, `.watch`, `.watch.complications`).
+    ///
+    /// Without a configured id (a bare host such as the unit tests) there is nothing to probe, so the list is
+    /// just the existing answer.
+    static func suiteNameCandidates(infoDictionary: [String: Any], bundleIdentifier: String?) -> [String] {
+        let primary = resolveSuiteName(infoDictionary: infoDictionary)
+        let configured = (infoDictionary["AppGroupIdentifier"] as? String)?
+            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        guard !configured.isEmpty, let bundleIdentifier else { return [primary] }
+        let parts = bundleIdentifier.split(separator: ".").map(String.init)
+        var candidates = [primary]
+        for dropped in 0...2 where parts.count - dropped >= 3 {
+            let candidate = "group." + parts.dropLast(dropped).joined(separator: ".")
+            if !candidates.contains(candidate) { candidates.append(candidate) }
+        }
+        return candidates
+    }
+
+    /// The first candidate the process can open a container for; the first candidate when none can (as before).
+    static func resolveSuiteName(infoDictionary: [String: Any], bundleIdentifier: String?,
+                                 hasContainer: (String) -> Bool) -> String {
+        let candidates = suiteNameCandidates(infoDictionary: infoDictionary, bundleIdentifier: bundleIdentifier)
+        if candidates.count == 1 { return candidates[0] }
+        return candidates.first(where: hasContainer) ?? candidates[0]
     }
 
     /// Debug-only canary: trips on the first run after a misprovisioning so the silent no-op gets

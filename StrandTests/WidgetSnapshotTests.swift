@@ -45,6 +45,65 @@ final class WidgetSnapshotTests: XCTestCase {
         )
     }
 
+    func testSideloadedMainAppProbesTheGroupNamedAfterItsSignedBundleId() {
+        XCTAssertEqual(
+            WidgetSnapshot.suiteNameCandidates(
+                infoDictionary: ["AppGroupIdentifier": "group.com.paceforge.noop.staging"],
+                bundleIdentifier: "com.paceforge.noop.9R2ZU5P9ZN"),
+            ["group.com.paceforge.noop.staging",
+             "group.com.paceforge.noop.9R2ZU5P9ZN",
+             "group.com.paceforge.noop"]
+        )
+    }
+
+    func testExtensionBundleIdsReachTheMainAppGroup() {
+        XCTAssertTrue(
+            WidgetSnapshot.suiteNameCandidates(
+                infoDictionary: ["AppGroupIdentifier": "group.com.paceforge.noop.staging"],
+                bundleIdentifier: "com.paceforge.noop.9R2ZU5P9ZN.watch.complications")
+                .contains("group.com.paceforge.noop.9R2ZU5P9ZN")
+        )
+    }
+
+    func testWidgetResolvesToTheGroupTheSignatureGrants() {
+        let granted = "group.com.paceforge.noop.9R2ZU5P9ZN"
+
+        XCTAssertEqual(
+            WidgetSnapshot.resolveSuiteName(
+                infoDictionary: ["AppGroupIdentifier": "group.com.paceforge.noop.staging"],
+                bundleIdentifier: "com.paceforge.noop.9R2ZU5P9ZN.widgets",
+                hasContainer: { $0 == granted }),
+            granted
+        )
+    }
+
+    func testConfiguredGroupWinsWhenItHasAContainer() {
+        XCTAssertEqual(
+            WidgetSnapshot.resolveSuiteName(
+                infoDictionary: ["AppGroupIdentifier": "group.example.noop"],
+                bundleIdentifier: "com.example.noop",
+                hasContainer: { _ in true }),
+            "group.example.noop"
+        )
+    }
+
+    func testNoContainerAnywhereKeepsTheConfiguredGroup() {
+        XCTAssertEqual(
+            WidgetSnapshot.resolveSuiteName(
+                infoDictionary: ["AppGroupIdentifier": "group.example.noop"],
+                bundleIdentifier: "com.example.noop",
+                hasContainer: { _ in false }),
+            "group.example.noop"
+        )
+    }
+
+    func testNothingConfiguredProbesNothingElse() {
+        XCTAssertEqual(
+            WidgetSnapshot.suiteNameCandidates(infoDictionary: [:], bundleIdentifier: "com.example.noop"),
+            ["group.com.noopapp.noop"]
+        )
+    }
+
     func testRuntimeUnavailableSnapshotContainsNoDemoValues() {
         let snapshot = WidgetSnapshot.unavailable
 

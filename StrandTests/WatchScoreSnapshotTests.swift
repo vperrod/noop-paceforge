@@ -99,6 +99,25 @@ final class WatchScoreSnapshotTests: XCTestCase {
         XCTAssertTrue(loaded.restCalibrating)
     }
 
+    func testWatchAppResolvesToTheGroupTheSignatureGrants() {
+        let granted = "group.com.paceforge.noop.9R2ZU5P9ZN"
+
+        XCTAssertEqual(
+            WatchScoreSnapshot.resolveAppGroupId(
+                configured: "group.com.paceforge.noop.staging",
+                bundleIdentifier: "com.paceforge.noop.9R2ZU5P9ZN.watch.complications",
+                hasContainer: { $0 == granted }),
+            granted
+        )
+    }
+
+    func testNothingConfiguredKeepsTheCanonicalFallback() {
+        XCTAssertEqual(
+            WatchScoreSnapshot.appGroupCandidates(configured: nil, bundleIdentifier: "com.example.noop"),
+            ["group.com.noopapp.noop"]
+        )
+    }
+
     func testStorageContractMatchesWatchSideExpectation() {
         // storageKey is a fixed string all sides hard-agree on. appGroupId is dynamic (resolved from
         // the running bundle's AppGroupIdentifier Info.plist key — see WatchScoreSnapshot.swift); this
