@@ -133,7 +133,14 @@ struct SleepView: View {
     // #sleep-layout: the arrangeable analytical-card order + explicit hidden set, byte-identical to the
     // Android SleepLayoutPrefs keys. Reordered via the Arrange sheet; display-only, no metric changes.
     @AppStorage(SleepLayoutPrefs.orderKey) private var sleepSectionOrderRaw = ""
+    #if os(iOS)
+    // Stages vs typical starts hidden: the stage rows in Stages and Last night's sleep already show each stage's share and
+    // duration, and Last night's sleep carries the typical range. A layout the wearer saved is drawn as saved, and Customize
+    // lists the card under hidden cards. Last night's sleep is iOS-only, so other platforms keep every card.
+    @AppStorage(SleepLayoutPrefs.hiddenKey) private var sleepHiddenSectionsRaw = SleepSection.stagesVsTypical.rawValue
+    #else
     @AppStorage(SleepLayoutPrefs.hiddenKey) private var sleepHiddenSectionsRaw = ""
+    #endif
     @State private var showSleepCustomize = false
 
     /// The analytical cards to render, in saved order minus the hidden set.
