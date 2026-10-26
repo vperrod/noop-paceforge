@@ -21,6 +21,15 @@
       "versions": [
         {
           "version": "12.0.12",
+          "buildVersion": "492",
+          "date": "2026-10-26",
+          "localizedDescription": "Build 492: Needs you shows the full text and lives only on Today; morning-briefing warning only when the brief is late; fewer repeated cards on Sleep, score detail and Insights.",
+          "downloadURL": "https://github.com/vperrod/noop-paceforge/releases/download/noop-ios-v12.0.12-b492/NOOP-v12.0.12-b492.ipa",
+          "size": 30713052,
+          "minOSVersion": "17.0"
+        },
+        {
+          "version": "12.0.12",
           "buildVersion": "491",
           "date": "2026-10-25",
           "localizedDescription": "Build 491: dismiss or snooze live alerts, page paragraphs, Today's call, Day in review and race week; no Start workout bar at the top of Today.",
