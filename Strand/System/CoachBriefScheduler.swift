@@ -134,6 +134,12 @@ enum CoachBriefScheduler {
     static var state: String? { UserDefaults.standard.string(forKey: K.state) }
     static var lastAttemptAt: Date? { UserDefaults.standard.object(forKey: K.lastAttemptAt) as? Date }
     static var lastSuccessAt: Date? { UserDefaults.standard.object(forKey: K.lastSuccessAt) as? Date }
+    /// True when a brief was generated successfully today: `recordSuccess` stamps `lastSuccessAt` at the same moment
+    /// it sets the "Today's brief is ready." state.
+    static var hasBriefToday: Bool {
+        guard let at = lastSuccessAt else { return false }
+        return Calendar.current.isDateInToday(at)
+    }
 
     /// iOS may defer an available background task, but a disabled/restricted setting explains why
     /// automatic catch-up cannot be expected. This is diagnostic context, not a delivery guarantee.

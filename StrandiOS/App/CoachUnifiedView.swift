@@ -58,7 +58,7 @@ struct CoachUnifiedView: View {
                         .foregroundStyle(PFColor.warning)
                         .fixedSize(horizontal: false, vertical: true)
                 }
-                if !briefBackgroundIssue.isEmpty {
+                if !briefBackgroundIssue.isEmpty, !CoachBriefScheduler.hasBriefToday {
                     Text("iOS background refresh issue: \(briefBackgroundIssue). Brief delivery may be delayed; open Coach to check now.")
                         .font(StrandFont.caption)
                         .foregroundStyle(PFColor.warning)
