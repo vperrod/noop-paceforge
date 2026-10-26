@@ -440,7 +440,7 @@ struct LiquidTodayView: View {
                         // wrap after 18:00. Today only; each says so itself when its item is unavailable.
                         case .todaysCall:
                             #if os(iOS)
-                            if selectedDayOffset == 0 { PFTodaysCallStoreHost() }
+                            if selectedDayOffset == 0 { PFTodaysCallStoreHost(); PFExpertReadingHost() }
                             #else
                             EmptyView()
                             #endif
@@ -547,6 +547,8 @@ struct LiquidTodayView: View {
         // The streak chip and My Plan read a store that draws nothing until it has loaded, and an empty view never runs
         // its own .task, so Today starts the load.
         .task { await PFPhase4Store.shared.refreshIfStale() }
+        // And the Expert reading card: it draws nothing until the daily reading is on the phone, so Today fetches it.
+        .task { await PFReportsStore.shared.refreshLatestIfStale() }
         // The same for Today's call (the NOOP Charge, PaceForge readiness and Effort target dials): its host draws nothing until the
         // store has a file, so its own .task never runs. With New navigation (beta) on there is no PaceForge tab to fill the store
         // either, so Today starts this load itself, and says in the breadcrumbs what it ended with.
