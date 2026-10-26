@@ -160,21 +160,22 @@ private struct PFNeedsProposalRow: View {
     @EnvironmentObject private var model: PFModel
 
     var body: some View {
-        HStack(alignment: .center, spacing: 10) {
+        VStack(alignment: .leading, spacing: 10) {
             Text(item.meaning ?? item.title)
                 .font(StrandFont.subhead)
                 .foregroundStyle(StrandPalette.textPrimary)
-                .lineLimit(2)
                 .fixedSize(horizontal: false, vertical: true)
                 .frame(maxWidth: .infinity, alignment: .leading)
-            Button("Accept") { answer(true) }
-                .buttonStyle(.bordered)
-                .tint(StrandPalette.accent)
-                .accessibilityIdentifier("pf-needs-accept-\(item.id)")
-            Button("Dismiss") { answer(false) }
-                .buttonStyle(.bordered)
-                .tint(StrandPalette.textSecondary)
-                .accessibilityIdentifier("pf-needs-dismiss-\(item.id)")
+            HStack(spacing: 10) {
+                Button("Accept") { answer(true) }
+                    .buttonStyle(.bordered)
+                    .tint(StrandPalette.accent)
+                    .accessibilityIdentifier("pf-needs-accept-\(item.id)")
+                Button("Dismiss") { answer(false) }
+                    .buttonStyle(.bordered)
+                    .tint(StrandPalette.textSecondary)
+                    .accessibilityIdentifier("pf-needs-dismiss-\(item.id)")
+            }
         }
     }
 
