@@ -27,6 +27,9 @@ struct CoachUnifiedView: View {
             .accessibilityIdentifier("coach-brief-settings")
         }) {
             PFPageNote(key: "coach")
+            IndexSection("Reports") {
+                IndexRow("Coach reports", "doc.text.fill", TabRoute.reports(PFReportKind.daily.rawValue), id: "coach-reports-row")
+            }
             briefStatusCard
             CoachPaceForgeChip()
         }

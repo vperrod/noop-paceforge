@@ -43,6 +43,9 @@ enum TabRoute: Hashable {
     case healthspan
     case journalImpact
     case monthlyReport
+    /// The expert reports (daily, weekly, monthly), opened on the kind named by the `PFReportKind` raw value. iPhone only; elsewhere
+    /// it falls back to the screen it sits beside.
+    case reports(String)
     case hydration
     case coupled
     /// The Lift Log, from the Day tab's Activity chip (iPhone only; macOS falls back to Workouts).
@@ -106,6 +109,12 @@ extension View {
             case .monthlyReport:
                 #if os(iOS)
                 PFMonthlyReportScreen()
+                #else
+                InsightsView()
+                #endif
+            case .reports(let kind):
+                #if os(iOS)
+                PFReportsScreen(kind: PFReportKind(rawValue: kind) ?? .daily)
                 #else
                 InsightsView()
                 #endif

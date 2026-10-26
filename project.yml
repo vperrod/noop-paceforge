@@ -207,6 +207,8 @@ targets:
       - StrandiOS/PaceForge/PaceForgeIntelDocs.swift
       # Daily movement: movement.json parsing, the chip, the range-bar positions, the week bars and the wording.
       - StrandiOS/PaceForge/PaceForgeMovement.swift
+      # Expert reports: the report documents, stage order, claim-tag handling and the dated/stale wording.
+      - StrandiOS/PaceForge/PaceForgeReports.swift
       # Bike rides: ride-metrics.json, the stream file, 600-point downsampling and the ride formats.
       - StrandiOS/PaceForge/PaceForgeRide.swift
       # Hiding a card: the FNV-1a hash, hide-until-it-changes / snooze rules and the storage helpers.
