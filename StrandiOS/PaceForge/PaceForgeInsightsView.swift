@@ -21,11 +21,6 @@ struct PFInsightsView: View {
             }
             if includesOverview, let insights = snapshot.insightsV2, insights.hasContent { PFInsightsV2Section(doc: insights) }
             chartCard
-            if insights.history.count >= 2 {
-                PFCard("Fitness, fatigue and form over time", icon: "chart.line.uptrend.xyaxis") {
-                    PFLoadTrend(history: insights.history)
-                }
-            }
             warningsCard
             if let impact = snapshot.behaviour {
                 PFDismissable(.behaviour, text: PFCardText.behaviour(impact), snapshot: snapshot) {

@@ -26,24 +26,3 @@ enum PFLook {
                         info: what.map { LookTrendInfo(title: "What is \(title.lowercased())?", message: $0) })
     }
 }
-
-/// Fitness, fatigue and form over the history PaceForge keeps, as one trend with a dropdown.
-struct PFLoadTrend: View {
-    let history: [PFLoadPoint]
-
-    var body: some View {
-        LookTrendHost(metrics: [
-            PFLook.metric(id: "ctl", title: "Fitness (CTL)", icon: "figure.run", decimals: 0, higherIsBetter: true,
-                          rows: history.map { (date: $0.date, value: $0.ctl) },
-                          what: "Your chronic training load: a smoothed view of roughly the past six weeks. It helps track how your training has built over time; a higher value is not automatically better."),
-            PFLook.metric(id: "atl", title: "Fatigue (ATL)", icon: "bolt.heart", decimals: 0, higherIsBetter: nil,
-                          rows: history.map { (date: $0.date, value: $0.atl) },
-                          what: "Your acute training load: a faster-moving summary of recent training, roughly the past week. Read it with your recovery signals, completed sessions and how you feel; it is not a direct fatigue measurement."),
-            PFLook.metric(id: "tsb", title: "Form (TSB)", icon: "gauge.medium", decimals: 0, higherIsBetter: nil,
-                          rows: history.map { (date: $0.date, value: $0.tsb) },
-                          what: "Fitness (CTL) minus recent load (ATL), used as a training-form estimate. It is one modelled view of load balance, not a direct measure of freshness or a universal race-day target."),
-        ])
-        .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("pf-load-trend")
-    }
-}
