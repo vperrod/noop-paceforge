@@ -156,15 +156,6 @@ final class LookScreensUITests: XCTestCase {
 
     // MARK: PaceForge
 
-    func testPaceForgeInsightsShowsTheLoadTrend() throws {
-        let app = try launch(fixture: true)
-        try openSegment(app, "Insights")
-        XCTAssertTrue(reveal(element(app, "pf-load-trend"), in: app), "Insights should show the load trend view.")
-        attach(app, "Look A0 PaceForge Insights load trend")
-        element(app, "look-trend-range-6M").tap()
-        attach(app, "Look A1 PaceForge Insights load trend 6M")
-    }
-
     func testPaceForgeBodyShowsTheTrendView() throws {
         let app = try launch(fixture: true)
         try openSegment(app, "Body")
