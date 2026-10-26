@@ -74,7 +74,7 @@ struct CoachUnifiedView: View {
     }
 }
 
-/// PaceForge's Coach screen, with what PaceForge is waiting on him for at the top.
+/// PaceForge's Coach screen. What PaceForge is waiting on him for lives only on Today.
 private struct CoachPaceForgeChip: View {
     var body: some View {
         PFSnapshotHost(content: { snapshot in AnyView(CoachPaceForgeContent(snapshot: snapshot)) })
@@ -87,7 +87,6 @@ private struct CoachPaceForgeContent: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            if !snapshot.needsYou.isEmpty { PFNeedsYouCard(items: snapshot.needsYou) }
             PFCoachView(snapshot: snapshot)
         }
     }
