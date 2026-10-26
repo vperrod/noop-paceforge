@@ -66,8 +66,6 @@ final class LookScreensUITests: XCTestCase {
         attach(app, "Look \(step)0 \(name) detail top")
         XCTAssertTrue(reveal(element(app, "look-score-insight"), in: app), "The \(name) insight card should show.")
         attach(app, "Look \(step)1 \(name) insight card")
-        XCTAssertTrue(reveal(element(app, "look-week-card"), in: app), "The \(name) weekly bars should show.")
-        attach(app, "Look \(step)2 \(name) weekly bars")
         XCTAssertTrue(reveal(element(app, "look-metric-trend"), in: app), "The \(name) trend view should show.")
         attach(app, "Look \(step)3 \(name) trend")
         let sevenDay = element(app, "look-trend-seven-day")

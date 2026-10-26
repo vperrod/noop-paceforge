@@ -8,7 +8,7 @@ import WhoopStore
 //
 // The top of the Charge, Effort and Rest metric screens: TODAY title bar, the big ring, the notched card of rows
 // against the last 30 days (or the three-step rows for Rest), the gradient insight card carrying NOOP's own
-// explanation with its link, the last seven days as bars, and two compact trend lines. It sits at the top of
+// explanation with its link, and two compact trend lines. It sits at the top of
 // MetricDetailView; everything that screen already had (the Effort "why" link, history chart, stat tiles,
 // readings, correlations, and for Charge the "what shaped it" drivers) stays below it.
 //
@@ -130,8 +130,6 @@ struct LookScoreDetailView: View {
             asOfCaption
             rowsCard
             insight
-            LookWeekCard(title: "Last 7 days", items: weekItems, maxValue: 100, usesBands: kind == .charge,
-                         color: kind == .effort ? NoopLook.effort : NoopLook.rest, valueText: weekValueText)
             ForEach(lineCards, id: \.id) { card in
                 LookTrendLineCard(title: card.title, unit: card.unit, decimals: card.decimals,
                                   points: lastDays(card.points, 30), identifier: "look-line-\(card.id)")
@@ -326,21 +324,7 @@ struct LookScoreDetailView: View {
         }
     }
 
-    // MARK: Week and lines
-
-    private var weekItems: [WeeklyBarItem] {
-        let days = LookWeek.days(points: mainPoints, endingOn: Date(), calendar: calendar)
-        return days.map { WeeklyBarItem(id: LookDayKey.key($0.date, calendar: calendar), label: $0.letter,
-                                        value: $0.value, isToday: $0.isToday) }
-    }
-
-    private var weekValueText: (Double) -> String {
-        if kind == .effort {
-            let scale = effortScale
-            return { UnitFormatter.effortDisplay($0, scale: scale) }
-        }
-        return { String(Safe.int($0)) }
-    }
+    // MARK: Lines
 
     private struct LineCard {
         let id: String
