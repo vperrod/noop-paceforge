@@ -36,6 +36,7 @@ struct PFNeedsYouCard: View {
         switch item.kind {
         case .treadmillPace: PFNeedsTreadmillRow(item: item)
         case .proposal: PFNeedsProposalRow(item: item)
+        case .question: PFNeedsQuestionRow(item: item)
         case .rpe: PFNeedsScaleRow(item: item, values: Array(1...10), columns: 5, prefix: "rpe")
         case .feel: PFNeedsScaleRow(item: item, values: Array(1...5), columns: 5, prefix: "feel")
         }
@@ -182,6 +183,40 @@ private struct PFNeedsProposalRow: View {
     private func answer(_ accept: Bool) {
         guard let id = item.proposalID else { return }
         send(model, .proposal(id: id, accept: accept), for: item)
+    }
+}
+
+// MARK: Critical question
+
+/// A missing fact that would change a reading: the question, why it matters, one tap per option and a Dismiss.
+private struct PFNeedsQuestionRow: View {
+    let item: PFNeedsItem
+
+    @EnvironmentObject private var model: PFModel
+
+    private static let dismissTitle = "Dismiss"
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            PFNeedsHeader(item: item)
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 8)], spacing: 8) {
+                ForEach(item.options) { option in
+                    PFNeedsButton(title: option.label, id: "pf-needs-question-\(option.value)-\(item.id)") {
+                        answer(.question(id: questionID, value: option.value))
+                    }
+                }
+            }
+            PFNeedsButton(title: Self.dismissTitle, id: "pf-needs-question-dismiss-\(item.id)") {
+                answer(.questionDismiss(id: questionID))
+            }
+        }
+    }
+
+    private var questionID: String { item.questionID ?? "" }
+
+    private func answer(_ answer: PFNeedsAnswer) {
+        guard item.questionID != nil else { return }
+        send(model, answer, for: item)
     }
 }
 

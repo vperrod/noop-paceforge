@@ -1,7 +1,7 @@
 import Foundation
 
 // "Needs you": everything PaceForge is waiting on the athlete for (a held treadmill run, an effort rating, a plan
-// proposal, today's feel), read from `needs_you` in /api/state (or /data/needs-you.json) and answered with
+// proposal, a critical question, today's feel), read from `needs_you` in /api/state (or /data/needs-you.json) and answered with
 // POST /app/answer. This file is Foundation-only: the parsing, the checks before a request goes out and how the
 // server's answer reads. It runs in the snapshot build and the answer handler, both off the main thread.
 
@@ -32,11 +32,20 @@ struct PFTreadmillRun: Equatable {
     var inclinePct: ClosedRange<Double> = 0...15
 }
 
+/// One tap-answer of a critical question: the words on the button and the value the server stores.
+struct PFQuestionOption: Equatable, Identifiable {
+    let label: String
+    let value: String
+
+    var id: String { value }
+}
+
 struct PFNeedsItem: Equatable, Identifiable {
     enum Kind: String {
         case treadmillPace = "treadmill_pace"
         case rpe
         case proposal
+        case question
         case feel
     }
 
@@ -47,6 +56,9 @@ struct PFNeedsItem: Equatable, Identifiable {
     var activityID: String?
     var sessionID: String?
     var proposalID: String?
+    /// A critical question: its id (the server's, without the "question:" prefix of the item id) and the options one tap answers with.
+    var questionID: String?
+    var options: [PFQuestionOption] = []
     /// The day a feel answer is for; nil answers for today.
     var feelDate: String?
     var run: PFTreadmillRun?
@@ -59,6 +71,8 @@ enum PFNeedsAnswer {
     case sameAsLast(activityID: String, last: PFTreadmillLast, preferBlocks: Bool)
     case treadmillUnknown(activityID: String)
     case proposal(id: String, accept: Bool)
+    case question(id: String, value: String)
+    case questionDismiss(id: String)
     case feel(Int, date: String?)
     case rpe(Int, activityID: String?, sessionID: String?)
 
@@ -87,6 +101,10 @@ enum PFNeedsAnswer {
             return ["kind": "treadmill_pace_unknown", "activity_id": id]
         case .proposal(let id, let accept):
             return ["kind": "proposal", "id": id, "decision": accept ? "accept" : "dismiss"]
+        case .question(let id, let value):
+            return ["kind": "question", "id": id, "value": value]
+        case .questionDismiss(let id):
+            return ["kind": "question", "id": id, "decision": "dismiss"]
         case .feel(let value, let date):
             var out: [String: Any] = ["kind": "feel", "feel": value]
             if let date { out["date"] = date }
@@ -137,10 +155,20 @@ enum PFNeedsParse {
         case .proposal:
             guard let proposal = ref["id"].text ?? metric["proposal_id"].text else { return nil }
             out.proposalID = proposal
+        case .question:
+            guard let question = ref["id"].text else { return nil }
+            out.questionID = question
+            out.options = j["actions"].array.compactMap(option)
         case .feel:
             out.feelDate = metric["date"].text
         }
         return out
+    }
+
+    /// An action that carries a `value` is an answer; the Dismiss action has none and the card always offers Dismiss itself.
+    private static func option(_ action: PFJ) -> PFQuestionOption? {
+        guard let label = action["label"].text, let value = action["value"].text else { return nil }
+        return PFQuestionOption(label: label, value: value)
     }
 
     private static func run(_ m: PFJ) -> PFTreadmillRun {

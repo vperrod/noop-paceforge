@@ -97,4 +97,71 @@ final class PaceForgeNeedsYouTests: XCTestCase {
     func testALoginPageIsNotASave() {
         XCTAssertFalse(PFAnswerOutcome.from(status: 401, data: Data("<html>".utf8)).isSaved)
     }
+
+    // MARK: Critical questions
+
+    private let questionDocument = """
+    {"items":[
+     {"id":"question:q7","kind":"question","title":"Rough night. Anything that explains it?","available":true,
+      "meaning":"Synthetic why.","metric":{"domain":"sleep","asked":"2030-03-13"},"ref":{"kind":"question","id":"q7"},
+      "actions":[{"label":"Alcohol","kind":"question","value":"alcohol"},{"label":"Nothing / don't know","kind":"question","value":"nothing"},
+                 {"label":"Dismiss","kind":"question","decision":"dismiss"}]},
+     {"id":"question:noref","kind":"question","title":"No ref","available":true,"actions":[]}
+    ]}
+    """
+
+    func testQuestionItemIsReadAndOneWithoutARefIsLeftOut() {
+        XCTAssertEqual(PFNeedsParse.items(json(questionDocument)).map { $0.id }, ["question:q7"])
+    }
+
+    func testQuestionKeepsTheServersIdNotTheItemId() {
+        XCTAssertEqual(PFNeedsParse.items(json(questionDocument))[0].questionID, "q7")
+    }
+
+    func testQuestionShowsTheQuestionAndWhy() {
+        let item = PFNeedsParse.items(json(questionDocument))[0]
+        XCTAssertEqual([item.title, item.meaning ?? ""], ["Rough night. Anything that explains it?", "Synthetic why."])
+    }
+
+    func testQuestionOptionsLeaveOutTheDismissAction() {
+        XCTAssertEqual(PFNeedsParse.items(json(questionDocument))[0].options.map { $0.value }, ["alcohol", "nothing"])
+    }
+
+    func testQuestionOptionKeepsItsLabel() {
+        XCTAssertEqual(PFNeedsParse.items(json(questionDocument))[0].options.map { $0.label }, ["Alcohol", "Nothing / don't know"])
+    }
+
+    func testQuestionAnswerBodyNamesTheKind() {
+        XCTAssertEqual(PFNeedsAnswer.question(id: "q7", value: "alcohol").body["kind"] as? String, "question")
+    }
+
+    func testQuestionAnswerBodyCarriesTheId() {
+        XCTAssertEqual(PFNeedsAnswer.question(id: "q7", value: "alcohol").body["id"] as? String, "q7")
+    }
+
+    func testQuestionAnswerBodyCarriesTheValue() {
+        XCTAssertEqual(PFNeedsAnswer.question(id: "q7", value: "alcohol").body["value"] as? String, "alcohol")
+    }
+
+    func testQuestionAnswerBodyCarriesNoDecision() {
+        XCTAssertNil(PFNeedsAnswer.question(id: "q7", value: "alcohol").body["decision"])
+    }
+
+    func testQuestionDismissSendsDismiss() {
+        XCTAssertEqual(PFNeedsAnswer.questionDismiss(id: "q7").body["decision"] as? String, "dismiss")
+    }
+
+    func testQuestionDismissSendsNoValue() {
+        XCTAssertNil(PFNeedsAnswer.questionDismiss(id: "q7").body["value"])
+    }
+
+    func testQuestionAnswerBodyOnlyHasKeysTheServerAccepts() {
+        let keys = Set(PFNeedsAnswer.question(id: "q7", value: "alcohol").body.keys)
+        XCTAssertTrue(keys.isSubset(of: ["kind", "key", "id", "value", "decision"]))
+    }
+
+    func testTwoValuesForOneQuestionHaveDifferentSignatures() {
+        XCTAssertNotEqual(PFNeedsAnswer.question(id: "q7", value: "alcohol").signature(for: "i"),
+                          PFNeedsAnswer.question(id: "q7", value: "nothing").signature(for: "i"))
+    }
 }
