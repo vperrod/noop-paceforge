@@ -175,6 +175,10 @@ private struct PFReportContent: View {
     private let hiding = PFHiding()
 
     private static let notCheckedTitle = "What was not checked"
+    /// The weekly stage the tables belong under ("The week, session by session").
+    private static let detailStageID = "detail"
+
+    private var hasDetailStage: Bool { report.stages.contains { $0.id == Self.detailStageID } }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -188,12 +192,17 @@ private struct PFReportContent: View {
             }
             if let lead = report.lead {
                 PFReportStageCard(stage: lead, prominent: true)
+                if lead.id == Self.detailStageID, report.hasWeekNumbers { PFReportWeekNumbers(report: report) }
             }
             ForEach(report.otherStages) { stage in
                 PFReportStageCard(stage: stage, prominent: false)
+                if stage.id == Self.detailStageID, report.hasWeekNumbers { PFReportWeekNumbers(report: report) }
             }
+            if !hasDetailStage, report.hasWeekNumbers { PFReportWeekNumbers(report: report) }
             if !report.proposals.isEmpty { proposals }
             if !report.experts.isEmpty { experts }
+            if !report.sources.isEmpty { PFReportSureFold(sources: report.sources) }
+            if !report.glossary.isEmpty { PFReportGlossaryFold(entries: report.glossary) }
             if !report.notChecked.isEmpty { footnote }
         }
         .containerIdentifier("pf-reports-body")
@@ -298,35 +307,268 @@ private struct PFReportStageCard: View {
     }
 }
 
-/// A stage's paragraphs: bold labels drawn bold, claim tags as one small line under the paragraph they belong to.
+/// A stage's paragraphs: bold labels drawn bold, claim tags as small source chips under the paragraph they belong to.
 struct PFReportBlocks: View {
     let text: String
     let size: CGFloat
-    private let hiding = PFHiding()
-
-    private static let sourcePrefix = "Source: "
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             ForEach(PFReportText.blocks(text)) { block in
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(Self.attributed(hiding.text(block.text)))
-                        .font(LookFont.text(size, weight: block.isHeading ? .semibold : .medium))
-                        .foregroundStyle(block.isHeading ? NoopLook.textPrimary : NoopLook.textSecondary)
-                        .lineSpacing(2)
-                        .fixedSize(horizontal: false, vertical: true)
-                    if !block.tags.isEmpty {
-                        Text(Self.sourcePrefix + block.tags.joined(separator: "; "))
-                            .font(LookFont.text(11, weight: .medium))
-                            .foregroundStyle(NoopLook.textTertiary)
-                            .fixedSize(horizontal: false, vertical: true)
+                PFReportBlockRow(block: block, size: size)
+            }
+        }
+    }
+}
+
+/// One paragraph. Its claim tags show as chips in words (Confirmed, Partly supported, Our estimate); a tap on a chip opens the
+/// "how sure are we" line for it, a second tap closes it.
+private struct PFReportBlockRow: View {
+    let block: PFReportBlock
+    let size: CGFloat
+    private let hiding = PFHiding()
+    @State private var shown: PFSureLevel?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(Self.attributed(hiding.text(block.text)))
+                .font(LookFont.text(size, weight: block.isHeading ? .semibold : .medium))
+                .foregroundStyle(block.isHeading ? NoopLook.textPrimary : NoopLook.textSecondary)
+                .lineSpacing(2)
+                .fixedSize(horizontal: false, vertical: true)
+            if !levels.isEmpty {
+                HStack(spacing: 6) {
+                    ForEach(levels, id: \.words) { level in
+                        Button { shown = (shown == level) ? nil : level } label: {
+                            PFChip(text: level.words, color: level.color)
+                                .frame(minHeight: 32)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(level.words)
                     }
                 }
+            }
+            if let level = shown {
+                Text(level.explain)
+                    .font(LookFont.text(11.5, weight: .medium))
+                    .foregroundStyle(NoopLook.textTertiary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier("pf-reports-sure-explain")
             }
         }
     }
 
+    /// The paragraph's levels, each once, in the order its tags came.
+    private var levels: [PFSureLevel] {
+        var out: [PFSureLevel] = []
+        for tag in block.tags {
+            let level = PFReportText.sureLevel(ofTag: tag)
+            if !out.contains(level) { out.append(level) }
+        }
+        return out
+    }
+
     private static func attributed(_ text: String) -> AttributedString {
         (try? AttributedString(markdown: text)) ?? AttributedString(text)
+    }
+}
+
+private extension PFSureLevel {
+    var color: Color {
+        switch self {
+        case .confirmed: return PFColor.positive
+        case .partial: return PFColor.warning
+        case .estimate: return PFColor.critical
+        }
+    }
+}
+
+/// A folded card in the History style: a caps title that opens a list.
+private struct PFReportFold<Content: View>: View {
+    let title: String
+    let identifier: String
+    let content: () -> Content
+
+    init(_ title: String, identifier: String, @ViewBuilder content: @escaping () -> Content) {
+        self.title = title
+        self.identifier = identifier
+        self.content = content
+    }
+
+    var body: some View {
+        DisclosureGroup {
+            content()
+                .padding(.top, 6)
+        } label: {
+            Text(title)
+                .lookCaps(12.5)
+                .foregroundStyle(NoopLook.textPrimary)
+        }
+        .tint(StrandPalette.accent)
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: NoopLook.Metric.tileRadius, style: .continuous).fill(NoopLook.card))
+        .containerIdentifier(identifier)
+    }
+}
+
+/// The terms the report used, each with its one-line explanation.
+private struct PFReportGlossaryFold: View {
+    let entries: [PFReportGlossaryEntry]
+    private let hiding = PFHiding()
+
+    var body: some View {
+        PFReportFold("Glossary (\(entries.count))", identifier: "pf-reports-glossary") {
+            VStack(alignment: .leading, spacing: 10) {
+                ForEach(Array(entries.enumerated()), id: \.offset) { _, entry in
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(entry.term)
+                            .font(LookFont.text(14, weight: .semibold))
+                            .foregroundStyle(NoopLook.textPrimary)
+                        Text(hiding.text(entry.text))
+                            .font(LookFont.text(13.5, weight: .medium))
+                            .foregroundStyle(NoopLook.textSecondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+}
+
+/// "How sure are we?": the sources the report cites, each with its level and the claim it backs.
+private struct PFReportSureFold: View {
+    let sources: [PFReportSource]
+    private let hiding = PFHiding()
+
+    private static let title = "How sure are we?"
+    private static let intro = "Confirmed: the research behind it was opened and supports it. Partly supported: it supports part of it. Our estimate: not proven, our best reading."
+
+    var body: some View {
+        PFReportFold(Self.title, identifier: "pf-reports-sure") {
+            VStack(alignment: .leading, spacing: 10) {
+                Text(Self.intro)
+                    .font(LookFont.text(12.5, weight: .medium))
+                    .foregroundStyle(NoopLook.textTertiary)
+                    .fixedSize(horizontal: false, vertical: true)
+                ForEach(Array(sources.enumerated()), id: \.offset) { _, source in
+                    VStack(alignment: .leading, spacing: 3) {
+                        PFChip(text: source.level.words, color: source.level.color)
+                        if let claim = source.claim {
+                            Text(hiding.text(claim))
+                                .font(LookFont.text(13.5, weight: .medium))
+                                .foregroundStyle(NoopLook.textSecondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+}
+
+/// The week in numbers: every session, the days with their nights, the totals, hard against easy. Drawn from the server's own
+/// figures (`sessions`, `week_table`, `week_totals`), so a line here and the text above it come from the same numbers.
+private struct PFReportWeekNumbers: View {
+    let report: PFReport
+    private let hiding = PFHiding()
+
+    private static let title = "The week in numbers"
+    private static let sessionsTitle = "Sessions"
+    private static let daysTitle = "Days and nights"
+    private static let totalsTitle = "Totals"
+    private static let hardLabel = "hard"
+
+    var body: some View {
+        PFCard(Self.title, icon: "tablecells") {
+            VStack(alignment: .leading, spacing: 14) {
+                if !report.sessions.isEmpty { sessions }
+                if !report.days.isEmpty { days }
+                if let totals = report.totals { totalsBlock(totals) }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .containerIdentifier("pf-reports-week-numbers")
+    }
+
+    private func heading(_ text: String) -> some View {
+        Text(text).strandOverline()
+    }
+
+    private var sessions: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            heading(Self.sessionsTitle)
+            ForEach(report.sessions) { session in
+                HStack(alignment: .firstTextBaseline, spacing: 10) {
+                    Text(session.weekday)
+                        .font(LookFont.text(13, weight: .semibold))
+                        .foregroundStyle(NoopLook.textTertiary)
+                        .frame(width: 36, alignment: .leading)
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(hiding.text(session.name))
+                            .font(LookFont.text(14.5, weight: .semibold))
+                            .foregroundStyle(NoopLook.textPrimary)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Text(hiding.text(PFReportWeekText.sessionLine(session)))
+                            .font(LookFont.text(12.5, weight: .medium))
+                            .foregroundStyle(NoopLook.textSecondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    Spacer(minLength: 6)
+                    if session.isHard {
+                        PFChip(text: Self.hardLabel, color: PFColor.warning)
+                    }
+                }
+                .accessibilityElement(children: .combine)
+            }
+        }
+    }
+
+    private var days: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            heading(Self.daysTitle)
+            ForEach(report.days) { day in
+                HStack(alignment: .firstTextBaseline, spacing: 10) {
+                    Text(day.weekday)
+                        .font(LookFont.text(13, weight: .semibold))
+                        .foregroundStyle(NoopLook.textTertiary)
+                        .frame(width: 36, alignment: .leading)
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(hiding.text(PFReportWeekText.dayLine(day)))
+                            .font(LookFont.text(14, weight: .medium))
+                            .foregroundStyle(NoopLook.textPrimary)
+                            .fixedSize(horizontal: false, vertical: true)
+                        if let night = PFReportWeekText.nightLine(day) {
+                            Text(hiding.text(night))
+                                .font(LookFont.text(12.5, weight: .medium))
+                                .foregroundStyle(NoopLook.textSecondary)
+                        }
+                    }
+                }
+                .accessibilityElement(children: .combine)
+            }
+        }
+    }
+
+    private func totalsBlock(_ totals: PFReportWeekTotals) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            heading(Self.totalsTitle)
+            if let line = PFReportWeekText.totalLine(totals) { totalsText(line, strong: true) }
+            ForEach(totals.byType, id: \.label) { total in
+                totalsText(PFReportWeekText.typeLine(total), strong: false)
+            }
+            if let line = PFReportWeekText.hardEasyLine(totals) { totalsText(line, strong: false) }
+            if let line = PFReportWeekText.changeLine(totals) { totalsText(line, strong: false) }
+        }
+    }
+
+    private func totalsText(_ text: String, strong: Bool) -> some View {
+        Text(hiding.text(text))
+            .font(LookFont.text(strong ? 14.5 : 13.5, weight: strong ? .semibold : .medium))
+            .foregroundStyle(strong ? NoopLook.textPrimary : NoopLook.textSecondary)
+            .fixedSize(horizontal: false, vertical: true)
     }
 }

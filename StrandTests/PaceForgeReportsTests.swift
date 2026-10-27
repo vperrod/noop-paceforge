@@ -155,4 +155,160 @@ final class PaceForgeReportsTests: XCTestCase {
         XCTAssertEqual(PFReportFreshness.note(report, today: "2030-03-20"),
                        "The last run failed, so this is the report written \(PFFormat.dayTitle("2030-03-17")).")
     }
+
+    // MARK: Week tables, glossary, sources
+
+    private let weekWithTables = """
+    {"kind": "week", "key": "2030-W11", "label": "Week 11", "date": "2030-03-17", "stale": false,
+     "head_coach": {"text_source": "free-model",
+       "headline": {"text": "Synthetic headline.", "text_source": "free-model"},
+       "detail": {"text": "Synthetic week.", "text_source": "free-model"}},
+     "sessions": [
+       {"date": "2030-03-11", "weekday": "Mon", "type": "Run", "name": "Synthetic easy run", "minutes": 45, "km": 8.24, "pace": "5:27",
+        "avg_hr": 142, "max_hr": 160, "hard": false, "plan": {"status": "done"}},
+       {"date": "2030-03-13", "weekday": "Wed", "type": "Strength", "name": "Synthetic lift", "minutes": 60, "km": null, "pace": null,
+        "avg_hr": null, "hard": true, "plan": {"status": "unplanned"}},
+       {"weekday": "Fri", "type": "Run", "minutes": 30, "plan": {"status": "partial"}},
+       {"weekday": "Sat", "name": "Synthetic long run", "plan": {"status": "partial"}}],
+     "week_table": [{"date": "2030-03-11", "weekday": "Mon", "sessions": ["Synthetic easy run"], "minutes": 45, "sleep_h": 7.4, "hrv": 62, "resting_hr": 48},
+                    {"date": "2030-03-12", "weekday": "Tue", "sessions": [], "minutes": 0, "sleep_h": null, "hrv": null, "resting_hr": null}],
+     "week_totals": {"totals": {"sessions": 2, "minutes": 105, "run_km": 8.2},
+       "totals_by_type": {"strength": {"label": "Strength", "sessions": 1, "minutes": 60, "km": null},
+                          "run": {"label": "Run", "sessions": 1, "minutes": 45, "km": 8.2}},
+       "hard_vs_easy": {"hard_sessions": 1, "easy_sessions": 1, "hard_minutes": 60, "easy_minutes": 45},
+       "load_vs_previous_week": {"minutes_change_pct": 12.5}},
+     "glossary": [{"key": "hrv", "term": "HRV", "text": "Synthetic HRV meaning."}, {"term": "no text"}],
+     "sources": [{"id": "health:C09", "status": "PARTIAL", "words": "Partly supported", "claim": "Synthetic claim."},
+                 {"id": "sleep:K02", "words": "Confirmed"}, {"id": "run:R4", "words": "Our estimate"}, {"claim": "Id-less claim"}]}
+    """
+
+    func testWeeklyStageOrderPutsTheSessionByDetailAfterTheHeadline() throws {
+        let report = try XCTUnwrap(PFReportParse.report(json(weekWithTables), kind: .weekly))
+
+        XCTAssertEqual(report.stages.map(\.id), ["headline", "detail"])
+    }
+
+    func testDetailStageHasADefaultTitle() throws {
+        let doc = weekWithTables.replacingOccurrences(of: "\"label\": \"Week 11\",", with: "\"label\": \"Week 11\", \"stage_titles\": {},")
+        let report = try XCTUnwrap(PFReportParse.report(json(doc), kind: .weekly))
+
+        XCTAssertEqual(report.stages.last?.title, "The week, session by session")
+    }
+
+    func testSessionsKeepTheServersOrderAndSkipRowsWithoutAName() throws {
+        let report = try XCTUnwrap(PFReportParse.report(json(weekWithTables), kind: .weekly))
+
+        XCTAssertEqual(report.sessions.map(\.name), ["Synthetic easy run", "Synthetic lift", "Synthetic long run"])
+    }
+
+    func testSessionLineReadsTypeMinutesKmPaceHeartRateAndPlan() throws {
+        let report = try XCTUnwrap(PFReportParse.report(json(weekWithTables), kind: .weekly))
+
+        XCTAssertEqual(PFReportWeekText.sessionLine(report.sessions[0]), "Run \u{00B7} 45 min \u{00B7} 8.2 km \u{00B7} 5:27 /km \u{00B7} avg HR 142 \u{00B7} done")
+    }
+
+    func testSessionLineLeavesOutWhatTheRowDoesNotCarry() throws {
+        let report = try XCTUnwrap(PFReportParse.report(json(weekWithTables), kind: .weekly))
+
+        XCTAssertEqual(PFReportWeekText.sessionLine(report.sessions[1]), "Strength \u{00B7} 60 min \u{00B7} added")
+    }
+
+    func testHardFlagIsKept() throws {
+        let report = try XCTUnwrap(PFReportParse.report(json(weekWithTables), kind: .weekly))
+
+        XCTAssertEqual(report.sessions.map(\.isHard), [false, true, false])
+    }
+
+    func testPartialPlanStatusReadsPartlyDone() throws {
+        let report = try XCTUnwrap(PFReportParse.report(json(weekWithTables), kind: .weekly))
+
+        XCTAssertEqual(report.sessions.last?.plan, "partly done")
+    }
+
+    func testTotalsByTypeAreOrderedLongestFirst() throws {
+        let report = try XCTUnwrap(PFReportParse.report(json(weekWithTables), kind: .weekly))
+
+        XCTAssertEqual(report.totals?.byType.map(\.label), ["Strength", "Run"])
+    }
+
+    func testHardAgainstEasyLine() throws {
+        let totals = try XCTUnwrap(PFReportParse.report(json(weekWithTables), kind: .weekly)?.totals)
+
+        XCTAssertEqual(PFReportWeekText.hardEasyLine(totals), "Hard: 1 session (60 min). Easy: 1 session (45 min).")
+    }
+
+    func testHardAgainstEasyLineNeedsAllFourFigures() {
+        XCTAssertNil(PFReportWeekText.hardEasyLine(PFReportWeekTotals(hardSessions: 1, hardMinutes: 60)))
+    }
+
+    func testTrainingTimeChangeLine() throws {
+        let totals = try XCTUnwrap(PFReportParse.report(json(weekWithTables), kind: .weekly)?.totals)
+
+        XCTAssertEqual(PFReportWeekText.changeLine(totals), "Training time up 12.5 % on the week before.")
+    }
+
+    func testWholeWeekTotalLine() throws {
+        let totals = try XCTUnwrap(PFReportParse.report(json(weekWithTables), kind: .weekly)?.totals)
+
+        XCTAssertEqual(PFReportWeekText.totalLine(totals), "2 sessions \u{00B7} 105 min \u{00B7} 8.2 km run")
+    }
+
+    func testRestDayAndNightLines() throws {
+        let days = try XCTUnwrap(PFReportParse.report(json(weekWithTables), kind: .weekly)?.days)
+
+        XCTAssertEqual([PFReportWeekText.dayLine(days[1]), PFReportWeekText.nightLine(days[0]) ?? "", PFReportWeekText.nightLine(days[1]) ?? "none"],
+                       ["rest", "sleep 7.4 h \u{00B7} HRV 62 \u{00B7} resting HR 48", "none"])
+    }
+
+    func testOlderReportWithoutTablesStillLoads() throws {
+        let report = try XCTUnwrap(PFReportParse.report(json(weekly), kind: .weekly))
+
+        XCTAssertFalse(report.hasWeekNumbers || report.totals != nil || !report.glossary.isEmpty || !report.sources.isEmpty)
+    }
+
+    func testGlossaryListSkipsATermWithoutText() throws {
+        let report = try XCTUnwrap(PFReportParse.report(json(weekWithTables), kind: .weekly))
+
+        XCTAssertEqual(report.glossary, [PFReportGlossaryEntry(term: "HRV", text: "Synthetic HRV meaning.")])
+    }
+
+    func testGlossaryObjectFormIsReadSortedByTerm() {
+        let entries = PFReportParse.glossary(json(#"{"glossary": {"Taper": "Synthetic taper.", "HRV": "Synthetic hrv."}}"#))
+
+        XCTAssertEqual(entries.map(\.term), ["HRV", "Taper"])
+    }
+
+    func testSourceLevelsFollowTheServersWords() throws {
+        let report = try XCTUnwrap(PFReportParse.report(json(weekWithTables), kind: .weekly))
+
+        XCTAssertEqual(report.sources.map(\.level), [.partial, .confirmed, .estimate, .estimate])
+    }
+
+    func testSourceWithoutAnIdUsesItsClaimAsTheId() throws {
+        let report = try XCTUnwrap(PFReportParse.report(json(weekWithTables), kind: .weekly))
+
+        XCTAssertEqual(report.sources.last?.id, "Id-less claim")
+    }
+
+    func testSourcesObjectFormIsRead() {
+        let sources = PFReportParse.sources(json(#"{"sources": {"health:C09": "Partly supported"}}"#))
+
+        XCTAssertEqual(sources, [PFReportSource(id: "health:C09", level: .partial, claim: nil)])
+    }
+
+    func testTagLabelWithPartialIsPartlySupported() {
+        XCTAssertEqual(PFReportText.sureLevel(ofTag: "health C09 \u{00B7} partial"), .partial)
+    }
+
+    func testTagLabelWithInferenceIsAnEstimate() {
+        XCTAssertEqual(PFReportText.sureLevel(ofTag: "running R4 \u{00B7} inference"), .estimate)
+    }
+
+    func testTagLabelWithVerifiedIsConfirmed() {
+        XCTAssertEqual(PFReportText.sureLevel(ofTag: "sleep K02 \u{00B7} verified"), .confirmed)
+    }
+
+    func testEstimateWinsOverPartialOnOneTag() {
+        XCTAssertEqual(PFReportText.sureLevel(ofTag: "x C1 \u{00B7} partial \u{00B7} speculative"), .estimate)
+    }
 }
