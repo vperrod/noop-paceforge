@@ -9,6 +9,7 @@ import StrandDesign
 
 struct CoachUnifiedView: View {
     @EnvironmentObject private var coach: AICoachEngine
+    @ObservedObject private var reports = PFReportsStore.shared
     @State private var showBriefSettings = false
     @AppStorage("coachBrief.state") private var briefState = ""
     @AppStorage("coachBrief.lastFailureReason") private var briefFailureReason = ""
@@ -27,13 +28,16 @@ struct CoachUnifiedView: View {
             .accessibilityIdentifier("coach-brief-settings")
         }) {
             PFPageNote(key: "coach")
-            IndexSection("Reports") {
-                IndexRow("Coach reports", "doc.text.fill", TabRoute.reports(PFReportKind.daily.rawValue), id: "coach-reports-row")
+            if reports.showsReports {
+                IndexSection("Reports") {
+                    IndexRow("Coach reports", "doc.text.fill", TabRoute.reports(PFReportKind.daily.rawValue), id: "coach-reports-row")
+                }
             }
             briefStatusCard
             CoachPaceForgeChip()
         }
         .containerIdentifier("coach-host")
+        .task { await reports.loadCapabilities() }
         .sheet(isPresented: $showBriefSettings) {
             CoachSettingsView(sharedBrainMode: true)
                 .environmentObject(coach)

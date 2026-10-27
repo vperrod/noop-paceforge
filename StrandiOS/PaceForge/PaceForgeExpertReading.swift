@@ -9,7 +9,7 @@ struct PFExpertReadingHost: View {
     @ObservedObject private var store = PFReportsStore.shared
 
     var body: some View {
-        if let report = store.latestDaily {
+        if store.showsReports, let report = store.latestDaily {
             PFExpertReadingCard(report: report)
         }
     }

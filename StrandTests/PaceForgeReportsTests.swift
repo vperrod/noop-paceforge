@@ -426,4 +426,40 @@ final class PaceForgeReportsTests: XCTestCase {
 
         XCTAssertEqual([report.runKind, report.dataAsOf], ["08:30", "2030-03-13T08:00:00Z"])
     }
+
+    // MARK: Capabilities
+
+    func testServerSayingNoReportsAreScheduledHidesReports() {
+        let caps = PFReportParse.capabilities(json(#"{"reports_scheduled": false, "report_review": true, "day_only": false}"#))
+
+        XCTAssertEqual(caps?.showsReports, false)
+    }
+
+    func testReportReviewOffHidesReports() {
+        let caps = PFReportParse.capabilities(json(#"{"reports_scheduled": true, "report_review": false}"#))
+
+        XCTAssertEqual(caps?.showsReports, false)
+    }
+
+    func testScheduledReportsShowReports() {
+        let caps = PFReportParse.capabilities(json(#"{"reports_scheduled": true, "report_review": true, "day_only": false, "wears_overnight": true}"#))
+
+        XCTAssertEqual(caps?.showsReports, true)
+    }
+
+    func testAFlagTheFileDoesNotCarryKeepsReportsShown() {
+        let caps = PFReportParse.capabilities(json(#"{"day_only": true}"#))
+
+        XCTAssertEqual(caps?.showsReports, true)
+    }
+
+    func testMissingOrEmptyCapabilitiesFileIsNoCapabilities() {
+        XCTAssertNil(PFReportParse.capabilities(json("{}")))
+    }
+
+    func testCapabilitiesKeepDayOnlyAndOvernightFlags() {
+        let caps = PFReportParse.capabilities(json(#"{"day_only": true, "wears_overnight": false}"#))
+
+        XCTAssertEqual([caps?.dayOnly, caps?.wearsOvernight], [true, false])
+    }
 }

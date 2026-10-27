@@ -10,6 +10,7 @@ final class PFReportsStore: ObservableObject {
     static let indexPath = "data/reports/index.json"
     static let latestDailyPath = "data/expert-panel.json"
     static let runsPath = "data/expert-panel-runs.json"
+    static let capabilitiesPath = "data/capabilities.json"
 
     enum IndexState: Equatable {
         case notLoaded, loading, ready, notSetUp, failed
@@ -23,6 +24,11 @@ final class PFReportsStore: ObservableObject {
     @Published private(set) var latestDaily: PFReport?
     /// The daily job's runs of the last days, keyed by the day (data/expert-panel-runs.json). Empty until the file is on the phone.
     @Published private(set) var runs: [String: [PFReportRun]] = [:]
+    /// What this athlete's devices give (data/capabilities.json). nil until the file is on the phone, which shows everything.
+    @Published private(set) var capabilities: PFCapabilities?
+
+    /// False only when the server says this athlete has no reports (the expert jobs are not scheduled for the account).
+    var showsReports: Bool { capabilities?.showsReports ?? true }
 
     private var latestFetch: Date?
 
@@ -54,6 +60,13 @@ final class PFReportsStore: ObservableObject {
         indexState = .ready
     }
 
+    func loadCapabilities() async {
+        guard PFAPI.isConfigured else { return }
+        guard let fetched = await data(Self.capabilitiesPath) else { return }
+        let parsed = PFReportParse.capabilities(PFJ(data: fetched))
+        if capabilities != parsed { capabilities = parsed }
+    }
+
     func loadRuns() async {
         guard PFAPI.isConfigured else { return }
         guard let fetched = await data(Self.runsPath) else { return }
@@ -77,6 +90,7 @@ final class PFReportsStore: ObservableObject {
     func refreshLatestIfStale() async {
         if let latestFetch, Date().timeIntervalSince(latestFetch) < 120 { return }
         guard PFAPI.isConfigured else { return }
+        await loadCapabilities()
         guard let fetched = await data(Self.latestDailyPath) else { return }
         latestFetch = Date()
         let parsed = PFReportParse.report(PFJ(data: fetched), kind: .daily)
