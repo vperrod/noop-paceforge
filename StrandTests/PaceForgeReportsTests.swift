@@ -311,4 +311,119 @@ final class PaceForgeReportsTests: XCTestCase {
     func testEstimateWinsOverPartialOnOneTag() {
         XCTAssertEqual(PFReportText.sureLevel(ofTag: "x C1 \u{00B7} partial \u{00B7} speculative"), .estimate)
     }
+
+    // MARK: Daily freshness
+
+    private func daily(date: String = "2030-03-13", stale: Bool = false, extra: String = "") throws -> PFReport {
+        let doc = json("""
+        {"kind": "daily", "key": "\(date)", "date": "\(date)", "stale": \(stale), \(extra)
+         "head_coach": {"readiness": {"text": "Synthetic."}}}
+        """)
+        return try XCTUnwrap(PFReportParse.report(doc, kind: .daily))
+    }
+
+    private func moment(_ iso: String) throws -> Date {
+        try XCTUnwrap(ISO8601DateFormatter().date(from: iso))
+    }
+
+    func testReadingWrittenTodayIsFresh() throws {
+        let status = PFReportFreshness.status(try daily(), runs: [], today: "2030-03-13", now: try moment("2030-03-13T09:30:00Z"))
+
+        XCTAssertEqual(status.headline, "Fresh: written today, after the morning Garmin data arrived")
+    }
+
+    func testReadingFromAnEarlierDayIsOlderThanToday() throws {
+        let status = PFReportFreshness.status(try daily(date: "2030-03-12"), runs: [], today: "2030-03-13", now: try moment("2030-03-13T09:30:00Z"))
+
+        XCTAssertEqual(status.headline, "Older than today: this is \(PFFormat.dayTitle("2030-03-12"))'s reading")
+    }
+
+    func testFailedRunShowsTheDayItFellBackTo() throws {
+        let status = PFReportFreshness.status(try daily(date: "2030-03-12", stale: true), runs: [], today: "2030-03-13",
+                                              now: try moment("2030-03-13T09:30:00Z"))
+
+        XCTAssertEqual(status.headline, "Failed: the last run did not work, showing \(PFFormat.dayTitle("2030-03-12"))'s reading")
+    }
+
+    func testStaleWinsOverTodaysDate() throws {
+        let status = PFReportFreshness.status(try daily(stale: true), runs: [], today: "2030-03-13", now: try moment("2030-03-13T09:30:00Z"))
+
+        XCTAssertEqual(status.state, .failed)
+    }
+
+    func testWrittenLineNamesTheScheduledRunAndHowLongAgo() throws {
+        let report = try daily(extra: #""generated_at": "2030-03-13T06:30:00Z", "run_kind": "06:30","#)
+        let written = PFReportFreshness.status(report, runs: [], today: "2030-03-13", now: try moment("2030-03-13T09:30:00Z")).written
+
+        XCTAssertTrue(written?.hasSuffix(" (3 h ago), by the 06:30 scheduled run") == true)
+    }
+
+    func testWrittenLineSaysManualRun() throws {
+        let report = try daily(extra: #""generated_at": "2030-03-13T06:30:00Z", "run_kind": "manual","#)
+        let written = PFReportFreshness.status(report, runs: [], today: "2030-03-13", now: try moment("2030-03-13T09:30:00Z")).written
+
+        XCTAssertTrue(written?.hasSuffix(", by a manual run") == true)
+    }
+
+    func testGarminSyncLineGivesMinutesUnderNinety() throws {
+        let report = try daily(extra: #""data_as_of": "2030-03-13T08:45:00Z","#)
+        let synced = PFReportFreshness.status(report, runs: [], today: "2030-03-13", now: try moment("2030-03-13T09:30:00Z")).dataSynced
+
+        XCTAssertTrue(synced?.hasPrefix("Garmin data synced ") == true && synced?.hasSuffix(" (45 min ago)") == true)
+    }
+
+    func testOldStampGivesDays() throws {
+        let report = try daily(extra: #""generated_at": "2030-03-10T06:30:00Z","#)
+        let written = PFReportFreshness.status(report, runs: [], today: "2030-03-13", now: try moment("2030-03-13T06:30:00Z")).written
+
+        XCTAssertTrue(written?.hasSuffix(" (3 days ago)") == true)
+    }
+
+    func testStampInTheFutureHasNoAgo() throws {
+        let report = try daily(extra: #""generated_at": "2030-03-13T10:30:00Z","#)
+        let written = PFReportFreshness.status(report, runs: [], today: "2030-03-13", now: try moment("2030-03-13T09:30:00Z")).written
+
+        XCTAssertTrue(written?.contains("ago") == false)
+    }
+
+    func testUnreadableStampLeavesTheWrittenLineOut() throws {
+        let report = try daily(extra: #""generated_at": "yesterday-ish","#)
+
+        XCTAssertNil(PFReportFreshness.status(report, runs: [], today: "2030-03-13", now: try moment("2030-03-13T09:30:00Z")).written)
+    }
+
+    func testNoStampsLeavesBothLinesOut() throws {
+        let status = PFReportFreshness.status(try daily(), runs: [], today: "2030-03-13", now: try moment("2030-03-13T09:30:00Z"))
+
+        XCTAssertNil(status.written ?? status.dataSynced)
+    }
+
+    func testRunsParseKeepsOnlyRunsWithAResult() {
+        let doc = json(#"{"2030-03-13": [{"at": "2030-03-13T06:30:00Z", "run_kind": "06:30", "result": "ok"}, {"result": "failed", "why": "no model answered"}, {"at": "x"}]}"#)
+
+        XCTAssertEqual(PFReportParse.runs(doc)["2030-03-13"]?.map(\.result), ["ok", "failed"])
+    }
+
+    func testRunLineWithoutATimeStartsWithTheKind() {
+        let run = PFReportRun(at: nil, runKind: "11:00", result: "failed", why: "no model answered")
+
+        XCTAssertEqual(PFReportFreshness.runLine(run), "11:00: failed (no model answered)")
+    }
+
+    func testRunLineWithNoTimeAndNoKindIsTheResult() {
+        XCTAssertEqual(PFReportFreshness.runLine(PFReportRun(at: nil, runKind: nil, result: "skipped", why: nil)), "skipped")
+    }
+
+    func testRunsTitleCountsTheDaysRuns() throws {
+        let runs = [PFReportRun(at: nil, runKind: "06:30", result: "ok", why: nil), PFReportRun(at: nil, runKind: "08:30", result: "skipped", why: nil)]
+        let status = PFReportFreshness.status(try daily(), runs: runs, today: "2030-03-13", now: try moment("2030-03-13T09:30:00Z"))
+
+        XCTAssertEqual(status.runsTitle, "Runs today (2)")
+    }
+
+    func testDailyDocumentCarriesTheRunKindAndTheSyncStamp() throws {
+        let report = try daily(extra: #""run_kind": "08:30", "data_as_of": "2030-03-13T08:00:00Z","#)
+
+        XCTAssertEqual([report.runKind, report.dataAsOf], ["08:30", "2030-03-13T08:00:00Z"])
+    }
 }

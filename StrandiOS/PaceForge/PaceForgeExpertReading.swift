@@ -27,13 +27,7 @@ struct PFExpertReadingCard: View {
                 .foregroundStyle(NoopLook.textTertiary)
         }) {
             VStack(alignment: .leading, spacing: 12) {
-                if let note = PFReportFreshness.note(report, today: PFAPI.todayISO) {
-                    Text(note)
-                        .font(LookFont.text(13, weight: .semibold))
-                        .foregroundStyle(PFColor.warning)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .accessibilityIdentifier("pf-expert-reading-note")
-                }
+                PFReportFreshnessBlock(report: report)
                 ForEach(report.stages) { stage in
                     VStack(alignment: .leading, spacing: 4) {
                         Text(stage.title).strandOverline()

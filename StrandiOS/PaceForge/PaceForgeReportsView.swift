@@ -35,7 +35,10 @@ struct PFReportsScreen: View {
         .navigationTitle(Self.screenTitle)
         .navigationBarTitleDisplayMode(.inline)
         .containerIdentifier("pf-reports")
-        .task { await store.loadIndex() }
+        .task {
+            await store.loadIndex()
+            await store.loadRuns()
+        }
     }
 
     private var kindBinding: Binding<PFReportKind> {
@@ -183,7 +186,9 @@ private struct PFReportContent: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             header
-            if let note = PFReportFreshness.note(report, today: PFAPI.todayISO) {
+            if report.kind == .daily {
+                PFReportFreshnessBlock(report: report)
+            } else if let note = PFReportFreshness.note(report, today: PFAPI.todayISO) {
                 Text(note)
                     .font(LookFont.text(13, weight: .semibold))
                     .foregroundStyle(PFColor.warning)
@@ -281,6 +286,71 @@ private struct PFReportContent: View {
             }
         }
         .containerIdentifier("pf-reports-not-checked")
+    }
+}
+
+/// The daily reading's state in one block: Fresh, Older than today or Failed, when it was written, which Garmin sync it read and
+/// the day's runs. Shared by the Reports screen and the Expert reading card on Today.
+struct PFReportFreshnessBlock: View {
+    let report: PFReport
+    @ObservedObject private var store = PFReportsStore.shared
+
+    var body: some View {
+        let status = PFReportFreshness.status(report, runs: store.runs[report.date ?? ""] ?? [], today: PFAPI.todayISO, now: Date())
+        VStack(alignment: .leading, spacing: 3) {
+            Text(status.headline)
+                .font(LookFont.text(13, weight: .semibold))
+                .foregroundStyle(Self.color(status.state))
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityIdentifier("pf-reports-fresh-state")
+            if let written = status.written {
+                detail(written)
+            }
+            if let synced = status.dataSynced {
+                detail(synced)
+            }
+            if !status.runs.isEmpty {
+                DisclosureGroup {
+                    VStack(alignment: .leading, spacing: 2) {
+                        ForEach(Array(status.runs.enumerated()), id: \.offset) { _, line in
+                            detail(line)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.top, 2)
+                } label: {
+                    Text(status.runsTitle)
+                        .font(LookFont.text(12.5, weight: .medium))
+                        .foregroundStyle(NoopLook.textSecondary)
+                }
+                .tint(StrandPalette.accent)
+            }
+        }
+        .padding(10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(StrandPalette.surfaceInset))
+        .overlay(alignment: .leading) {
+            Rectangle()
+                .fill(Self.color(status.state))
+                .frame(width: 3)
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .containerIdentifier("pf-reports-fresh")
+    }
+
+    private func detail(_ text: String) -> some View {
+        Text(text)
+            .font(LookFont.text(12.5, weight: .medium))
+            .foregroundStyle(NoopLook.textSecondary)
+            .fixedSize(horizontal: false, vertical: true)
+    }
+
+    private static func color(_ state: PFFreshness.State) -> Color {
+        switch state {
+        case .fresh: return PFColor.positive
+        case .older: return PFColor.warning
+        case .failed: return PFColor.critical
+        }
     }
 }
 

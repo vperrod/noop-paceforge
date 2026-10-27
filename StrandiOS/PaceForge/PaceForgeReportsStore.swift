@@ -9,6 +9,7 @@ final class PFReportsStore: ObservableObject {
 
     static let indexPath = "data/reports/index.json"
     static let latestDailyPath = "data/expert-panel.json"
+    static let runsPath = "data/expert-panel-runs.json"
 
     enum IndexState: Equatable {
         case notLoaded, loading, ready, notSetUp, failed
@@ -20,6 +21,8 @@ final class PFReportsStore: ObservableObject {
     @Published private(set) var failedReports: Set<String> = []
     /// The latest daily reading (data/expert-panel.json), for the card on Today.
     @Published private(set) var latestDaily: PFReport?
+    /// The daily job's runs of the last days, keyed by the day (data/expert-panel-runs.json). Empty until the file is on the phone.
+    @Published private(set) var runs: [String: [PFReportRun]] = [:]
 
     private var latestFetch: Date?
 
@@ -51,6 +54,13 @@ final class PFReportsStore: ObservableObject {
         indexState = .ready
     }
 
+    func loadRuns() async {
+        guard PFAPI.isConfigured else { return }
+        guard let fetched = await data(Self.runsPath) else { return }
+        let parsed = PFReportParse.runs(PFJ(data: fetched))
+        if runs != parsed { runs = parsed }
+    }
+
     func loadReport(_ kind: PFReportKind, key: String) async {
         let id = Self.reportID(kind, key)
         guard PFAPI.isConfigured else { return }
@@ -71,5 +81,6 @@ final class PFReportsStore: ObservableObject {
         latestFetch = Date()
         let parsed = PFReportParse.report(PFJ(data: fetched), kind: .daily)
         if latestDaily != parsed { latestDaily = parsed }
+        await loadRuns()
     }
 }
