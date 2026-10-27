@@ -22,6 +22,15 @@ approximate; downloads are on the [Releases](https://github.com/NoopApp/noop/rel
 - **Not verified on a real iPhone.** The morning brief notification now carries PaceForge's brief (written on the server, no AI key on the phone), so "Coach brief unavailable" no longer appears when PaceForge is connected. It is woken by your data, not the clock: from 04:00 it goes out once PaceForge has your night's sleep and HRV, and the time in Coach settings is the latest it waits (then it goes out saying what is missing). iOS decides when the background check really runs; opening the app also tries.
 - **Needs you leads Today.** Anything PaceForge is waiting on you for (treadmill pace, a proposal, effort, feel) shows at the very top of Today, above the rings, and leaves as soon as you answer it. Nothing shows when nothing is open.
 
+## 12.0.12 build 494 (PaceForge iPhone build): week in numbers, sources and glossary, daily freshness, critical questions
+
+- **Not verified on a real iPhone.**
+- **Weekly report.** Under "The week, session by session" a new "The week in numbers" card lists every session (day, name, type, minutes, km, pace, average heart rate, plan status, a hard badge), each day with the night that ended that morning, the totals by type, hard against easy and the change on the week before. They are the server's own figures; the phone works nothing out.
+- **Source chips and Glossary.** A claim tag in a report text such as health C09 and partial now shows as a small chip in words (Confirmed, Partly supported, Our estimate); tap it for the one-line "how sure are we" and tap again to close it. Every report ends with a "How sure are we?" list of the sources it cites and a Glossary of the terms it used.
+- **Daily freshness.** The daily report and the Expert reading card on Today say in one line whether the reading is Fresh (written today after the morning Garmin data), Older than today or Failed, then when it was written and how long ago, which scheduled or manual run wrote it, when the Garmin data it read was synced, and the day's runs.
+- **Critical questions.** When PaceForge needs one missing fact it asks it in the Needs you card on Today: the question, why it matters, one tap per answer and Dismiss. Nothing is sent to Telegram.
+- **Accounts without reports.** If the server says an account has no reports, the Coach reports row and the Expert reading card are hidden. A missing answer keeps them.
+
 ## 12.0.12 build 493 (PaceForge iPhone build): widgets find their data, Reports, Expert reading on Today
 
 - **Not verified on a real iPhone.** The widgets showed "Open NOOP to refresh" and dashes because the app and the widgets looked for their shared storage under a name the sideloader never created: it creates and signs for `group.<the signed app id>` (the id with your team suffix) and does not list it in the app. NOOP now tries the configured name, then the name built from its own id (an extension drops its own ending), and uses the first one the phone actually grants. The watch app and complications use the same rule. Open NOOP once after installing so the widgets get fresh data.
