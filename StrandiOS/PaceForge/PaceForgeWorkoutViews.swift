@@ -147,6 +147,8 @@ struct PFWorkoutDetail: View {
                     .foregroundStyle(StrandPalette.textTertiary)
                     .fixedSize(horizontal: false, vertical: true)
             }
+
+            PFPlanEdits(workout: workout)
         }
     }
 }
