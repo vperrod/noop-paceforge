@@ -382,7 +382,12 @@ final class PFModel: ObservableObject {
 
     /// Called when the tab opens; skips the network when the data is only seconds old.
     func refreshIfStale() async {
-        if let lastSuccess, Date().timeIntervalSince(lastSuccess) < 20, snapshot != nil { return }
+        await refreshIfOlderThan(20)
+    }
+
+    /// Skips the network when the last good load is under `seconds` old. The app calls it with a minute when it returns to the foreground.
+    func refreshIfOlderThan(_ seconds: TimeInterval) async {
+        if let lastSuccess, Date().timeIntervalSince(lastSuccess) < seconds, snapshot != nil { return }
         await refresh()
     }
 

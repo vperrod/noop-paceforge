@@ -403,6 +403,14 @@ struct StrandiOSApp: App {
                 CoachBriefScheduler.activateIfEnabled { await model.coach.generateBrief() }
                 PFDeepLink.openIfControlRequested()
                 PaceForgeBackground.schedule()
+                // PaceForge's Needs you list and cards must not wait for a pull or a restart. The model shares one load in flight, so
+                // this and the screens' own refreshes make one request; it only runs when the last good load is over a minute old.
+                if UnifiedNav.isOn, PFAPI.isConfigured {
+                    Task {
+                        await PFUnified.model.refreshIfOlderThan(60)
+                        await PFScoresStore.shared.refreshIfStale()
+                    }
+                }
                 model.drainPendingIntents(router: router)
                 // iOS starts a Lift Log banner only for an app on screen, so a banner lost while NOOP was in
                 // the background comes back now, whether or not the strap is sending anything.
