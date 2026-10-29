@@ -230,6 +230,8 @@ targets:
       - StrandiOS/PaceForge/PaceForgeNiggles.swift
       # Plan edits: which sessions can be moved, skipped, accepted or dropped, and the inputs of calendar-edit / session-state / session-drop.
       - StrandiOS/PaceForge/PaceForgePlanEdit.swift
+      # Easy mode from the app: the levels, the days offered and the inputs of easy-mode.
+      - StrandiOS/PaceForge/PaceForgeEasyModeJobs.swift
       # Hide numbers applied to sentences (brief, analysis): shared with the widget extension, so compiled here too.
       - StrandiOSShared/PaceForgeRedact.swift
       # The Where you stand / Garmin recovery / ride widget glances and the code that cuts them from the files.

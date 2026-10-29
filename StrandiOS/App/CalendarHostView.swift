@@ -392,6 +392,7 @@ private struct CalendarPlanChip: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             PFMyPlanStoreHost()
+            if let easy = snapshot.easyMode { PFEasyModeSection(easy: easy) }
             if !snapshot.weeks.isEmpty { PFWeekView(snapshot: snapshot) }
         }
         .containerIdentifier("calendar-chip-content-plan")

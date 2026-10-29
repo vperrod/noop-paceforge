@@ -209,7 +209,7 @@ struct PFTodayView: View {
     private var sessionCard: some View {
         VStack(alignment: .leading, spacing: 16) {
             sessionsSection
-            if let easy = snapshot.easyMode, easy.isIdle { PFEasyModeHint() }
+            if let easy = snapshot.easyMode, easy.isIdle { PFEasyModeStartCard() }
         }
     }
 

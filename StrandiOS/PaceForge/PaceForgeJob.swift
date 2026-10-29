@@ -21,6 +21,8 @@ enum PFJobName: String, Equatable {
     case calendarEdit = "calendar-edit"
     case sessionState = "session-state"
     case sessionDrop = "session-drop"
+    case easyMode = "easy-mode"
+    case easyModeEnd = "easy-mode-end"
 
     /// How long a job is expected to take from the request to "done", in seconds, from the contract: a photo read is 5 s to about 4.5 min
     /// (the local vision model is shared), a Garmin sync about 8 s and a minute or more behind a Garmin rate limit, the rest run inline.
@@ -29,7 +31,7 @@ enum PFJobName: String, Equatable {
         case .analyzeWorkoutPhoto: return 270
         case .coach: return 300
         case .sync: return 120
-        case .saveRpe, .adjustToday, .coachFeedback, .niggleAdd, .niggleResolve, .calendarEdit, .sessionState, .sessionDrop: return 30
+        case .saveRpe, .adjustToday, .coachFeedback, .niggleAdd, .niggleResolve, .calendarEdit, .sessionState, .sessionDrop, .easyMode, .easyModeEnd: return 30
         }
     }
 

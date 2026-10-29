@@ -2,8 +2,8 @@ import SwiftUI
 import StrandDesign
 
 /// Easy mode on PaceForge Today: the active mode (level, summary, day N of M, the date it returns on,
-/// whether it can be restored), any proposal waiting for an answer, and a hint for what to say in
-/// Telegram. The app never starts, accepts or ends a mode; it only shows the state.
+/// whether it can be restored) and any proposal waiting for an answer. The athlete accepts a proposal here and
+/// ends a running mode here (PaceForgeEasyModeActions.swift); starting one is the start card, shown when none is on.
 struct PFEasyModeCard: View {
     let easy: PFEasyMode
 
@@ -17,11 +17,6 @@ struct PFEasyModeCard: View {
             VStack(alignment: .leading, spacing: 14) {
                 if let mode = easy.mode { modeBlock(mode) }
                 if !easy.pending.isEmpty { pendingBlock }
-                Label(easy.pending.isEmpty ? PFTelegramHint.easyModeEnd : PFTelegramHint.easyModeAccept,
-                      systemImage: "paperplane")
-                    .font(StrandFont.caption)
-                    .foregroundStyle(StrandPalette.textTertiary)
-                    .accessibilityIdentifier("pf-easy-telegram")
             }
         }
         .containerIdentifier("pf-easy-card")
@@ -65,6 +60,7 @@ struct PFEasyModeCard: View {
                         .accessibilityIdentifier("pf-easy-restorable")
                 }
             }
+            PFEasyModeEndButton()
         }
     }
 
@@ -82,9 +78,7 @@ struct PFEasyModeCard: View {
                     Text(detail(proposal))
                         .font(StrandFont.caption)
                         .foregroundStyle(StrandPalette.textSecondary)
-                    Label(PFTelegramHint.easyModeAccept, systemImage: "paperplane")
-                        .font(StrandFont.caption.weight(.semibold))
-                        .foregroundStyle(StrandPalette.accent)
+                    PFEasyModeAcceptButton(proposalID: proposal.proposalId)
                 }
                 .padding(10)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -120,18 +114,6 @@ struct PFEasyModeChip: View {
                 .accessibilityIdentifier("pf-easy-chip")
             Spacer(minLength: 0)
         }
-    }
-}
-
-/// Shown on a server that supports easy mode when none is on and nothing is proposed.
-struct PFEasyModeHint: View {
-    var body: some View {
-        Label(PFTelegramHint.easyModeNone, systemImage: "leaf")
-            .font(StrandFont.caption)
-            .foregroundStyle(StrandPalette.textTertiary)
-            .fixedSize(horizontal: false, vertical: true)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .accessibilityIdentifier("pf-easy-hint")
     }
 }
 
