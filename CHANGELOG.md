@@ -22,6 +22,13 @@ approximate; downloads are on the [Releases](https://github.com/NoopApp/noop/rel
 - **Not verified on a real iPhone.** The morning brief notification now carries PaceForge's brief (written on the server, no AI key on the phone), so "Coach brief unavailable" no longer appears when PaceForge is connected. It is woken by your data, not the clock: from 04:00 it goes out once PaceForge has your night's sleep and HRV, and the time in Coach settings is the latest it waits (then it goes out saying what is missing). iOS decides when the background check really runs; opening the app also tries.
 - **Needs you leads Today.** Anything PaceForge is waiting on you for (treadmill pace, a proposal, effort, feel) shows at the very top of Today, above the rings, and leaves as soon as you answer it. Nothing shows when nothing is open.
 
+## 12.0.12 build 496 (PaceForge iPhone build): Alerts bell and history
+
+- **Not verified on a real iPhone.**
+- **Bell on Today.** A bell in the top bar of Today, beside the strap battery, opens the Alerts screen. A small red number on it counts the alerts you have not seen yet (nothing at 0, "9+" above 9). It only shows while PaceForge is set up on the phone.
+- **Alerts screen.** Unread alerts come first with a dot, then the history as Today, Yesterday and Earlier. Each line shows the title, one line of text, how long ago, what kind it is (input needed, load spike, sleep debt and so on) and where it stands (still open, dismissed, done, answered). Tapping a line marks it read and opens what a tap on its notification opens: the Needs you card, or the session's results. "Mark all read" is at the top left.
+- **What is in it.** The alerts PaceForge's server still keeps (about two weeks) and the Needs you items this phone announced with a notification; an announced item that has left the Needs you card shows as answered. The Telegram messages are not here: the app cannot see them. Which lines you have seen is kept on the phone. Everything that exists the first time you open this build counts as read, so there is no pile of unread on day one.
+
 ## 12.0.12 build 495 (PaceForge iPhone build): alert taps, refresh, day-only wearers, corrected heart rate
 
 - **Not verified on a real iPhone.**
