@@ -581,19 +581,22 @@ private struct PFChatBubble: View {
     private var isAthlete: Bool { turn.role == "athlete" }
 
     var body: some View {
-        HStack {
-            if isAthlete { Spacer(minLength: 40) }
-            Text(turn.text)
-                .font(StrandFont.subhead)
-                .foregroundStyle(StrandPalette.textPrimary)
-                .fixedSize(horizontal: false, vertical: true)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 9)
-                .background(
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .fill(isAthlete ? StrandPalette.accent.opacity(0.22) : StrandPalette.surfaceInset)
-                )
-            if !isAthlete { Spacer(minLength: 40) }
+        VStack(alignment: .leading, spacing: 0) {
+            HStack {
+                if isAthlete { Spacer(minLength: 40) }
+                Text(turn.text)
+                    .font(StrandFont.subhead)
+                    .foregroundStyle(StrandPalette.textPrimary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 9)
+                    .background(
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .fill(isAthlete ? StrandPalette.accent.opacity(0.22) : StrandPalette.surfaceInset)
+                    )
+                if !isAthlete { Spacer(minLength: 40) }
+            }
+            if !isAthlete, !turn.ts.isEmpty { PFRateRow(kind: "chat", id: turn.ts) }
         }
     }
 }

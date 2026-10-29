@@ -75,6 +75,7 @@ struct SelfHostedPushSettingsView: View {
                         }
                         .buttonStyle(.bordered)
                     }
+                    PFSyncGarminRow()
                     Text(status)
                         .font(StrandFont.caption)
                         .foregroundStyle(StrandPalette.textSecondary)
