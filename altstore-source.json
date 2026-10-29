@@ -21,6 +21,15 @@
       "versions": [
         {
           "version": "12.0.12",
+          "buildVersion": "496",
+          "date": "2026-10-29",
+          "localizedDescription": "Build 496: a bell at the top of Today opens the alerts history with unread marks; tapping an alert opens the card or activity it is about.",
+          "downloadURL": "https://github.com/vperrod/noop-paceforge/releases/download/noop-ios-v12.0.12-b496/NOOP-v12.0.12-b496.ipa",
+          "size": 31040484,
+          "minOSVersion": "17.0"
+        },
+        {
+          "version": "12.0.12",
           "buildVersion": "495",
           "date": "2026-10-29",
           "localizedDescription": "Build 495: tapping a PaceForge alert opens the Needs-you card or the activity; new Needs-you items raise an alert; pulling down on Today and opening the app refresh PaceForge; corrected heart rate is labelled; guests without overnight data no longer see sleep and recovery.",
