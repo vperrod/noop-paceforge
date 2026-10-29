@@ -29,7 +29,7 @@ struct PFAlertActivityRouter: View {
         Color.clear
             .onAppear { take() }
             .onReceive(NotificationCenter.default.publisher(for: .pfShowAlertActivity)) { _ in take() }
-            .onChange(of: model.savedAt) { _, _ in open() }
+            .onChange(of: model.savedAt) { _, _ in openWanted() }
             .sheet(item: $routedWorkout) { workout in
                 if let snapshot = model.snapshot {
                     PFResultsSheet(workout: workout, snapshot: snapshot)
@@ -41,10 +41,10 @@ struct PFAlertActivityRouter: View {
     private func take() {
         guard let id = PFAlertLink.consumeActivity() else { return }
         wantedActivityID = id
-        open()
+        openWanted()
     }
 
-    private func open() {
+    private func openWanted() {
         guard let id = wantedActivityID, let snapshot = model.snapshot, let activity = snapshot.activities[id] else { return }
         wantedActivityID = nil
         routedWorkout = Self.workout(for: activity, in: snapshot)

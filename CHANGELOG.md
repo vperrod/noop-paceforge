@@ -22,6 +22,16 @@ approximate; downloads are on the [Releases](https://github.com/NoopApp/noop/rel
 - **Not verified on a real iPhone.** The morning brief notification now carries PaceForge's brief (written on the server, no AI key on the phone), so "Coach brief unavailable" no longer appears when PaceForge is connected. It is woken by your data, not the clock: from 04:00 it goes out once PaceForge has your night's sleep and HRV, and the time in Coach settings is the latest it waits (then it goes out saying what is missing). iOS decides when the background check really runs; opening the app also tries.
 - **Needs you leads Today.** Anything PaceForge is waiting on you for (treadmill pace, a proposal, effort, feel) shows at the very top of Today, above the rings, and leaves as soon as you answer it. Nothing shows when nothing is open.
 
+## 12.0.12 build 495 (PaceForge iPhone build): alert taps, refresh, day-only wearers, corrected heart rate
+
+- **Not verified on a real iPhone.**
+- **Alert and Needs you taps.** Tapping a PaceForge alert notification now opens NOOP Today scrolled to the Needs you card, or the activity's results when the alert is about one session (a load spike, a heart-rate recovery flag). A notification posted by an older build still opens the Coach.
+- **Needs you notifications.** The background refresh now posts one notification for each new effort rating, treadmill pace, plan proposal or question PaceForge is waiting on, once per item, never for an answered one, under the same PaceForge alerts switch. Tapping it opens the Needs you card. The first run after installing only records what is already open. The morning feel check-in is not announced here.
+- **Pull to refresh.** Pulling Today down now also refreshes PaceForge (Needs you, the cards and the PaceForge rings), alongside the strap sync and the reload.
+- **Refresh on return.** When NOOP comes back to the foreground and the last PaceForge load is over a minute old it refreshes, so a new Needs you item no longer waits for a pull or a restart.
+- **Day-only wearers.** When the server says the watch is worn by day only, Today drops PaceForge's Recovery and Sleep rings (Strain stays), the Tonight sleep line of Day in review and the line about the two scores differing. A missing answer keeps everything as before.
+- **Corrected heart rate.** When PaceForge corrected an activity's wrist heart rate, the summary labels the average and maximum "(corrected)" and shows what the watch recorded in a line under them. NOOP's own records are not touched.
+
 ## 12.0.12 build 494 (PaceForge iPhone build): week in numbers, sources and glossary, daily freshness, critical questions
 
 - **Not verified on a real iPhone.**
