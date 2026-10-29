@@ -967,6 +967,9 @@ enum PFBuilder {
         out.hrr1 = hrr1(a["hrr1"])
         out.hrrGarmin = PFHRRGarmin.parse(a["hrr_garmin"])
         out.heat = PFWave3Parse.heat(a["heat"])
+        out.avgHrRecorded = a["avg_hr_raw"].double
+        out.maxHrRecorded = a["max_hr_raw"].double
+        out.hrCorrectionNote = a["hr_quality"].text
         return out
     }
 

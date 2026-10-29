@@ -196,6 +196,19 @@ struct PFActivity {
     var hrr1: PFHRR1?
     var hrrGarmin: PFHRRGarmin?
     var heat: PFHeat?
+    /// When the wrist heart rate locked onto cadence, `avgHr` and `maxHr` above are PaceForge's corrected figures, these are the ones the
+    /// watch recorded and the note says what was ignored. nil on an activity that was not corrected.
+    var avgHrRecorded: Double?
+    var maxHrRecorded: Double?
+    var hrCorrectionNote: String?
+
+    var hasCorrectedHr: Bool { hrCorrectionNote != nil }
+
+    /// What the watch recorded, to show beside the corrected figures; nil unless the heart rate was corrected and both recorded figures are known.
+    var recordedHr: (avg: Int, peak: Int)? {
+        guard hasCorrectedHr, let avg = avgHrRecorded, let peak = maxHrRecorded, avg > 0, peak > 0 else { return nil }
+        return (avg: Safe.int(avg), peak: Safe.int(peak))
+    }
 
     var isRun: Bool { (type ?? "").lowercased().contains("run") }
     var isBike: Bool {

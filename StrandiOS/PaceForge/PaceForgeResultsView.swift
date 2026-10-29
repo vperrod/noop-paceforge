@@ -251,8 +251,8 @@ private struct PFStatTiles: View {
         }
         put("time", "Time", positive(a.durationS).map { PFFormat.clock($0) })
         put("pace", "Pace", positive(pace).map { PFFormat.pace($0) }, "/km")
-        put("avgHr", "Avg HR", whole(positive(a.avgHr)), "bpm")
-        put("maxHr", "Max HR", whole(positive(a.maxHr)), "bpm")
+        put("avgHr", a.hasCorrectedHr ? String(localized: "Avg HR (corrected)") : "Avg HR", whole(positive(a.avgHr)), "bpm")
+        put("maxHr", a.hasCorrectedHr ? String(localized: "Max HR (corrected)") : "Max HR", whole(positive(a.maxHr)), "bpm")
         put("dist", "Distance", km.map { String(format: "%.2f", $0) }, "km")
         put("ate", "Aerobic TE", positive(a.teAerobic).map { PFFormat.oneDecimal($0) })
         put("ane", "Anaerobic TE", positive(a.teAnaerobic).map { PFFormat.oneDecimal($0) })
@@ -278,10 +278,20 @@ private struct PFStatTiles: View {
         let items = tiles
         if !items.isEmpty {
             PFCard("Summary", icon: "list.bullet.rectangle") {
-                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: 3),
-                          alignment: .leading, spacing: 16) {
-                    ForEach(items) { tile in
-                        PFFigure(value: tile.value, unit: tile.unit, label: tile.label)
+                VStack(alignment: .leading, spacing: 12) {
+                    LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: 3),
+                              alignment: .leading, spacing: 16) {
+                        ForEach(items) { tile in
+                            PFFigure(value: tile.value, unit: tile.unit, label: tile.label)
+                        }
+                    }
+                    // The corrected figures lead; what the watch recorded stays beside them, never replaced.
+                    if let recorded = activity.recordedHr {
+                        Text("Recorded by the watch: avg \(recorded.avg), max \(recorded.peak) bpm")
+                            .font(LookFont.text(12, weight: .medium))
+                            .foregroundStyle(NoopLook.textTertiary)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .accessibilityIdentifier("pf-results-recorded-hr")
                     }
                 }
             }
