@@ -667,6 +667,12 @@ struct LiquidTodayView: View {
     }
 
     #if os(iOS)
+    /// The pull's PaceForge half: the shared model behind the Needs you card and the cards, then the store behind the PaceForge rings.
+    private static func refreshPaceForge() async {
+        await PFUnified.model.refresh()
+        await PFScoresStore.shared.refresh()
+    }
+
     /// Scrolls to the Needs you card, or to the top while there is none (a live alert sits just below it). A past day has no card, so
     /// it goes back to today first; the short wait lets the tab switch and that day change land before the scroll.
     private func showNeedsYou(_ proxy: ScrollViewProxy) {
@@ -724,8 +730,16 @@ struct LiquidTodayView: View {
                 // so a pull while disconnected or mid-offload safely no-ops. The sync status chip owns the
                 // ongoing offload progress; the pull spinner stays short (the reload below).
                 ble.syncNow()
+                #if os(iOS)
+                // PaceForge's Needs you list, rings and cards read their own stores, which a strap sync does not touch. Started first
+                // so its network wait overlaps the reload below instead of adding to it.
+                async let paceForge: Void = Self.refreshPaceForge()
+                #endif
                 await repo.refresh()
                 await load()
+                #if os(iOS)
+                await paceForge
+                #endif
                 try? await Task.sleep(nanoseconds: 350_000_000)   // let the fill read as "done"
                 withAnimation(.easeOut(duration: 0.25)) { refreshing = false }
             }
