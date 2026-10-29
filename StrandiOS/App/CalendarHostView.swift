@@ -451,6 +451,7 @@ private struct CalendarEventsChip: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
+            PFEventsEntryButton()
             if let week = snapshot.raceWeek {
                 PFDismissable(.raceWeek, text: PFCardText.raceWeek(week), snapshot: snapshot) {
                     PFRaceWeekCard(week: week, todayISO: snapshot.todayISO)

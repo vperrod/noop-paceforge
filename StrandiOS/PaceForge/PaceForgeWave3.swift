@@ -5,19 +5,15 @@ import Foundation
 // reads. Foundation only, so the pure parsing and formatting below is compiled into the macOS
 // unit-test bundle as well. Every field is optional on the wire: an older server or a friend's instance
 // may not serve a file, a number may arrive as an int or a double, and the screens then hide the part.
-// The app only reads these. Easy mode and tape are changed in Telegram; race simulations and niggles in the
-// PaceForge web app. The app shows the state and the phrase to say or the place to go.
+// The app reads these; easy mode, niggles, events and race simulations are changed through the job door (PaceForgeJob.swift),
+// tape in Telegram, for which the app shows the phrase to say.
 
 // MARK: - Telegram hints
 
 /// The phrases the app tells the athlete to say in Telegram, as the bot parses them (runner.py `tg_intent`,
 /// easy_mode.py `parse`, tape.py `parse`). One place, so a wording change is one line. Race simulations and
-/// niggles have no Telegram command: the server takes them from the web app (Events tab, "Log a simulation")
-/// or from the web "Ask the coach" box, so the race-simulation hint points there.
+/// niggles have no Telegram command; the app logs them itself (PaceForgeSimLogSheet.swift, PaceForgeNiggleSheet.swift).
 enum PFTelegramHint {
-    static let raceSimEmpty = "Log a race simulation in the PaceForge web app: Events tab, Log a simulation."
-    /// What the server accepts for a simulation (sims.py): times 0:20 to 30:00, m:ss or seconds.
-    static let raceSimFormat = "Give the 8 run times first, then the 8 station times in race order (SkiErg, Sled Push, Sled Pull, Burpee Broad Jump, Row, Farmers Carry, Sandbag Lunges, Wall Balls), each as m:ss. Add the total Roxzone time if you have it. Fewer times log a half simulation."
     static let tape = "Log tape measurements in Telegram. Type: waist 88 hips 98 chest 104 arm 36 thigh 58 (cm; any of the five)."
     static let doThisInTelegram = "Do this in Telegram"
 }

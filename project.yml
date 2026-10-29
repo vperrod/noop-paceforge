@@ -232,6 +232,8 @@ targets:
       - StrandiOS/PaceForge/PaceForgePlanEdit.swift
       # Easy mode from the app: the levels, the days offered and the inputs of easy-mode.
       - StrandiOS/PaceForge/PaceForgeEasyModeJobs.swift
+      # Events and HYROX simulations logged from the app: the list kept whole for save-events, the times for hyrox-sim-add.
+      - StrandiOS/PaceForge/PaceForgeEvents.swift
       # Hide numbers applied to sentences (brief, analysis): shared with the widget extension, so compiled here too.
       - StrandiOSShared/PaceForgeRedact.swift
       # The Where you stand / Garmin recovery / ride widget glances and the code that cuts them from the files.

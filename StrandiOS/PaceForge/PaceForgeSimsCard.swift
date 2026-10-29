@@ -4,7 +4,7 @@ import StrandDesign
 /// PaceForge Insights: the latest HYROX race simulation against the goal, its 8 run and 8 station
 /// splits against the goal and the previous simulation, run fade, compromised runs, the pacing check and
 /// the two stations to work on. Deltas are signed numbers in neutral colours: faster or slower is not
-/// good or bad on its own here. The app only reads; simulations are logged in the PaceForge web app.
+/// good or bad on its own here. A simulation is logged from the button under the card (PaceForgeSimLogSheet.swift).
 struct PFSimulationsCard: View {
     let sims: PFHyroxSims
 
@@ -30,6 +30,7 @@ struct PFSimulationsCard: View {
                     emptyBlock
                 }
                 if sims.unmappedCount > 0 { unmappedNote }
+                PFSimLogButton()
             }
         }
         .containerIdentifier("pf-sims-card")
@@ -38,14 +39,11 @@ struct PFSimulationsCard: View {
     // MARK: Empty state
 
     private var emptyBlock: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(PFTelegramHint.raceSimEmpty)
-                .font(StrandFont.subhead.weight(.semibold))
-                .foregroundStyle(StrandPalette.textPrimary)
-                .fixedSize(horizontal: false, vertical: true)
-                .accessibilityIdentifier("pf-sims-empty")
-            PFParagraph(PFTelegramHint.raceSimFormat)
-        }
+        Text("No simulation logged yet.")
+            .font(StrandFont.subhead.weight(.semibold))
+            .foregroundStyle(StrandPalette.textPrimary)
+            .fixedSize(horizontal: false, vertical: true)
+            .accessibilityIdentifier("pf-sims-empty")
     }
 
     private var unmappedNote: some View {
