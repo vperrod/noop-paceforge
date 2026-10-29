@@ -166,6 +166,11 @@ struct PFCapabilities: Equatable {
 
     /// False only when the server says in so many words that this athlete has no reports. A missing file or flag keeps the screens.
     var showsReports: Bool { reportsScheduled != false && reportReview != false }
+
+    /// False only when the server says in so many words that the watch is worn by day only (`day_only` true). Sleep, overnight HRV and
+    /// readiness are then not shown as missing: PaceForge's Recovery and Sleep rings and the sleep lines on Today leave. A missing file
+    /// or flag keeps everything.
+    var showsOvernight: Bool { dayOnly != true }
 }
 
 /// One line of the history list.

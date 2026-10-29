@@ -30,6 +30,9 @@ final class PFReportsStore: ObservableObject {
     /// False only when the server says this athlete has no reports (the expert jobs are not scheduled for the account).
     var showsReports: Bool { capabilities?.showsReports ?? true }
 
+    /// False only when the server says this athlete wears the watch by day only.
+    var showsOvernight: Bool { capabilities?.showsOvernight ?? true }
+
     private var latestFetch: Date?
 
     static func reportID(_ kind: PFReportKind, _ key: String) -> String { "\(kind.rawValue)/\(key)" }

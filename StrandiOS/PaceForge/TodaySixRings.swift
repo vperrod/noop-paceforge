@@ -148,6 +148,8 @@ private struct TodayPFRingGroup: View {
     let noopCount: Int
     let isToday: Bool
     @ObservedObject private var store = PFScoresStore.shared
+    /// A wearer who takes the watch off at night has no PaceForge Recovery or Sleep score: those two rings leave, Strain stays.
+    @ObservedObject private var reports = PFReportsStore.shared
     @State private var isWhyOpen = false
     private let hiding = PFHiding()
 
@@ -165,8 +167,10 @@ private struct TodayPFRingGroup: View {
         VStack(spacing: 8) {
             SixRingsGroupLabel(chip: "PaceForge", color: PFColor.sky, text: String(localized: "from Garmin data"))
             HStack(spacing: 0) {
-                SixRingCell(spec: recovery, route: nil, action: openWhy)
-                SixRingCell(spec: sleep, route: nil, action: openWhy)
+                if reports.showsOvernight {
+                    SixRingCell(spec: recovery, route: nil, action: openWhy)
+                    SixRingCell(spec: sleep, route: nil, action: openWhy)
+                }
                 SixRingCell(spec: strain, route: nil, action: openWhy)
             }
         }

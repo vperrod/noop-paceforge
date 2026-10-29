@@ -130,6 +130,8 @@ struct PFTodaysCallCard: View {
     let call: PFTodaysCall
     let item: PFIntelItem
     private let hiding = PFHiding()
+    /// The line about the two scores differing is about PaceForge's Recovery, which a day-only wearer does not have.
+    @ObservedObject private var reports = PFReportsStore.shared
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -151,7 +153,7 @@ struct PFTodaysCallCard: View {
                     .fixedSize(horizontal: false, vertical: true)
                     .accessibilityIdentifier("pf-call-verdict-text")
             }
-            if let disagreement = call.disagreement {
+            if reports.showsOvernight, let disagreement = call.disagreement {
                 PFIntelLine(label: "Why the two scores differ", text: disagreement.text, icon: "arrow.triangle.branch")
                     .accessibilityIdentifier("pf-call-disagreement")
             }
@@ -261,6 +263,8 @@ struct PFDayReviewCard: View {
     let review: PFDayReview
     let item: PFIntelItem
     private let hiding = PFHiding()
+    /// "Tonight" is the sleep need and bedtime: a day-only wearer gets no sleep line.
+    @ObservedObject private var reports = PFReportsStore.shared
 
     private var outcomeColor: Color {
         switch review.outcome {
@@ -288,7 +292,7 @@ struct PFDayReviewCard: View {
                 PFIntelLine(label: "Effort against its range", text: hiding.shown(effort, .scores), icon: "gauge.with.dots.needle.67percent")
                     .accessibilityIdentifier("pf-review-effort")
             }
-            if let tonight = review.tonight {
+            if reports.showsOvernight, let tonight = review.tonight {
                 PFIntelLine(label: "Tonight", text: tonightText(tonight), icon: "bed.double")
                     .accessibilityIdentifier("pf-review-tonight")
             }
