@@ -140,14 +140,23 @@ struct PFMyPlanCard: View {
     }
 }
 
-/// NOOP Today's My Plan card: reads the shared store, so it needs no PaceForge tab. Nothing when no plan is published.
+/// NOOP Today's My Plan card: reads the shared store, so it needs no PaceForge tab. Nothing when no plan is published. On Today
+/// (`showsAdjust`) the Adjust today card sits under it while a session is planned for today.
 struct PFMyPlanStoreHost: View {
     @ObservedObject private var store = PFPhase4Store.shared
+    private let showsAdjust: Bool
+
+    init(showsAdjust: Bool = false) { self.showsAdjust = showsAdjust }
 
     var body: some View {
         Group {
             if let plan = store.docs.myPlan.value {
-                PFMyPlanCard(plan: plan)
+                VStack(spacing: 12) {
+                    PFMyPlanCard(plan: plan)
+                    if showsAdjust, plan.items.contains(where: { $0.status == "today" }) {
+                        PFAdjustTodayCard()
+                    }
+                }
             }
         }
         .task { await store.refreshIfStale() }

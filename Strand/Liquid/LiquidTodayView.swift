@@ -454,7 +454,7 @@ struct LiquidTodayView: View {
                         // This week's plan progress and the user's own metrics. Today only; each draws nothing when it has nothing to say.
                         case .myPlan:
                             #if os(iOS)
-                            if selectedDayOffset == 0 { PFMyPlanStoreHost() }
+                            if selectedDayOffset == 0 { PFMyPlanStoreHost(showsAdjust: true) }
                             #else
                             EmptyView()
                             #endif
