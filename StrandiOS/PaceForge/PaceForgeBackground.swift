@@ -211,6 +211,7 @@ enum PaceForgeBackground {
         let fresh = PFNeedsNotify.fresh(items, seen: Set(stored))
         guard !fresh.isEmpty, defaults.object(forKey: PFPrefs.alertsKey) as? Bool ?? true, await canNotify() else { return }
         defaults.set(PFNeedsNotify.remembering(stored, adding: fresh), forKey: notifiedNeedsKey)
+        PFAlertHistoryStore.shared.recordAnnounced(fresh)
         for item in fresh {
             let content = UNMutableNotificationContent()
             content.title = item.title
