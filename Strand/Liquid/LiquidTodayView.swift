@@ -374,6 +374,7 @@ struct LiquidTodayView: View {
     /// Scroll-to-top on an at-root Today re-tap (#198 follow-up); default 0 so macOS/other contexts stay inert.
     @Environment(\.scrollToTopSignal) private var scrollToTopSignal
     private static let topAnchorID = "liquidToday.top"
+    private static let needsYouAnchorID = "liquidToday.needsYou"
 
     var body: some View {
         #if os(iOS)
@@ -428,7 +429,7 @@ struct LiquidTodayView: View {
                     // Then the open live alerts (stress, heart rate at rest, Body Battery) and PaceForge's one paragraph about the
                     // day's metrics. One `if`, so the column gains no children; each draws nothing when it has nothing to show.
                     if selectedDayOffset == 0 {
-                        PFTodayNeedsYouHost()
+                        PFTodayNeedsYouHost().id(Self.needsYouAnchorID)
                         PFTodayLiveAlertsHost()
                         PFPageNote(key: "today")
                     }
@@ -657,9 +658,28 @@ struct LiquidTodayView: View {
         .onChange(of: scrollToTopSignal) { _, _ in
             withAnimation(.easeOut(duration: 0.35)) { proxy.scrollTo(Self.topAnchorID, anchor: .top) }
         }
+        // A tapped PaceForge notification: back to today, then to the Needs you card. The activity such a notification can be about opens
+        // from the router behind the scroll view.
+        .onReceive(NotificationCenter.default.publisher(for: .pfShowNeedsYou)) { _ in showNeedsYou(proxy) }
+        .background(PFAlertActivityRouter())
         #endif
         }
     }
+
+    #if os(iOS)
+    /// Scrolls to the Needs you card, or to the top while there is none (a live alert sits just below it). A past day has no card, so
+    /// it goes back to today first; the short wait lets the tab switch and that day change land before the scroll.
+    private func showNeedsYou(_ proxy: ScrollViewProxy) {
+        if selectedDayOffset != 0 { selectedDayOffset = 0 }
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 300_000_000)
+            let hasCard = PFUnified.model.snapshot?.needsYou.isEmpty == false
+            withAnimation(.easeOut(duration: 0.35)) {
+                proxy.scrollTo(hasCard ? Self.needsYouAnchorID : Self.topAnchorID, anchor: .top)
+            }
+        }
+    }
+    #endif
 
     // MARK: - Liquid pull-to-refresh
 

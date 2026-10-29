@@ -26,6 +26,10 @@ final class NotificationPresenter: NSObject, UNUserNotificationCenterDelegate {
     /// Wired on iOS to open the shared Coach when the PaceForge daily-brief notification is tapped.
     var onPaceForgeBriefTapped: (() -> Void)?
 
+    /// Wired on iOS to open NOOP Today on what a PaceForge alert or Needs you notification is about. It receives the notification's
+    /// `userInfo`; the iOS side reads it (`PFAlertRoute`).
+    var onPaceForgeAlertTapped: (([AnyHashable: Any]) -> Void)?
+
     func userNotificationCenter(
         _ center: UNUserNotificationCenter,
         willPresent notification: UNNotification,
@@ -42,9 +46,14 @@ final class NotificationPresenter: NSObject, UNUserNotificationCenterDelegate {
         didReceive response: UNNotificationResponse,
         withCompletionHandler completionHandler: @escaping () -> Void
     ) {
-        if response.notification.request.content.categoryIdentifier == CoachBriefScheduler.notificationCategoryId {
+        let content = response.notification.request.content
+        // A PaceForge alert or Needs you notification carries "pf.kind" (PFAlertRoute.kindKey) and shares the brief's category, so it is
+        // checked first; one posted before this carried none and still opens the Coach below.
+        if content.userInfo["pf.kind"] != nil {
+            onPaceForgeAlertTapped?(content.userInfo)
+        } else if content.categoryIdentifier == CoachBriefScheduler.notificationCategoryId {
             onCoachBriefTapped?()
-        } else if response.notification.request.content.categoryIdentifier == "paceforge.brief" {
+        } else if content.categoryIdentifier == "paceforge.brief" {
             onPaceForgeBriefTapped?()
         }
         completionHandler()

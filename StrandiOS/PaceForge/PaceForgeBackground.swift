@@ -4,6 +4,9 @@ import UserNotifications
 
 extension Notification.Name {
     static let pfOpenToday = Notification.Name("noop.paceforge.openToday")
+    /// A tapped PaceForge notification: scroll NOOP Today to the Needs you card, or open one activity's results.
+    static let pfShowNeedsYou = Notification.Name("noop.paceforge.showNeedsYou")
+    static let pfShowAlertActivity = Notification.Name("noop.paceforge.showAlertActivity")
 }
 
 /// Opens the app on its requested PaceForge section from a widget, notification or Control Center tap.
@@ -45,6 +48,33 @@ enum PFDeepLink {
     }
 }
 
+/// Opens NOOP Today on what a tapped PaceForge alert or Needs you notification is about.
+@MainActor
+enum PFAlertLink {
+    /// The activity of a tap whose results have not opened yet, with the time of the tap: a tap nothing picked up must not
+    /// open a sheet minutes later.
+    private static var pendingActivity: (id: String, at: Date)?
+
+    static func open(userInfo: [AnyHashable: Any]) {
+        guard let route = PFAlertRoute(userInfo: userInfo) else { return }
+        PFDeepLink.openToday()
+        switch route {
+        case .needsYou:
+            NotificationCenter.default.post(name: .pfShowNeedsYou, object: nil)
+        case .activity(let id):
+            pendingActivity = (id: id, at: Date())
+            NotificationCenter.default.post(name: .pfShowAlertActivity, object: nil)
+        }
+    }
+
+    /// The activity of a tap made in the last minute, once.
+    static func consumeActivity() -> String? {
+        defer { pendingActivity = nil }
+        guard let pending = pendingActivity, Date().timeIntervalSince(pending.at) < 60 else { return nil }
+        return pending.id
+    }
+}
+
 /// Refreshes PaceForge every few hours in the background (BGAppRefreshTask): updates the widget summary
 /// and posts a local "PaceForge daily brief" notification when a new brief date appears.
 /// No push notification or APNs entitlement is involved.
@@ -56,6 +86,7 @@ enum PaceForgeBackground {
     private static let askedKey = "noop.paceforge.notificationsAsked"
     private static let lastBriefUpdateKey = "noop.paceforge.lastNotifiedBriefUpdate"
     private static let notifiedAlertsKey = "noop.paceforge.notifiedAlerts"
+    private static let notifiedNeedsKey = "noop.paceforge.notifiedNeedsYou"
 
     /// Register before launch finishes; the identifier is listed in BGTaskSchedulerPermittedIdentifiers.
     static func register() {
@@ -111,6 +142,7 @@ enum PaceForgeBackground {
             await notifyIfUpdated(brief, today: snapshot.todayISO)
         }
         await notifyNewAlerts(snapshot.alerts)
+        await notifyNewNeedsYou(snapshot.needsYou)
         return true
     }
 
@@ -160,7 +192,33 @@ enum PaceForgeBackground {
             if let body = alert.body { content.body = String(body.prefix(180)) }
             content.sound = .default
             content.categoryIdentifier = notificationCategory
+            content.userInfo = PFAlertRoute.userInfo(kind: PFAlertRoute.alertKind, id: alert.id, activityID: alert.activityID)
             let request = UNNotificationRequest(identifier: "paceforge.alert.\(alert.id)", content: content, trigger: nil)
+            try? await UNUserNotificationCenter.current().add(request)
+        }
+    }
+
+    /// One local notification for each open Needs you item not announced before (see `PFNeedsNotify`). The server's list holds
+    /// open items only, so an answered one is never announced. The first run only records what is open, so installing this build
+    /// does not announce what Telegram has already said. The toggle is the alerts one in More > PaceForge sync.
+    private static func notifyNewNeedsYou(_ items: [PFNeedsItem]) async {
+        let defaults = UserDefaults.standard
+        let stored = defaults.stringArray(forKey: notifiedNeedsKey)
+        let fresh = PFNeedsNotify.fresh(items, seen: Set(stored ?? []))
+        guard !fresh.isEmpty else {
+            if stored == nil { defaults.set([String](), forKey: notifiedNeedsKey) }
+            return
+        }
+        defaults.set(PFNeedsNotify.remembering(stored ?? [], adding: fresh), forKey: notifiedNeedsKey)
+        guard stored != nil, defaults.object(forKey: PFPrefs.alertsKey) as? Bool ?? true, await canNotify() else { return }
+        for item in fresh {
+            let content = UNMutableNotificationContent()
+            content.title = item.title
+            if let meaning = item.meaning { content.body = String(meaning.prefix(180)) }
+            content.sound = .default
+            content.categoryIdentifier = notificationCategory
+            content.userInfo = PFAlertRoute.userInfo(kind: PFAlertRoute.needsYouKind, id: item.id, activityID: item.activityID)
+            let request = UNNotificationRequest(identifier: "paceforge.needsyou.\(item.id)", content: content, trigger: nil)
             try? await UNUserNotificationCenter.current().add(request)
         }
     }

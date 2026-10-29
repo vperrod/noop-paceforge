@@ -709,7 +709,8 @@ enum PFBuilder {
                                         source: a["metrics"]["source"].text, planEffect: a["metrics"]["plan_effect"].text)
             }
             return PFAlert(id: id, kind: kind, severity: a["severity"].string ?? "info",
-                           createdAt: a["created_at"].string, title: title, body: a["body"].text, actions: actions, live: live)
+                           createdAt: a["created_at"].string, title: title, body: a["body"].text, actions: actions, live: live,
+                           activityID: PFAlertRoute.activityID(kind: kind, key: a["key"].string))
         }
         return open.sorted { lhs, rhs in
             lhs.rank != rhs.rank ? lhs.rank < rhs.rank : (lhs.createdAt ?? "") > (rhs.createdAt ?? "")

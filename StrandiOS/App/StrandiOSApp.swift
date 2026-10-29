@@ -101,6 +101,9 @@ struct StrandiOSApp: App {
         NotificationPresenter.shared.onPaceForgeBriefTapped = { [weak router] in
             Task { @MainActor in router?.openCoach() }
         }
+        NotificationPresenter.shared.onPaceForgeAlertTapped = { userInfo in
+            Task { @MainActor in PFAlertLink.open(userInfo: userInfo) }
+        }
         PaceForgeBackground.register()
         PFMyDay.install()
         // A summary written before the privacy choice existed gets its body flag now, not at the next fetch.

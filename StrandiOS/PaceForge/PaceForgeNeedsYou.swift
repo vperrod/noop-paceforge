@@ -284,3 +284,70 @@ struct PFAnswerOutcome: Equatable {
         return PFAnswerOutcome(isSaved: true, message: server ?? "Saved.", fresh: list.exists ? PFNeedsParse.items(list) : nil)
     }
 }
+
+// MARK: Notifications
+
+/// Where a tap on a PaceForge alert or Needs you notification lands on NOOP Today. The notification carries what it is about in its
+/// `userInfo` (`pf.kind`, `pf.id`, and `pf.activity_id` when it has one); this reads it back.
+enum PFAlertRoute: Equatable {
+    /// The Needs you card.
+    case needsYou
+    /// The results of one activity.
+    case activity(String)
+
+    // NotificationPresenter (shared with macOS, so it cannot name this type) checks for the same "pf.kind" key.
+    static let kindKey = "pf.kind"
+    static let idKey = "pf.id"
+    static let activityKey = "pf.activity_id"
+    static let alertKind = "alert"
+    static let needsYouKind = "needs_you"
+
+    /// The alert kinds whose key is `<kind>:<activity id>` (alerts.py: `load_spike:<id>`, `hrr2_flag:<id>`).
+    private static let activityAlertKinds: Set<String> = ["load_spike", "hrr2_flag"]
+
+    static func userInfo(kind: String, id: String, activityID: String? = nil) -> [AnyHashable: Any] {
+        var out: [AnyHashable: Any] = [kindKey: kind, idKey: id]
+        if let activityID { out[activityKey] = activityID }
+        return out
+    }
+
+    /// nil for a notification that is not one of these (the morning brief, a reminder).
+    init?(userInfo: [AnyHashable: Any]) {
+        guard let kind = userInfo[Self.kindKey] as? String else { return nil }
+        if kind == Self.needsYouKind {
+            self = .needsYou
+        } else if kind == Self.alertKind {
+            if let activity = userInfo[Self.activityKey] as? String, !activity.isEmpty {
+                self = .activity(activity)
+            } else {
+                self = .needsYou
+            }
+        } else {
+            return nil
+        }
+    }
+
+    /// The activity an alert is about, from the alert's `key`; nil for the kinds that are about a day or a trend.
+    static func activityID(kind: String?, key: String?) -> String? {
+        guard let kind, activityAlertKinds.contains(kind), let key, key.hasPrefix(kind + ":") else { return nil }
+        let id = String(key.dropFirst(kind.count + 1))
+        return id.isEmpty ? nil : id
+    }
+}
+
+/// Which open Needs you items the phone announces with a local notification, each once.
+enum PFNeedsNotify {
+    /// The feel check-in has its own morning reminder, so it is not announced here.
+    static let kinds: Set<PFNeedsItem.Kind> = [.treadmillPace, .rpe, .proposal, .question]
+    static let remembered = 200
+
+    /// The items to announce: a kind announced here and an id not seen before.
+    static func fresh(_ items: [PFNeedsItem], seen: Set<String>) -> [PFNeedsItem] {
+        items.filter { Self.kinds.contains($0.kind) && !seen.contains($0.id) }
+    }
+
+    /// The ids to remember: the ones remembered so far, then the new ones, the newest 200.
+    static func remembering(_ seen: [String], adding items: [PFNeedsItem]) -> [String] {
+        Array((seen + items.map { $0.id }).suffix(Self.remembered))
+    }
+}

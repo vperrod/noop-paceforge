@@ -530,6 +530,8 @@ struct PFAlert: Identifiable {
     var actions: [PFAlertAction] = []
     /// The numbers behind a live (intraday) alert: its reading, his own normal, the source and what it does to the plan.
     var live: PFLiveAlertFacts?
+    /// The Garmin activity the alert is about (a load spike, a heart-rate recovery flag); nil for the kinds about a day or a trend.
+    var activityID: String?
 
     var rank: Int { severity == "act" ? 0 : (severity == "watch" ? 1 : 2) }
 
