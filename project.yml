@@ -226,6 +226,8 @@ targets:
       - StrandiOS/PaceForge/PaceForgeJob.swift
       # A workout photo: the size it is shrunk to, how the runner's draft of the reading and its retry queue read.
       - StrandiOS/PaceForge/PaceForgePhoto.swift
+      # Niggles: the list in niggles.json and the inputs of niggle-add / niggle-resolve.
+      - StrandiOS/PaceForge/PaceForgeNiggles.swift
       # Hide numbers applied to sentences (brief, analysis): shared with the widget extension, so compiled here too.
       - StrandiOSShared/PaceForgeRedact.swift
       # The Where you stand / Garmin recovery / ride widget glances and the code that cuts them from the files.

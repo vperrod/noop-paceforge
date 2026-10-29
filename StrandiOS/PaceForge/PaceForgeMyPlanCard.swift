@@ -141,7 +141,7 @@ struct PFMyPlanCard: View {
 }
 
 /// NOOP Today's My Plan card: reads the shared store, so it needs no PaceForge tab. Nothing when no plan is published. On Today
-/// (`showsAdjust`) the Adjust today card sits under it while a session is planned for today.
+/// (`showsAdjust`) the Adjust today card sits under it while a session is planned for today, and the Niggles row below that.
 struct PFMyPlanStoreHost: View {
     @ObservedObject private var store = PFPhase4Store.shared
     private let showsAdjust: Bool
@@ -156,6 +156,7 @@ struct PFMyPlanStoreHost: View {
                     if showsAdjust, plan.items.contains(where: { $0.status == "today" }) {
                         PFAdjustTodayCard()
                     }
+                    if showsAdjust { PFNiggleEntryCard() }
                 }
             }
         }
