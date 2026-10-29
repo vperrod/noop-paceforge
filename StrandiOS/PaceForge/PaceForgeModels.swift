@@ -57,6 +57,9 @@ struct PFSnapshot {
     var serverHidesBody: Bool?
     /// Every alert the server still keeps (`alerts.json`, about two weeks), open or not, for the Alerts history; `alerts` above holds the open ones.
     var alertHistory: [PFAlert] = []
+    /// True when the snapshot was built with an alerts document (`alerts.json`) in hand, however old; false when the build had none, so
+    /// `alertHistory` is empty because nothing was read, not because there were no alerts.
+    var alertsLoaded = false
 
     /// The rides of one day.
     func rides(on date: String) -> [PFRide] { rides.filter { $0.date == date } }

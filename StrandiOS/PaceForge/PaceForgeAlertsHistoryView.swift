@@ -3,8 +3,11 @@ import StrandDesign
 
 /// The Alerts screen behind the bell on NOOP Today: unread lines first with a dot, then the history as Today, Yesterday and Earlier.
 /// A line is a PaceForge alert the server still keeps or a Needs you item this phone announced. Tapping one marks it read and opens
-/// what a tap on its notification opens (`PFAlertLink`). The Telegram messages are not here: the app cannot see them.
+/// what a tap on its notification opens: it hands that notification's payload to `onOpen` and closes, and the bell opens it once the
+/// sheet is gone (`PFAlertLink`). The Telegram messages are not here: the app cannot see them.
 struct PFAlertsHistoryView: View {
+    let onOpen: ([AnyHashable: Any]) -> Void
+
     @ObservedObject private var model = PFUnified.model
     @ObservedObject private var history = PFAlertHistoryStore.shared
     @Environment(\.dismiss) private var dismiss
@@ -99,15 +102,11 @@ struct PFAlertsHistoryView: View {
         .accessibilityIdentifier("pf-alert-row-\(entry.id)")
     }
 
-    /// Marks the line read, closes the screen and, once it is gone, opens what a tap on that notification opens.
+    /// Marks the line read, hands over what a tap on its notification opens and closes the screen.
     private func open(_ entry: PFAlertEntry) {
         history.markRead([entry.id])
-        let info = entry.userInfo
+        onOpen(entry.userInfo)
         dismiss()
-        Task { @MainActor in
-            try? await Task.sleep(nanoseconds: 400_000_000)
-            PFAlertLink.open(userInfo: info)
-        }
     }
 
     private static func title(_ group: PFAlertGroup) -> LocalizedStringKey {

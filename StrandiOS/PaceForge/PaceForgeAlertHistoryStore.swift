@@ -33,9 +33,11 @@ final class PFAlertHistoryStore: ObservableObject {
         return PFAlertHistory.unreadCount(entries(for: snapshot), seen: Set(seen))
     }
 
-    /// The first time this build has a snapshot, everything in it counts as read; later calls do nothing.
+    /// The first time this build has a snapshot that was built with the alerts document, everything in it counts as read; later calls do
+    /// nothing. A snapshot built without that document (the saved copy on the phone may lack it) is not a baseline: the alerts that
+    /// arrive afterwards would count as already seen.
     func adopt(_ snapshot: PFSnapshot?) {
-        guard seen == nil, let snapshot else { return }
+        guard seen == nil, let snapshot, snapshot.alertsLoaded else { return }
         setSeen(PFAlertHistory.adopting(stored: nil, entries: entries(for: snapshot)))
     }
 

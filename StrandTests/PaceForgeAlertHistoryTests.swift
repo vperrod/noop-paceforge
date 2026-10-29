@@ -219,6 +219,18 @@ final class PaceForgeAlertHistoryTests: XCTestCase {
         XCTAssertEqual(PFAlertHistory.sections(lines, seen: Set(seen), now: now, calendar: calendar).map { $0.group }, [.today])
     }
 
+    func testMarkingAllPastTheCapKeepsTheNewestLines() {
+        let lines = (0..<305).map { entry("e\($0)", at: TimeInterval(1_000 - $0)) }
+        let seen = PFAlertHistory.markingAll([], entries: lines)
+        XCTAssertEqual([seen.count, seen.contains("e0") ? 1 : 0, seen.contains("e304") ? 1 : 0], [300, 1, 0])
+    }
+
+    func testTheFirstRunPastTheCapLeavesTheNewestLinesRead() {
+        let lines = (0..<305).map { entry("e\($0)", at: TimeInterval(1_000 - $0)) }
+        let seen = PFAlertHistory.adopting(stored: nil, entries: lines)
+        XCTAssertEqual(PFAlertHistory.unreadCount(Array(lines.prefix(300)), seen: Set(seen)), 0)
+    }
+
     // MARK: First run
 
     func testTheFirstRunCountsEverythingThatExistsAsRead() {

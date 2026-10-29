@@ -177,6 +177,7 @@ enum PFBuilder {
         snapshot.bodyProgress = bodyProgress(raw.bodyProgress)
         snapshot.alerts = alerts(raw.alerts)
         snapshot.alertHistory = alertHistory(raw.alerts)
+        snapshot.alertsLoaded = raw.alerts.exists
         snapshot.readiness = readiness(raw.readiness)
         snapshot.feel = PFWave2Parse.feelSummary(raw.feelSummary)
         snapshot.whatChanged = PFWave2Parse.whatChanged(raw.whatChanged)
@@ -281,6 +282,7 @@ enum PFBuilder {
         if stale(.alerts) {
             snapshot.alerts = alerts(raw.alerts)
             snapshot.alertHistory = alertHistory(raw.alerts)
+            snapshot.alertsLoaded = raw.alerts.exists
         }
         if stale(.readiness) { snapshot.readiness = readiness(raw.readiness) }
         if stale(.feel) { snapshot.feel = PFWave2Parse.feelSummary(raw.feelSummary) }

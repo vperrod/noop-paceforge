@@ -206,8 +206,9 @@ enum PFAlertHistory {
         return Array(out.suffix(seenCap))
     }
 
+    /// Every line marked, oldest first: `entries` is newest first and `marking` keeps the last `seenCap`, so the newest lines survive the cap.
     static func markingAll(_ seen: [String], entries: [PFAlertEntry]) -> [String] {
-        marking(seen, read: entries.map { $0.id })
+        marking(seen, read: entries.reversed().map { $0.id })
     }
 
     /// The seen list to start from: the stored one, or, the first time this build runs (nothing stored), every line that exists now,

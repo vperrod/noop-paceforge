@@ -3635,26 +3635,49 @@ private struct LiquidBatteryButton: View {
 private struct LiquidAlertsBellButton: View {
     @ObservedObject private var model = PFUnified.model
     @ObservedObject private var history = PFAlertHistoryStore.shared
+    @ObservedObject private var liveStore = LiveSnapshotStore.shared
     @State private var showAlerts = false
+    /// What a tapped Alerts line opens, held until the sheet has gone so the 495 activity sheet cannot race its dismissal.
+    @State private var pendingOpen: [AnyHashable: Any]?
+    /// The strap-sync capsule is open (the same debounced signal the battery button uses). It widens leftward into the header's spare
+    /// room, so the bell steps aside until it closes.
+    @State private var syncing = false
 
     private var unread: Int { history.unreadCount(for: model.snapshot) }
 
     var body: some View {
         if PFAPI.isConfigured {
-            Button { showAlerts = true } label: {
-                Image(systemName: "bell")
-                    .font(.system(size: 14, weight: .bold))
-                    .foregroundStyle(StrandPalette.textPrimary)
-                    .frame(width: NoopMetrics.compactControlSize, height: NoopMetrics.compactControlSize)
+            // A ZStack, not a Group: the modifiers below must stay on one view while the button inside comes and goes. The button leaves
+            // while the capsule is open, and the sync signal, the sheet and the baseline stay.
+            ZStack {
+                if syncing {
+                    Color.clear.frame(width: 0, height: NoopMetrics.compactControlSize)
+                } else {
+                    Button { showAlerts = true } label: {
+                        Image(systemName: "bell")
+                            .font(.system(size: 14, weight: .bold))
+                            .foregroundStyle(StrandPalette.textPrimary)
+                            .frame(width: NoopMetrics.compactControlSize, height: NoopMetrics.compactControlSize)
+                    }
+                    .nativeLiquidGlassHeaderButton()
+                    .overlay(alignment: .topTrailing) { badge }
+                    .accessibilityLabel(unread > 0 ? String(localized: "Alerts, \(unread) unread") : String(localized: "Alerts"))
+                    .accessibilityIdentifier("today-alerts")
+                }
             }
-            .nativeLiquidGlassHeaderButton()
-            .overlay(alignment: .topTrailing) { badge }
-            .accessibilityLabel(unread > 0 ? String(localized: "Alerts, \(unread) unread") : String(localized: "Alerts"))
-            .accessibilityIdentifier("today-alerts")
-            .sheet(isPresented: $showAlerts) { PFAlertsHistoryView() }
+            .debouncedSyncSignal(liveStore.snapshot.backfilling, into: $syncing)
+            .sheet(isPresented: $showAlerts, onDismiss: openPending) {
+                PFAlertsHistoryView { pendingOpen = $0 }
+            }
             .onAppear { history.adopt(model.snapshot) }
             .onChange(of: model.savedAt) { _, _ in history.adopt(model.snapshot) }
         }
+    }
+
+    private func openPending() {
+        guard let info = pendingOpen else { return }
+        pendingOpen = nil
+        PFAlertLink.open(userInfo: info)
     }
 
     @ViewBuilder private var badge: some View {

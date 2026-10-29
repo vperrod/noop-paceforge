@@ -179,6 +179,18 @@ final class PaceForgeCrashGuardTests: XCTestCase {
         XCTAssertNotNil(PFBuilder.snapshot(from: try rawBundle(), today: "2030-03-20"))
     }
 
+    func testASnapshotBuiltWithoutAnAlertsDocumentIsNotMarkedAlertsLoaded() throws {
+        let snapshot = try XCTUnwrap(PFBuilder.snapshot(from: try rawBundle(), today: "2030-03-13"))
+        XCTAssertFalse(snapshot.alertsLoaded)
+    }
+
+    func testASnapshotBuiltWithAnAlertsDocumentIsMarkedAlertsLoaded() throws {
+        var raw = try rawBundle()
+        raw.alerts = PFJ(data: Data(#"{"alerts":[]}"#.utf8))
+        let snapshot = try XCTUnwrap(PFBuilder.snapshot(from: raw, today: "2030-03-13"))
+        XCTAssertTrue(snapshot.alertsLoaded)
+    }
+
     func testRealShapedDailyIntelHasTodaysCall() throws {
         let snapshot = try XCTUnwrap(PFBuilder.snapshot(from: try rawBundle(), today: "2030-03-13"))
         XCTAssertNotNil(snapshot.dailyIntel?.call)
