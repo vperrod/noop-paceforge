@@ -176,6 +176,28 @@ enum PFAPI {
         return try await SelfHostedPushClient.paceForgePostReturningStatus("api/app/chat", body: body)
     }
 
+    /// `POST api/app/job` with the app bearer: the door to PaceForge's write actions (docs/app-job-contract.md). Returns the status, the
+    /// body and the `Retry-After` seconds whatever the status. In a UI-test fixture the `api/app/job` entry stands in for the server (200),
+    /// or the call fails when it has none or `-PaceForgeJobFails` is set.
+    static func postJob(_ body: [String: Any], timeout: TimeInterval) async throws -> (status: Int, data: Data, retryAfter: Int?) {
+        if let files = fixture {
+            if ProcessInfo.processInfo.arguments.contains("-PaceForgeJobFails") { throw URLError(.notConnectedToInternet) }
+            guard let reply = files["api/app/job"] else { throw CocoaError(.fileNoSuchFile) }
+            return (200, try JSONSerialization.data(withJSONObject: reply), nil)
+        }
+        return try await SelfHostedPushClient.paceForgeJobRequest("POST", "api/app/job", body: body, timeout: timeout)
+    }
+
+    /// `GET api/app/job/<id>`: where a slow job stands. The id is digits only (`PFJobReply` checks it before it is used here). In a
+    /// UI-test fixture the `api/app/job/status` entry stands in for the server.
+    static func jobStatus(_ id: String) async throws -> (status: Int, data: Data, retryAfter: Int?) {
+        if let files = fixture {
+            guard let reply = files["api/app/job/status"] else { throw CocoaError(.fileNoSuchFile) }
+            return (200, try JSONSerialization.data(withJSONObject: reply), nil)
+        }
+        return try await SelfHostedPushClient.paceForgeJobRequest("GET", "api/app/job/\(id)", body: nil, timeout: 30)
+    }
+
     /// One line for the error card: the server host and why the request failed. No token, no path.
     static func failureDetail(_ error: Error) -> String {
         let host = SelfHostedPushClient.paceForgeHost ?? "no endpoint"

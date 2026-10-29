@@ -127,6 +127,32 @@ enum SelfHostedPushClient {
         return data
     }
 
+    /// A bearer request to a PaceForge page for the app's job door (`api/app/job`): the status, the body and the `Retry-After`
+    /// seconds of a 429, whatever the status. Same token and no-redirect delegate as the other calls, on a session of its own so
+    /// the timeout can be set per call (a photo body takes well over the 20 s the small writes get). Throws only when no HTTP
+    /// answer came back.
+    static func paceForgeJobRequest(_ method: String, _ path: String, body: [String: Any]?,
+                                    timeout: TimeInterval) async throws -> (status: Int, data: Data, retryAfter: Int?) {
+        let (endpoint, token) = try configuration()
+        var request = URLRequest(url: paceForgeURL(from: endpoint, path: path), timeoutInterval: timeout)
+        request.httpMethod = method
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        if let body {
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        }
+        let sessionConfiguration = URLSessionConfiguration.ephemeral
+        sessionConfiguration.timeoutIntervalForRequest = timeout
+        sessionConfiguration.timeoutIntervalForResource = timeout * 2
+        let session = URLSession(configuration: sessionConfiguration, delegate: NoRedirectDelegate(), delegateQueue: nil)
+        defer { session.finishTasksAndInvalidate() }
+        let (data, response) = try await session.data(for: request)
+        guard let http = response as? HTTPURLResponse else { throw Failure.receiver("PaceForge did not answer.") }
+        let retryAfter = http.value(forHTTPHeaderField: "Retry-After").flatMap { Int($0.trimmingCharacters(in: .whitespaces)) }
+        return (http.statusCode, data, retryAfter)
+    }
+
     /// Host of the configured PaceForge endpoint, for error captions; never the token or path.
     static var paceForgeHost: String? { (try? configuration())?.0.host }
 

@@ -222,6 +222,8 @@ targets:
       - StrandiOS/PaceForge/PaceForgeAlertHistory.swift
       # Garmin's own recovery HR (hrr_garmin): parsing and the card's wording.
       - StrandiOS/PaceForge/PaceForgeHRRGarmin.swift
+      # The job door to PaceForge's write actions (POST api/app/job): the request bodies, how a reply or a refusal reads, the polling schedule.
+      - StrandiOS/PaceForge/PaceForgeJob.swift
       # Hide numbers applied to sentences (brief, analysis): shared with the widget extension, so compiled here too.
       - StrandiOSShared/PaceForgeRedact.swift
       # The Where you stand / Garmin recovery / ride widget glances and the code that cuts them from the files.
