@@ -60,6 +60,8 @@ struct PFSnapshot {
     /// True when the snapshot was built with an alerts document (`alerts.json`) in hand, however old; false when the build had none, so
     /// `alertHistory` is empty because nothing was read, not because there were no alerts.
     var alertsLoaded = false
+    /// PaceForge's saved one-line reading of a workout photo (`photo_extract.summary` of the session's rpe.json entry), by activity id.
+    var photoSummaries: [String: String] = [:]
 
     /// The rides of one day.
     func rides(on date: String) -> [PFRide] { rides.filter { $0.date == date } }

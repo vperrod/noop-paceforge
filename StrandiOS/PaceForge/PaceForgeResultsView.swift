@@ -97,22 +97,7 @@ struct PFResultsSheet: View {
                 }
             }
         }
-        if let rpe {
-            PFCard("How hard it felt", icon: "gauge.with.dots.needle.67percent") {
-                HStack(alignment: .firstTextBaseline, spacing: 6) {
-                    Text(PFFormat.trimmed(rpe))
-                        .font(StrandFont.rounded(30))
-                        .foregroundStyle(StrandPalette.textPrimary)
-                    Text("RPE of 10").font(StrandFont.caption).foregroundStyle(StrandPalette.textTertiary)
-                    if let target = workout.targetRpe {
-                        Spacer(minLength: 8)
-                        Text("planned \(PFFormat.trimmed(target))")
-                            .font(StrandFont.caption)
-                            .foregroundStyle(StrandPalette.textSecondary)
-                    }
-                }
-            }
-        }
+        PFResultsRating(workout: workout, rpe: rpe, photoSummary: workout.activityId.flatMap { snapshot.photoSummaries[$0] })
     }
 
     @ViewBuilder private func coachCard(_ markdown: String?) -> some View {

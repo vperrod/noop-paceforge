@@ -224,6 +224,7 @@ enum PFBuilder {
         }
         for entry in state["rpe"]["entries"].array {
             if let id = entry["activity_id"].idString, let rpe = entry["rpe"].double { snapshot.rpe[id] = rpe }
+            if let id = entry["activity_id"].idString, let summary = entry["photo_extract"]["summary"].text { snapshot.photoSummaries[id] = summary }
         }
         return snapshot
     }
@@ -263,6 +264,7 @@ enum PFBuilder {
                 kept.sleepNights = fresh.sleepNights
                 kept.trimp = fresh.trimp
                 kept.rpe = fresh.rpe
+                kept.photoSummaries = fresh.photoSummaries
                 snapshot = kept
             } else {
                 snapshot = fresh
@@ -430,6 +432,7 @@ enum PFBuilder {
         }
         for entry in raw.state["rpe"]["entries"].array {
             if let id = entry["activity_id"].idString, let rpe = entry["rpe"].double { snapshot.rpe[id] = rpe }
+            if let id = entry["activity_id"].idString, let summary = entry["photo_extract"]["summary"].text { snapshot.photoSummaries[id] = summary }
         }
     }
 
