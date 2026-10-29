@@ -22,6 +22,15 @@ approximate; downloads are on the [Releases](https://github.com/NoopApp/noop/rel
 - **Not verified on a real iPhone.** The morning brief notification now carries PaceForge's brief (written on the server, no AI key on the phone), so "Coach brief unavailable" no longer appears when PaceForge is connected. It is woken by your data, not the clock: from 04:00 it goes out once PaceForge has your night's sleep and HRV, and the time in Coach settings is the latest it waits (then it goes out saying what is missing). iOS decides when the background check really runs; opening the app also tries.
 - **Needs you leads Today.** Anything PaceForge is waiting on you for (treadmill pace, a proposal, effort, feel) shows at the very top of Today, above the rings, and leaves as soon as you answer it. Nothing shows when nothing is open.
 
+## 12.0.12 build 497 (PaceForge iPhone build): workout photo, effort any time, Adjust today, Sync Garmin, Coach thumbs
+
+- **Not verified on a real iPhone.** These actions need the PaceForge server's new app door (`POST /app/job`) and "NOOP sync" switched on in PaceForge's Settings; without it each one says why it did not go through.
+- **Workout photo.** A finished session's results sheet has "Add workout photo": pick a photo from your library, NOOP shrinks it and sends it, and PaceForge reads it. Nothing to check or confirm; it is only a rough idea for the assessment. If the reading model is busy, PaceForge tries again on its own and the sheet says so. A reading PaceForge has saved for the session shows as "Workout from your photo". A reading made on the first try is shown on the sheet but not attached to the session by the app.
+- **How hard it felt, any time.** A session with no rating shows a row of 1 to 10; one tap saves it.
+- **Adjust today.** Under My Plan on Today, while a session is planned for today: Tired, Sick, or 30, 45 or 60 minutes. One tap asks PaceForge to change today's session, and the card shows what it did.
+- **Sync Garmin now.** In More › PaceForge sync, a button that asks PaceForge to pull your newest data from Garmin. It is separate from "Sync now", which syncs the NOOP database.
+- **Thumbs under Coach replies.** Thumbs up or down under each reply in the Coach chat; the row then reads "Noted".
+
 ## 12.0.12 build 496 (PaceForge iPhone build): Alerts bell and history
 
 - **Not verified on a real iPhone.**
