@@ -71,12 +71,17 @@ final class PaceForgeJobTests: XCTestCase {
 
     func testAPhotoWithNeitherIsUnbound() {
         let inputs = PFJobInputs.analyzeWorkoutPhoto(photoID: "abc-12345", imageBase64: "QUJD", activityID: nil, date: nil)
-        assertSame(inputs, ["photo_id": "abc-12345", "image_base64": "QUJD", "auto_attach": true])
+        assertSame(inputs, ["photo_id": "abc-12345", "image_base64": "QUJD"])
     }
 
     func testAPhotoAsksTheServerToAttachItsReading() {
-        let inputs = PFJobInputs.analyzeWorkoutPhoto(photoID: "abc-12345", imageBase64: "QUJD", activityID: nil, date: nil)
+        let inputs = PFJobInputs.analyzeWorkoutPhoto(photoID: "abc-12345", imageBase64: "QUJD", activityID: nil, date: "2030-03-13")
         XCTAssertEqual(inputs["auto_attach"] as? Bool, true)
+    }
+
+    func testAnUnboundPhotoIsSentWithoutAutoAttach() {
+        let inputs = PFJobInputs.analyzeWorkoutPhoto(photoID: "abc-12345", imageBase64: "QUJD", activityID: nil, date: nil)
+        XCTAssertNil(inputs["auto_attach"])
     }
 
     // MARK: save-rpe

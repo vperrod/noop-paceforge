@@ -65,14 +65,17 @@ enum PFJobInputs {
     static func newPhotoID() -> String { UUID().uuidString.lowercased() }
 
     /// `analyze-workout-photo`. The photo is bound to the activity when it has a usable id, else to the day (the server keys
-    /// an unrecorded session by date); with neither it is sent unbound. `auto_attach` asks the server to attach the first-try
-    /// reading to the session itself, unchecked: the athlete is never asked to confirm a photo.
+    /// an unrecorded session by date); with neither it is sent unbound. `auto_attach` asks the server to attach the reading to that
+    /// session itself, unchecked: the athlete is never asked to confirm a photo. The server needs the photo bound for it, so an unbound
+    /// photo is sent without it.
     static func analyzeWorkoutPhoto(photoID: String, imageBase64: String, activityID: String?, date: String?) -> [String: Any] {
-        var inputs: [String: Any] = ["photo_id": photoID, "image_base64": imageBase64, "auto_attach": true]
+        var inputs: [String: Any] = ["photo_id": photoID, "image_base64": imageBase64]
         if let id = Self.activityID(activityID) {
             inputs["activity_id"] = id
+            inputs["auto_attach"] = true
         } else if let date, !date.isEmpty {
             inputs["date"] = date
+            inputs["auto_attach"] = true
         }
         return inputs
     }
