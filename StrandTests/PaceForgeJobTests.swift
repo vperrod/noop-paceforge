@@ -22,8 +22,8 @@ final class PaceForgeJobTests: XCTestCase {
     }
 
     func testTheJobNamesAreTheContractsOwn() {
-        XCTAssertEqual([PFJobName.sync, .analyzeWorkoutPhoto, .saveRpe, .adjustToday, .coachFeedback].map { $0.rawValue },
-                       ["sync", "analyze-workout-photo", "save-rpe", "adjust-today", "coach-feedback"])
+        XCTAssertEqual([PFJobName.sync, .analyzeWorkoutPhoto, .saveRpe, .adjustToday, .coachFeedback, .coach].map { $0.rawValue },
+                       ["sync", "analyze-workout-photo", "save-rpe", "adjust-today", "coach-feedback", "coach"])
     }
 
     // MARK: Activity ids
@@ -159,6 +159,54 @@ final class PaceForgeJobTests: XCTestCase {
 
     func testARatingIsKeptUnderItsKindAndId() {
         XCTAssertEqual(PFCoachFeedback.key(kind: "chat", id: "t1"), "chat:t1")
+    }
+
+    // MARK: coach
+
+    func testAnInstructionIsTrimmedAndSentUnderItsField() {
+        assertSame(PFJobInputs.coach("  move my long run to Sunday \n"), ["instruction": "move my long run to Sunday"])
+    }
+
+    func testAnEmptyInstructionIsNotSent() {
+        XCTAssertNil(PFJobInputs.coach("  \n "))
+    }
+
+    func testAnInstructionOfTwoThousandCharactersIsSent() {
+        XCTAssertNotNil(PFJobInputs.coach(String(repeating: "a", count: 2000)))
+    }
+
+    func testAnInstructionOfMoreThanTwoThousandCharactersIsNotSent() {
+        XCTAssertNil(PFJobInputs.coach(String(repeating: "a", count: 2001)))
+    }
+
+    func testTheCoachJobIsGivenFiveMinutesAndAMargin() {
+        XCTAssertEqual(PFJobPolling.deadline(for: .coach), 360)
+    }
+
+    func testTheReplyIsTheNewestCoachTurnWhenItIsNew() {
+        let chat = [PFChatTurn(role: "coach", text: "Old", ts: "t1"), PFChatTurn(role: "athlete", text: "Move it", ts: "t2"),
+                    PFChatTurn(role: "coach", text: " Moved to Sunday. ", ts: "t3")]
+        XCTAssertEqual(PFCoachInstruction.reply(in: chat, after: "t1"), "Moved to Sunday.")
+    }
+
+    func testNoNewCoachTurnIsNoReply() {
+        let chat = [PFChatTurn(role: "coach", text: "Old", ts: "t1")]
+        XCTAssertNil(PFCoachInstruction.reply(in: chat, after: "t1"))
+    }
+
+    func testAnEmptyTranscriptIsNoReply() {
+        XCTAssertNil(PFCoachInstruction.reply(in: [], after: nil))
+    }
+
+    func testOnlyNewProposalsAreListed() {
+        let kept = PFNeedsItem(id: "proposal:a", kind: .proposal, title: "Old change")
+        let added = PFNeedsItem(id: "proposal:b", kind: .proposal, title: "Ease Thursday")
+        XCTAssertEqual(PFCoachInstruction.newProposals(before: [kept], after: [kept, added]), ["Ease Thursday"])
+    }
+
+    func testANewItemThatIsNotAProposalIsNotListed() {
+        let rating = PFNeedsItem(id: "rpe:1", kind: .rpe, title: "Rate it")
+        XCTAssertEqual(PFCoachInstruction.newProposals(before: [], after: [rating]), [])
     }
 
     // MARK: Replies

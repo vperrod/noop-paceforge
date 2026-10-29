@@ -24,6 +24,7 @@ struct PFCoachView: View {
             if !pendingWorkoutReviews.isEmpty { pendingWorkoutReviewsCard }
             if !recentWorkoutReads.isEmpty { workoutReadsCard }
             chatCard
+            PFTellCoachCard()
         }
         .task(id: snapshot.todayISO) { await loadMonthlyRead() }
         .task(id: noopCoach.pendingPrompt) {

@@ -15,12 +15,14 @@ enum PFJobName: String, Equatable {
     case saveRpe = "save-rpe"
     case adjustToday = "adjust-today"
     case coachFeedback = "coach-feedback"
+    case coach
 
     /// How long a job is expected to take from the request to "done", in seconds, from the contract: a photo read is 5 s to about 4.5 min
     /// (the local vision model is shared), a Garmin sync about 8 s and a minute or more behind a Garmin rate limit, the rest run inline.
     var expectedSeconds: TimeInterval {
         switch self {
         case .analyzeWorkoutPhoto: return 270
+        case .coach: return 300
         case .sync: return 120
         case .saveRpe, .adjustToday, .coachFeedback: return 30
         }
@@ -89,6 +91,13 @@ enum PFJobInputs {
             guard (15...240).contains(minutes) else { return nil }
             return ["mode": "time", "minutes": minutes]
         }
+    }
+
+    /// `coach`: `{"instruction": text}`, 1 to 2000 characters. An order in plain words; a question goes to the chat instead.
+    static func coach(_ instruction: String) -> [String: Any]? {
+        let text = instruction.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty, text.unicodeScalars.count <= 2000 else { return nil }
+        return ["instruction": text]
     }
 
     /// `coach-feedback`: `{"data": {target: {kind, id}, verdict, reason}}`. The reason is left out when empty (the server limit is 300).
@@ -302,4 +311,23 @@ enum PFCoachFeedback {
 
     /// The key a rating is kept under on the phone: the target's kind and id.
     static func key(kind: String, id: String) -> String { "\(kind):\(id)" }
+}
+
+// MARK: Tell the coach
+
+/// What a finished `coach` instruction left behind. The job returns no text of its own: the reply lands in the shared chat transcript
+/// and any change it asks for is filed as a proposal in Needs you.
+enum PFCoachInstruction {
+    /// The newest Coach reply in the transcript, when it is not the one that was there before the instruction was sent.
+    static func reply(in chat: [PFChatTurn], after previousTS: String?) -> String? {
+        guard let last = chat.last(where: { $0.role == "coach" }), last.ts != previousTS else { return nil }
+        let text = last.text.trimmingCharacters(in: .whitespacesAndNewlines)
+        return text.isEmpty ? nil : String(text.prefix(600))
+    }
+
+    /// The titles of the proposals that were not in Needs you before the instruction.
+    static func newProposals(before: [PFNeedsItem], after: [PFNeedsItem]) -> [String] {
+        let known = Set(before.map { $0.id })
+        return after.filter { $0.kind == .proposal && !known.contains($0.id) }.map { $0.title }
+    }
 }
