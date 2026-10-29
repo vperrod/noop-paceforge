@@ -2,9 +2,9 @@ import SwiftUI
 import PhotosUI
 import StrandDesign
 
-// What a finished session's results sheet lets the athlete add afterwards: a photo of the workout, through the job door
-// (PaceForgeJob.swift). Small and plain on purpose: the photo is only a rough idea for the assessment, so nothing is asked of the
-// athlete once it is sent.
+// What a finished session's results sheet lets the athlete add afterwards: how hard it felt (any time, a 1-10 row) and a photo of
+// the workout. Both go through the job door (PaceForgeJob.swift). Small and plain on purpose: one tap for the effort, and a photo
+// that is only a rough idea for the assessment, so nothing is asked of the athlete once it is sent.
 
 /// The two cards under a results sheet's other cards. One view, so the sheet's own column gains a single child.
 struct PFResultsRating: View {
@@ -24,16 +24,35 @@ struct PFResultsRating: View {
 
 // MARK: How hard it felt
 
-/// "How hard it felt", once there is a rating.
+/// "How hard it felt" once there is a rating; before that, one row of 1-10 chips that saves it (`save-rpe`, any session at any time).
 private struct PFRpeCard: View {
     let workout: PFWorkout
     let saved: Double?
 
-    private var shown: Double? { saved }
+    @EnvironmentObject private var model: PFModel
+    @StateObject private var tracker = PFJobTracker()
+    @State private var justSaved: Int?
+
+    private var shown: Double? { saved ?? justSaved.map { Double($0) } }
+    private var isBusy: Bool { tracker.phase == .sending || tracker.phase == .working }
 
     var body: some View {
         if let shown {
             ratedCard(shown)
+        } else if PFJobInputs.activityID(workout.activityId) != nil {
+            PFCard(String(localized: "How hard did it feel?"), icon: "gauge.with.dots.needle.67percent") {
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("Tap a number. 1 is very easy, 10 is all out.")
+                        .font(StrandFont.caption)
+                        .foregroundStyle(StrandPalette.textTertiary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    HStack(spacing: 4) {
+                        ForEach(1...10, id: \.self) { value in chip(value) }
+                    }
+                    status
+                }
+            }
+            .containerIdentifier("pf-rpe-input")
         }
     }
 
@@ -51,6 +70,45 @@ private struct PFRpeCard: View {
                         .foregroundStyle(StrandPalette.textSecondary)
                 }
             }
+        }
+    }
+
+    private func chip(_ value: Int) -> some View {
+        Button {
+            Task { await save(value) }
+        } label: {
+            Text(String(value))
+                .font(StrandFont.subhead.weight(.semibold))
+                .foregroundStyle(StrandPalette.textPrimary)
+                .frame(maxWidth: .infinity, minHeight: 44)
+                .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(StrandPalette.surfaceInset))
+        }
+        .buttonStyle(.plain)
+        .disabled(isBusy)
+        .accessibilityIdentifier("pf-rpe-\(value)")
+    }
+
+    @ViewBuilder private var status: some View {
+        switch tracker.phase {
+        case .sending, .working:
+            Text("Saving")
+                .font(StrandFont.caption)
+                .foregroundStyle(StrandPalette.textSecondary)
+        case .failed(let message):
+            Text(message)
+                .font(StrandFont.caption)
+                .foregroundStyle(PFColor.warning)
+                .fixedSize(horizontal: false, vertical: true)
+        case .idle, .done:
+            EmptyView()
+        }
+    }
+
+    @MainActor private func save(_ value: Int) async {
+        guard let inputs = PFJobInputs.saveRpe(value, activityID: workout.activityId, date: workout.date) else { return }
+        if case .success = await tracker.run(.saveRpe, inputs: inputs) {
+            justSaved = value
+            await model.refresh()
         }
     }
 }
