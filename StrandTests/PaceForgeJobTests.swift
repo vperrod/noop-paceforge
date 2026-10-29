@@ -61,17 +61,22 @@ final class PaceForgeJobTests: XCTestCase {
 
     func testAPhotoBoundToAnActivityCarriesTheActivityAndNoDate() {
         let inputs = PFJobInputs.analyzeWorkoutPhoto(photoID: "abc-12345", imageBase64: "QUJD", activityID: "9000000001", date: "2030-03-13")
-        assertSame(inputs, ["photo_id": "abc-12345", "image_base64": "QUJD", "activity_id": "9000000001"])
+        assertSame(inputs, ["photo_id": "abc-12345", "image_base64": "QUJD", "auto_attach": true, "activity_id": "9000000001"])
     }
 
     func testAPhotoWithoutAUsableActivityIsBoundToTheDay() {
         let inputs = PFJobInputs.analyzeWorkoutPhoto(photoID: "abc-12345", imageBase64: "QUJD", activityID: "strap-key", date: "2030-03-13")
-        assertSame(inputs, ["photo_id": "abc-12345", "image_base64": "QUJD", "date": "2030-03-13"])
+        assertSame(inputs, ["photo_id": "abc-12345", "image_base64": "QUJD", "auto_attach": true, "date": "2030-03-13"])
     }
 
     func testAPhotoWithNeitherIsUnbound() {
         let inputs = PFJobInputs.analyzeWorkoutPhoto(photoID: "abc-12345", imageBase64: "QUJD", activityID: nil, date: nil)
-        assertSame(inputs, ["photo_id": "abc-12345", "image_base64": "QUJD"])
+        assertSame(inputs, ["photo_id": "abc-12345", "image_base64": "QUJD", "auto_attach": true])
+    }
+
+    func testAPhotoAsksTheServerToAttachItsReading() {
+        let inputs = PFJobInputs.analyzeWorkoutPhoto(photoID: "abc-12345", imageBase64: "QUJD", activityID: nil, date: nil)
+        XCTAssertEqual(inputs["auto_attach"] as? Bool, true)
     }
 
     // MARK: save-rpe
