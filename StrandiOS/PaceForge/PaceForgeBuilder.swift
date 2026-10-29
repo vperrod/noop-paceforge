@@ -176,6 +176,7 @@ enum PFBuilder {
         snapshot.body = body(raw.body)
         snapshot.bodyProgress = bodyProgress(raw.bodyProgress)
         snapshot.alerts = alerts(raw.alerts)
+        snapshot.alertHistory = alertHistory(raw.alerts)
         snapshot.readiness = readiness(raw.readiness)
         snapshot.feel = PFWave2Parse.feelSummary(raw.feelSummary)
         snapshot.whatChanged = PFWave2Parse.whatChanged(raw.whatChanged)
@@ -277,7 +278,10 @@ enum PFBuilder {
     private static func applyWave2Leaves(_ snapshot: inout PFSnapshot, raw: PFRawBundle, stale: Staleness) {
         if stale(.body) { snapshot.body = body(raw.body) }
         if stale(.bodyProgress) { snapshot.bodyProgress = bodyProgress(raw.bodyProgress) }
-        if stale(.alerts) { snapshot.alerts = alerts(raw.alerts) }
+        if stale(.alerts) {
+            snapshot.alerts = alerts(raw.alerts)
+            snapshot.alertHistory = alertHistory(raw.alerts)
+        }
         if stale(.readiness) { snapshot.readiness = readiness(raw.readiness) }
         if stale(.feel) { snapshot.feel = PFWave2Parse.feelSummary(raw.feelSummary) }
         if stale(.whatChanged) { snapshot.whatChanged = PFWave2Parse.whatChanged(raw.whatChanged) }
@@ -695,26 +699,33 @@ enum PFBuilder {
 
     /// Open alerts, most urgent first, then newest first.
     static func alerts(_ j: PFJ) -> [PFAlert] {
-        let open: [PFAlert] = j["alerts"].array.compactMap { a in
-            guard let id = a["id"].idString, let title = a["title"].text,
-                  (a["status"].string ?? "open") == "open" else { return nil }
-            let actions: [PFAlertAction] = a["actions"].array.compactMap { action in
-                guard let label = action["label"].text else { return nil }
-                return PFAlertAction(id: action["id"].string ?? label, label: label)
-            }
-            let kind = a["kind"].string
-            var live: PFLiveAlertFacts?
-            if kind?.hasPrefix("live_") == true, let reading = a["metrics"]["reading"].text {
-                live = PFLiveAlertFacts(reading: reading, hisNormal: a["metrics"]["his_normal"].text,
-                                        source: a["metrics"]["source"].text, planEffect: a["metrics"]["plan_effect"].text)
-            }
-            return PFAlert(id: id, kind: kind, severity: a["severity"].string ?? "info",
-                           createdAt: a["created_at"].string, title: title, body: a["body"].text, actions: actions, live: live,
-                           activityID: PFAlertRoute.activityID(kind: kind, key: a["key"].string))
-        }
+        let open: [PFAlert] = j["alerts"].array.compactMap { alertRow($0) }.filter { ($0.status ?? "open") == "open" }
         return open.sorted { lhs, rhs in
             lhs.rank != rhs.rank ? lhs.rank < rhs.rank : (lhs.createdAt ?? "") > (rhs.createdAt ?? "")
         }
+    }
+
+    /// Every alert in the file whatever its status, in the file's order; the Alerts history sorts and groups them.
+    static func alertHistory(_ j: PFJ) -> [PFAlert] {
+        j["alerts"].array.compactMap { alertRow($0) }
+    }
+
+    private static func alertRow(_ a: PFJ) -> PFAlert? {
+        guard let id = a["id"].idString, let title = a["title"].text else { return nil }
+        let actions: [PFAlertAction] = a["actions"].array.compactMap { action in
+            guard let label = action["label"].text else { return nil }
+            return PFAlertAction(id: action["id"].string ?? label, label: label)
+        }
+        let kind = a["kind"].string
+        var live: PFLiveAlertFacts?
+        if kind?.hasPrefix("live_") == true, let reading = a["metrics"]["reading"].text {
+            live = PFLiveAlertFacts(reading: reading, hisNormal: a["metrics"]["his_normal"].text,
+                                    source: a["metrics"]["source"].text, planEffect: a["metrics"]["plan_effect"].text)
+        }
+        return PFAlert(id: id, kind: kind, severity: a["severity"].string ?? "info",
+                       createdAt: a["created_at"].string, title: title, body: a["body"].text, actions: actions, live: live,
+                       activityID: PFAlertRoute.activityID(kind: kind, key: a["key"].string),
+                       status: a["status"].string)
     }
 
     static func readiness(_ j: PFJ) -> PFReadiness? {

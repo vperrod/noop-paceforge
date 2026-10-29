@@ -218,6 +218,8 @@ targets:
       # Needs you: the list parsing, the answer bodies, the treadmill input checks and how the server's reply reads.
       - StrandiOS/PaceForge/PaceForgeNeedsYou.swift
       - StrandiOS/PaceForge/PaceForgeTodayLayout.swift
+      # The Alerts history behind the bell on Today: merging the alerts with the announced Needs you items, grouping, unread counts and the seen list.
+      - StrandiOS/PaceForge/PaceForgeAlertHistory.swift
       # Garmin's own recovery HR (hrr_garmin): parsing and the card's wording.
       - StrandiOS/PaceForge/PaceForgeHRRGarmin.swift
       # Hide numbers applied to sentences (brief, analysis): shared with the widget extension, so compiled here too.

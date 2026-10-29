@@ -224,14 +224,7 @@ enum PaceForgeBackground {
     }
 
     private static func isRecent(_ createdAt: String?) -> Bool {
-        guard let createdAt else { return true }
-        let withFraction = ISO8601DateFormatter()
-        withFraction.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        let local = DateFormatter()
-        local.locale = Locale(identifier: "en_US_POSIX")
-        local.dateFormat = "yyyy-MM-dd'T'HH:mm:ss"
-        guard let when = withFraction.date(from: createdAt) ?? ISO8601DateFormatter().date(from: createdAt)
-                ?? local.date(from: String(createdAt.prefix(19))) else { return true }
+        guard let createdAt, let when = PFAlertDates.parse(createdAt) else { return true }
         return Date().timeIntervalSince(when) < 2 * 86_400
     }
 

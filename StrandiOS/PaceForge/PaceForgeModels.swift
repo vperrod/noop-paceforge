@@ -55,6 +55,8 @@ struct PFSnapshot {
     var needsYou: [PFNeedsItem] = []
     /// `state.settings.privacy.hide_body_on_lock_screen` as the server sent it; nil when it sent nothing.
     var serverHidesBody: Bool?
+    /// Every alert the server still keeps (`alerts.json`, about two weeks), open or not, for the Alerts history; `alerts` above holds the open ones.
+    var alertHistory: [PFAlert] = []
 
     /// The rides of one day.
     func rides(on date: String) -> [PFRide] { rides.filter { $0.date == date } }
@@ -545,6 +547,8 @@ struct PFAlert: Identifiable {
     var live: PFLiveAlertFacts?
     /// The Garmin activity the alert is about (a load spike, a heart-rate recovery flag); nil for the kinds about a day or a trend.
     var activityID: String?
+    /// The server's `status` (open, dismissed, done ...); nil when the alert carries none.
+    var status: String?
 
     var rank: Int { severity == "act" ? 0 : (severity == "watch" ? 1 : 2) }
 
