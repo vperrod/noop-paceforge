@@ -21,6 +21,15 @@
       "versions": [
         {
           "version": "12.0.12",
+          "buildVersion": "497",
+          "date": "2026-10-29",
+          "localizedDescription": "Build 497: the app can now do what the web app does: add a workout photo, rate effort any time, adjust today, log a niggle, move or skip a session, start or end easy mode, add events, log a HYROX simulation, tell the coach, sync Garmin and rate coach replies.",
+          "downloadURL": "https://github.com/vperrod/noop-paceforge/releases/download/noop-ios-v12.0.12-b497/NOOP-v12.0.12-b497.ipa",
+          "size": 31330439,
+          "minOSVersion": "17.0"
+        },
+        {
+          "version": "12.0.12",
           "buildVersion": "496",
           "date": "2026-10-29",
           "localizedDescription": "Build 496: a bell at the top of Today opens the alerts history with unread marks; tapping an alert opens the card or activity it is about.",
