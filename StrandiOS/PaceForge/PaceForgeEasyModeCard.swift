@@ -83,7 +83,6 @@ struct PFEasyModeCard: View {
                 .padding(10)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(StrandPalette.surfaceInset))
-                .accessibilityElement(children: .combine)
                 .containerIdentifier("pf-easy-pending-\(proposal.proposalId)")
             }
         }

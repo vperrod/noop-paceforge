@@ -151,18 +151,19 @@ final class PaceForgeWave3UITests: XCTestCase {
         try openSegment(app, "Today")
         let proposal = element(app, "pf-easy-pending-p1")
         XCTAssertTrue(reveal(proposal, in: app), "A pending proposal should be listed.")
-        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH[c] %@", "Accept in Telegram")).firstMatch.exists,
+        // The fixture's Needs you list has no matching item, so the card points to Needs you instead of showing Accept.
+        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH[c] %@", "Accept it in Needs you")).firstMatch.exists,
                       "It should say where to accept it.")
         attach(app, "34 Easy mode pending")
     }
 
-    func testEasyModeHintShowsWhenNothingIsOn() throws {
+    func testEasyModeStartCardShowsWhenNothingIsOn() throws {
         let app = try launch(extraArguments: ["-PaceForgeEasyIdle"])
         try openSegment(app, "Today")
-        let hint = element(app, "pf-easy-hint")
-        XCTAssertTrue(reveal(hint, in: app), "With no mode on, Today should offer the Telegram hint.")
+        let start = element(app, "pf-easy-start")
+        XCTAssertTrue(reveal(start, in: app), "With no mode on, Today should offer to start one.")
         XCTAssertFalse(element(app, "pf-easy-chip").exists, "There should be no chip when no mode is on.")
-        attach(app, "35 Easy mode hint")
+        attach(app, "35 Easy mode start")
     }
 
     // MARK: Body: muscle check, tape, estimate label

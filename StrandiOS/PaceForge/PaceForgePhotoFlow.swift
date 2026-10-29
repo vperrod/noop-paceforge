@@ -4,7 +4,7 @@ import ImageIO
 /// Shrinks a picked photo for upload: 1600 px on the long edge (never enlarged), JPEG quality 0.8. The shrinking is the avatar picker's
 /// own (`AvatarImage`, ImageIO, honours the photo's orientation).
 enum PFPhotoPrep {
-    nonisolated static func jpeg(from data: Data) -> Data? {
+    static func jpeg(from data: Data) -> Data? {
         guard let source = CGImageSourceCreateWithData(data as CFData, nil),
               let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
               let width = properties[kCGImagePropertyPixelWidth] as? Int,

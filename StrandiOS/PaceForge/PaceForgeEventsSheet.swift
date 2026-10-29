@@ -179,32 +179,45 @@ struct PFEventsSheet: View {
     }
 
     @MainActor private func add() async {
-        guard let current = list else { return }
-        problem = nil
-        switch PFEvents.adding(name: name, date: PFFormat.isoString(date), type: type, location: place, to: current) {
-        case .failure(let reason):
-            problem = reason.message
-        case .success(let updated):
-            if await save(updated) {
-                name = ""
-                type = ""
-                place = ""
-            }
+        let change = PFEventChange.add(name: name, date: PFFormat.isoString(date), type: type, location: place)
+        if await apply(change) {
+            name = ""
+            type = ""
+            place = ""
         }
     }
 
     @MainActor private func cancel(_ event: PFEventRow) async {
-        guard let current = list else { return }
-        problem = nil
-        _ = await save(PFEvents.removing(date: event.date, from: current))
+        _ = await apply(.cancel(date: event.date, name: event.name))
     }
 
-    /// Sends the whole list; on success the sheet shows it and the plan is read again.
-    @MainActor private func save(_ updated: [[String: Any]]) async -> Bool {
-        guard let inputs = PFEvents.inputs(updated) else { return false }
-        guard case .success = await tracker.run(.saveEvents, inputs: inputs) else { return false }
-        list = updated
-        await model.refresh()
-        return true
+    /// Reads the list again just before sending (the one on screen may be older than the server's), applies the single change to that
+    /// fresh list and sends all of it. If the fresh list cannot be read nothing is sent: the server would replace its list with ours.
+    @MainActor private func apply(_ change: PFEventChange) async -> Bool {
+        problem = nil
+        guard let fresh = PFEvents.parse(await PFAPI.fetchOptional("data/events.json")) else {
+            problem = PFEventProblem.unreadable.message
+            return false
+        }
+        switch PFEvents.applying(change, to: fresh) {
+        case .failure(let reason):
+            list = fresh
+            problem = reason.message
+            return false
+        case .success(let updated):
+            if case .cancel = change, updated.count == fresh.count {
+                list = fresh
+                return true
+            }
+            guard let inputs = PFEvents.inputs(updated) else {
+                list = fresh
+                problem = PFEventProblem.tooMany.message
+                return false
+            }
+            guard case .success = await tracker.run(.saveEvents, inputs: inputs) else { return false }
+            list = updated
+            await model.refresh()
+            return true
+        }
     }
 }

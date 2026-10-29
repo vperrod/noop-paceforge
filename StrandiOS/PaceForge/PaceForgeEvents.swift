@@ -11,17 +11,25 @@ struct PFEventRow: Equatable, Identifiable {
     let date: String
     let name: String
     let type: String?
-    var id: String { date }
+    /// Unique in a list even when two events share a date (and a name): the date, the name and which of those it is.
+    let id: String
+}
+
+/// One change to the list, applied to the list as it is on the server at the moment of sending.
+enum PFEventChange {
+    case add(name: String, date: String, type: String, location: String)
+    case cancel(date: String, name: String)
 }
 
 /// Why an event could not be added, in words for the form.
-enum PFEventProblem: Equatable {
+enum PFEventProblem: Error, Equatable {
     case nameMissing
     case nameTooLong
     case badDate
     case dateTaken
     case tooMany
     case textTooLong
+    case unreadable
 
     var message: String {
         switch self {
@@ -31,6 +39,7 @@ enum PFEventProblem: Equatable {
         case .dateTaken: return "There is already an event on that day."
         case .tooMany: return "PaceForge keeps at most 100 events."
         case .textTooLong: return "The type or place is longer than 500 characters."
+        case .unreadable: return "PaceForge's events could not be read, so nothing was changed."
         }
     }
 }
@@ -46,12 +55,16 @@ enum PFEvents {
 
     /// The rows to show, soonest first. A row without a date or a name is not shown (and is still sent back untouched).
     static func rows(_ list: [[String: Any]]) -> [PFEventRow] {
-        list.compactMap { row -> PFEventRow? in
+        var seen: [String: Int] = [:]
+        let rows = list.compactMap { row -> PFEventRow? in
             guard let date = row["date"] as? String, let name = row["name"] as? String, !date.isEmpty, !name.isEmpty else { return nil }
             let type = (row["type"] as? String).flatMap { $0.isEmpty ? nil : $0 }
-            return PFEventRow(date: date, name: name, type: type)
+            let key = date + "|" + name
+            let occurrence = seen[key, default: 0]
+            seen[key] = occurrence + 1
+            return PFEventRow(date: date, name: name, type: type, id: key + "|" + String(occurrence))
         }
-        .sorted { $0.date < $1.date }
+        return rows.sorted { $0.date < $1.date }
     }
 
     /// The list with one event added (the original shape: date, name, type, goal_time), or the reason it cannot be.
@@ -71,9 +84,22 @@ enum PFEvents {
         return .success(list + [row])
     }
 
-    /// The list without the event on this date.
-    static func removing(date: String, from list: [[String: Any]]) -> [[String: Any]] {
-        list.filter { ($0["date"] as? String) != date }
+    /// The list without the first event that has this date AND this name; any other event on that date stays.
+    static func removing(date: String, name: String, from list: [[String: Any]]) -> [[String: Any]] {
+        guard let index = list.firstIndex(where: { ($0["date"] as? String) == date && ($0["name"] as? String) == name }) else { return list }
+        var kept = list
+        kept.remove(at: index)
+        return kept
+    }
+
+    /// The list with one change applied, or why it cannot be.
+    static func applying(_ change: PFEventChange, to list: [[String: Any]]) -> Result<[[String: Any]], PFEventProblem> {
+        switch change {
+        case .add(let name, let date, let type, let location):
+            return adding(name: name, date: date, type: type, location: location, to: list)
+        case .cancel(let date, let name):
+            return .success(removing(date: date, name: name, from: list))
+        }
     }
 
     /// `save-events`: `{"data": [every event]}`, soonest first as the web sends it.

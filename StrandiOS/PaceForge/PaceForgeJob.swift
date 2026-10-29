@@ -225,6 +225,15 @@ enum PFJobError: Error, Equatable {
         }
     }
 
+    /// Whether a failed look at a job's state is no reason to stop waiting: a dropped connection, a server hiccup or an odd answer. The
+    /// deadline still ends the wait; a refusal (token, NOOP sync off, a 4xx) ends it at once.
+    var keepsWaiting: Bool {
+        switch self {
+        case .offline, .serverTrouble, .unreadable: return true
+        default: return false
+        }
+    }
+
     private static func waitText(_ seconds: Int?) -> String {
         guard let seconds, seconds > 0 else { return "Try again later." }
         if seconds <= 60 { return "Try again in a minute." }

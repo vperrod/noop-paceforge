@@ -81,12 +81,60 @@ final class PaceForgeEventsTests: XCTestCase {
     // MARK: Cancelling and sending
 
     func testCancellingRemovesOnlyThatDay() {
-        XCTAssertEqual(PFEvents.rows(PFEvents.removing(date: "2030-06-01", from: list)).map { $0.name }, ["Hyrox Open"])
+        XCTAssertEqual(PFEvents.rows(PFEvents.removing(date: "2030-06-01", name: "City Half", from: list)).map { $0.name }, ["Hyrox Open"])
     }
 
     func testCancellingKeepsTheOthersKeys() {
-        let kept = PFEvents.removing(date: "2030-06-01", from: list)
+        let kept = PFEvents.removing(date: "2030-06-01", name: "City Half", from: list)
         XCTAssertEqual((kept.first?["partner"] as? [String: Any])?["name"] as? String, "Sam")
+    }
+
+    func testCancellingKeepsAnotherEventOnTheSameDay() {
+        let both = list + [["date": "2030-06-01", "name": "Park 5K"]]
+        XCTAssertEqual(PFEvents.rows(PFEvents.removing(date: "2030-06-01", name: "City Half", from: both)).map { $0.name }, ["Hyrox Open", "Park 5K"])
+    }
+
+    func testCancellingRemovesOnlyTheFirstOfTwoIdenticalRows() {
+        let twice: [[String: Any]] = [["date": "2030-06-01", "name": "City Half"], ["date": "2030-06-01", "name": "City Half"]]
+        XCTAssertEqual(PFEvents.removing(date: "2030-06-01", name: "City Half", from: twice).count, 1)
+    }
+
+    func testCancellingAnEventThatIsGoneChangesNothing() {
+        XCTAssertEqual(PFEvents.removing(date: "2030-06-01", name: "Other", from: list).count, 2)
+    }
+
+    func testTwoEventsOnOneDayHaveDifferentRowIds() {
+        let both: [[String: Any]] = [["date": "2030-06-01", "name": "A"], ["date": "2030-06-01", "name": "B"]]
+        XCTAssertEqual(Set(PFEvents.rows(both).map { $0.id }).count, 2)
+    }
+
+    func testTwoIdenticalRowsHaveDifferentRowIds() {
+        let twice: [[String: Any]] = [["date": "2030-06-01", "name": "A"], ["date": "2030-06-01", "name": "A"]]
+        XCTAssertEqual(Set(PFEvents.rows(twice).map { $0.id }).count, 2)
+    }
+
+    func testAChangeIsAppliedToTheFreshListItIsGiven() {
+        let fresh: [[String: Any]] = [["date": "2030-07-01", "name": "New one"]]
+        let updated = (try? PFEvents.applying(.add(name: "10K", date: "2030-05-05", type: "10K", location: ""), to: fresh).get()) ?? []
+        XCTAssertEqual(PFEvents.rows(updated).map { $0.name }, ["10K", "New one"])
+    }
+
+    func testACancelIsAppliedToTheFreshList() {
+        let updated = (try? PFEvents.applying(.cancel(date: "2030-06-01", name: "City Half"), to: list).get()) ?? []
+        XCTAssertEqual(updated.count, 1)
+    }
+
+    func testAnAddOnADayTakenOnTheFreshListIsRefused() {
+        XCTAssertEqual(PFEvents.applying(.add(name: "10K", date: "2030-06-01", type: "", location: ""), to: list).problem, .dateTaken)
+    }
+
+    func testAnUnreadableListHasAPlainMessage() {
+        XCTAssertEqual(PFEventProblem.unreadable.message, "PaceForge's events could not be read, so nothing was changed.")
+    }
+
+    func testAListStillOverTheCapAfterACancelIsNotSent() {
+        let over = (0..<102).map { ["date": "2031-02-\($0)", "name": "E\($0)"] as [String: Any] }
+        XCTAssertNil(PFEvents.inputs(PFEvents.removing(date: "2031-02-0", name: "E0", from: over)))
     }
 
     func testTheInputsCarryTheWholeListSoonestFirst() {

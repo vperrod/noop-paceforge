@@ -25,7 +25,7 @@ enum PFJobClient {
     }
 
     /// Follows a slow job: a look after 2 s, then every 5 s, until it is done or failed, or the job's expected time plus a margin has
-    /// passed. A request that drops while waiting is not the job failing, so the wait goes on; a refusal ends it.
+    /// passed. A look that fails for a passing reason (no connection, a server hiccup, an odd answer) is not the job failing, so the wait goes on; a refusal ends it.
     static func wait(for id: String, job: PFJobName) async -> Result<Void, PFJobError> {
         let started = Date()
         var polls = 0
@@ -45,7 +45,7 @@ enum PFJobClient {
                 case .queued, .running: continue
                 }
             case .failure(let failure):
-                if failure == .offline { continue }
+                if failure.keepsWaiting { continue }
                 return .failure(failure)
             }
         }

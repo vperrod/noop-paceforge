@@ -318,6 +318,16 @@ final class PaceForgeJobTests: XCTestCase {
         XCTAssertEqual(PFJobError.failed(nil).message, "PaceForge could not finish that.")
     }
 
+    func testOnlyTroubleThatMayPassKeepsTheWaitGoing() {
+        let keeps: [PFJobError] = [.offline, .serverTrouble(502), .unreadable]
+        XCTAssertEqual(keeps.map { $0.keepsWaiting }, [true, true, true])
+    }
+
+    func testARefusalEndsTheWait() {
+        let ends: [PFJobError] = [.tokenNotAccepted, .syncOff, .refused("no"), .rateLimited(retryAfter: 5), .failed(nil), .timedOut, .cancelled]
+        XCTAssertEqual(ends.map { $0.keepsWaiting }, Array(repeating: false, count: 7))
+    }
+
     func testNoConnectionReadsAsOffline() {
         XCTAssertEqual(PFJobError.transport(URLError(.notConnectedToInternet)), .offline)
     }
