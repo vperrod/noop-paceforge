@@ -1069,6 +1069,7 @@ struct LiquidTodayView: View {
             lookDayPill
             Spacer(minLength: 0)
             LiquidBatteryButton()
+            LiquidAlertsBellButton()
             Button { customizationDestination = .today } label: {
                 Image(systemName: "slider.horizontal.3")
                     .font(.system(size: 14, weight: .bold))
@@ -3627,6 +3628,50 @@ private struct LiquidBatteryButton: View {
         }
     }
 }
+
+#if os(iOS)
+/// The bell in Today's top bar: opens the Alerts history, with a small red count of the lines not seen yet (nothing at 0, "9+" above 9).
+/// Drawn only while PaceForge is set up on the phone. Its own view, so the sheet and the stores it watches stay off Today's body.
+private struct LiquidAlertsBellButton: View {
+    @ObservedObject private var model = PFUnified.model
+    @ObservedObject private var history = PFAlertHistoryStore.shared
+    @State private var showAlerts = false
+
+    private var unread: Int { history.unreadCount(for: model.snapshot) }
+
+    var body: some View {
+        if PFAPI.isConfigured {
+            Button { showAlerts = true } label: {
+                Image(systemName: "bell")
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundStyle(StrandPalette.textPrimary)
+                    .frame(width: NoopMetrics.compactControlSize, height: NoopMetrics.compactControlSize)
+            }
+            .nativeLiquidGlassHeaderButton()
+            .overlay(alignment: .topTrailing) { badge }
+            .accessibilityLabel(unread > 0 ? String(localized: "Alerts, \(unread) unread") : String(localized: "Alerts"))
+            .accessibilityIdentifier("today-alerts")
+            .sheet(isPresented: $showAlerts) { PFAlertsHistoryView() }
+            .onAppear { history.adopt(model.snapshot) }
+            .onChange(of: model.savedAt) { _, _ in history.adopt(model.snapshot) }
+        }
+    }
+
+    @ViewBuilder private var badge: some View {
+        if unread > 0 {
+            Text(verbatim: unread > 9 ? "9+" : String(unread))
+                .font(.system(size: 10, weight: .bold))
+                .foregroundStyle(Color.white)
+                .padding(.horizontal, 4)
+                .frame(minWidth: 16, minHeight: 16)
+                .background(Capsule(style: .continuous).fill(NoopLook.alert))
+                .offset(x: 3, y: -3)
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
+        }
+    }
+}
+#endif
 
 private extension View {
     /// The edge-to-edge photo is overlaid after the native button style so it can fill the face. Finish
