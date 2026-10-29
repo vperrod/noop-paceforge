@@ -109,4 +109,51 @@ final class PaceForgeAlertRoutingTests: XCTestCase {
     func testRememberedIdsEndWithTheNewOnes() {
         XCTAssertEqual(PFNeedsNotify.remembering(["a"], adding: [item("b", .rpe)]), ["a", "b"])
     }
+
+    func testRememberedIdsKeepTheOrderTheyWereAdded() {
+        XCTAssertEqual(PFNeedsNotify.remembering([], adding: [item("c", .rpe), item("a", .rpe), item("b", .rpe)]), ["c", "a", "b"])
+    }
+
+    // MARK: First run
+
+    func testTheFirstRunRecordsTheOpenItemsOfAnnouncedKinds() {
+        let items = [item("rpe:1", .rpe), item("feel:2030-03-13", .feel), item("question:2", .question)]
+        XCTAssertEqual(PFNeedsNotify.firstRun(items), ["rpe:1", "question:2"])
+    }
+
+    func testNothingOpenAtTheFirstRunRecordsNothing() {
+        XCTAssertEqual(PFNeedsNotify.firstRun([]), [])
+    }
+
+    func testAnItemOpenAtTheFirstRunIsNotAnnouncedLater() {
+        let items = [item("rpe:1", .rpe)]
+        XCTAssertEqual(PFNeedsNotify.fresh(items, seen: Set(PFNeedsNotify.firstRun(items))), [])
+    }
+
+    func testAnItemThatAppearsAfterTheFirstRunIsAnnounced() {
+        let recorded = PFNeedsNotify.firstRun([item("rpe:1", .rpe)])
+        XCTAssertEqual(PFNeedsNotify.fresh([item("rpe:1", .rpe), item("proposal:2", .proposal)], seen: Set(recorded)).map { $0.id }, ["proposal:2"])
+    }
+
+    func testAnItemNotRememberedStaysAnnounceable() {
+        // Alerts off or no permission: the caller does not remember what it did not announce, so the next run still announces it.
+        let stored = ["rpe:1"]
+        XCTAssertEqual(PFNeedsNotify.fresh([item("proposal:2", .proposal)], seen: Set(stored)).map { $0.id }, ["proposal:2"])
+    }
+
+    // MARK: A tapped activity waiting for the snapshot
+
+    private let tapped = Date(timeIntervalSince1970: 1_900_000_000)
+
+    func testATappedActivityIsHeldWithinTheMinute() {
+        XCTAssertFalse(PFWantedActivity(id: "91", tappedAt: tapped).isExpired(now: tapped.addingTimeInterval(59)))
+    }
+
+    func testATappedActivityExpiresAfterTheMinute() {
+        XCTAssertTrue(PFWantedActivity(id: "91", tappedAt: tapped).isExpired(now: tapped.addingTimeInterval(60)))
+    }
+
+    func testTheHoldIsOneMinute() {
+        XCTAssertEqual(PFWantedActivity.holdSeconds, 60)
+    }
 }

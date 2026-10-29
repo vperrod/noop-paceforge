@@ -335,6 +335,18 @@ enum PFAlertRoute: Equatable {
     }
 }
 
+/// An activity a notification tap asked to open, held until the snapshot has it. It is held for one minute from the tap, both before a
+/// screen picks it up (`PFAlertLink`) and while the snapshot does not hold the activity yet (`PFAlertActivityRouter`), so a tap
+/// can never open a sheet on a much later refresh.
+struct PFWantedActivity: Equatable {
+    static let holdSeconds: TimeInterval = 60
+
+    let id: String
+    let tappedAt: Date
+
+    func isExpired(now: Date = Date()) -> Bool { now.timeIntervalSince(tappedAt) >= Self.holdSeconds }
+}
+
 /// Which open Needs you items the phone announces with a local notification, each once.
 enum PFNeedsNotify {
     /// The feel check-in has its own morning reminder, so it is not announced here.
@@ -344,6 +356,11 @@ enum PFNeedsNotify {
     /// The items to announce: a kind announced here and an id not seen before.
     static func fresh(_ items: [PFNeedsItem], seen: Set<String>) -> [PFNeedsItem] {
         items.filter { Self.kinds.contains($0.kind) && !seen.contains($0.id) }
+    }
+
+    /// The ids recorded the first time, when nothing is stored yet: every open item of an announced kind, announced to no one.
+    static func firstRun(_ items: [PFNeedsItem]) -> [String] {
+        remembering([], adding: fresh(items, seen: []))
     }
 
     /// The ids to remember: the ones remembered so far, then the new ones, the newest 200.

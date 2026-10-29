@@ -19,10 +19,10 @@ struct PFTodayNeedsYouHost: View {
 
 /// Opens the results of the activity a tapped PaceForge alert is about. It draws nothing: NOOP Today carries it as a background, so the
 /// sheet always has a view to come from, whether or not the Needs you card is on screen. The tap leaves the activity in
-/// `PFAlertLink`; it waits here for the snapshot to hold that activity.
+/// `PFAlertLink`; it waits here for the snapshot to hold that activity, for a minute after the tap at most (`PFWantedActivity`).
 struct PFAlertActivityRouter: View {
     @ObservedObject private var model = PFUnified.model
-    @State private var wantedActivityID: String?
+    @State private var wanted: PFWantedActivity?
     @State private var routedWorkout: PFWorkout?
 
     var body: some View {
@@ -39,14 +39,19 @@ struct PFAlertActivityRouter: View {
     }
 
     private func take() {
-        guard let id = PFAlertLink.consumeActivity() else { return }
-        wantedActivityID = id
+        guard let tapped = PFAlertLink.consumeActivity() else { return }
+        wanted = tapped
         openWanted()
     }
 
     private func openWanted() {
-        guard let id = wantedActivityID, let snapshot = model.snapshot, let activity = snapshot.activities[id] else { return }
-        wantedActivityID = nil
+        guard let tapped = wanted else { return }
+        guard !tapped.isExpired() else {
+            wanted = nil
+            return
+        }
+        guard let snapshot = model.snapshot, let activity = snapshot.activities[tapped.id] else { return }
+        wanted = nil
         routedWorkout = Self.workout(for: activity, in: snapshot)
     }
 

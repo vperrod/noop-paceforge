@@ -52,8 +52,8 @@ enum PFDeepLink {
 @MainActor
 enum PFAlertLink {
     /// The activity of a tap whose results have not opened yet, with the time of the tap: a tap nothing picked up must not
-    /// open a sheet minutes later.
-    private static var pendingActivity: (id: String, at: Date)?
+    /// open a sheet minutes later (`PFWantedActivity` holds it for a minute).
+    private static var pendingActivity: PFWantedActivity?
 
     static func open(userInfo: [AnyHashable: Any]) {
         guard let route = PFAlertRoute(userInfo: userInfo) else { return }
@@ -62,16 +62,16 @@ enum PFAlertLink {
         case .needsYou:
             NotificationCenter.default.post(name: .pfShowNeedsYou, object: nil)
         case .activity(let id):
-            pendingActivity = (id: id, at: Date())
+            pendingActivity = PFWantedActivity(id: id, tappedAt: Date())
             NotificationCenter.default.post(name: .pfShowAlertActivity, object: nil)
         }
     }
 
     /// The activity of a tap made in the last minute, once.
-    static func consumeActivity() -> String? {
+    static func consumeActivity() -> PFWantedActivity? {
         defer { pendingActivity = nil }
-        guard let pending = pendingActivity, Date().timeIntervalSince(pending.at) < 60 else { return nil }
-        return pending.id
+        guard let pending = pendingActivity, !pending.isExpired() else { return nil }
+        return pending
     }
 }
 
@@ -200,17 +200,17 @@ enum PaceForgeBackground {
 
     /// One local notification for each open Needs you item not announced before (see `PFNeedsNotify`). The server's list holds
     /// open items only, so an answered one is never announced. The first run only records what is open, so installing this build
-    /// does not announce what Telegram has already said. The toggle is the alerts one in More > PaceForge sync.
+    /// does not announce what Telegram has already said. The toggle is the alerts one in More > PaceForge sync. An item is remembered
+    /// only once it is about to be announced, so one that appears while alerts are off or permission is missing is still announced later.
     private static func notifyNewNeedsYou(_ items: [PFNeedsItem]) async {
         let defaults = UserDefaults.standard
-        let stored = defaults.stringArray(forKey: notifiedNeedsKey)
-        let fresh = PFNeedsNotify.fresh(items, seen: Set(stored ?? []))
-        guard !fresh.isEmpty else {
-            if stored == nil { defaults.set([String](), forKey: notifiedNeedsKey) }
+        guard let stored = defaults.stringArray(forKey: notifiedNeedsKey) else {
+            defaults.set(PFNeedsNotify.firstRun(items), forKey: notifiedNeedsKey)
             return
         }
-        defaults.set(PFNeedsNotify.remembering(stored ?? [], adding: fresh), forKey: notifiedNeedsKey)
-        guard stored != nil, defaults.object(forKey: PFPrefs.alertsKey) as? Bool ?? true, await canNotify() else { return }
+        let fresh = PFNeedsNotify.fresh(items, seen: Set(stored))
+        guard !fresh.isEmpty, defaults.object(forKey: PFPrefs.alertsKey) as? Bool ?? true, await canNotify() else { return }
+        defaults.set(PFNeedsNotify.remembering(stored, adding: fresh), forKey: notifiedNeedsKey)
         for item in fresh {
             let content = UNMutableNotificationContent()
             content.title = item.title
