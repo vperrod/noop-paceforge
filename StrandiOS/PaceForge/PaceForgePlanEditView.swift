@@ -32,7 +32,7 @@ struct PFPlanEdits: View {
                     DatePicker("Move to", selection: $newDate, in: window, displayedComponents: .date)
                         .datePickerStyle(.compact)
                         .font(StrandFont.subhead)
-                    Button("Move") { Task { await move() } }
+                    Button("Move session") { Task { await move() } }
                         .buttonStyle(.bordered)
                         .disabled(isBusy || newDay == workout.date)
                         .accessibilityIdentifier("pf-plan-move")

@@ -203,7 +203,7 @@ struct PFNiggleSheet: View {
         case .achilles: return "Achilles"
         case .hamstring: return "Hamstring"
         case .hip: return "Hip"
-        case .back: return "Back"
+        case .back: return "Back or spine"
         case .shoulder: return "Shoulder"
         case .other: return "Other"
         }

@@ -77,7 +77,7 @@ struct PFEasyModeStartCard: View {
 
     private static func label(_ option: PFEasyLevel) -> LocalizedStringKey {
         switch option {
-        case .light: return "Light"
+        case .light: return "Lighter"
         case .reduce: return "Reduce"
         case .restish: return "Rest-ish"
         }

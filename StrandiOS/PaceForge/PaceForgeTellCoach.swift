@@ -12,6 +12,8 @@ struct PFTellCoachCard: View {
     @State private var reply: String?
     @State private var filed: [String] = []
 
+    private static let bullet = "\u{2022} "
+
     private var isBusy: Bool { tracker.phase == .sending || tracker.phase == .working }
 
     var body: some View {
@@ -84,7 +86,7 @@ struct PFTellCoachCard: View {
                     .font(StrandFont.caption)
                     .foregroundStyle(StrandPalette.textTertiary)
                 ForEach(filed, id: \.self) { title in
-                    Text("\u{2022} " + title)
+                    Text(Self.bullet + title)
                         .font(StrandFont.caption)
                         .foregroundStyle(StrandPalette.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)

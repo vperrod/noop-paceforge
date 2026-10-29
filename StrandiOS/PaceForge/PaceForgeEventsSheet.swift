@@ -108,7 +108,7 @@ struct PFEventsSheet: View {
                     .font(StrandFont.subhead.weight(.semibold))
                     .foregroundStyle(StrandPalette.textPrimary)
                     .fixedSize(horizontal: false, vertical: true)
-                Text([PFFormat.dayTitle(event.date), event.type].compactMap { $0 }.joined(separator: " \u{00B7} "))
+                Text(detail(event))
                     .font(StrandFont.caption)
                     .foregroundStyle(StrandPalette.textTertiary)
             }
@@ -118,6 +118,10 @@ struct PFEventsSheet: View {
                 .disabled(isBusy)
                 .accessibilityIdentifier("pf-event-cancel-\(event.date)")
         }
+    }
+
+    private func detail(_ event: PFEventRow) -> String {
+        [PFFormat.dayTitle(event.date), event.type].compactMap { $0 }.joined(separator: " \u{00B7} ")
     }
 
     // MARK: Add
