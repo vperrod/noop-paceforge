@@ -14,6 +14,7 @@ struct PFBatchDInsightsCards: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             if let load = store.stressLoad { PFStressLoadCard(load: load) }
+            if let hours = store.activeHours { PFActiveHoursCard(hours: hours) }
         }
         .task { await store.refreshIfStale() }
     }

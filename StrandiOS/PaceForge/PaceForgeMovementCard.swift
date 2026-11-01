@@ -89,9 +89,11 @@ struct PFMovementBody: View {
                         .accessibilityIdentifier("pf-movement-intensity")
                 }
                 PFParagraph(PFMovementLogic.whatCounts)
+                PFActiveHoursInline()
             }
         }
         .containerIdentifier("pf-movement")
+        .task { await PFBatchDStore.shared.refreshIfStale() }
     }
 
     @ViewBuilder private var rangeBar: some View {
