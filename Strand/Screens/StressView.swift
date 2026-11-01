@@ -49,6 +49,9 @@ struct StressView: View {
     /// from the day's banked HR + R-R via the SAME 0–3 proxy the daily score uses. Nil
     /// until the async read completes; `.empty` when the day has no usable intraday HR.
     @State private var daytime: DaytimeStress.Result?
+    /// ADDITIVE: the same proxy read only from still five-minute windows, with the restorative minutes. Nil until the read
+    /// completes and whenever there is too little stillness today to read. Touches none of the numbers above.
+    @State private var stillStress: StillStress.Result?
     /// Whether TODAY's intraday timeline is scored against the PERSONAL cross-day daytime baseline
     /// (`.baselineRelative`, once enough worn history exists) instead of the day's own calm hours
     /// (`.dayRelative`). Drives only the explanatory copy — the 0–3 scale + bands are identical either way.
@@ -123,6 +126,7 @@ struct StressView: View {
         // next to an empty timeline (the readouts are only recomputed past this guard).
         guard hr.count >= DaytimeStress.minHourHRSamples else {
             daytime = .empty
+            stillStress = nil
             stressIndex = nil
             freqHRV = nil
             return
@@ -167,6 +171,20 @@ struct StressView: View {
         daytime = await runUnescalated(priority: .userInitiated) {
             DaytimeStress.analyze(hr: hr, rr: rr, gravity: gravity, tzOffsetSeconds: tz, mode: mode,
                                   includeTimeline: true)
+        }
+
+        // ADDITIVE: the still-only read and restorative minutes (StillStress). Workouts of the last two days keep a
+        // workout's own heart rate, and the half hour after it, out of the still windows.
+        let workouts = await repo.workoutRows(days: 2).map { StillStress.Interval(start: $0.startTs, end: $0.endTs) }
+        let dayKey = Repository.localDayKey(Date())
+        let calmHistory = StillStressHistory.read()
+        let recentCalm = StillStress.recentCalm(calmHistory, before: dayKey)
+        let still = await runUnescalated(priority: .userInitiated) {
+            StillStress.analyze(hr: hr, gravity: gravity, workouts: workouts, tzOffsetSeconds: tz, recentCalmHR: recentCalm)
+        }
+        stillStress = still
+        if let still, still.stillMinutes >= StillStress.minMinutesToRecord {
+            StillStressHistory.write(StillStress.recordingCalm(calmHistory, day: dayKey, calmHR: still.calmHR))
         }
 
         // ADDITIVE advanced readouts, computed on-demand from the SAME `rr` (no extra fetch, no
@@ -235,6 +253,12 @@ struct StressView: View {
             } else if let daytime, !daytime.scored.isEmpty {
                 daytimeSection(daytime)
                     .staggeredAppear(index: 2)
+            }
+
+            // 3b. The same proxy from still moments only, with restorative minutes (additive, StillStress).
+            if let stillStress {
+                StillStressCard(result: stillStress)
+                    .staggeredAppear(index: 3)
             }
 
             // 4. Trend over the chosen window.
