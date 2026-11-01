@@ -129,6 +129,7 @@ struct LookScoreDetailView: View {
             if let noteKey { PFPageNote(key: noteKey) }
             ring
             asOfCaption
+            ScoreReadoutCard(lines: readout)
             rowsCard
             if let chargeSplit { ChargeSplitCard(split: chargeSplit) }
             insight
@@ -287,6 +288,32 @@ struct LookScoreDetailView: View {
             LookInfoCard(title: "Nothing to compare yet",
                          message: "These rows fill in as soon as the readings behind \(kind.title) arrive.")
         }
+    }
+
+    // MARK: Readout
+
+    /// The verdict line, biggest driver and calibration counter for this score, from numbers this screen already holds.
+    private var readout: ScoreReadout.Lines {
+        switch kind {
+        case .charge:
+            return ScoreReadout.charge(score: latest?.value, drivers: chargeDrivers, hrvBaseline: repo.chargeBaselines?.hrv)
+        case .effort:
+            return ScoreReadout.effort(progress: effortReading?.progress,
+                                       zones13Min: valueOnLatestDay("hr_zones13_min"),
+                                       zones45Min: valueOnLatestDay("hr_zones45_min"))
+        case .rest:
+            return ScoreReadout.rest(score: latest?.value,
+                                     hoursPct: LookSeries.latest(points("hours_vs_needed_pct"))?.value,
+                                     consistencyPct: LookSeries.latest(points("sleep_consistency"))?.value,
+                                     efficiencyPct: LookSeries.latest(points("sleep_efficiency"))?.value)
+        }
+    }
+
+    /// A WHOOP series' latest value, only when it falls on the same day as the score's own latest value.
+    private func valueOnLatestDay(_ key: String) -> Double? {
+        guard let day = latest?.date, let point = LookSeries.latest(points(key)),
+              calendar.isDate(point.date, inSameDayAs: day) else { return nil }
+        return point.value
     }
 
     // MARK: Insight
