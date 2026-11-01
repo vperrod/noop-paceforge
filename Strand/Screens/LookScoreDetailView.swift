@@ -55,6 +55,7 @@ struct LookScoreDetailView: View {
     @State private var loaded = false
     @State private var effortReading: EffortTargetReading?
     @State private var chargeDrivers: [ChargeDriver] = []
+    @State private var chargeSplit: ChargeSplit?
     @State private var showInfo = false
     @State private var showGuide = false
 
@@ -129,6 +130,7 @@ struct LookScoreDetailView: View {
             ring
             asOfCaption
             rowsCard
+            if let chargeSplit { ChargeSplitCard(split: chargeSplit) }
             insight
             ForEach(lineCards, id: \.id) { card in
                 LookTrendLineCard(title: card.title, unit: card.unit, decimals: card.decimals,
@@ -371,7 +373,10 @@ struct LookScoreDetailView: View {
         if kind == .effort {
             effortReading = EffortTargetReading.make(days: repo.days, effortScale: effortScale)
         }
-        if kind == .charge { chargeDrivers = currentChargeDrivers() }
+        if kind == .charge {
+            chargeDrivers = currentChargeDrivers()
+            chargeSplit = currentChargeSplit()
+        }
         loaded = true
     }
 
@@ -381,6 +386,14 @@ struct LookScoreDetailView: View {
               let row = repo.days.last(where: { $0.recovery != nil }) else { return [] }
         let rest = LookSeries.latest(points("sleep_performance"))?.value
         return ChargeBreakdownWiring.breakdown(baselines: baselines, row: row, sleepPerfPercent: rest)?.drivers ?? []
+    }
+
+    /// Charge in two parts for the same day and inputs as the drivers above.
+    @MainActor private func currentChargeSplit() -> ChargeSplit? {
+        guard let baselines = repo.chargeBaselines,
+              let row = repo.days.last(where: { $0.recovery != nil }) else { return nil }
+        let rest = LookSeries.latest(points("sleep_performance"))?.value
+        return ChargeBreakdownWiring.split(baselines: baselines, row: row, sleepPerfPercent: rest)
     }
 }
 

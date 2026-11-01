@@ -54,4 +54,23 @@ enum ChargeBreakdownWiring {
             skinTempDev: row.skinTempDevC)
         return (drivers, ScoreConfidence.charge(recovery: row.recovery, hrvBaseline: hrvBase))
     }
+
+    /// Charge read in two parts (body signals, sleep) from the same row, baselines and Rest input as `breakdown`, or nil when
+    /// Charge cannot score. Presentation only: it re-reads the terms Charge already used and changes none of them.
+    static func split(baselines: ChargeBaselines.Resolved,
+                      row: DailyMetric,
+                      sleepPerfPercent: Double?) -> ChargeSplit? {
+        guard let hrv = row.avgHrv, let rhr = row.restingHr else { return nil }
+        let hrvBase = baselines.hrv
+        guard hrvBase.usable else { return nil }
+        let rhrBase = baselines.restingHR
+        let respBase = baselines.resp
+        return RecoveryScorer.chargeSplit(
+            hrv: hrv, rhr: Double(rhr), resp: row.respRateBpm,
+            hrvBaseline: hrvBase,
+            rhrBaseline: rhrBase.usable ? rhrBase : nil,
+            respBaseline: respBase.usable ? respBase : nil,
+            sleepPerf: sleepPerfPercent.map { $0 / 100.0 },
+            skinTempDev: row.skinTempDevC)
+    }
 }
