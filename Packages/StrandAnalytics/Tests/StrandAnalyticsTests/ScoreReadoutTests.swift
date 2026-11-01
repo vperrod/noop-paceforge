@@ -90,6 +90,11 @@ final class ScoreReadoutTests: XCTestCase {
                        "Nothing is holding last night back.")
     }
 
+    func testANonFiniteRestPartIsIgnoredRatherThanTrapping() {
+        XCTAssertNil(ScoreReadout.restDriverSentence(hoursPct: .nan, consistencyPct: .infinity, efficiencyPct: nil))
+        XCTAssertNil(ScoreReadout.effortDriverSentence(zones13Min: .nan, zones45Min: .infinity))
+    }
+
     func testRestWithNoPartsHasNoSentence() {
         XCTAssertNil(ScoreReadout.restDriverSentence(hoursPct: nil, consistencyPct: nil, efficiencyPct: nil))
     }

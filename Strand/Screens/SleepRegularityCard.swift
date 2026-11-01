@@ -51,7 +51,11 @@ struct SleepPlannerWithRegularity: View {
 private struct SleepRegularityTile: View {
     let assessment: SleepRegularity.Assessment
 
-    private var percentText: String { "\(Int(assessment.reading.matchPercent.rounded()))%" }
+    private var percentText: String {
+        let percent = assessment.reading.matchPercent
+        guard percent.isFinite else { return "\u{2013}" }
+        return "\(Int(min(max(percent, 0), 100).rounded()))%"
+    }
 
     private var trendLine: LocalizedStringKey? {
         switch assessment.trend {

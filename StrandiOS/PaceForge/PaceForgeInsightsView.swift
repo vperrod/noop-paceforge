@@ -33,6 +33,8 @@ struct PFInsightsView: View {
             if let sims = snapshot.simulations { PFSimulationsCard(sims: sims) }
             PFHowScoresWorkCard(explainers: snapshot.explainers)
         }
+        // The batch D cards (weekly stress load, active hours) draw from this store; it is loaded here, on the screen that is always there.
+        .task { await PFBatchDStore.shared.refreshIfStale() }
     }
 
     // MARK: Load chart

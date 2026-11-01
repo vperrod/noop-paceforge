@@ -9,6 +9,7 @@ import StrandDesign
 /// The line, its status and the gloss. No card of its own, so the movement card can hold it.
 struct PFActiveHoursLine: View {
     let hours: PFActiveHours
+    private let hiding = PFHiding()
 
     private var statusWord: String? { PFBatchDLogic.activeStatusWord(hours.status) }
 
@@ -26,13 +27,13 @@ struct PFActiveHoursLine: View {
             }
             PFParagraph(sentence)
             if let gloss = hours.gloss {
-                Text(gloss)
+                Text(hiding.text(gloss))
                     .font(LookFont.text(12, weight: .medium))
                     .foregroundStyle(NoopLook.textTertiary)
                     .fixedSize(horizontal: false, vertical: true)
             }
             if let source = hours.source {
-                Text(source).font(LookFont.text(11, weight: .medium)).foregroundStyle(NoopLook.textTertiary)
+                Text(hiding.text(source)).font(LookFont.text(11, weight: .medium)).foregroundStyle(NoopLook.textTertiary)
             }
         }
         .accessibilityElement(children: .combine)

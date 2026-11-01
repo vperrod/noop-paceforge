@@ -31,6 +31,7 @@ final class PFBatchDStore: ObservableObject {
         async let stressData = Self.read(PFBatchDParse.stressLoadPath)
         async let activeData = Self.read(PFBatchDParse.activeHoursPath)
         let (a, b, c, d, e) = await (settleData, tilesData, sharesData, stressData, activeData)
+        guard !Task.isCancelled else { return }
         let newSettle = PFBatchDParse.sleepSettle(PFJ(data: a))
         let newTiles = PFBatchDParse.sleepTiles(PFJ(data: b))
         let newShares = PFBatchDParse.stageShares(PFJ(data: c))
@@ -59,13 +60,14 @@ final class PFBatchDStore: ObservableObject {
 struct PFSourceLabel: View {
     let title: String
     let source: String?
+    private let hiding = PFHiding()
 
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: 8) {
-            Text(title).lookCaps(11).foregroundStyle(NoopLook.textSecondary)
+            Text(hiding.text(title)).lookCaps(11).foregroundStyle(NoopLook.textSecondary)
             Spacer(minLength: 8)
             if let source {
-                Text(source)
+                Text(hiding.text(source))
                     .font(LookFont.text(11, weight: .medium))
                     .foregroundStyle(NoopLook.textTertiary)
                     .lineLimit(1)
@@ -99,7 +101,8 @@ struct PFSleepSection: View {
                     .padding(.top, NoopMetrics.sectionSpacing)
             }
         }
-        .task { await store.refreshIfStale() }
+        // An empty view never runs its own .task, so the load hangs on a view that is always there.
+        .background(Color.clear.frame(width: 0, height: 0).task { await store.refreshIfStale() })
     }
 }
 
@@ -168,6 +171,7 @@ private struct PFSleepTileRow: View {
 
 private struct PFStageSharesBlock: View {
     let shares: PFStageShares
+    private let hiding = PFHiding()
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -175,13 +179,13 @@ private struct PFStageSharesBlock: View {
             ForEach(shares.shares) { share in PFStageShareRow(share: share) }
             if let line = shares.line { PFParagraph(line) }
             if let caveat = shares.caveat {
-                Text(caveat)
+                Text(hiding.text(caveat))
                     .font(LookFont.text(12.5, weight: .semibold))
                     .foregroundStyle(NoopLook.textTertiary)
                     .fixedSize(horizontal: false, vertical: true)
             }
             if let gloss = shares.gloss {
-                Text(gloss)
+                Text(hiding.text(gloss))
                     .font(LookFont.text(12, weight: .medium))
                     .foregroundStyle(NoopLook.textTertiary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -192,8 +196,13 @@ private struct PFStageSharesBlock: View {
 
 private struct PFStageShareRow: View {
     let share: PFStageShare
+    private let hiding = PFHiding()
 
-    private var bar: PFBandLogic.Bar? { PFBandLogic.bar(value: share.pct, low: share.usualPct, high: share.usualPct) }
+    /// The usual drawn as a tick on the track; with no usual yet there is no band, only the value.
+    private var bar: PFBandLogic.Bar? {
+        guard let usual = share.usualPct else { return nil }
+        return PFBandLogic.bar(value: share.pct, low: usual, high: usual)
+    }
 
     private var usualText: String? { share.usualPct.map { "usual \(Safe.int($0))%" } }
 
@@ -202,13 +211,13 @@ private struct PFStageShareRow: View {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 Text(PFBatchDLogic.stageTitle(share.key)).lookCaps(11).foregroundStyle(NoopLook.textSecondary)
                 Spacer(minLength: 8)
-                Text(String(Safe.int(share.pct)) + "%").font(LookFont.numeral(20)).foregroundStyle(NoopLook.textPrimary)
+                Text(hiding.shown(String(Safe.int(share.pct)) + "%", .scores)).font(LookFont.numeral(20)).foregroundStyle(NoopLook.textPrimary)
                 if let usualText {
-                    Text(usualText).font(LookFont.text(12, weight: .medium)).foregroundStyle(NoopLook.textTertiary)
+                    Text(hiding.text(usualText)).font(LookFont.text(12, weight: .medium)).foregroundStyle(NoopLook.textTertiary)
                 }
                 if let word = PFBatchDLogic.stageWord(share) { PFChip(text: word, color: PFColor.warning) }
             }
-            if let bar { PFRangeTrack(bar: bar) }
+            if let bar, !hiding.hides(.scores) { PFRangeTrack(bar: bar) }
         }
         .accessibilityElement(children: .combine)
         .accessibilityIdentifier("pf-stage-share-\(share.key)")
@@ -217,13 +226,21 @@ private struct PFStageShareRow: View {
 
 private struct PFSettleBlock: View {
     let settle: PFSleepSettle
+    private let hiding = PFHiding()
+
+    /// The server's sentence, led by the night it is about.
+    private var sentence: String? {
+        guard let text = settle.sentence else { return nil }
+        guard let date = settle.latest?.date else { return text }
+        return "Night of \(PFFormat.shortDate(date)): " + text
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             PFSourceLabel(title: "Heart-rate settle time", source: settle.source)
-            if let sentence = settle.sentence { PFParagraph(sentence) }
+            if let sentence { PFParagraph(sentence) }
             if let gloss = settle.status?.gloss {
-                Text(gloss)
+                Text(hiding.text(gloss))
                     .font(LookFont.text(12, weight: .medium))
                     .foregroundStyle(NoopLook.textTertiary)
                     .fixedSize(horizontal: false, vertical: true)

@@ -7,21 +7,20 @@ import StrandDesign
 // from heart-rate variability; NOOP's own Stress screen is a different calculation and the two are never merged. A daytime signal, so a
 // watch worn by day only gets it too.
 
-/// The cards the batch D store feeds on Insights. Started from here so the load runs whether or not any card has something to draw yet.
+/// The cards the batch D store feeds on Insights.
+/// A plain list of cards with no stack and no load of its own: the load is started by the Insights screen (`PFInsightsView`).
 struct PFBatchDInsightsCards: View {
     @ObservedObject private var store = PFBatchDStore.shared
 
-    var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            if let load = store.stressLoad { PFStressLoadCard(load: load) }
-            if let hours = store.activeHours { PFActiveHoursCard(hours: hours) }
-        }
-        .task { await store.refreshIfStale() }
+    @ViewBuilder var body: some View {
+        if let load = store.stressLoad { PFStressLoadCard(load: load) }
+        if let hours = store.activeHours { PFActiveHoursCard(hours: hours) }
     }
 }
 
 struct PFStressLoadCard: View {
     let load: PFStressLoad
+    private let hiding = PFHiding()
 
     private var highMax: Double { max(load.weeks.map { $0.highHoursPerDay }.max() ?? 0, load.normHighHoursPerDay ?? 0) }
     private var restfulMax: Double { max(load.weeks.map { $0.restfulMinPerDay }.max() ?? 0, load.normRestfulMinPerDay ?? 0) }
@@ -36,7 +35,7 @@ struct PFStressLoadCard: View {
                                norm: load.normRestfulMinPerDay, maximum: restfulMax, trend: load.restfulTrend, decimals: 0)
                 if let line = load.line { PFParagraph(line) }
                 if let gloss = load.gloss {
-                    Text(gloss)
+                    Text(hiding.text(gloss))
                         .font(LookFont.text(12, weight: .medium))
                         .foregroundStyle(NoopLook.textTertiary)
                         .fixedSize(horizontal: false, vertical: true)
@@ -68,7 +67,9 @@ private struct PFStressMetric: View {
         decimals == 0 ? "\(Safe.int(value)) \(unit)" : "\(PFFormat.oneDecimal(value)) \(unit)"
     }
 
-    private var usualText: String? { norm.map { "Your usual day: " + valueText($0) } }
+    private let hiding = PFHiding()
+
+    private var usualText: String? { norm.map { hiding.text("Your usual day: " + valueText($0)) } }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -93,6 +94,7 @@ private struct PFStressWeekBar: View {
     let value: String
     let bar: Double?
     let norm: Double?
+    private let hiding = PFHiding()
 
     private var labelText: String { partial ? label + " (part)" : label }
 
@@ -120,7 +122,7 @@ private struct PFStressWeekBar: View {
                 }
             }
             .frame(height: 12)
-            Text(value)
+            Text(hiding.shown(value, .scores))
                 .font(LookFont.text(13, weight: .semibold))
                 .foregroundStyle(NoopLook.textPrimary)
                 .frame(width: 64, alignment: .trailing)

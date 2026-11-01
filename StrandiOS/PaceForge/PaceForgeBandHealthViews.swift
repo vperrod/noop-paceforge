@@ -29,6 +29,7 @@ final class PFStrapHRVStore: ObservableObject {
         if let lastFetch, Date().timeIntervalSince(lastFetch) < 300 { return }
         guard PFAPI.isConfigured else { return }
         let data = await Self.read(PFBandParse.strapHRVPath)
+        guard !Task.isCancelled else { return }
         if let parsed = PFBandParse.strapHRV(PFJ(data: data)) {
             state = .ready(parsed)
         } else {
@@ -45,26 +46,22 @@ final class PFStrapHRVStore: ObservableObject {
     }
 }
 
-/// Under the Health monitor. Nothing while it loads, for a watch worn by day only, or when PaceForge is not set up.
+/// Under the Health monitor. Nothing while it loads, when the strap has no file (a watch worn by day only, or no strap), or when PaceForge is not set up.
 struct PFStrapHRVSection: View {
     @ObservedObject private var store = PFStrapHRVStore.shared
     @ObservedObject private var reports = PFReportsStore.shared
 
     var body: some View {
-        // A stack with its own .task, so the load starts whether or not there is anything to draw yet.
         VStack(spacing: 0) { content }
-            .task { await store.refreshIfStale() }
+            // An empty view never runs its own .task, so the load hangs on a view that is always there.
+            .background(Color.clear.frame(width: 0, height: 0).task { await store.refreshIfStale() })
     }
 
     @ViewBuilder private var content: some View {
         if reports.showsOvernight {
             switch store.state {
-            case .loading:
+            case .loading, .none:
                 EmptyView()
-            case .none:
-                PFIntelNote(title: "HRV status, WHOOP strap (via NOOP)", icon: "waveform.path.ecg",
-                            text: "No strap data yet. Once the strap's overnight beats have been read, its HRV status shows here.",
-                            identifier: "pf-strap-hrv-none")
             case .ready(let hrv):
                 PFStrapHRVCard(hrv: hrv)
             }
@@ -98,6 +95,7 @@ struct PFStrapHRVCard: View {
 
 private struct PFStrapFigures: View {
     let hrv: PFStrapHRV
+    private let hiding = PFHiding()
 
     private var average: String? { hrv.mean7.map { String(Safe.int($0)) } }
 
@@ -115,7 +113,7 @@ private struct PFStrapFigures: View {
         VStack(alignment: .leading, spacing: 4) {
             if let average {
                 HStack(alignment: .firstTextBaseline, spacing: 8) {
-                    Text(average)
+                    Text(hiding.shown(average, .scores))
                         .font(LookFont.numeral(44))
                         .foregroundStyle(NoopLook.textPrimary)
                         .accessibilityIdentifier("pf-strap-hrv-average")
@@ -129,10 +127,10 @@ private struct PFStrapFigures: View {
                     .foregroundStyle(NoopLook.textSecondary)
             }
             if let usual {
-                Text(usual).font(LookFont.text(13, weight: .medium)).foregroundStyle(NoopLook.textSecondary)
+                Text(hiding.text(usual)).font(LookFont.text(13, weight: .medium)).foregroundStyle(NoopLook.textSecondary)
             }
             if let lastNight {
-                Text(lastNight).font(LookFont.text(13, weight: .medium)).foregroundStyle(NoopLook.textTertiary)
+                Text(hiding.text(lastNight)).font(LookFont.text(13, weight: .medium)).foregroundStyle(NoopLook.textTertiary)
             }
         }
     }
@@ -153,6 +151,17 @@ struct PFHealthInputPanelView: View {
             }
         }
         .containerIdentifier("pf-healthspan-inputs")
+    }
+}
+
+/// Whose reading an input is (the strap or Garmin), as the server names it; nothing when it names none.
+private struct PFInputSource: View {
+    let source: String?
+
+    var body: some View {
+        if let source {
+            Text(source).font(LookFont.text(11, weight: .medium)).foregroundStyle(NoopLook.textTertiary)
+        }
     }
 }
 
@@ -183,7 +192,7 @@ private struct PFHealthMoverRow: View {
                     .font(LookFont.text(15, weight: .semibold))
                     .foregroundStyle(NoopLook.textPrimary)
                 Spacer(minLength: 8)
-                Text(yearsText)
+                Text(hiding.text(yearsText))
                     .font(LookFont.text(14, weight: .semibold))
                     .foregroundStyle((input.years ?? 0) > 0 ? NoopLook.trendDown : NoopLook.trendUp)
             }
@@ -198,6 +207,7 @@ private struct PFHealthMoverRow: View {
                     .foregroundStyle(NoopLook.textTertiary)
                     .fixedSize(horizontal: false, vertical: true)
             }
+            PFInputSource(source: input.source)
         }
         .accessibilityElement(children: .combine)
         .accessibilityIdentifier("pf-healthspan-mover-\(input.key)")
@@ -222,6 +232,7 @@ private struct PFHealthMissing: View {
                             .foregroundStyle(NoopLook.textSecondary)
                             .fixedSize(horizontal: false, vertical: true)
                     }
+                    PFInputSource(source: input.source)
                 }
                 .accessibilityElement(children: .combine)
                 .accessibilityIdentifier("pf-healthspan-missing-\(input.key)")
@@ -235,6 +246,7 @@ private struct PFHealthMissing: View {
 /// The none / watch / act level beside the yes/no alert, with each vital that moved said in words. Wording stays non-diagnostic.
 struct PFGradedWatchView: View {
     let graded: PFGradedWatch
+    private let hiding = PFHiding()
 
     private var color: Color {
         switch graded.level {
@@ -250,13 +262,13 @@ struct PFGradedWatchView: View {
                 if let text = graded.text { PFParagraph(text) }
                 if !graded.metrics.isEmpty { PFGradedMetrics(metrics: graded.metrics) }
                 if let reason = graded.capReason {
-                    Text("Held at watch: \(reason).")
+                    Text("Held at watch: \(hiding.text(reason)).")
                         .font(LookFont.text(12.5, weight: .semibold))
                         .foregroundStyle(NoopLook.textTertiary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 if let basis = graded.basis {
-                    Text(basis)
+                    Text(hiding.text(basis))
                         .font(LookFont.text(12, weight: .medium))
                         .foregroundStyle(NoopLook.textTertiary)
                         .fixedSize(horizontal: false, vertical: true)

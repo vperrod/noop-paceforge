@@ -49,8 +49,9 @@ struct PFReadoutCard: View {
 
 private struct PFReadoutHeader: View {
     let source: String?
+    private let hiding = PFHiding()
 
-    private var label: String { source ?? PFRecoveryReadout.defaultSource }
+    private var label: String { hiding.text(source ?? PFRecoveryReadout.defaultSource) }
 
     var body: some View {
         HStack(spacing: 6) {
@@ -91,9 +92,9 @@ private struct PFSignalRow: View {
             HStack(alignment: .firstTextBaseline) {
                 Text(title).lookCaps(11).foregroundStyle(NoopLook.textSecondary)
                 Spacer(minLength: 8)
-                Text(valueText).font(LookFont.numeral(22)).foregroundStyle(NoopLook.textPrimary)
+                Text(hiding.shown(valueText, .scores)).font(LookFont.numeral(22)).foregroundStyle(NoopLook.textPrimary)
             }
-            SignedScaleBar(value: reading.value)
+            SignedScaleBar(value: hiding.hides(.scores) ? 0 : reading.value)
             Text(hiding.text(reading.line))
                 .font(LookFont.text(15, weight: .semibold))
                 .foregroundStyle(NoopLook.textPrimary)

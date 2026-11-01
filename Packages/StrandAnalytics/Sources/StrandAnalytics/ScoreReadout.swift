@@ -99,18 +99,29 @@ public enum ScoreReadout {
     /// the Rest screen draws), as a share of that best.
     static func restDriverSentence(hoursPct: Double?, consistencyPct: Double?, efficiencyPct: Double?) -> String? {
         var parts: [(shortfall: Double, text: String)] = []
-        if let h = hoursPct {
-            parts.append((shortfall(h, best: 100), "hours slept, \(Int(h.rounded()))% of the sleep you needed"))
+        if let h = finite(hoursPct) {
+            parts.append((shortfall(h, best: 100), "hours slept, \(whole(h))% of the sleep you needed"))
         }
-        if let c = consistencyPct {
-            parts.append((shortfall(c, best: 80), "sleep timing, \(Int(c.rounded()))% consistent"))
+        if let c = finite(consistencyPct) {
+            parts.append((shortfall(c, best: 80), "sleep timing, \(whole(c))% consistent"))
         }
-        if let e = efficiencyPct {
-            parts.append((shortfall(e, best: 85), "time awake in bed, \(Int(e.rounded()))% of it asleep"))
+        if let e = finite(efficiencyPct) {
+            parts.append((shortfall(e, best: 85), "time awake in bed, \(whole(e))% of it asleep"))
         }
         guard let worst = parts.max(by: { $0.shortfall < $1.shortfall }) else { return nil }
         if worst.shortfall <= restNearBest { return "Nothing is holding last night back." }
         return "Mostly held back by \(worst.text)."
+    }
+
+    /// The value, or nil when it is NaN or infinite (a conversion to Int would trap).
+    private static func finite(_ x: Double?) -> Double? {
+        guard let x, x.isFinite else { return nil }
+        return x
+    }
+
+    /// A finite value rounded to a whole number, kept inside a range Int holds.
+    private static func whole(_ x: Double) -> Int {
+        Int(max(-1e9, min(1e9, x)).rounded())
     }
 
     private static func shortfall(_ value: Double, best: Double) -> Double {
@@ -132,11 +143,13 @@ public enum ScoreReadout {
     }
 
     static func effortDriverSentence(zones13Min: Double?, zones45Min: Double?) -> String? {
-        guard zones13Min != nil || zones45Min != nil else { return nil }
-        let easy = max(0, zones13Min ?? 0)
-        let hard = max(0, zones45Min ?? 0)
+        let easyMin = finite(zones13Min)
+        let hardMin = finite(zones45Min)
+        guard easyMin != nil || hardMin != nil else { return nil }
+        let easy = max(0, easyMin ?? 0)
+        let hard = max(0, hardMin ?? 0)
         let total = easy + hard
         guard total >= 1 else { return "No time in heart-rate zones yet today." }
-        return "Zones 4-5 made up \(Int(hard.rounded())) of today's \(Int(total.rounded())) minutes in heart-rate zones."
+        return "Zones 4-5 made up \(whole(hard)) of today's \(whole(total)) minutes in heart-rate zones."
     }
 }
