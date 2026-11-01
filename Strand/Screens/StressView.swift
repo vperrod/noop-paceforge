@@ -173,20 +173,6 @@ struct StressView: View {
                                   includeTimeline: true)
         }
 
-        // ADDITIVE: the still-only read and restorative minutes (StillStress). Workouts of the last two days keep a
-        // workout's own heart rate, and the half hour after it, out of the still windows.
-        let workouts = await repo.workoutRows(days: 2).map { StillStress.Interval(start: $0.startTs, end: $0.endTs) }
-        let dayKey = Repository.localDayKey(Date())
-        let calmHistory = StillStressHistory.read()
-        let recentCalm = StillStress.recentCalm(calmHistory, before: dayKey)
-        let still = await runUnescalated(priority: .userInitiated) {
-            StillStress.analyze(hr: hr, gravity: gravity, workouts: workouts, tzOffsetSeconds: tz, recentCalmHR: recentCalm)
-        }
-        stillStress = still
-        if let still, still.stillMinutes >= StillStress.minMinutesToRecord {
-            StillStressHistory.write(StillStress.recordingCalm(calmHistory, day: dayKey, calmHR: still.calmHR))
-        }
-
         // ADDITIVE advanced readouts, computed on-demand from the SAME `rr` (no extra fetch, no
         // DB / schema change, and no effect on the 0..3 score above). Each engine returns nil when
         // its own gate is not met (Baevsky needs >= 20 clean beats; freq-HRV needs >= 60 s span),
@@ -205,6 +191,20 @@ struct StressView: View {
         }
         stressIndex = advanced.index
         freqHRV = advanced.freq
+
+        // ADDITIVE: the still-only read and restorative minutes (StillStress). Workouts of the last two days keep a
+        // workout's own heart rate, and the half hour after it, out of the still windows.
+        let workouts = await repo.workoutRows(days: 2).map { StillStress.Interval(start: $0.startTs, end: $0.endTs) }
+        let dayKey = Repository.localDayKey(Date())
+        let calmHistory = StillStressHistory.read()
+        let recentCalm = StillStress.recentCalm(calmHistory, before: dayKey)
+        let still = await runUnescalated(priority: .userInitiated) {
+            StillStress.analyze(hr: hr, gravity: gravity, workouts: workouts, tzOffsetSeconds: tz, recentCalmHR: recentCalm)
+        }
+        stillStress = still
+        if let still, still.stillMinutes >= StillStress.minMinutesToRecord {
+            StillStressHistory.write(StillStress.recordingCalm(calmHistory, day: dayKey, calmHR: still.calmHR))
+        }
     }
 
     /// Recompute the cached `StressModel` only when (repo.days, storedSeries)
