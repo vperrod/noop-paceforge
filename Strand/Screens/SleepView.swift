@@ -196,7 +196,7 @@ struct SleepView: View {
                                        identifier: "look-sleep-trends")
                         #endif
                         alarmsEntry
-                        SleepPlannerEntryCard()
+                        SleepPlannerWithRegularity()
                         // #sleep-layout: the analytical cards render in the user's saved order minus the
                         // hidden set, below the pinned Rest hero. Reordered via the Arrange sheet.
                         ForEach(Array(sleepVisibleSections.enumerated()), id: \.element) { idx, section in
