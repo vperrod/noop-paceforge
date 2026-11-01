@@ -21,6 +21,15 @@
       "versions": [
         {
           "version": "12.0.12",
+          "buildVersion": "498",
+          "date": "2026-11-01",
+          "localizedDescription": "Build 498: new views from the band-market review: sleep regularity, stress while still, Charge split into body signals and sleep, verdict lines, PaceForge recovery readout, Load Focus, weekly target load, muscular load, strap HRV, Healthspan inputs, graded health watch, sleep tiles and stage shares, weekly stress load and active hours.",
+          "downloadURL": "https://github.com/vperrod/noop-paceforge/releases/download/noop-ios-v12.0.12-b498/NOOP-v12.0.12-b498.ipa",
+          "size": 31711675,
+          "minOSVersion": "17.0"
+        },
+        {
+          "version": "12.0.12",
           "buildVersion": "497",
           "date": "2026-10-29",
           "localizedDescription": "Build 497: the app can now do what the web app does: add a workout photo, rate effort any time, adjust today, log a niggle, move or skip a session, start or end easy mode, add events, log a HYROX simulation, tell the coach, sync Garmin and rate coach replies.",
