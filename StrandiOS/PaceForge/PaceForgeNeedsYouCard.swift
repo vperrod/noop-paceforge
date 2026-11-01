@@ -27,6 +27,10 @@ struct PFNeedsYouCard: View {
                         }
                     }
                 }
+                if model.staleDocs.contains(PFDocs.needsYou) {
+                    PFStaleLabel(text: "Couldn't refresh needs you. Showing the last saved copy.")
+                        .accessibilityIdentifier("pf-needs-stale")
+                }
             }
         }
         .containerIdentifier("pf-needs-card")

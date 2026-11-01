@@ -340,6 +340,95 @@ final class PaceForgeJobTests: XCTestCase {
         XCTAssertEqual(PFJobError.transport(URLError(.cancelled)), .cancelled)
     }
 
+    // MARK: Client key and the retry list
+
+    func testTheBodyCarriesTheClientKeyAtTheTopLevel() {
+        let body = PFJobRequest.body(.saveRpe, inputs: ["data": ["rpe": 7]], clientKey: "abc-123")
+        assertSame(body, ["job": "save-rpe", "inputs": ["data": ["rpe": 7]], "client_key": "abc-123"])
+    }
+
+    func testAKeyOverSixtyFourCharactersIsNotSent() {
+        let body = PFJobRequest.body(.sync, clientKey: String(repeating: "a", count: 65))
+        XCTAssertNil(body["client_key"])
+    }
+
+    func testANewClientKeyFitsTheContractsLimit() {
+        let key = PFJobRequest.newClientKey()
+        XCTAssertTrue((1...PFJobRequest.maxClientKeyLength).contains(key.count))
+    }
+
+    func testTwoNewClientKeysDiffer() {
+        XCTAssertNotEqual(PFJobRequest.newClientKey(), PFJobRequest.newClientKey())
+    }
+
+    func testAPhotoASyncAndACoachInstructionAreNotKept() {
+        XCTAssertEqual([PFJobName.analyzeWorkoutPhoto, .sync, .coach].map { $0.isQueueable }, [false, false, false])
+    }
+
+    func testTheSmallWritesAreKept() {
+        XCTAssertEqual([PFJobName.saveRpe, .adjustToday, .niggleAdd, .calendarEdit, .sessionDrop, .easyMode].map { $0.isQueueable },
+                       Array(repeating: true, count: 6))
+    }
+
+    func testNoAnswerAndPassingTroubleAreSentAgain() {
+        let again: [PFJobError] = [.offline, .serverTrouble(503), .rateLimited(retryAfter: 30), .unreadable]
+        XCTAssertEqual(again.map { $0.isRetryable }, Array(repeating: true, count: 4))
+    }
+
+    func testARefusalIsNotSentAgain() {
+        let never: [PFJobError] = [.refused("no"), .tokenNotAccepted, .syncOff]
+        XCTAssertEqual(never.map { $0.isRetryable }, Array(repeating: false, count: 3))
+    }
+
+    func testInputsReadBackAsWrittenWhateverTheKeyOrder() {
+        let text = PFJobRetryList.encodeInputs(["b": 2, "a": ["x": 1]])
+        XCTAssertEqual(text, PFJobRetryList.encodeInputs(["a": ["x": 1], "b": 2]))
+    }
+
+    func testStoredInputsDecodeToTheSameValues() {
+        let text = PFJobRetryList.encodeInputs(["data": ["rpe": 7]]) ?? ""
+        XCTAssertEqual((PFJobRetryList.decodeInputs(text) ?? [:]) as NSDictionary, ["data": ["rpe": 7]] as NSDictionary)
+    }
+
+    private func queued(_ key: String, job: PFJobName = .saveRpe, inputs: String = "{}", age: TimeInterval = 0, now: Date = Date(timeIntervalSince1970: 1_000_000)) -> PFQueuedJob {
+        PFQueuedJob(job: job.rawValue, inputs: inputs, clientKey: key, queuedAt: now.addingTimeInterval(-age))
+    }
+
+    func testAnEntryOlderThanADayIsDropped() {
+        let now = Date(timeIntervalSince1970: 1_000_000)
+        let kept = PFJobRetryList.live([queued("old", age: 24 * 3600 + 1), queued("new", age: 3600)], now: now)
+        XCTAssertEqual(kept.map { $0.clientKey }, ["new"])
+    }
+
+    func testAnIdenticalWaitingWriteGivesBackItsKey() {
+        let entries = [queued("k1", inputs: #"{"a":1}"#), queued("k2", job: .adjustToday, inputs: #"{"a":1}"#)]
+        XCTAssertEqual(PFJobRetryList.key(for: .adjustToday, inputs: #"{"a":1}"#, in: entries), "k2")
+    }
+
+    func testADifferentWriteGetsNoKeyBack() {
+        XCTAssertNil(PFJobRetryList.key(for: .saveRpe, inputs: #"{"a":2}"#, in: [queued("k1", inputs: #"{"a":1}"#)]))
+    }
+
+    func testTheSameKeyIsNeverListedTwice() {
+        let once = PFJobRetryList.adding(queued("k1"), to: [queued("k1")])
+        XCTAssertEqual(once.count, 1)
+    }
+
+    func testTheListKeepsTheNewestTwenty() {
+        let full = (0..<PFJobRetryList.maxEntries).map { queued("k\($0)") }
+        let after = PFJobRetryList.adding(queued("new"), to: full)
+        XCTAssertEqual([after.first?.clientKey, after.last?.clientKey], ["k1", "new"])
+    }
+
+    func testRemovingAKeyLeavesTheOthers() {
+        let left = PFJobRetryList.removing(clientKey: "k1", from: [queued("k1"), queued("k2")])
+        XCTAssertEqual(left.map { $0.clientKey }, ["k2"])
+    }
+
+    func testAQueuedWriteTellsTheAthleteItIsSaved() {
+        XCTAssertEqual(PFJobError.queued.message, "Couldn't reach PaceForge. Saved on this iPhone; it will be sent when PaceForge is reachable.")
+    }
+
     // MARK: Waiting
 
     func testTheFirstLookIsAfterTwoSeconds() {

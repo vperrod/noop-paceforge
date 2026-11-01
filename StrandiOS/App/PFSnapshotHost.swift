@@ -134,6 +134,7 @@ private struct PFHostReady: View {
                         Task { await model.refresh() }
                     }
                 }
+                PFStaleDocsLine(paths: model.staleDocs)
                 content(snapshot)
                     .environment(\.pfExplainers, snapshot.explainerMap)
             }

@@ -178,14 +178,15 @@ enum PaceForgeBackground {
     }
 
     /// One local notification for each open alert not seen before. Alerts older than two days are only
-    /// recorded, so turning this on does not replay the backlog. The toggle is in More > PaceForge sync.
+    /// recorded, so turning this on does not replay the backlog. The toggle is in More > PaceForge sync. An alert is remembered only once
+    /// the toggle and permission allow it, so one blocked by either is announced on a later refresh.
     private static func notifyNewAlerts(_ alerts: [PFAlert]) async {
         let defaults = UserDefaults.standard
         let seen = Set(defaults.stringArray(forKey: notifiedAlertsKey) ?? [])
         let fresh = alerts.filter { !seen.contains($0.id) }
         guard !fresh.isEmpty else { return }
-        defaults.set(Array((Array(seen) + fresh.map(\.id)).suffix(200)), forKey: notifiedAlertsKey)
         guard defaults.object(forKey: PFPrefs.alertsKey) as? Bool ?? true, await canNotify() else { return }
+        defaults.set(Array((Array(seen) + fresh.map(\.id)).suffix(200)), forKey: notifiedAlertsKey)
         for alert in fresh where isRecent(alert.createdAt) {
             let content = UNMutableNotificationContent()
             content.title = alert.title

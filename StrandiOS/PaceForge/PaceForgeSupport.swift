@@ -303,6 +303,24 @@ struct PFStaleLabel: View {
     }
 }
 
+/// One line under the offline banner when some optional documents could not be refreshed and the saved copy (if any) is on screen.
+struct PFStaleDocsLine: View {
+    let paths: [String]
+
+    private var text: String {
+        let names = paths.map(PFAPI.documentName)
+        let more = names.count > 3 ? " and \(names.count - 3) more" : ""
+        return "Couldn't refresh " + names.prefix(3).joined(separator: ", ") + more + ". Showing the last saved copy."
+    }
+
+    var body: some View {
+        if !paths.isEmpty {
+            PFStaleLabel(text: text)
+                .accessibilityIdentifier("pf-stale-docs")
+        }
+    }
+}
+
 /// Renders markdown text (the coach's analysis, the briefing sections) in the app's look.
 struct PFMarkdown: View {
     let text: String

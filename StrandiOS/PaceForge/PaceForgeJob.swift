@@ -37,6 +37,15 @@ enum PFJobName: String, Equatable {
         }
     }
 
+    /// Whether a write that got no answer is kept on the phone and sent again later: the small writes that run inline. A photo is too
+    /// big to keep, a sync coalesces on the server by itself, and a coach instruction is stale after a few hours.
+    var isQueueable: Bool {
+        switch self {
+        case .sync, .analyzeWorkoutPhoto, .coach: return false
+        default: return true
+        }
+    }
+
     /// The request timeout. A photo body is up to a few hundred kilobytes of base64 over a mobile link; the other bodies are tiny.
     var requestTimeout: TimeInterval {
         self == .analyzeWorkoutPhoto ? 120 : 30
@@ -45,8 +54,65 @@ enum PFJobName: String, Equatable {
 
 /// The request body of `POST api/app/job`.
 enum PFJobRequest {
-    static func body(_ job: PFJobName, inputs: [String: Any] = [:]) -> [String: Any] {
-        ["job": job.rawValue, "inputs": inputs]
+    /// The longest `client_key` the server takes.
+    static let maxClientKeyLength = 64
+
+    /// A fresh key for one user action: a lowercase UUID (36 characters). The server applies a bearer + key pair once within 24 hours,
+    /// so sending the same action again with the same key cannot apply it twice.
+    static func newClientKey() -> String { UUID().uuidString.lowercased() }
+
+    static func body(_ job: PFJobName, inputs: [String: Any] = [:], clientKey: String? = nil) -> [String: Any] {
+        var body: [String: Any] = ["job": job.rawValue, "inputs": inputs]
+        if let clientKey, !clientKey.isEmpty, clientKey.count <= maxClientKeyLength { body["client_key"] = clientKey }
+        return body
+    }
+}
+
+// MARK: Writes waiting to be sent again
+
+/// One write that got no answer, kept on the phone with the key it first went out with.
+struct PFQueuedJob: Codable, Equatable {
+    let job: String
+    /// The job's `inputs` as JSON text with sorted keys, so the same action reads the same.
+    let inputs: String
+    let clientKey: String
+    let queuedAt: Date
+}
+
+/// The rules of the list of writes waiting to be sent again (the storage is `PFJobRetryStore`).
+enum PFJobRetryList {
+    /// How long a write waits; the server forgets a key after the same time.
+    static let maxAge: TimeInterval = 24 * 3600
+    static let maxEntries = 20
+
+    static func encodeInputs(_ inputs: [String: Any]) -> String? {
+        guard JSONSerialization.isValidJSONObject(inputs),
+              let data = try? JSONSerialization.data(withJSONObject: inputs, options: [.sortedKeys]) else { return nil }
+        return String(data: data, encoding: .utf8)
+    }
+
+    static func decodeInputs(_ text: String) -> [String: Any]? {
+        guard let data = text.data(using: .utf8) else { return nil }
+        return (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
+    }
+
+    /// The entries younger than a day.
+    static func live(_ entries: [PFQueuedJob], now: Date) -> [PFQueuedJob] {
+        entries.filter { now.timeIntervalSince($0.queuedAt) < maxAge }
+    }
+
+    /// The key an identical write already waiting went out with, so doing the same thing again by hand cannot apply it twice.
+    static func key(for job: PFJobName, inputs: String, in entries: [PFQueuedJob]) -> String? {
+        entries.first { $0.job == job.rawValue && $0.inputs == inputs }?.clientKey
+    }
+
+    static func adding(_ entry: PFQueuedJob, to entries: [PFQueuedJob]) -> [PFQueuedJob] {
+        guard !entries.contains(where: { $0.clientKey == entry.clientKey }) else { return entries }
+        return Array((entries + [entry]).suffix(maxEntries))
+    }
+
+    static func removing(clientKey: String, from entries: [PFQueuedJob]) -> [PFQueuedJob] {
+        entries.filter { $0.clientKey != clientKey }
     }
 }
 
@@ -198,6 +264,8 @@ enum PFJobError: Error, Equatable {
     case timedOut
     case cancelled
     case unreadable
+    /// No answer came back and the write is kept on this iPhone; it is sent again when PaceForge is reachable.
+    case queued
 
     var message: String {
         switch self {
@@ -222,6 +290,17 @@ enum PFJobError: Error, Equatable {
             return "Stopped."
         case .unreadable:
             return "PaceForge sent an answer this app does not understand."
+        case .queued:
+            return "Couldn't reach PaceForge. Saved on this iPhone; it will be sent when PaceForge is reachable."
+        }
+    }
+
+    /// Whether the same request may go through later: no answer, a server hiccup, a rate limit, an odd answer. A refusal (a 4xx other
+    /// than a rate limit) will not change, so it is not sent again.
+    var isRetryable: Bool {
+        switch self {
+        case .offline, .serverTrouble, .rateLimited, .unreadable, .cancelled: return true
+        default: return false
         }
     }
 

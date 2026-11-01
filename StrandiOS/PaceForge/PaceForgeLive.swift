@@ -127,6 +127,42 @@ enum PFAPI {
         try? await fetch(path)
     }
 
+    /// One optional document of a refresh: its bytes, and whether the server could not be asked for it.
+    struct OptionalDoc {
+        var path: String
+        var data: Data?
+        var failed: Bool
+    }
+
+    /// An optional document of the refresh bundle. A document the server does not serve (404) is absent, not failed. When the
+    /// server cannot be asked, the saved copy stands in and the path is reported failed, so an empty-looking section is told apart
+    /// from a document that really is empty.
+    static func fetchDoc(_ path: String) async -> OptionalDoc {
+        do {
+            return OptionalDoc(path: path, data: try await fetch(path), failed: false)
+        } catch {
+            if isAbsent(error) { return OptionalDoc(path: path, data: nil, failed: false) }
+            let kept = usesPhoneState ? PFStore.read(path: path) : nil
+            return OptionalDoc(path: path, data: kept, failed: true)
+        }
+    }
+
+    /// The server answered "not found" (a fixture without the file counts the same).
+    private static func isAbsent(_ error: Error) -> Bool {
+        if case SelfHostedPushClient.Failure.httpStatus(404, _) = error { return true }
+        return (error as? CocoaError)?.code == .fileNoSuchFile
+    }
+
+    /// "data/needs-you.json" reads "needs you"; "data/analyses/index.json" reads "analyses".
+    static func documentName(_ path: String) -> String {
+        var parts = path.split(separator: "/").map(String.init)
+        guard var last = parts.popLast() else { return path }
+        if last == "index.json", let parent = parts.last { last = parent }
+        return last.replacingOccurrences(of: ".json", with: "")
+            .replacingOccurrences(of: "-", with: " ")
+            .replacingOccurrences(of: "_", with: " ")
+    }
+
     /// The one write the app makes: today's 1-5 "how do you feel" answer. Returns the server's answer body.
     /// In a UI-test fixture the `api/feel` entry stands in for the server, or the call fails when it has none.
     static func postFeel(_ value: Int) async throws -> Data {
@@ -236,86 +272,93 @@ enum PFAPI {
         var raw: PFRawBundle
         var digest: Int
         var bytes: Int
+        /// Paths of the optional documents the server could not be asked for; each holds its saved copy, or nothing.
+        var failed: [String]
     }
 
     static func fetchDocuments() async throws -> Fetched {
-        async let projection = fetchOptional("data/projection.json")
-        async let body = fetchOptional("data/body.json")
-        async let hyrox = fetchOptional("data/hyrox_analysis.json")
-        async let activities = fetchOptional("data/activities.json")
-        async let analyses = fetchOptional("data/analyses/index.json")
-        async let bodyProgress = fetchOptional("data/body-progress.json")
-        async let alerts = fetchOptional("data/alerts.json")
-        async let readiness = fetchOptional("data/readiness-explained.json")
-        async let feelSummary = fetchOptional("data/feel-summary.json")
-        async let whatChanged = fetchOptional("data/what-changed.json")
-        async let explainers = fetchOptional("data/metric-explainers.json")
-        async let behaviour = fetchOptional("data/behaviour-impact.json")
-        async let raceWeek = fetchOptional("data/race-week.json")
-        async let hyroxSims = fetchOptional("data/hyrox-sims.json")
-        async let hyroxSimAnalysis = fetchOptional("data/hyrox-sim-analysis.json")
-        async let easyMode = fetchOptional("data/easy-mode.json")
-        async let muscle = fetchOptional("data/muscle-check.json")
-        async let tape = fetchOptional("data/tape.json")
-        async let standing = fetchOptional("data/standing.json")
-        async let insightsV2 = fetchOptional("data/insights-v2.json")
-        async let dailyIntel = fetchOptional("data/daily-intel.json")
-        async let healthspan = fetchOptional(PFDocPath.healthspan)
-        async let journalImpact = fetchOptional(PFDocPath.journalImpact)
-        async let highlights = fetchOptional(PFDocPath.highlights)
-        async let monthlyReport = fetchOptional(PFDocPath.monthlyReport)
-        async let myPlan = fetchOptional(PFDocPath.myPlan)
-        async let rideMetrics = fetchOptional("data/ride-metrics.json")
-        async let dismissed = fetchOptional("data/dismissed.json")
-        async let todayLayout = fetchOptional("data/today-layout.json")
-        async let needsYou = fetchOptional("data/needs-you.json")
+        async let projection = fetchDoc("data/projection.json")
+        async let body = fetchDoc("data/body.json")
+        async let hyrox = fetchDoc("data/hyrox_analysis.json")
+        async let activities = fetchDoc("data/activities.json")
+        async let analyses = fetchDoc("data/analyses/index.json")
+        async let bodyProgress = fetchDoc("data/body-progress.json")
+        async let alerts = fetchDoc("data/alerts.json")
+        async let readiness = fetchDoc("data/readiness-explained.json")
+        async let feelSummary = fetchDoc("data/feel-summary.json")
+        async let whatChanged = fetchDoc("data/what-changed.json")
+        async let explainers = fetchDoc("data/metric-explainers.json")
+        async let behaviour = fetchDoc("data/behaviour-impact.json")
+        async let raceWeek = fetchDoc("data/race-week.json")
+        async let hyroxSims = fetchDoc("data/hyrox-sims.json")
+        async let hyroxSimAnalysis = fetchDoc("data/hyrox-sim-analysis.json")
+        async let easyMode = fetchDoc("data/easy-mode.json")
+        async let muscle = fetchDoc("data/muscle-check.json")
+        async let tape = fetchDoc("data/tape.json")
+        async let standing = fetchDoc("data/standing.json")
+        async let insightsV2 = fetchDoc("data/insights-v2.json")
+        async let dailyIntel = fetchDoc("data/daily-intel.json")
+        async let healthspan = fetchDoc(PFDocPath.healthspan)
+        async let journalImpact = fetchDoc(PFDocPath.journalImpact)
+        async let highlights = fetchDoc(PFDocPath.highlights)
+        async let monthlyReport = fetchDoc(PFDocPath.monthlyReport)
+        async let myPlan = fetchDoc(PFDocPath.myPlan)
+        async let rideMetrics = fetchDoc("data/ride-metrics.json")
+        async let dismissed = fetchDoc("data/dismissed.json")
+        async let todayLayout = fetchDoc("data/today-layout.json")
+        async let needsYou = fetchDoc("data/needs-you.json")
         // Not part of the bundle's view models: fetched so My Day finds it saved on the phone (PFStore).
-        async let workoutMatches = fetchOptional("data/workout-matches.json")
+        async let workoutMatches = fetchDoc("data/workout-matches.json")
         async let state = fetch("api/state")
         async let fitness = fetch("data/fitness.json")
         let (stateData, fitnessData) = try await (state, fitness)
         var hasher = Hasher()
         var bytes = 0
+        var failed: [String] = []
         func take(_ data: Data?) -> PFJ {
             hasher.combine(data)
             bytes += data?.count ?? 0
             return PFJ(data: data)
         }
+        func takeDoc(_ doc: OptionalDoc) -> PFJ {
+            if doc.failed { failed.append(doc.path) }
+            return take(doc.data)
+        }
         var raw = PFRawBundle()
         raw.state = take(stateData)
         raw.fitness = take(fitnessData)
-        raw.projection = take(await projection)
-        raw.body = take(await body)
-        raw.hyrox = take(await hyrox)
-        raw.activities = take(await activities)
-        raw.analysesIndex = take(await analyses)
-        raw.bodyProgress = take(await bodyProgress)
-        raw.alerts = take(await alerts)
-        raw.readiness = take(await readiness)
-        raw.feelSummary = take(await feelSummary)
-        raw.whatChanged = take(await whatChanged)
-        raw.explainers = take(await explainers)
-        raw.behaviour = take(await behaviour)
-        raw.raceWeek = take(await raceWeek)
-        raw.hyroxSims = take(await hyroxSims)
-        raw.hyroxSimAnalysis = take(await hyroxSimAnalysis)
-        raw.easyMode = take(await easyMode)
-        raw.muscle = take(await muscle)
-        raw.tape = take(await tape)
-        raw.standing = take(await standing)
-        raw.insightsV2 = take(await insightsV2)
-        raw.dailyIntel = take(await dailyIntel)
-        raw.healthspan = take(await healthspan)
-        raw.journalImpact = take(await journalImpact)
-        raw.highlights = take(await highlights)
-        raw.monthlyReport = take(await monthlyReport)
-        raw.myPlan = take(await myPlan)
-        raw.rideMetrics = take(await rideMetrics)
-        raw.dismissed = take(await dismissed)
-        raw.todayLayout = take(await todayLayout)
-        raw.needsYou = take(await needsYou)
-        raw.workoutMatches = take(await workoutMatches)
-        return Fetched(raw: raw, digest: hasher.finalize(), bytes: bytes)
+        raw.projection = takeDoc(await projection)
+        raw.body = takeDoc(await body)
+        raw.hyrox = takeDoc(await hyrox)
+        raw.activities = takeDoc(await activities)
+        raw.analysesIndex = takeDoc(await analyses)
+        raw.bodyProgress = takeDoc(await bodyProgress)
+        raw.alerts = takeDoc(await alerts)
+        raw.readiness = takeDoc(await readiness)
+        raw.feelSummary = takeDoc(await feelSummary)
+        raw.whatChanged = takeDoc(await whatChanged)
+        raw.explainers = takeDoc(await explainers)
+        raw.behaviour = takeDoc(await behaviour)
+        raw.raceWeek = takeDoc(await raceWeek)
+        raw.hyroxSims = takeDoc(await hyroxSims)
+        raw.hyroxSimAnalysis = takeDoc(await hyroxSimAnalysis)
+        raw.easyMode = takeDoc(await easyMode)
+        raw.muscle = takeDoc(await muscle)
+        raw.tape = takeDoc(await tape)
+        raw.standing = takeDoc(await standing)
+        raw.insightsV2 = takeDoc(await insightsV2)
+        raw.dailyIntel = takeDoc(await dailyIntel)
+        raw.healthspan = takeDoc(await healthspan)
+        raw.journalImpact = takeDoc(await journalImpact)
+        raw.highlights = takeDoc(await highlights)
+        raw.monthlyReport = takeDoc(await monthlyReport)
+        raw.myPlan = takeDoc(await myPlan)
+        raw.rideMetrics = takeDoc(await rideMetrics)
+        raw.dismissed = takeDoc(await dismissed)
+        raw.todayLayout = takeDoc(await todayLayout)
+        raw.needsYou = takeDoc(await needsYou)
+        raw.workoutMatches = takeDoc(await workoutMatches)
+        return Fetched(raw: raw, digest: hasher.finalize(), bytes: bytes, failed: failed)
     }
 }
 
@@ -383,6 +426,8 @@ final class PFModel: ObservableObject {
     /// Host and reason of the last failed refresh, shown as a caption under the generic message.
     @Published private(set) var failureDetail: String?
     @Published private(set) var savedAt: Date?
+    /// Paths of the optional documents the last refresh could not fetch: each section shows its saved copy, or nothing if none was saved.
+    @Published private(set) var staleDocs: [String] = []
 
     /// Why a Needs you answer was not saved, by item id; cleared when that item is answered again.
     @Published private(set) var needsNotes: [String: String] = [:]
@@ -479,6 +524,7 @@ final class PFModel: ObservableObject {
             lastSuccess = Date()
             offlineNote = nil
             failureDetail = nil
+            staleDocs = fetched.failed
             phase = .ready
         } catch {
             // A request that was cancelled even after a retry says nothing about the server, so it must
@@ -516,6 +562,7 @@ final class PFModel: ObservableObject {
             lastSuccess = Date()
             offlineNote = nil
             failureDetail = nil
+            staleDocs = []
             phase = .ready
             return true
         } catch {
