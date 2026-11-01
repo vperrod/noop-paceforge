@@ -406,7 +406,7 @@ struct StrandiOSApp: App {
                 // PaceForge writes that got no answer earlier are sent again with their first key (the server applies each key once).
                 if PFAPI.isConfigured {
                     Task {
-                        if await PFJobRetry.sendAll() > 0 { await PFUnified.model.refresh() }
+                        if await PFJobRetry.sendAll() > 0, UnifiedNav.isOn { await PFUnified.model.refresh() }
                     }
                 }
                 // PaceForge's Needs you list and cards must not wait for a pull or a restart. The model shares one load in flight, so

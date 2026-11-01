@@ -143,13 +143,14 @@ enum PFAPI {
         } catch {
             if isAbsent(error) { return OptionalDoc(path: path, data: nil, failed: false) }
             let kept = usesPhoneState ? PFStore.read(path: path) : nil
-            return OptionalDoc(path: path, data: kept, failed: true)
+            // A request that was cancelled says nothing about the server (see `load`), so it is no failure to report.
+            return OptionalDoc(path: path, data: kept, failed: !isCancelled(error))
         }
     }
 
     /// The server answered "not found" (a fixture without the file counts the same).
     private static func isAbsent(_ error: Error) -> Bool {
-        if case SelfHostedPushClient.Failure.httpStatus(404, _) = error { return true }
+        if let failure = error as? SelfHostedPushClient.Failure, case .httpStatus(404, _) = failure { return true }
         return (error as? CocoaError)?.code == .fileNoSuchFile
     }
 

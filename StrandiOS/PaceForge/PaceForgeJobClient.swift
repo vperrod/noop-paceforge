@@ -105,8 +105,9 @@ enum PFJobRetryStore {
 
 /// Sends the waiting writes again, each with the key it first went out with. The app calls it each time it comes to the foreground.
 enum PFJobRetry {
-    /// Returns how many the server took. A write the server refuses is dropped; one that still gets no answer, or hits a rate limit or a
-    /// server hiccup, stays, and the pass stops there: the ones behind it would meet the same trouble.
+    /// Returns how many the server took. A write the server refuses is dropped. One that gets no answer or hits a rate limit stays and
+    /// the pass stops there (the ones behind it would meet the same trouble); one that meets a server hiccup or an odd answer stays for
+    /// the next pass and the pass goes on to the next entry.
     static func sendAll() async -> Int {
         guard PFAPI.isConfigured, !PFAPI.isFixture else { return 0 }
         PFJobRetryStore.prune()
@@ -120,7 +121,7 @@ enum PFJobRetry {
             if outcome.isSettled {
                 PFJobRetryStore.remove(clientKey: entry.clientKey)
                 if case .success = outcome { taken += 1 }
-            } else {
+            } else if case .failure(let failure) = outcome, failure.stopsRetryPass {
                 break
             }
         }

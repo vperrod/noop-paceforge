@@ -361,18 +361,29 @@ final class PaceForgeJobTests: XCTestCase {
         XCTAssertNotEqual(PFJobRequest.newClientKey(), PFJobRequest.newClientKey())
     }
 
-    func testAPhotoASyncAndACoachInstructionAreNotKept() {
-        XCTAssertEqual([PFJobName.analyzeWorkoutPhoto, .sync, .coach].map { $0.isQueueable }, [false, false, false])
+    func testOnlyReplaySafeWritesAreNotKept() {
+        let never: [PFJobName] = [.analyzeWorkoutPhoto, .sync, .coach, .saveEvents, .sessionState, .easyModeEnd, .adjustToday, .calendarEdit, .sessionDrop, .easyMode]
+        XCTAssertEqual(never.map { $0.isQueueable }, Array(repeating: false, count: never.count))
     }
 
-    func testTheSmallWritesAreKept() {
-        XCTAssertEqual([PFJobName.saveRpe, .adjustToday, .niggleAdd, .calendarEdit, .sessionDrop, .easyMode].map { $0.isQueueable },
-                       Array(repeating: true, count: 6))
+    func testTheAdditiveWritesAreKept() {
+        XCTAssertEqual([PFJobName.saveRpe, .niggleAdd, .niggleResolve, .coachFeedback, .hyroxSimAdd].map { $0.isQueueable },
+                       Array(repeating: true, count: 5))
     }
 
     func testNoAnswerAndPassingTroubleAreSentAgain() {
         let again: [PFJobError] = [.offline, .serverTrouble(503), .rateLimited(retryAfter: 30), .unreadable]
         XCTAssertEqual(again.map { $0.isRetryable }, Array(repeating: true, count: 4))
+    }
+
+    func testOnlyNoConnectionStoppingAndARateLimitStopTheRetryPass() {
+        let stops: [PFJobError] = [.offline, .cancelled, .rateLimited(retryAfter: 5)]
+        XCTAssertEqual(stops.map { $0.stopsRetryPass }, [true, true, true])
+    }
+
+    func testServerTroubleAndAnOddAnswerLetThePassGoOn() {
+        let goes: [PFJobError] = [.serverTrouble(503), .unreadable]
+        XCTAssertEqual(goes.map { $0.stopsRetryPass }, [false, false])
     }
 
     func testARefusalIsNotSentAgain() {

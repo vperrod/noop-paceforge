@@ -37,12 +37,13 @@ enum PFJobName: String, Equatable {
         }
     }
 
-    /// Whether a write that got no answer is kept on the phone and sent again later: the small writes that run inline. A photo is too
-    /// big to keep, a sync coalesces on the server by itself, and a coach instruction is stale after a few hours.
+    /// Whether a write that got no answer is kept on the phone and sent again later. Only the additive, idempotent writes are: an
+    /// edit that replaces or reshapes state (events, session state, calendar, today's plan, easy mode) could land on a different day
+    /// or over a newer change, so it is never replayed. A photo is too big to keep, a sync coalesces and a coach instruction goes stale.
     var isQueueable: Bool {
         switch self {
-        case .sync, .analyzeWorkoutPhoto, .coach: return false
-        default: return true
+        case .saveRpe, .niggleAdd, .niggleResolve, .coachFeedback, .hyroxSimAdd: return true
+        default: return false
         }
     }
 
@@ -292,6 +293,15 @@ enum PFJobError: Error, Equatable {
             return "PaceForge sent an answer this app does not understand."
         case .queued:
             return "Couldn't reach PaceForge. Saved on this iPhone; it will be sent when PaceForge is reachable."
+        }
+    }
+
+    /// Whether a pass over the waiting writes stops at this failure: the connection is gone, the app is stopping or the server asked
+    /// to slow down, so the writes behind it would meet the same thing.
+    var stopsRetryPass: Bool {
+        switch self {
+        case .offline, .cancelled, .rateLimited: return true
+        default: return false
         }
     }
 
