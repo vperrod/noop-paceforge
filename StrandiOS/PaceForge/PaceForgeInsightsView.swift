@@ -21,6 +21,7 @@ struct PFInsightsView: View {
             }
             if includesOverview, let insights = snapshot.insightsV2, insights.hasContent { PFInsightsV2Section(doc: insights) }
             chartCard
+            PFLoadPanels(insights: insights)
             warningsCard
             if let impact = snapshot.behaviour {
                 PFDismissable(.behaviour, text: PFCardText.behaviour(impact), snapshot: snapshot) {
