@@ -27,6 +27,9 @@ struct SleepPlannerWithRegularity: View {
                 SleepRegularityTile(assessment: assessment)
                     .padding(.top, NoopMetrics.sectionSpacing)
             }
+            #if os(iOS)
+            PFSleepSection()
+            #endif
         }
         .task(id: repo.refreshSeq) { await load() }
     }
