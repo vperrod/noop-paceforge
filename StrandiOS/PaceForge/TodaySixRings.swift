@@ -71,6 +71,7 @@ struct TodaySixRings: View {
             }
             .frame(maxWidth: .infinity)
             TodaySixRingsFooter(noopCount: noopCount, isToday: isToday)
+            TodayPFReadout(isToday: isToday)
         }
         .containerIdentifier("today-six-rings")
     }

@@ -49,7 +49,7 @@ private struct SplitSignalRow: View {
                     .font(LookFont.numeral(24))
                     .foregroundStyle(NoopLook.textPrimary)
             }
-            SplitBar(value: signal.value)
+            SignedScaleBar(value: signal.value)
             Text(LocalizedStringKey(signal.line))
                 .font(LookFont.text(15, weight: .semibold))
                 .foregroundStyle(NoopLook.textPrimary)
@@ -65,7 +65,7 @@ private struct SplitSignalRow: View {
 }
 
 /// A line from -10 to +10 with a tick at 0 and the reading drawn from the tick to its place.
-private struct SplitBar: View {
+struct SignedScaleBar: View {
     let value: Double
 
     var body: some View {
