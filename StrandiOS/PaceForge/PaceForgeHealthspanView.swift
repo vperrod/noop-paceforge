@@ -444,6 +444,7 @@ struct PFHealthspanBody: View {
                     }
                     goTo(proxy)
                     driversSection
+                    if let panel = healthspan.inputPanel { PFHealthInputPanelView(panel: panel) }
                     assumptions
                 } else {
                     LookInfoCard(title: "Earlier week",

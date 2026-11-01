@@ -38,6 +38,7 @@ struct HealthView: View {
             // PaceForge's Health monitor (each vital against its own 30-day range) leads the one Health screen.
             PFPageNote(key: "vitals")
             PFHealthMonitorSection()
+            PFStrapHRVSection()
             #endif
             if repo.days.isEmpty {
                 // First run / no history: whether to show the empty state or the full live stack depends

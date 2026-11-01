@@ -511,6 +511,7 @@ struct PFHealthMonitorBody: View {
                 PFChip(text: "From \(PFFormat.shortDate(asOf))", color: StrandPalette.textTertiary)
             }
             explanation
+            if let graded = health.graded { PFGradedWatchView(graded: graded) }
             VStack(spacing: 0) {
                 ForEach(Array(health.vitals.enumerated()), id: \.element.id) { index, vital in
                     PFVitalRow(vital: vital)
