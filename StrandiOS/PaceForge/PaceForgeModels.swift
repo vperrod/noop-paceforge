@@ -343,6 +343,11 @@ struct PFInsights {
     var goalPrognosis: PFGoalPrognosis?
     var hyrox: PFHyrox?
     var hyroxFinish: PFHyroxFinishCard?
+    /// Garmin's Load Focus (`fitness.load.load_focus_panel`), the weekly target-load range (`projection.week_target`) and muscular load
+    /// (`fitness.strength.muscular_load`). Each is nil when the server does not serve it or marks it unavailable.
+    var loadFocus: PFLoadFocus?
+    var weekTarget: PFWeekTarget?
+    var muscular: PFMuscularLoad?
 }
 struct PFLoadPoint: Identifiable {
     var date: String; var ctl: Double; var atl: Double; var tsb: Double

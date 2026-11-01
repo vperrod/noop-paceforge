@@ -880,6 +880,9 @@ enum PFBuilder {
                                                 sentence: projection["sentences"]["running"].text)
         }
         out.hyroxFinish = PFHyroxPrognosisParse.card(finish: raceFinish, hyrox: hyrox)
+        out.loadFocus = PFBandParse.loadFocus(load: fitness["load"])
+        out.weekTarget = PFBandParse.weekTarget(projection: projection)
+        out.muscular = PFBandParse.muscularLoad(strength: fitness["strength"])
         let prediction = hyrox["prediction"]
         if let predicted = prediction["predicted_display"].string {
             let stations: [PFStation] = hyrox["priorities"].array

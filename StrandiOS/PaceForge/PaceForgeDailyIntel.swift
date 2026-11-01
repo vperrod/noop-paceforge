@@ -437,6 +437,8 @@ struct PFHealthMonitor: Equatable {
     var within: Int?
     var total: Int?
     var alert: PFHealthAlert?
+    /// The none / watch / act read beside the yes/no alert, with each vital that moved said in words (`graded`); nil on an older server.
+    var graded: PFGradedWatch?
 
     var available: [PFVital] { vitals.filter { $0.available } }
     var outOfRange: [PFVital] { vitals.filter { $0.isOut } }
@@ -791,6 +793,7 @@ enum PFDailyIntelParse {
         out.tileText = m["tile"]["text"].text
         out.within = m["tile"]["within"].int
         out.total = m["tile"]["total"].int
+        out.graded = PFBandParse.graded(m["graded"])
         let a = m["alert"]
         if a.exists, a.raw is [String: Any], let title = a["title"].text {
             // `what_to_do` is a list of sentences; an object with `text` reads too.

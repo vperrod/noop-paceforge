@@ -227,6 +227,8 @@ struct PFHealthspan: Equatable {
     var pace: PFPaceOfAging?
     var drivers: [PFHealthDriver] = []
     var assumptions: [String] = []
+    /// Which of the nine inputs have data, each one's years, and the one holding the estimate back (`input_panel`); nil on an older server.
+    var inputPanel: PFHealthInputPanel?
 }
 
 /// The three groups the drivers fall into, for the GO TO links.
@@ -1032,6 +1034,7 @@ enum PFIntelDocsParse {
                 action: PFInsightsV2Parse.action(d["action"]))
         }
         out.assumptions = m["assumptions"].strings
+        out.inputPanel = PFBandParse.inputPanel(m["input_panel"])
         return out.bodyAge != nil || out.pace != nil || !out.drivers.isEmpty ? out : nil
     }
 

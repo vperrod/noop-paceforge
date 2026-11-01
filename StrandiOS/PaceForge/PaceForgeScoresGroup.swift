@@ -25,6 +25,8 @@ struct PFScoresValues: Equatable {
     var why: PFExplainer
     /// One line saying why there is nothing to show; nil while at least one score is there.
     var reason: String?
+    /// Recovery read two ways (body signals and sleep) and the plain verdict line per score, as served; nil when the server sends none.
+    var readout: PFRecoveryReadout?
 
     var hasAny: Bool { recovery != nil || sleep != nil || strain != nil }
 }
@@ -67,6 +69,7 @@ enum PFScoresParse {
         out.garminSleep = (readingsAreToday ? readings?.garminSleepScore : nil)
             ?? (fitnessIsToday ? number(sleepNode["garmin_score"]) : nil)
         if fitnessIsToday {
+            out.readout = PFBandParse.readout(daily: daily)
             out.sleepLine = sleepLine(sleepNode)
             let strain = daily["strain"]
             if strain["available"].bool != false, let value = number(strain["value"]) {

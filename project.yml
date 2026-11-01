@@ -222,6 +222,8 @@ targets:
       - StrandiOS/PaceForge/PaceForgeAlertHistory.swift
       # Garmin's own recovery HR (hrr_garmin): parsing and the card's wording.
       - StrandiOS/PaceForge/PaceForgeHRRGarmin.swift
+      # The band-report numbers (Recovery two ways and verdict lines, Load Focus, weekly target, muscular load, strap HRV, Healthspan inputs, graded health watch): parsing and the small rules the cards draw from.
+      - StrandiOS/PaceForge/PaceForgeBandReport.swift
       # The job door to PaceForge's write actions (POST api/app/job): the request bodies, how a reply or a refusal reads, the polling schedule.
       - StrandiOS/PaceForge/PaceForgeJob.swift
       # A workout photo: the size it is shrunk to, how the runner's draft of the reading and its retry queue read.
