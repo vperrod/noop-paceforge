@@ -44,6 +44,7 @@ struct PFLoadPanels: View {
             if let target = insights.weekTarget { PFWeekTargetCard(target: target) }
             if let focus = insights.loadFocus { PFLoadFocusCard(focus: focus) }
             if let muscular = insights.muscular { PFMuscularLoadCard(load: muscular) }
+            PFBatchDInsightsCards()
         }
     }
 }
