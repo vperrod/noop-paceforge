@@ -17,6 +17,23 @@ approximate; downloads are on the [Releases](https://github.com/NoopApp/noop/rel
 
 ---
 
+## 12.0.12 build 501 (PaceForge iPhone build): Athlete profile from your Garmin watch
+
+- **Not verified on a real iPhone.** The new cards read three documents PaceForge already serves to the phone (`profile.json`, `analytics.json`, `benchmarks.json`); against an older server, or one that has none of them, each card is simply absent.
+- **Lactate threshold.** The Athlete tab has a tile for your Garmin lactate threshold: pace, with the heart rate under it and the day it was measured. If the watch holds none, the tile is still PaceForge's critical speed, labelled that way. There is no arrow on it: no history of the figure is kept.
+- **Race predictions.** A card with Garmin's 5K, 10K, half marathon and marathon forecast and the day it was made. Tap it for PaceForge's own forecast beside it, with its confidence for each distance. The two are never averaged, and no change over time is shown because only the latest forecast of each is held.
+- **Heart-rate zones.** Garmin's five zones, with a page for the lactate threshold heart rate, the maximum the watch is set to, the highest heart rate it saw (kept apart, because the two differ) and resting heart rate. The Max HR in the profile header now reads the Garmin zone setting when you have set none in NOOP, and says where it came from.
+- **Endurance score, training status, records.** Two tiles with Garmin's endurance score and training status, each with its date and no arrow, and a Personal records card with Garmin's records and the benchmarks you filed (wall balls, 500 m row and ski), each saying where it came from.
+- **VO2max and threshold page.** Opening the VO2max, VO2max from runs or threshold tile lists Garmin's figure, the one PaceForge works out from your runs, the threshold pace and heart rate and the critical speed, each with its own source and date.
+- **Live alerts on Today fold to one line.** A live alert (stress, heart rate at rest, Body Battery) reads as its title and the current reading on one line; Details opens the explanation, your normal, the source and what it does to the plan.
+- **Not in this build.** The wrist-against-strap heart-rate agreement flag: PaceForge writes it to no document the phone can read.
+
+## 12.0.12 build 500 (PaceForge iPhone build): Today shortened, Athlete tab, Plan
+
+- **Not verified on a real iPhone.** The tab bar is now Today, Plan, Athlete, Insights and More, with the Coach button at the end. Sleep is no longer a tab: tap the Rest ring on Today, or the Sleep row in More. Training became Plan and opens on Plan, with Calendar its second chip.
+- **Athlete tab.** Your profile header (age, height, weight, max and resting heart rate, FTP, threshold), metric tiles with their change over four weeks and a small trend line (VO2max, VO2max from runs, threshold pace, FTP, resting heart rate, HRV, weight, body fat, fitness and form), your best recent running times, HYROX projection, and three groups: strengths, weaknesses and areas to work on, each row opening a short collapsed reason. A tile opens its history and where its norms are. A missing figure shows a dash, and nothing here asks you to enter anything.
+- **Today is shorter.** Rings, Health and Stress, then the heart-rate chart come first. The page note, the readout and Today's call are each one collapsed row; the Needs you item is a row that opens a sheet. The longer text (Expert reading, Day in review, the call's narrative, the verdict lines) moved to the Coach.
+
 ## 12.0.12 build 486 (PaceForge iPhone build): morning brief from PaceForge, Needs you on Today
 
 - **Not verified on a real iPhone.** The morning brief notification now carries PaceForge's brief (written on the server, no AI key on the phone), so "Coach brief unavailable" no longer appears when PaceForge is connected. It is woken by your data, not the clock: from 04:00 it goes out once PaceForge has your night's sleep and HRV, and the time in Coach settings is the latest it waits (then it goes out saying what is missing). iOS decides when the background check really runs; opening the app also tries.
