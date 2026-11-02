@@ -1,10 +1,10 @@
 import SwiftUI
 import StrandDesign
 
-// The Expert reading card on Today: the daily report's head-coach stages, text only, dated, with a way into the full report.
+// The Expert reading card in the Coach: the daily report's head-coach stages, text only, dated, with a way into the full report.
 
-/// Today's one Expert reading card: the daily report's head-coach stages, text only, dated. Draws nothing until the reading is on the
-/// phone; Today starts the load itself, because an empty view never runs its own task.
+/// The Coach's one Expert reading card: the daily report's head-coach stages, text only, dated. Draws nothing until the reading is on the
+/// phone; the Coach starts the load itself, because an empty view never runs its own task.
 struct PFExpertReadingHost: View {
     @ObservedObject private var store = PFReportsStore.shared
 

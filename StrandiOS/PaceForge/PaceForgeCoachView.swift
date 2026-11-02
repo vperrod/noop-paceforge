@@ -4,6 +4,8 @@ import StrandDesign
 /// PaceForge "Coach": the daily brief, Coach's Take, the latest weekly review and the chat tail.
 struct PFCoachView: View {
     let snapshot: PFSnapshot
+    /// Cards the unified Coach puts between the briefing and the reviews (Today's call, the readings, the Expert reading, Day in review).
+    var afterBrief: AnyView?
     @EnvironmentObject private var model: PFModel
     @EnvironmentObject private var noopCoach: AICoachEngine
     @State private var draft = ""
@@ -19,6 +21,7 @@ struct PFCoachView: View {
             if coach.brief != nil || coach.take != nil {
                 todayReadCard(brief: coach.brief, take: coach.take)
             }
+            if let afterBrief { afterBrief }
             if let review = coach.weeklyReview { weeklyReviewCard(review) }
             if let monthlyRead { monthlyReviewCard(monthlyRead) }
             if !pendingWorkoutReviews.isEmpty { pendingWorkoutReviewsCard }

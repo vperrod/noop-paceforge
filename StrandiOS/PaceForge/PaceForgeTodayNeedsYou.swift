@@ -1,19 +1,102 @@
 import SwiftUI
+import StrandDesign
 
-/// NOOP Today's Needs you: it leads the page while PaceForge is waiting on an answer (treadmill pace, a proposal, effort, feel) and
-/// leaves as soon as the answer is taken. Draws nothing when nothing is open. Shares the PaceForge tab's model, so an answer given
-/// here or there clears both.
+/// NOOP Today's Needs you: one 44 pt row (the count and the first item's title) while PaceForge is waiting on an answer (treadmill
+/// pace, a proposal, effort, feel); it leaves as soon as the answer is taken and draws nothing when nothing is open. A tap runs
+/// `onOpen`, which opens `PFNeedsYouSheet` with the whole card. Shares the PaceForge tab's model, so an answer given here or there clears both.
 struct PFTodayNeedsYouHost: View {
+    let onOpen: () -> Void
     @ObservedObject private var model = PFUnified.model
 
     var body: some View {
         Group {
             if let items = model.snapshot?.needsYou, !items.isEmpty {
-                PFNeedsYouCard(items: items)
-                    .environmentObject(model)
+                PFNeedsYouRow(items: items, onOpen: onOpen)
             }
         }
         .task { await model.refreshIfStale() }
+    }
+}
+
+private struct PFNeedsYouRow: View {
+    let items: [PFNeedsItem]
+    let onOpen: () -> Void
+
+    var body: some View {
+        Button(action: onOpen) {
+            HStack(spacing: 8) {
+                Image(systemName: "bell.badge")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(NoopLook.textSecondary)
+                    .accessibilityHidden(true)
+                Text("Needs you")
+                    .lookCaps(12.5)
+                    .foregroundStyle(NoopLook.textPrimary)
+                    .lineLimit(1)
+                    .fixedSize()
+                PFChip(text: "\(items.count)", color: PFNeutral.other)
+                    .fixedSize()
+                    .accessibilityIdentifier("pf-needs-row-count")
+                if let first = items.first {
+                    Text(first.title)
+                        .font(StrandFont.caption)
+                        .foregroundStyle(StrandPalette.textSecondary)
+                        .lineLimit(1)
+                }
+                Spacer(minLength: 4)
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(StrandPalette.textTertiary)
+                    .accessibilityHidden(true)
+            }
+            .padding(.horizontal, 16)
+            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .background(RoundedRectangle(cornerRadius: NoopLook.Metric.tileRadius, style: .continuous).fill(NoopLook.card))
+        .accessibilityLabel(Text("Needs you, \(items.count) waiting"))
+        .accessibilityHint(Text("Opens what PaceForge is waiting on"))
+        .accessibilityIdentifier("pf-needs-row")
+    }
+}
+
+/// The sheet behind the Needs you row: the whole card, answers and the plain error line included. It closes itself once the last item
+/// is answered. Opened from the row, and from a tapped Needs you notification.
+struct PFNeedsYouSheet: View {
+    @ObservedObject private var model = PFUnified.model
+    @Environment(\.dismiss) private var dismiss
+
+    private var isCleared: Bool { model.snapshot?.needsYou.isEmpty == true }
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    if let items = model.snapshot?.needsYou, !items.isEmpty {
+                        PFNeedsYouCard(items: items)
+                            .environmentObject(model)
+                    } else {
+                        Text("Nothing is waiting on you.")
+                            .font(StrandFont.subhead)
+                            .foregroundStyle(StrandPalette.textSecondary)
+                    }
+                }
+                .padding(16)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .background(StrandPalette.surfaceBase.ignoresSafeArea())
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }.accessibilityIdentifier("pf-needs-sheet-done")
+                }
+            }
+        }
+        .onChange(of: isCleared) { _, cleared in
+            if cleared { dismiss() }
+        }
+        .presentationDetents([.medium, .large])
     }
 }
 

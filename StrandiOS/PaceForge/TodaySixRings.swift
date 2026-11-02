@@ -55,7 +55,8 @@ struct SixRingNoopInput {
     let onGuide: () -> Void
 }
 
-/// The six rings and, under them, the never-merged note. `isToday` false (a past day): PaceForge's scores are today's only.
+/// The six rings and, under them, the never-merged note (the body-signals readout sits further down Today, after the heart-rate chart).
+/// `isToday` false (a past day): PaceForge's scores are today's only.
 struct TodaySixRings: View {
     let noop: [SixRingNoopInput]
     let isToday: Bool
@@ -71,7 +72,6 @@ struct TodaySixRings: View {
             }
             .frame(maxWidth: .infinity)
             TodaySixRingsFooter(noopCount: noopCount, isToday: isToday)
-            TodayPFReadout(isToday: isToday)
         }
         .containerIdentifier("today-six-rings")
     }
@@ -322,7 +322,7 @@ private struct TodaySixRingsFooter: View {
     @State private var isAboutOpen = false
 
     private static let note: AttributedString = {
-        let text = "NOOP and PaceForge are two different calculations, never merged. [About these scores](noop-about://scores)"
+        let text = "Two separate calculations, never merged. [About these scores](noop-about://scores)"
         return (try? AttributedString(markdown: text)) ?? AttributedString(text)
     }()
 
