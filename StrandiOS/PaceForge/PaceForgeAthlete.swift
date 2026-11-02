@@ -1,0 +1,551 @@
+import Foundation
+
+// The Athlete tab's data: the profile facts, the metric tiles with their change over four weeks, and the strengths /
+// weaknesses / areas to work on. Foundation only (compiled into the macOS test bundle like the other PaceForge parsers).
+//
+// Everything is made from documents the app already fetches: standing.json, fitness.json, body.json, body-progress.json and
+// hyrox_analysis.json, through the snapshot, plus the few fitness.json fields the snapshot did not keep (`PFAthleteFitness`).
+// A document the app does not fetch yet (profile.json, analytics.json, benchmarks.json) is not read here: the next slice adds one
+// parser beside `PFAthleteParse.fitness` and one line to `PFAthleteBuild.make`. Nothing here asks the athlete for anything: a
+// value that is missing reads as a dash.
+
+// MARK: - Model
+
+struct PFAthletePoint: Equatable {
+    var date: String
+    var value: Double
+}
+
+/// How a metric moved over the window: the arrow and the colour tone. `isFavourable` is nil when the movement is flat, or when the
+/// metric has no better direction (form), so the arrow is drawn grey.
+struct PFAthleteChange: Equatable {
+    enum Direction: Equatable {
+        case up, down, flat
+    }
+
+    var delta: Double?
+    var direction: Direction
+    /// "4 wk" for a change worked out from a series, "30 d" for the Standing document's own trend.
+    var window: String
+    var isFavourable: Bool?
+}
+
+/// One tile: a metric with its value, change and the series behind the sparkline and the chart.
+struct PFAthleteMetric: Identifiable, Equatable {
+    let id: String
+    let label: String
+    let unit: String
+    var value: Double?
+    /// The number alone, "\u{2014}" when missing; the unit is drawn beside it.
+    var valueText: String
+    var asOf: String?
+    var series: [PFAthletePoint] = []
+    var change: PFAthleteChange?
+    var decimals = 0
+    /// Which system the number comes from, shown on the tile detail so the strap's and the watch's scores stay apart.
+    let source: String
+    let what: String
+    /// The "Where you stand" metric this tile reads, so its norms and plan open from the tile.
+    var standingId: String?
+    /// True when the "Body weight and body fat" Hide numbers switch covers this tile.
+    var hidesWithBody = false
+
+    init(id: String, label: String, unit: String, value: Double?, valueText: String, source: String, what: String) {
+        self.id = id
+        self.label = label
+        self.unit = unit
+        self.value = value
+        self.valueText = valueText
+        self.source = source
+        self.what = what
+    }
+
+    var hasSeries: Bool { series.count >= 2 }
+
+    /// The values of the tile's sparkline: the last four weeks of the series, or its last two points when fewer fall inside that.
+    var sparkValues: [Double] {
+        guard let last = series.last else { return [] }
+        let cutoff = PFFormat.addDays(last.date, -PFAthleteMath.windowDays)
+        let recent = series.filter { $0.date >= cutoff }
+        return (recent.count >= 2 ? recent : Array(series.suffix(2))).map { $0.value }
+    }
+
+    /// "+1.2 vs 4 wk", "Up vs 30 d" when the document gave no size, "No change vs 4 wk".
+    var changeText: String? {
+        guard let change else { return nil }
+        switch change.direction {
+        case .flat:
+            return "No change vs \(change.window)"
+        case .up, .down:
+            if let size = change.delta { return PFNumber.signed(size, decimals: decimals) + " vs " + change.window }
+            return (change.direction == .up ? "Up" : "Down") + " vs " + change.window
+        }
+    }
+}
+
+struct PFAthleteFact: Identifiable, Equatable {
+    let label: String
+    var text: String
+    /// True when the Hide numbers switch for body weight covers it.
+    var hidesWithBody = false
+    var id: String { label }
+}
+
+/// One cell of the running-times row: a best recent time from the Standing document, or the half-marathon the current shape equals.
+struct PFAthleteRunTime: Identifiable, Equatable {
+    let id: String
+    let label: String
+    var text: String
+    var band: Int?
+    /// The Standing metric the cell opens; nil for the shape-equivalent cell.
+    var standingId: String?
+}
+
+/// A strength, a weakness or an area to work on, with the short evidence line and the collapsed "why".
+struct PFAthleteFinding: Identifiable, Equatable {
+    enum Group: String, Equatable {
+        case strength, weakness, area
+    }
+
+    let id: String
+    let group: Group
+    let title: String
+    let evidence: String
+    var band: Int?
+    /// A short tag such as the limiter's area ("endurance") or "HYROX".
+    var tag: String?
+    /// The computed reason: the rule's own words, labelled "Rule" in the app.
+    var ruleWhy: String?
+    /// The coach's model-written recommendation for the same thing, labelled "Coach" in the app, only ever inside the collapsed why.
+    var coachWhy: String?
+    var standingId: String?
+    var planId: String?
+    /// The tile whose detail the row links to.
+    var tileId: String?
+}
+
+struct PFAthlete {
+    var goalTitle: String?
+    var goalLine: String?
+    var facts: [PFAthleteFact] = []
+    var tiles: [PFAthleteMetric] = []
+    var runTimes: [PFAthleteRunTime] = []
+    var hyroxCard: PFHyroxFinishCard?
+    var hyrox: PFHyrox?
+    var strengths: [PFAthleteFinding] = []
+    var weaknesses: [PFAthleteFinding] = []
+    var areas: [PFAthleteFinding] = []
+    /// "31 metrics, 11 rated" for the row that opens the full scorecard; nil when there is no Standing document.
+    var scorecardLine: String?
+
+    var hasFindings: Bool { !(strengths.isEmpty && weaknesses.isEmpty && areas.isEmpty) }
+
+    var hasHyrox: Bool { hyroxCard != nil || hyrox != nil }
+
+    /// Nothing to draw beyond a header of dashes.
+    var isEmpty: Bool {
+        tiles.isEmpty && runTimes.isEmpty && !hasHyrox && !hasFindings && goalTitle == nil
+    }
+
+    func tile(_ id: String) -> PFAthleteMetric? { tiles.first { $0.id == id } }
+}
+
+// MARK: - The fitness.json fields the snapshot does not keep
+
+struct PFAthleteLimiter: Equatable {
+    var name: String
+    var area: String
+    var evidence: String
+}
+
+struct PFAthleteFitness: Equatable {
+    /// The effective VO2max per run, smoothed (the `ewma` of each point), oldest first.
+    var effectiveVo2: [PFAthletePoint] = []
+    var effectiveVo2Current: Double?
+    var ftpHistory: [PFAthletePoint] = []
+    var autoFtp: Double?
+    var criticalPaceSecPerKm: Double?
+    var restingHrLatest: Double?
+    var halfMarathonEquivalentSec: Double?
+    /// `coach_input.ranked_limiters`: the engine's own ranking, a rule and not a model's words.
+    var limiters: [PFAthleteLimiter] = []
+}
+
+enum PFAthleteParse {
+    static func fitness(_ f: PFJ) -> PFAthleteFitness? {
+        guard f.exists else { return nil }
+        var out = PFAthleteFitness()
+
+        let effective = f["running"]["effective_vo2max"]
+        if effective["available"].bool != false {
+            out.effectiveVo2 = points(effective["series"], valueKey: "ewma", fallbackKey: "value")
+            out.effectiveVo2Current = effective["current"].double
+        }
+
+        let bike = f["bike"]
+        out.ftpHistory = points(bike["ftp_history"], valueKey: "ftp", fallbackKey: nil)
+        out.autoFtp = bike["auto_ftp"].double
+
+        let critical = f["running"]["critical_speed"]
+        if critical["available"].bool != false, let pace = critical["cs_pace_sec_per_km"].double, pace > 120, pace < 900 {
+            out.criticalPaceSecPerKm = pace
+        }
+
+        out.restingHrLatest = f["load"]["resting_hr_trend"]["latest"].double
+        out.halfMarathonEquivalentSec = f["prognosis"]["hm_equivalent"]["time_sec"].double
+
+        out.limiters = f["coach_input"]["ranked_limiters"].array.compactMap { l in
+            guard let name = l["name"].text else { return nil }
+            return PFAthleteLimiter(name: name, area: l["area"].text ?? "", evidence: l["evidence"].text ?? "")
+        }
+        return out
+    }
+
+    private static func points(_ list: PFJ, valueKey: String, fallbackKey: String?) -> [PFAthletePoint] {
+        let rows: [PFAthletePoint] = list.array.compactMap { p in
+            guard let date = p["date"].text else { return nil }
+            var found = p[valueKey].double
+            if found == nil, let fallbackKey { found = p[fallbackKey].double }
+            guard let number = found else { return nil }
+            return PFAthletePoint(date: String(date.prefix(10)), value: number)
+        }
+        return rows.sorted { $0.date < $1.date }
+    }
+}
+
+// MARK: - Change over four weeks
+
+enum PFAthleteMath {
+    static let windowDays = 28
+    static let windowLabel = "4 wk"
+
+    /// The last value at or before `date` in a series sorted oldest first; nil when the series starts later.
+    static func value(onOrBefore date: String, in series: [PFAthletePoint]) -> Double? {
+        series.last(where: { $0.date <= date })?.value
+    }
+
+    /// The newest value minus the value at or before four weeks earlier (counted from the newest point). nil when the series does not
+    /// reach back that far, so a short history shows no arrow rather than a guess. A move inside `noise` (the scale's own day-to-day
+    /// band) or inside 1 % of the earlier value is flat.
+    static func change(series: [PFAthletePoint], higherIsBetter: Bool?, noise: Double? = nil) -> PFAthleteChange? {
+        guard let latest = series.last else { return nil }
+        let cutoff = PFFormat.addDays(latest.date, -windowDays)
+        guard let earlier = value(onOrBefore: cutoff, in: series) else { return nil }
+        let delta = latest.value - earlier
+        let band = max(noise ?? 0, abs(earlier) * 0.01)
+        if abs(delta) <= band {
+            return PFAthleteChange(delta: delta, direction: .flat, window: windowLabel, isFavourable: nil)
+        }
+        let direction: PFAthleteChange.Direction = delta > 0 ? .up : .down
+        var favourable: Bool?
+        if let higherIsBetter { favourable = (delta > 0) == higherIsBetter }
+        return PFAthleteChange(delta: delta, direction: direction, window: windowLabel, isFavourable: favourable)
+    }
+
+    /// The Standing document's own trend (a 30-day window it works out on the server) as a change, for a metric whose history the app
+    /// does not hold. The server's `improving` flag decides the colour; the window is named as it is.
+    static func change(from trend: PFStandingTrend?) -> PFAthleteChange? {
+        guard let trend else { return nil }
+        let word = (trend.direction ?? "").lowercased()
+        let up = ["up", "rising", "increasing", "increase", "higher"]
+        let down = ["down", "falling", "decreasing", "decrease", "lower"]
+        let window = "\(trend.windowDays ?? 30) d"
+        if up.contains(word) || down.contains(word) {
+            let isUp = up.contains(word)
+            let size = trend.change.map { abs($0) }
+            let delta: Double? = size.map { isUp ? $0 : -$0 }
+            return PFAthleteChange(delta: delta, direction: isUp ? .up : .down, window: window, isFavourable: trend.improving)
+        }
+        if trend.direction == nil && trend.change == nil { return nil }
+        return PFAthleteChange(delta: trend.change, direction: .flat, window: window, isFavourable: nil)
+    }
+}
+
+// MARK: - Building the tab from the snapshot
+
+enum PFAthleteBuild {
+    static func make(_ s: PFSnapshot, maxHr: Int? = nil) -> PFAthlete {
+        var out = PFAthlete()
+        let fit = s.athleteFitness
+        let standing = s.standing
+
+        let candidates: [PFAthleteMetric?] = [
+            vo2maxTile(standing),
+            vo2RunsTile(fit),
+            thresholdPaceTile(fit),
+            ftpTile(fit),
+            restingHrTile(standing, fit),
+            hrvTile(standing),
+            bodyTile(s, key: "weight_kg", id: "weight", label: "Weight", unit: "kg", decimals: 1,
+                     what: Copy.weight),
+            bodyTile(s, key: "body_fat_pct", id: "body_fat", label: "Body fat", unit: "%", decimals: 1,
+                     what: Copy.bodyFat),
+            loadTile(s, id: "ctl", label: "Fitness (CTL)", key: \PFLoadPoint.ctl, higherIsBetter: true, what: Copy.ctl),
+            loadTile(s, id: "tsb", label: "Form (TSB)", key: \PFLoadPoint.tsb, higherIsBetter: nil, what: Copy.tsb),
+        ]
+        out.tiles = candidates.compactMap { $0 }
+
+        out.runTimes = runTimes(standing, fit)
+        out.hyroxCard = s.insights.hyroxFinish
+        out.hyrox = s.insights.hyrox
+        out.facts = facts(s, tiles: out.tiles, maxHr: maxHr)
+        applyGoal(s, to: &out)
+
+        out.strengths = strengths(standing)
+        out.weaknesses = weaknesses(standing)
+        out.areas = areas(s, fit)
+        if let summary = standing?.summary, summary.total > 0 {
+            out.scorecardLine = "\(summary.total) metrics, \(summary.total - summary.notRated) rated"
+        }
+        return out
+    }
+
+    // MARK: Header
+
+    private static func applyGoal(_ s: PFSnapshot, to out: inout PFAthlete) {
+        guard let race = s.today.nextRace else { return }
+        out.goalTitle = race.name
+        var line = PFFormat.shortDate(race.date)
+        line += race.daysOut == 1 ? " \u{00B7} 1 day" : " \u{00B7} \(race.daysOut) days"
+        if let goal = race.goalTime { line += " \u{00B7} goal \(goal)" }
+        out.goalLine = line
+    }
+
+    private static func facts(_ s: PFSnapshot, tiles: [PFAthleteMetric], maxHr: Int?) -> [PFAthleteFact] {
+        let dash = "\u{2014}"
+        func tileText(_ id: String, suffix: String) -> String {
+            guard let tile = tiles.first(where: { $0.id == id }), tile.value != nil else { return dash }
+            return tile.valueText + suffix
+        }
+        let age = s.body?.age ?? s.standing?.profile?.age
+        let height = s.body?.heightCm ?? s.standing?.profile?.heightCm
+        let weight = s.body?.latest["weight_kg"] ?? s.standing?.profile?.weightKg
+        var weightFact = PFAthleteFact(label: "Weight", text: weight.map { PFFormat.oneDecimal($0) + " kg" } ?? dash)
+        weightFact.hidesWithBody = true
+        return [
+            PFAthleteFact(label: "Age", text: age.map { String($0) } ?? dash),
+            PFAthleteFact(label: "Height", text: height.map { PFFormat.trimmed($0) + " cm" } ?? dash),
+            weightFact,
+            PFAthleteFact(label: "Max HR", text: maxHr.map { "\($0) bpm" } ?? dash),
+            PFAthleteFact(label: "Resting HR", text: tileText("resting_hr", suffix: " bpm")),
+            PFAthleteFact(label: "FTP", text: tileText("ftp", suffix: " W")),
+            PFAthleteFact(label: "LT pace", text: tileText("lt_pace", suffix: " /km")),
+            // The lactate-threshold heart rate is in profile.json, which the next slice fetches.
+            PFAthleteFact(label: "LT HR", text: dash),
+        ]
+    }
+
+    // MARK: Tiles
+
+    private static func standingMetric(_ standing: PFStanding?, _ ids: [String]) -> PFStandingMetric? {
+        guard let standing else { return nil }
+        for id in ids {
+            if let metric = standing.metric(id) { return metric }
+        }
+        return nil
+    }
+
+    private static func vo2maxTile(_ standing: PFStanding?) -> PFAthleteMetric? {
+        guard let metric = standingMetric(standing, ["vo2max", "vo2"]), let value = metric.value else { return nil }
+        var tile = PFAthleteMetric(id: "vo2max", label: "VO2max", unit: metric.unit ?? "ml/kg/min", value: value,
+                                   valueText: PFFormat.trimmed(value), source: "PaceForge \u{00B7} Garmin estimate", what: Copy.vo2max)
+        tile.decimals = 1
+        tile.standingId = metric.id
+        tile.change = PFAthleteMath.change(from: metric.trend)
+        return tile
+    }
+
+    private static func vo2RunsTile(_ fit: PFAthleteFitness?) -> PFAthleteMetric? {
+        guard let fit, let value = fit.effectiveVo2Current ?? fit.effectiveVo2.last?.value else { return nil }
+        var tile = PFAthleteMetric(id: "vo2max_runs", label: "VO2max from runs", unit: "ml/kg/min", value: value,
+                                   valueText: PFFormat.oneDecimal(value), source: "PaceForge \u{00B7} from your runs", what: Copy.vo2Runs)
+        tile.decimals = 1
+        tile.asOf = fit.effectiveVo2.last?.date
+        tile.series = fit.effectiveVo2
+        tile.change = PFAthleteMath.change(series: fit.effectiveVo2, higherIsBetter: true)
+        return tile
+    }
+
+    private static func thresholdPaceTile(_ fit: PFAthleteFitness?) -> PFAthleteMetric? {
+        guard let pace = fit?.criticalPaceSecPerKm else { return nil }
+        // The history of this figure is not kept (a current value only), so the tile has no arrow.
+        return PFAthleteMetric(id: "lt_pace", label: "Threshold pace", unit: "/km", value: pace,
+                               valueText: PFFormat.pace(pace), source: "PaceForge \u{00B7} critical speed", what: Copy.thresholdPace)
+    }
+
+    private static func ftpTile(_ fit: PFAthleteFitness?) -> PFAthleteMetric? {
+        guard let fit else { return nil }
+        let current = fit.ftpHistory.last?.value ?? fit.autoFtp
+        guard let current else { return nil }
+        var tile = PFAthleteMetric(id: "ftp", label: "FTP", unit: "W", value: current, valueText: PFFormat.trimmed(current),
+                                   source: fit.ftpHistory.isEmpty ? "PaceForge \u{00B7} from your rides" : "PaceForge \u{00B7} FTP on file",
+                                   what: Copy.ftp)
+        tile.asOf = fit.ftpHistory.last?.date
+        tile.series = fit.ftpHistory
+        tile.change = PFAthleteMath.change(series: fit.ftpHistory, higherIsBetter: true)
+        return tile
+    }
+
+    private static func restingHrTile(_ standing: PFStanding?, _ fit: PFAthleteFitness?) -> PFAthleteMetric? {
+        let metric = standingMetric(standing, ["resting_hr"])
+        guard let value = metric?.value ?? fit?.restingHrLatest else { return nil }
+        var tile = PFAthleteMetric(id: "resting_hr", label: "Resting HR", unit: "bpm", value: value,
+                                   valueText: String(format: "%.0f", value), source: "PaceForge \u{00B7} Garmin watch", what: Copy.restingHr)
+        tile.standingId = metric?.id
+        tile.change = PFAthleteMath.change(from: metric?.trend)
+        return tile
+    }
+
+    private static func hrvTile(_ standing: PFStanding?) -> PFAthleteMetric? {
+        guard let metric = standingMetric(standing, ["hrv"]), let value = metric.value else { return nil }
+        var tile = PFAthleteMetric(id: "hrv", label: "HRV (7 nights)", unit: "ms", value: value,
+                                   valueText: String(format: "%.0f", value), source: "PaceForge \u{00B7} Garmin watch", what: Copy.hrv)
+        tile.standingId = metric.id
+        tile.change = PFAthleteMath.change(from: metric.trend)
+        return tile
+    }
+
+    private static func bodyTile(_ s: PFSnapshot, key: String, id: String, label: String, unit: String, decimals: Int,
+                                 what: String) -> PFAthleteMetric? {
+        guard let body = s.body else { return nil }
+        let rows: [PFAthletePoint] = body.series.compactMap { r in
+            guard let v = r.values[key] else { return nil }
+            return PFAthletePoint(date: String(r.date.prefix(10)), value: v)
+        }
+        let points = rows.sorted { $0.date < $1.date }
+        guard let current = body.latest[key] ?? points.last?.value else { return nil }
+        var tile = PFAthleteMetric(id: id, label: label, unit: unit, value: current,
+                                   valueText: String(format: "%.\(decimals)f", current),
+                                   source: "PaceForge \u{00B7} Hume scale", what: what)
+        tile.decimals = decimals
+        tile.asOf = points.last?.date ?? body.date
+        tile.series = points
+        tile.hidesWithBody = true
+        tile.change = PFAthleteMath.change(series: points, higherIsBetter: bodyDirection(s, key: key), noise: bodyNoise(s, key: key))
+        return tile
+    }
+
+    /// Which way is better for a body metric: the direction of the athlete's own goal when there is one, else the document's `good`.
+    private static func bodyDirection(_ s: PFSnapshot, key: String) -> Bool? {
+        if let goal = s.bodyProgress?.goals.first(where: { $0.metric == key }),
+           let target = goal.target, let start = goal.startValue, target != start {
+            return target > start
+        }
+        switch s.body?.metrics[key]?.good ?? "" {
+        case "up": return true
+        case "down": return false
+        default: return nil
+        }
+    }
+
+    private static func bodyNoise(_ s: PFSnapshot, key: String) -> Double? {
+        switch key {
+        case "weight_kg": return s.bodyProgress?.noiseWeightKg
+        case "body_fat_pct": return s.bodyProgress?.noiseBodyFatPct
+        default: return nil
+        }
+    }
+
+    private static func loadTile(_ s: PFSnapshot, id: String, label: String, key: KeyPath<PFLoadPoint, Double>,
+                                 higherIsBetter: Bool?, what: String) -> PFAthleteMetric? {
+        let history = s.insights.history
+        guard let last = history.last else { return nil }
+        let value = last[keyPath: key]
+        let points = history.map { PFAthletePoint(date: String($0.date.prefix(10)), value: $0[keyPath: key]) }
+        var tile = PFAthleteMetric(id: id, label: label, unit: "", value: value, valueText: String(format: "%.0f", value),
+                                   source: "PaceForge \u{00B7} training load", what: what)
+        tile.asOf = points.last?.date
+        tile.series = points
+        tile.change = PFAthleteMath.change(series: points, higherIsBetter: higherIsBetter)
+        return tile
+    }
+
+    // MARK: Running times
+
+    private static func runTimes(_ standing: PFStanding?, _ fit: PFAthleteFitness?) -> [PFAthleteRunTime] {
+        var out: [PFAthleteRunTime] = []
+        let wanted: [(String, String)] = [("run_5k", "5K"), ("run_10k", "10K"), ("run_half", "Half")]
+        for (id, label) in wanted {
+            guard let metric = standing?.metric(id), metric.value != nil || metric.display != nil else { continue }
+            out.append(PFAthleteRunTime(id: id, label: label, text: metric.valueText, band: metric.band, standingId: id))
+        }
+        if let sec = fit?.halfMarathonEquivalentSec {
+            out.append(PFAthleteRunTime(id: "hm_shape", label: "Half now", text: PFFormat.clock(sec), band: nil, standingId: nil))
+        }
+        return out
+    }
+
+    // MARK: Strengths, weaknesses, areas
+
+    private static func strengths(_ standing: PFStanding?) -> [PFAthleteFinding] {
+        guard let standing else { return [] }
+        // A top-three metric that is itself only average is not called a strength.
+        return standing.strongestTop
+            .filter { ($0.band ?? 0) >= 3 }
+            .prefix(3)
+            .map { standingFinding($0, group: .strength, standing: standing) }
+    }
+
+    private static func weaknesses(_ standing: PFStanding?) -> [PFAthleteFinding] {
+        guard let standing else { return [] }
+        return standing.focusTop
+            .prefix(3)
+            .map { standingFinding($0, group: .weakness, standing: standing) }
+    }
+
+    private static func standingFinding(_ metric: PFStandingMetric, group: PFAthleteFinding.Group,
+                                        standing: PFStanding) -> PFAthleteFinding {
+        var evidence = metric.valueText
+        if let band = metric.band, metric.isRated {
+            evidence += " \u{00B7} \(metric.bandName), band \(band) of 5"
+        }
+        var parts: [String] = []
+        if let why = metric.why { parts.append(why) }
+        if let trend = metric.trend { parts.append(trend.text + ".") }
+        return PFAthleteFinding(id: "standing-\(metric.id)", group: group, title: metric.label, evidence: evidence,
+                                band: metric.band, tag: nil, ruleWhy: parts.isEmpty ? nil : parts.joined(separator: " "),
+                                coachWhy: nil, standingId: metric.id, planId: metric.planId, tileId: nil)
+    }
+
+    private static func areas(_ s: PFSnapshot, _ fit: PFAthleteFitness?) -> [PFAthleteFinding] {
+        var out: [PFAthleteFinding] = []
+        let coachLimiters = s.coach.take?.limiters ?? []
+        for (index, limiter) in (fit?.limiters ?? []).prefix(3).enumerated() {
+            let coach = coachLimiters.first { $0.name.lowercased() == limiter.name.lowercased() }
+                ?? coachLimiters.first { !limiter.area.isEmpty && $0.area.lowercased() == limiter.area.lowercased() }
+            out.append(PFAthleteFinding(id: "limiter-\(index)", group: .area, title: limiter.name,
+                                        evidence: limiter.evidence, band: nil,
+                                        tag: limiter.area.isEmpty ? nil : PFFormat.capitalized(limiter.area),
+                                        ruleWhy: limiter.evidence.isEmpty ? nil : limiter.evidence,
+                                        coachWhy: coach?.recommendation, standingId: nil, planId: nil, tileId: nil))
+        }
+        // The HYROX stations furthest from the top three fill the rest, up to three rows.
+        for station in (s.insights.hyrox?.stations ?? []) where out.count < 3 {
+            let gap = PFNumber.signed(station.gapSec, decimals: 0) + " s"
+            var evidence = "You \(station.athlete)"
+            if !station.top3.isEmpty { evidence += " \u{00B7} top 3 average \(station.top3)" }
+            evidence += " \u{00B7} \(gap)"
+            out.append(PFAthleteFinding(id: "station-\(station.name)", group: .area, title: station.name, evidence: evidence,
+                                        band: nil, tag: "HYROX",
+                                        ruleWhy: "One of the HYROX stations furthest from the average of the top three finishers, worked out from your race results.",
+                                        coachWhy: nil, standingId: nil, planId: nil, tileId: nil))
+        }
+        return out
+    }
+
+    // MARK: Words
+
+    /// "What it is" for each tile detail: plain, short, and no claim beyond what the number is.
+    private enum Copy {
+        static let vo2max = "Garmin's wrist estimate of the most oxygen your body can use in a minute, per kilogram of body weight. A higher number is a bigger aerobic engine. It moves slowly, over weeks."
+        static let vo2Runs = "PaceForge's own estimate from your ordinary runs: the pace you hold at the heart rate it costs, set to Garmin's level. Its direction over weeks is the useful part."
+        static let thresholdPace = "Critical speed: the fastest pace you can hold through a long effort, fitted from your best efforts over several distances. A lower time per kilometre is faster."
+        static let ftp = "Functional threshold power: the power you can hold for about an hour on the bike. It is the figure on file, or an estimate from your rides when none is filed."
+        static let restingHr = "Your heart rate at rest, from the Garmin watch. A lower number over several weeks usually goes with better recovery and fitness."
+        static let hrv = "The average of your last seven nights of heart-rate variability from the Garmin watch. It is a trend to read against your own usual, not a score."
+        static let weight = "Your body weight from the scale, with the change over four weeks. Day-to-day swings smaller than the scale's own noise count as no change."
+        static let bodyFat = "Body fat from the scale's impedance reading, with the change over four weeks. Day-to-day swings smaller than the scale's own noise count as no change."
+        static let ctl = "Training load averaged over about six weeks: the fitness you have built. Higher means more built, not more ready today."
+        static let tsb = "Fitness minus fatigue. Below zero you are carrying load, above zero you are fresher. Neither side is good or bad on its own."
+    }
+}

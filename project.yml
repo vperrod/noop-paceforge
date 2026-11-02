@@ -197,6 +197,8 @@ targets:
       - StrandiOS/PaceForge/PaceForgeDayMerge.swift
       # "Where you stand": standing.json parsing, band bars, the summary strip and the Telegram phrase.
       - StrandiOS/PaceForge/PaceForgeStanding.swift
+      # The Athlete tab's data: the fitness.json extras, the change over four weeks and the strengths / weaknesses / areas.
+      - StrandiOS/PaceForge/PaceForgeAthlete.swift
       # Insights v2: insights-v2.json parsing, the card order, status and effort wording, the finish bar and sleep clock maths.
       - StrandiOS/PaceForge/PaceForgeInsightsV2.swift
       # The HYROX prognosis card: the race_countdown finish beside the goal, the last races and the personal best; a running prognosis only for a road-race goal.

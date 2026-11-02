@@ -173,6 +173,7 @@ enum PFBuilder {
                                raceFinish: insightsV2?.item(PFInsightID.raceCountdown)?.race?.finish,
                                today: today)
         )
+        snapshot.athleteFitness = PFAthleteParse.fitness(raw.fitness)
         snapshot.body = body(raw.body)
         snapshot.bodyProgress = bodyProgress(raw.bodyProgress)
         snapshot.alerts = alerts(raw.alerts)
@@ -265,6 +266,7 @@ enum PFBuilder {
                 kept.trimp = fresh.trimp
                 kept.rpe = fresh.rpe
                 kept.photoSummaries = fresh.photoSummaries
+                kept.athleteFitness = fresh.athleteFitness
                 snapshot = kept
             } else {
                 snapshot = fresh
@@ -379,6 +381,7 @@ enum PFBuilder {
                                today: today)
         )
         applyScoreSeries(&snapshot, raw: raw)
+        snapshot.athleteFitness = PFAthleteParse.fitness(raw.fitness)
         return snapshot
     }
 

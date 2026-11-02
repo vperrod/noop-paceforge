@@ -62,6 +62,8 @@ struct PFSnapshot {
     var alertsLoaded = false
     /// PaceForge's saved one-line reading of a workout photo (`photo_extract.summary` of the session's rpe.json entry), by activity id.
     var photoSummaries: [String: String] = [:]
+    /// The few `fitness.json` fields only the Athlete tab reads (effective VO2max series, FTP history, critical pace, ranked limiters); nil when there is no fitness document.
+    var athleteFitness: PFAthleteFitness?
 
     /// The rides of one day.
     func rides(on date: String) -> [PFRide] { rides.filter { $0.date == date } }
