@@ -5,8 +5,9 @@ import XCTest
 /// no strap and no history; nothing here is real data. The widget faces are drawn by the debug gallery.
 final class PlannerUITests: XCTestCase {
 
-    private func launch(effort: String? = nil, sleep: String? = nil, widgetGallery: Bool = false) throws -> XCUIApplication {
+    private func launch(effort: String? = nil, sleep: String? = nil, widgetGallery: Bool = false, classic: Bool = false) throws -> XCUIApplication {
         let app = XCUIApplication()
+        if classic { app.useClassicNavigation() }
         app.launchArguments.append("--demo-seed")
         if let effort { app.launchArguments += ["-EffortTargetFixture", effort] }
         if let sleep { app.launchArguments += ["-SleepPlannerFixture", sleep] }
@@ -147,7 +148,7 @@ final class PlannerUITests: XCTestCase {
     // MARK: Widget gallery
 
     func testEffortTargetWidgetIsInTheGallery() throws {
-        let app = try launch(widgetGallery: true)
+        let app = try launch(widgetGallery: true, classic: true)
         let tab = app.shellTab("PaceForge")
         XCTAssertTrue(tab.waitForExistence(timeout: 20))
         tab.tap()

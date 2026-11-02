@@ -6,8 +6,9 @@ import XCTest
 /// data.
 final class MyDayUITests: XCTestCase {
 
-    private func launch(day variant: String? = nil, paceForge: Bool = false, widgetGallery: Bool = false) throws -> XCUIApplication {
+    private func launch(day variant: String? = nil, paceForge: Bool = false, widgetGallery: Bool = false, classic: Bool = false) throws -> XCUIApplication {
         let app = XCUIApplication()
+        if classic { app.useClassicNavigation() }
         app.launchArguments.append("--demo-seed")
         if let variant { app.launchArguments += ["-MyDayFixture", variant] }
         if paceForge {
@@ -116,7 +117,7 @@ final class MyDayUITests: XCTestCase {
     }
 
     func testPaceForgeTodaySoFarOpensMyDay() throws {
-        let app = try launch(paceForge: true)
+        let app = try launch(paceForge: true, classic: true)
         let tab = app.shellTab("PaceForge")
         XCTAssertTrue(tab.waitForExistence(timeout: 20), "The PaceForge tab should be present.")
         tab.tap()
@@ -137,7 +138,7 @@ final class MyDayUITests: XCTestCase {
     }
 
     func testMyDayWidgetIsInTheGallery() throws {
-        let app = try launch(paceForge: true, widgetGallery: true)
+        let app = try launch(paceForge: true, widgetGallery: true, classic: true)
         let tab = app.shellTab("PaceForge")
         XCTAssertTrue(tab.waitForExistence(timeout: 20))
         tab.tap()

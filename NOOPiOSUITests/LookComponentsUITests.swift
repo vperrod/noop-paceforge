@@ -11,8 +11,9 @@ final class LookComponentsUITests: XCTestCase {
         ("trend", "07 trend view"), ("chrome", "08 tab bar and mini dials"),
     ]
 
-    private func launch(screen: String? = nil, appearance: String = "dark", fixture: Bool = false) throws -> XCUIApplication {
+    private func launch(screen: String? = nil, appearance: String = "dark", fixture: Bool = false, classic: Bool = false) throws -> XCUIApplication {
         let app = XCUIApplication()
+        if classic { app.useClassicNavigation() }
         app.launchArguments.append("--demo-seed")
         if let screen { app.launchArguments.append(contentsOf: ["--demo-screen", screen]) }
         app.launchArguments.append(contentsOf: ["-theme.appearance", appearance])
@@ -147,7 +148,7 @@ final class LookComponentsUITests: XCTestCase {
     // MARK: PaceForge Today
 
     func testPaceForgeTodayOutlookBarFoldsTheBriefing() throws {
-        let app = try launch(fixture: true)
+        let app = try launch(fixture: true, classic: true)
         try openSegment(app, "Today")
         let bar = element(app, "pf-brief-outlook")
         XCTAssertTrue(reveal(bar, in: app), "Today should show the Daily Outlook bar.")
@@ -159,7 +160,7 @@ final class LookComponentsUITests: XCTestCase {
     }
 
     func testPaceForgeTodayDialsAndNextBestAction() throws {
-        let app = try launch(fixture: true)
+        let app = try launch(fixture: true, classic: true)
         try openSegment(app, "Today")
         attach(app, "Look 32 PaceForge Today top")
         let card = element(app, "pf-next-action-card")

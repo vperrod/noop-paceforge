@@ -9,6 +9,8 @@ final class PaceForgeRealShapesUITests: XCTestCase {
 
     private func launch(screen: String? = nil, extra: [String] = []) throws -> XCUIApplication {
         let app = XCUIApplication()
+        // These tests drive the classic PaceForge tab and its segments, which the unified bar (the default) does not have.
+        app.useClassicNavigation()
         app.launchArguments.append("--demo-seed")
         if let screen { app.launchArguments.append(contentsOf: ["--demo-screen", screen]) }
         app.launchArguments.append(contentsOf: extra)

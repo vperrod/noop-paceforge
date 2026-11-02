@@ -1,15 +1,16 @@
 import XCTest
 
 /// The unified navigation, Settings > Tools. With the switch on (the default) the tab bar is Today, Plan, Athlete, Insights and More,
-/// with Sleep reached from the Rest ring on Today and from a More row; with it off the tabs are the ones build 480 has. The switch is a
-/// launch argument here (`-unifiedNav YES`); like the other UI tests these run on `--demo-seed` data, and the PaceForge chips on
-/// the synthetic fixture (`-PaceForgeFixture`). Not run in CI.
+/// with Sleep reached from the Rest ring on Today and from a More row; with it off the tabs are the classic ones (Today, Workouts,
+/// Sleep, PaceForge, More). The switch is a launch argument here (`-unifiedNav YES` or `NO`); like the other UI tests these run on
+/// `--demo-seed` data, and the PaceForge chips on the synthetic fixture (`-PaceForgeFixture`). Not run in CI.
 final class UnifiedNavUITests: XCTestCase {
     private func launch(unifiedNav: Bool, fixture: Bool = true) throws -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments.append("--demo-seed")
         app.launchArguments.append(contentsOf: ["-theme.appearance", "dark"])
-        if unifiedNav { app.launchArguments.append(contentsOf: ["-unifiedNav", "YES"]) }
+        // The default is on, so "off" has to be asked for.
+        if unifiedNav { app.launchArguments.append(contentsOf: ["-unifiedNav", "YES"]) } else { app.useClassicNavigation() }
         if fixture {
             app.launchArguments.append("-PaceForgeFixture")
             let url = try XCTUnwrap(Bundle(for: Self.self).url(forResource: "PaceForgeFixture", withExtension: "json"),
@@ -61,7 +62,7 @@ final class UnifiedNavUITests: XCTestCase {
         XCTAssertTrue(element(app, "look-coach").waitForExistence(timeout: 20), "The Coach button stays at the end of the bar.")
     }
 
-    func testFlagOffKeepsTheBuild480Tabs() throws {
+    func testFlagOffKeepsTheClassicTabs() throws {
         let app = try launch(unifiedNav: false)
         XCTAssertTrue(app.shellTab("PaceForge").waitForExistence(timeout: 20), "With the switch off, tab 4 is PaceForge.")
         XCTAssertTrue(app.shellTab("Workouts").exists, "With the switch off, tab 2 is Workouts.")

@@ -7,8 +7,9 @@ import XCTest
 /// (made-up values only).
 final class LookScreensUITests: XCTestCase {
     private func launch(screen: String? = nil, appearance: String = "dark", fixture: Bool = false,
-                        extra: [String] = []) throws -> XCUIApplication {
+                        extra: [String] = [], classic: Bool = false) throws -> XCUIApplication {
         let app = XCUIApplication()
+        if classic { app.useClassicNavigation() }
         app.launchArguments.append("--demo-seed")
         if let screen { app.launchArguments.append(contentsOf: ["--demo-screen", screen]) }
         app.launchArguments.append(contentsOf: ["-theme.appearance", appearance])
@@ -157,7 +158,7 @@ final class LookScreensUITests: XCTestCase {
     // MARK: PaceForge
 
     func testPaceForgeBodyShowsTheTrendView() throws {
-        let app = try launch(fixture: true)
+        let app = try launch(fixture: true, classic: true)
         try openSegment(app, "Body")
         XCTAssertTrue(reveal(element(app, "pf-body-trend-chart"), in: app), "Body should show the trend view.")
         attach(app, "Look A2 PaceForge Body trend")
@@ -168,7 +169,7 @@ final class LookScreensUITests: XCTestCase {
     }
 
     func testPaceForgeThisWeekAndSharedCoachUseTheCards() throws {
-        let app = try launch(fixture: true)
+        let app = try launch(fixture: true, classic: true)
         try openSegment(app, "This week")
         attach(app, "Look A4 PaceForge This week")
         element(app, "look-coach").tap()

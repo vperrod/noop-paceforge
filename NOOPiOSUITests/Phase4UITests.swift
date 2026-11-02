@@ -7,8 +7,9 @@ import XCTest
 /// documents, `-PaceForgeNoStreak` a highlights file with nothing alive and `-PaceForgeJournalImpactEmpty` a journal impact
 /// with no clear effect. Screenshot names start with "Phase4" and a two-digit step, so a run's attachments sort in screen order.
 final class Phase4UITests: XCTestCase {
-    private func launch(screen: String? = nil, appearance: String = "dark", extra: [String] = []) throws -> XCUIApplication {
+    private func launch(screen: String? = nil, appearance: String = "dark", extra: [String] = [], classic: Bool = false) throws -> XCUIApplication {
         let app = XCUIApplication()
+        if classic { app.useClassicNavigation() }
         app.launchArguments.append("--demo-seed")
         if let screen { app.launchArguments.append(contentsOf: ["--demo-screen", screen]) }
         app.launchArguments.append(contentsOf: ["-theme.appearance", appearance])
@@ -84,7 +85,7 @@ final class Phase4UITests: XCTestCase {
 
     func testNoStreakAliveMeansNoChip() throws {
         let app = try launch(extra: ["-PaceForgeNoStreak"])
-        XCTAssertTrue(app.shellTab("PaceForge").waitForExistence(timeout: 30), "Today should have loaded.")
+        XCTAssertTrue(app.shellTab("Today").waitForExistence(timeout: 30), "Today should have loaded.")
         XCTAssertFalse(element(app, "look-streak-chip").waitForExistence(timeout: 5), "With no streak alive there is no chip.")
         attach(app, "Phase4 12 Today top bar without a streak chip")
     }
@@ -245,14 +246,13 @@ final class Phase4UITests: XCTestCase {
         let button = element(app, "pf-plan-view")
         XCTAssertTrue(reveal(button, in: app), "The card should have VIEW MY PLAN.")
         button.tap()
-        let segments = app.segmentedControls["pf-segments"]
-        XCTAssertTrue(segments.waitForExistence(timeout: 20), "VIEW MY PLAN should open the PaceForge tab.")
-        XCTAssertTrue(segments.buttons["This week"].isSelected, "It should land on This week.")
-        attach(app, "Phase4 61 This week, opened from My Plan")
+        XCTAssertTrue(element(app, "calendar-host").waitForExistence(timeout: 20), "VIEW MY PLAN should open the Plan tab.")
+        XCTAssertTrue(element(app, "calendar-chip-content-plan").waitForExistence(timeout: 20), "It should land on the Plan chip.")
+        attach(app, "Phase4 61 Plan, opened from My Plan")
     }
 
     func testMyPlanCardOnPaceForgeToday() throws {
-        let app = try launch()
+        let app = try launch(classic: true)
         try openPaceForgeToday(app)
         XCTAssertTrue(reveal(element(app, "pf-my-plan"), in: app), "PaceForge Today should carry My Plan too.")
         attach(app, "Phase4 62 PaceForge Today, My Plan")
@@ -260,7 +260,7 @@ final class Phase4UITests: XCTestCase {
 
     func testNoPlanMeansNoCard() throws {
         let app = try launch(extra: ["-PaceForgePhase4Unavailable"])
-        XCTAssertTrue(app.shellTab("PaceForge").waitForExistence(timeout: 30), "Today should have loaded.")
+        XCTAssertTrue(app.shellTab("Today").waitForExistence(timeout: 30), "Today should have loaded.")
         XCTAssertFalse(element(app, "pf-my-plan").waitForExistence(timeout: 5), "With no plan published there is no card.")
         attach(app, "Phase4 63 NOOP Today without a plan")
     }

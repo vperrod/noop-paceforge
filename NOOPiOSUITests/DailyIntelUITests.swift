@@ -7,8 +7,9 @@ import XCTest
 /// `-PaceForgeIntelMissing` swap in the red Health monitor, the all-unavailable file and no file. Screenshot names start
 /// with "Intel" and a two-digit step, so a run's attachments sort in screen order.
 final class DailyIntelUITests: XCTestCase {
-    private func launch(screen: String? = nil, appearance: String = "dark", extra: [String] = []) throws -> XCUIApplication {
+    private func launch(screen: String? = nil, appearance: String = "dark", extra: [String] = [], classic: Bool = false) throws -> XCUIApplication {
         let app = XCUIApplication()
+        if classic { app.useClassicNavigation() }
         app.launchArguments.append("--demo-seed")
         if let screen { app.launchArguments.append(contentsOf: ["--demo-screen", screen]) }
         app.launchArguments.append(contentsOf: ["-theme.appearance", appearance])
@@ -105,7 +106,7 @@ final class DailyIntelUITests: XCTestCase {
 
     func testNoFileMeansNoTodaysCall() throws {
         let app = try launch(extra: ["-PaceForgeIntelMissing"])
-        XCTAssertTrue(app.shellTab("PaceForge").waitForExistence(timeout: 30), "Today should have loaded.")
+        XCTAssertTrue(app.shellTab("Today").waitForExistence(timeout: 30), "Today should have loaded.")
         XCTAssertFalse(element(app, "pf-todays-call").waitForExistence(timeout: 5), "Without the file there is no card.")
         attach(app, "Intel 15 NOOP Today without the daily file")
     }
@@ -113,7 +114,7 @@ final class DailyIntelUITests: XCTestCase {
     // MARK: Today's call on PaceForge Today
 
     func testPaceForgeTodayLeadsWithTodaysCall() throws {
-        let app = try launch()
+        let app = try launch(classic: true)
         try openPaceForgeToday(app)
         XCTAssertTrue(element(app, "pf-todays-call").waitForExistence(timeout: 20), "PaceForge Today should lead with Today's call.")
         attach(app, "Intel 20 PaceForge Today, Today's call at the top")
@@ -232,7 +233,7 @@ final class DailyIntelUITests: XCTestCase {
     }
 
     func testPaceForgeTodayShowsDayInReviewInTheEvening() throws {
-        let app = try launch(extra: ["-PaceForgeEvening"])
+        let app = try launch(extra: ["-PaceForgeEvening"], classic: true)
         try openPaceForgeToday(app)
         XCTAssertTrue(reveal(element(app, "pf-day-review"), in: app), "PaceForge Today should show Day in review in the evening.")
         attach(app, "Intel 62 PaceForge Today, Day in review")

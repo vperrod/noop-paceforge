@@ -1,8 +1,9 @@
 import XCTest
 
-/// The screen cleanup of build 468: every screen is at most two taps from a tab (More lists 11 rows, all visible at rest), each metric
-/// has one full screen, and nothing that was merged crashes when it opens. They run on `--demo-seed` data and the synthetic
-/// PaceForgeFixture.json (made-up numbers). Screen containers are named `screen-<destination>` and More rows `more-row-<name>`.
+/// The screen cleanup of build 468, kept current for the unified bar: every screen is at most two taps from a tab (More lists 9 rows,
+/// all visible at rest), each metric has one full screen, and nothing that was merged crashes when it opens. They run on `--demo-seed`
+/// data and the synthetic PaceForgeFixture.json (made-up numbers). Screen containers are named `screen-<destination>` and More rows
+/// `more-row-<name>`.
 final class ScreenCleanupUITests: XCTestCase {
     private func launch(fixture: Bool = false, extra: [String] = []) throws -> XCUIApplication {
         let app = XCUIApplication()
@@ -55,17 +56,17 @@ final class ScreenCleanupUITests: XCTestCase {
 
     // MARK: More
 
-    /// (More row, the screen container it opens). The container id is `screen-` plus the destination's raw value.
+    /// (More row, the screen container it opens). The container id is `screen-` plus the destination's raw value. With the unified bar
+    /// Insights, Trends, Explore, Compare and the Lab Book are chips of the Insights tab or of Body, and Sleep and Body are rows here.
     private static let moreRows: [(row: String, screen: String)] = [
-        ("insights", "insights"), ("explore", "explore"), ("compare", "compare"),
-        ("liftlog", "liftLog"), ("health", "health"), ("stress", "stress"), ("labbook", "labBook"), ("rhythm", "rhythm"),
-        ("alarms", "alarms"), ("data", "data"), ("settings", "settings"),
+        ("sleep", "sleep"), ("body", "body"), ("liftlog", "liftLog"), ("health", "health"), ("stress", "stress"),
+        ("rhythm", "rhythm"), ("alarms", "alarms"), ("data", "data"), ("settings", "settings"),
     ]
 
     func testMoreListsAtMostTwelveRowsAndNothingIsCollapsed() throws {
         let app = try launch()
         openMore(app)
-        XCTAssertTrue(element(app, "more-row-insights").waitForExistence(timeout: 20), "More should list its rows.")
+        XCTAssertTrue(element(app, "more-row-sleep").waitForExistence(timeout: 20), "More should list its rows.")
         var found = Set<String>()
         for _ in 0..<4 {
             let rows = app.descendants(matching: .any).matching(NSPredicate(format: "identifier BEGINSWITH %@", "more-row-"))
@@ -74,8 +75,7 @@ final class ScreenCleanupUITests: XCTestCase {
         }
         attach(app, "Cleanup 01 More")
         XCTAssertLessThanOrEqual(found.count, 12, "More should list 12 rows or fewer, found \(found.sorted()).")
-        XCTAssertEqual(found, Set(Self.moreRows.map { "more-row-\($0.row)" }), "More should list exactly the eleven rows.")
-        XCTAssertFalse(app.buttons["Body"].exists, "No group header should hide rows behind a disclosure.")
+        XCTAssertEqual(found, Set(Self.moreRows.map { "more-row-\($0.row)" }), "More should list exactly the nine rows.")
         alive(app, "listing More")
     }
 
@@ -122,47 +122,26 @@ final class ScreenCleanupUITests: XCTestCase {
         alive(app, "opening Coach")
     }
 
-    func testPaceForgeSegmentsAreTwoTapsAndInsightsIsTheSameScreenWithTraining() throws {
-        let app = try launch(fixture: true)
-        let tab = app.shellTab("PaceForge")
-        XCTAssertTrue(tab.waitForExistence(timeout: 30), "The PaceForge tab should be present.")
-        tab.tap()
-        let segments = app.segmentedControls["pf-segments"]
-        XCTAssertTrue(segments.waitForExistence(timeout: 20), "The PaceForge segments should load from the fixture.")
-        for title in ["Today", "Coach", "This week", "Insights", "Body"] {
-            let button = segments.buttons[title]
-            for _ in 0..<3 where !button.isSelected { button.tap(); Thread.sleep(forTimeInterval: 1) }
-            XCTAssertTrue(button.isSelected, "\(title) should open on the second tap.")
-            alive(app, "opening PaceForge \(title)")
-        }
-        segments.buttons["Insights"].tap()
-        XCTAssertTrue(element(app, "insights-section-training").waitForExistence(timeout: 15),
-                      "PaceForge's Insights is the Insights screen, with Training as its first section.")
-        XCTAssertTrue(element(app, "insights-section-reports").exists, "It carries the same Reports section as Insights in More.")
-        attach(app, "Cleanup 20 PaceForge Insights sections")
-    }
-
     // MARK: Insights
 
-    func testInsightsHasEverySectionAndTheReportsOpenTheirScreens() throws {
+    func testInsightsHasEveryChipAndTheReportsOpenTheirScreens() throws {
         let app = try launch(fixture: true)
-        openMore(app)
-        let row = element(app, "more-row-insights")
-        XCTAssertTrue(reveal(row, in: app), "More should show Insights.")
-        row.tap()
-        XCTAssertTrue(element(app, "screen-insights").waitForExistence(timeout: 30), "Insights should open on the second tap.")
-        XCTAssertTrue(element(app, "look-journal-flow").waitForExistence(timeout: 30), "Insights opens on its Journal section.")
-        for section in ["journal", "moves", "intelligence", "reports"] {
-            let chip = element(app, "insights-section-\(section)")
-            XCTAssertTrue(chip.waitForExistence(timeout: 10), "Insights should have the \(section) section.")
-            chip.tap()
+        let tab = app.shellTab("Insights")
+        XCTAssertTrue(tab.waitForExistence(timeout: 30), "The Insights tab should be present.")
+        tab.tap()
+        XCTAssertTrue(element(app, "insights-host").waitForExistence(timeout: 30), "Insights should open on the first tap.")
+        XCTAssertTrue(element(app, "insights-chip-content-overview").waitForExistence(timeout: 30), "Insights opens on Overview.")
+        for chip in ["trends", "reports", "journal", "deepDives"] {
+            let button = element(app, "insights-chip-\(chip)")
+            XCTAssertTrue(button.waitForExistence(timeout: 10), "Insights should have the \(chip) chip.")
+            button.tap()
             Thread.sleep(forTimeInterval: 1)
-            alive(app, "choosing the \(section) section")
-            attach(app, "Cleanup 3 Insights \(section)")
+            alive(app, "choosing the \(chip) chip")
+            attach(app, "Cleanup 3 Insights \(chip)")
         }
+        element(app, "insights-chip-reports").tap()
         let reports: [(entry: String, body: String)] = [
-            ("highlights", "pf-highlights-body"), ("healthspan", "pf-healthspan-body"),
-            ("monthly", "pf-monthly-body"), ("impact", "pf-impact-body"),
+            ("highlights", "pf-highlights-body"), ("healthspan", "pf-healthspan-body"), ("monthly", "pf-monthly-body"),
         ]
         for report in reports {
             let entry = element(app, "insights-report-\(report.entry)")

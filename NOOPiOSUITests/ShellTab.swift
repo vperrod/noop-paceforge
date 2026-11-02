@@ -8,6 +8,15 @@ extension XCUIApplication {
     }
 }
 
+extension XCUIApplication {
+    /// Launches in the classic navigation (Today, Workouts, Sleep, PaceForge, More), which Settings > Tools > Unified navigation
+    /// switches back to. The unified bar (Today, Plan, Athlete, Insights, More) is the default; the PaceForge tab and its segments
+    /// (`pf-segments`) exist only in the classic one. Call it before `launch()`.
+    func useClassicNavigation() {
+        launchArguments.append(contentsOf: ["-unifiedNav", "NO"])
+    }
+}
+
 extension XCTestCase {
     /// When a test fails, prints what the screen exposed to accessibility, so the log names the identifiers that were missing.
     func dumpHierarchyOnFailure(_ app: XCUIApplication) {
