@@ -57,6 +57,9 @@ struct PFTodayLiveAlertsHost: View {
 private struct PFAlertRow: View {
     let alert: PFAlert
     let snapshot: PFSnapshot?
+    /// A live alert reads as one line (title and reading) until "Details" opens its facts, the way the page note does. An alert without
+    /// live facts has nothing to fold away and is always drawn whole.
+    @State private var isOpen = false
 
     private var color: Color {
         switch alert.severity {
@@ -68,12 +71,53 @@ private struct PFAlertRow: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: 4) {
-            content
+            if let live = alert.live, !isOpen {
+                collapsed(live)
+            } else {
+                content
+            }
             if let snapshot {
                 PFDismissMenu(key: PFDismissKey.alertKey(alert), title: alert.title, text: PFDismissKey.alertText(alert),
                               todayISO: snapshot.todayISO)
             }
         }
+    }
+
+    /// The severity stripe, then the title and the current reading on one line, "Details" and a chevron on the right. The whole row opens.
+    private func collapsed(_ live: PFLiveAlertFacts) -> some View {
+        Button {
+            withAnimation(.easeOut(duration: 0.2)) { isOpen = true }
+        } label: {
+            HStack(spacing: 10) {
+                RoundedRectangle(cornerRadius: 2, style: .continuous)
+                    .fill(color)
+                    .frame(width: 4, height: 20)
+                summary(live)
+                    .lineLimit(1)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                Text("Details")
+                    .font(StrandFont.caption.weight(.semibold))
+                    .foregroundStyle(StrandPalette.accent)
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(StrandPalette.textTertiary)
+            }
+            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityHint(Text("Shows the details of this alert"))
+        .accessibilityIdentifier("pf-alert-details-\(alert.id)")
+    }
+
+    private func summary(_ live: PFLiveAlertFacts) -> Text {
+        let title = Text(verbatim: alert.title)
+            .font(StrandFont.subhead.weight(.semibold))
+            .foregroundStyle(StrandPalette.textPrimary)
+        let reading = Text(verbatim: " \u{00B7} " + live.reading)
+            .font(StrandFont.subhead)
+            .foregroundStyle(StrandPalette.textSecondary)
+        return title + reading
     }
 
     private var content: some View {
@@ -101,10 +145,31 @@ private struct PFAlertRow: View {
                         }
                     }
                 }
+                if alert.live != nil { hideDetails }
             }
             Spacer(minLength: 0)
         }
-        .accessibilityElement(children: .combine)
+        // The "Hide details" button must stay a control of its own, so a live alert's rows are not merged into one element.
+        .accessibilityElement(children: alert.live == nil ? .combine : .contain)
+    }
+
+    private var hideDetails: some View {
+        Button {
+            withAnimation(.easeOut(duration: 0.2)) { isOpen = false }
+        } label: {
+            HStack(spacing: 4) {
+                Text("Hide details")
+                    .font(StrandFont.caption.weight(.semibold))
+                    .foregroundStyle(StrandPalette.accent)
+                Image(systemName: "chevron.up")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(StrandPalette.textTertiary)
+            }
+            .frame(minHeight: 44, alignment: .leading)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("pf-alert-hide-\(alert.id)")
     }
 
     /// A live alert's reading, his own normal, the source and what it does to the plan, each on its own line.
