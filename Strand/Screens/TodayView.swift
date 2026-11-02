@@ -2298,7 +2298,7 @@ struct TodayView: View {
         }
     }
 
-    /// Design Reset: the gold Synthesis read-out + vitals, lifted OUT of the hero so Today
+    /// Design Reset: the greeting + gold Synthesis read-out + vitals, lifted OUT of the hero so Today
     /// reads rings -> Heart rate -> Your cards (the flat mockup order). Same content + behaviour, it just
     /// sits below the HR card and the pinned cards now instead of crowding directly under the rings.
     @ViewBuilder
@@ -2307,6 +2307,11 @@ struct TodayView: View {
         let score = d?.recovery
         VStack(alignment: .leading, spacing: NoopMetrics.gap) {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Text(greetingWord)
+                    .font(StrandFont.subhead)
+                    .foregroundStyle(StrandPalette.textSecondary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
                 Spacer(minLength: 8)
                 // S4 (#205): the one-word readiness read kept on the hero now the full Readiness card folded
                 // into the Charge-ring tap. Signal context, derived from the existing Readiness
@@ -5252,6 +5257,20 @@ struct TodayView: View {
     }
 
     // MARK: - Derived text
+
+    /// Greeting word used as the section's trailing label (no lone text block).
+    private var greetingWord: String {
+        #if DEBUG
+        // DEBUG promo harness: pin the greeting to the active frame's wording. No-op otherwise.
+        if let f = DemoDayHarness.active { return f.greeting }
+        #endif
+        let h = Calendar.current.component(.hour, from: Date())
+        switch h {
+        case ..<12:   return String(localized: "Good morning")
+        case 12..<17: return String(localized: "Good afternoon")
+        default:      return String(localized: "Good evening")
+        }
+    }
 
     /// Section overline naming the selected day, "Today"/"Yesterday"/"EEE d MMM".
     private var selectedDayOverline: String {

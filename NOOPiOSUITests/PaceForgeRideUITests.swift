@@ -8,10 +8,11 @@ final class PaceForgeRideUITests: XCTestCase {
     private let longRide = "pf-ride-bike:2030-03-13"
     private let sampledRide = "pf-ride-bike:2030-03-11"
 
-    private func launch(extraArguments: [String] = []) throws -> XCUIApplication {
+    private func launch(extraArguments: [String] = [], classic: Bool = true) throws -> XCUIApplication {
         let app = XCUIApplication()
-        // These tests drive the classic PaceForge tab and its segments, which the unified bar (the default) does not have.
-        app.useClassicNavigation()
+        // These tests drive the classic PaceForge tab and its segments, which the unified bar (the default) does not have;
+        // the My Day test asks for the unified bar, which has the My Day tab.
+        if classic { app.useClassicNavigation() }
         app.launchArguments.append("--demo-seed")
         app.launchArguments.append(contentsOf: extraArguments)
         app.launchArguments.append("-PaceForgeFixture")
@@ -153,7 +154,7 @@ final class PaceForgeRideUITests: XCTestCase {
     // MARK: My Day
 
     func testMyDayListsTheRideAndItOpensTheRideScreen() throws {
-        let app = try launch(extraArguments: ["-MyDayFixture", "ride"])
+        let app = try launch(extraArguments: ["-MyDayFixture", "ride"], classic: false)
         let tab = app.shellTab("My Day")
         XCTAssertTrue(tab.waitForExistence(timeout: 30), "The bar should have a My Day tab.")
         tab.tap()

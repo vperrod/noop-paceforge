@@ -3,8 +3,8 @@ import SwiftUI
 
 // MARK: - Reorderable Today sections (#today-layout)
 //
-// The liquid Today's sections — the Charge/Effort/Rest hero, Synthesis, Workouts, Heart Rate and the
-// rest of `defaultOrder` — rendered in one fixed order. This lets the
+// The liquid Today's sections — the Charge/Effort/Rest hero, the Start-session entry, Synthesis, Key
+// Metrics, Workouts, Heart Rate, Recovery Vitals, Your Cards — rendered in one fixed order. This lets the
 // user REORDER or HIDE them, with the default being the original order so nothing changes for anyone who
 // never customizes Today. Display-only — no metric is computed or stored differently; this only decides
 // which already-built sections render and in what sequence.
@@ -57,7 +57,11 @@ enum TodaySection: String, CaseIterable, Identifiable {
         case .todaysCall:     return String(localized: "Assessment and Today's call")
         case .dayInReview:    return String(localized: "Day in review")
         case .hero:           return String(localized: "Charge / Effort / Rest")
+        #if os(iOS)
         case .myDay:          return String(localized: "Effort target and weekly goals")
+        #else
+        case .myDay:          return String(localized: "My Day")
+        #endif
         case .myPlan:         return String(localized: "My Plan")
         case .myDashboard:    return String(localized: "My Dashboard")
         case .liveSession:    return String(localized: "Start session")
@@ -73,32 +77,43 @@ enum TodaySection: String, CaseIterable, Identifiable {
         }
     }
 
-    /// Sections Today no longer draws (build 502): Start session, Key Metrics, Recovery Vitals and Your Cards. (`myDay` stays: it now
-    /// holds the Effort target and the Weekly goals cards only; the My Day timeline is its own tab and the Sleep planner card moved to
-    /// the Sleep screen. Adding `.myDay` here would retire those two cards from Today as well.) The cases and their rawValues stay so the persisted wire format and the
-    /// Android twin are unchanged, but they are outside `defaultOrder`, `TodayLayoutPrefs.decodeOrder` drops them from any saved order
-    /// and never back-fills them, and so neither Today nor the Arrange sheet shows them, whatever a phone saved before.
-    static let retired: Set<TodaySection> = [.liveSession, .keyMetrics, .recoveryVitals, .yourCards]
+    /// Sections the iPhone's Today no longer draws (build 502): Start session, Key Metrics, Recovery Vitals and Your Cards. (`myDay` stays:
+    /// on the iPhone it holds the Effort target and the Weekly goals cards only; the My Day timeline is its own tab and the Sleep planner
+    /// card moved to the Sleep screen. Adding `.myDay` here would retire those two cards from Today as well.) The cases and their rawValues
+    /// stay so the persisted wire format and the Android twin are unchanged, but on iOS they are outside `defaultOrder`,
+    /// `TodayLayoutPrefs.decodeOrder` drops them from any saved order and never back-fills them, and so neither Today nor the Arrange
+    /// sheet shows them, whatever a phone saved before. Empty on macOS, whose Today keeps every section.
+    static let retired: Set<TodaySection> = {
+        #if os(iOS)
+        return [.liveSession, .keyMetrics, .recoveryVitals, .yourCards]
+        #else
+        return []
+        #endif
+    }()
 
     /// The default section order, used when the layout isn't customised. The rings and monitor tiles lead, the Heart rate chart comes
-    /// straight after them, then the collapsed text rows (assessment, body signals, Today's call). The journal widget (#656)
-    /// is last by default, where it was first added, above the data-sources card.
-    static let defaultOrder: [TodaySection] = [
-        .hero, .heartRate, .todaysCall, .dayInReview, .myDay, .myPlan, .myDashboard, .synthesis, .workouts,
-        .menstrualCycle, .journal, .addedCards,
-    ]
+    /// straight after them, then the collapsed text rows (assessment, body signals, Today's call) and My Day. The journal widget (#656)
+    /// is last by default, where it was first added, above the data-sources card. `retired` sections are left out.
+    static let defaultOrder: [TodaySection] = withoutRetired([
+        .hero, .heartRate, .todaysCall, .dayInReview, .myDay, .myPlan, .myDashboard, .liveSession, .synthesis, .keyMetrics, .workouts,
+        .recoveryVitals, .yourCards, .menstrualCycle, .journal, .addedCards,
+    ])
 
     /// The orders a phone that never customised Today holds in its saved copy from before the Heart rate card moved up, as `decodeOrder`
-    /// reads them (the retired sections are already gone from them). The first is the earlier default (what the Arrange sheet wrote on
-    /// Done); the second is what an order saved before the iPhone-only sections existed (hero first) decodes to. The order saved while
-    /// the Heart rate card was already up is the current default once the retired sections drop out. Any of them reads as "not
-    /// customised" and gets the current default; any real change is kept as saved.
+    /// reads them (the retired sections are already gone from them on iOS). The first is the earlier default (what the Arrange sheet
+    /// wrote on Done); the second is what an order saved before the iPhone-only sections existed (hero first) decodes to. The order
+    /// saved while the Heart rate card was already up is the current default. Any of them reads as "not customised" and gets the
+    /// current default; any real change is kept as saved.
     static let previousDefaultOrders: [[TodaySection]] = [
-        [.todaysCall, .dayInReview, .hero, .myDay, .myPlan, .myDashboard, .synthesis, .workouts, .heartRate,
-         .menstrualCycle, .journal, .addedCards],
-        [.hero, .todaysCall, .dayInReview, .myDay, .myPlan, .myDashboard, .synthesis, .workouts, .heartRate,
-         .menstrualCycle, .journal, .addedCards],
+        withoutRetired([.todaysCall, .dayInReview, .hero, .myDay, .myPlan, .myDashboard, .liveSession, .synthesis, .keyMetrics, .workouts, .heartRate,
+                        .recoveryVitals, .yourCards, .menstrualCycle, .journal, .addedCards]),
+        withoutRetired([.hero, .todaysCall, .dayInReview, .myDay, .myPlan, .myDashboard, .liveSession, .synthesis, .keyMetrics, .workouts, .heartRate,
+                        .recoveryVitals, .yourCards, .menstrualCycle, .journal, .addedCards]),
     ]
+
+    private static func withoutRetired(_ order: [TodaySection]) -> [TodaySection] {
+        order.filter { !retired.contains($0) }
+    }
 }
 
 /// Display-only persistence for the Today section order and visibility. The order registry always contains
@@ -167,10 +182,22 @@ enum TodayLayoutPrefs {
         return hidden
     }
 
+    /// The hidden sections as Today applies them: `decodeHidden`, plus My Day when the saved copy predates it. My Day used to be part of
+    /// the Charge / Effort / Rest section, so a phone that hid that section (and whose saved order has no `my-day` token, which the
+    /// editor always writes since the split) keeps My Day hidden too.
+    static func effectiveHidden(orderRaw: String, hiddenRaw: String) -> [TodaySection] {
+        var hidden = decodeHidden(hiddenRaw)
+        let savedTokens = orderRaw.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }
+        if hidden.contains(.hero), !hidden.contains(.myDay), !savedTokens.contains(TodaySection.myDay.rawValue) {
+            hidden.append(.myDay)
+        }
+        return hidden
+    }
+
     /// The sections Today should render, preserving the full saved order while filtering only the user's
     /// explicit hidden set. At least one visible section is enforced by the editor, not the decoder.
     static func visibleOrder(orderRaw: String, hiddenRaw: String) -> [TodaySection] {
-        let hidden = Set(decodeHidden(hiddenRaw))
+        let hidden = Set(effectiveHidden(orderRaw: orderRaw, hiddenRaw: hiddenRaw))
         return decodeOrder(orderRaw).filter { !hidden.contains($0) }
     }
 }
