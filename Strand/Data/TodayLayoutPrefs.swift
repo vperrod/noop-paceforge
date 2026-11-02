@@ -28,6 +28,9 @@ enum TodaySection: String, CaseIterable, Identifiable {
     case todaysCall = "todays-call"
     case dayInReview = "day-in-review"
     case hero
+    /// My Day with the Effort target, Sleep planner and Weekly goals cards: split out of `hero` so the Heart rate card can sit right under
+    /// the monitor tiles. iPhone only, like the tokens above: an Android restore drops it and a saved order inserts it right after the hero.
+    case myDay = "my-day"
     /// This week's plan progress (my-plan.json from PaceForge) and the user's own chosen metrics. iPhone only, like the two above:
     /// a restore on Android drops the tokens, and a saved order inserts them right after the hero.
     case myPlan = "my-plan"
@@ -51,9 +54,10 @@ enum TodaySection: String, CaseIterable, Identifiable {
     /// The section's display label in the Arrange sheet — matches the Android `TodaySection.title`.
     var title: String {
         switch self {
-        case .todaysCall:     return String(localized: "Today's call")
+        case .todaysCall:     return String(localized: "Assessment and Today's call")
         case .dayInReview:    return String(localized: "Day in review")
         case .hero:           return String(localized: "Charge / Effort / Rest")
+        case .myDay:          return String(localized: "My Day")
         case .myPlan:         return String(localized: "My Plan")
         case .myDashboard:    return String(localized: "My Dashboard")
         case .liveSession:    return String(localized: "Start session")
@@ -69,16 +73,28 @@ enum TodaySection: String, CaseIterable, Identifiable {
         }
     }
 
-    /// The original, hard-coded section order — the default when the layout isn't customised. The journal
-    /// widget (#656) is last by default, where it was first added, above the data-sources card.
+    /// The default section order, used when the layout isn't customised. The rings and monitor tiles lead, the Heart rate chart comes
+    /// straight after them, then the collapsed text rows (assessment, body signals, Today's call) and My Day. The journal widget (#656)
+    /// is last by default, where it was first added, above the data-sources card.
     static let defaultOrder: [TodaySection] = [
-        .todaysCall, .dayInReview, .hero, .myPlan, .myDashboard, .liveSession, .synthesis, .keyMetrics, .workouts, .heartRate, .recoveryVitals, .yourCards,
-        .menstrualCycle, .journal, .addedCards,
+        .hero, .heartRate, .todaysCall, .dayInReview, .myDay, .myPlan, .myDashboard, .liveSession, .synthesis, .keyMetrics, .workouts,
+        .recoveryVitals, .yourCards, .menstrualCycle, .journal, .addedCards,
+    ]
+
+    /// The orders a phone that never customised Today holds in its saved copy from before the Heart rate card moved up. The first is the
+    /// previous default (what the Arrange sheet writes on Done); the second is what an order saved before the iPhone-only sections existed
+    /// (hero first) decodes to. Either one reads as "not customised" and gets the current default; any real change is kept as saved.
+    static let previousDefaultOrders: [[TodaySection]] = [
+        [.todaysCall, .dayInReview, .hero, .myDay, .myPlan, .myDashboard, .liveSession, .synthesis, .keyMetrics, .workouts, .heartRate,
+         .recoveryVitals, .yourCards, .menstrualCycle, .journal, .addedCards],
+        [.hero, .todaysCall, .dayInReview, .myDay, .myPlan, .myDashboard, .liveSession, .synthesis, .keyMetrics, .workouts, .heartRate,
+         .recoveryVitals, .yourCards, .menstrualCycle, .journal, .addedCards],
     ]
 }
 
 /// Display-only persistence for the Today section order and visibility. The order registry always contains
-/// every known section; `hiddenKey` stores the explicit reversible hidden set. Mirrors Android byte-for-byte.
+/// every known section; `hiddenKey` stores the explicit reversible hidden set. Mirrors Android byte-for-byte, except that a saved order
+/// equal to one of `previousDefaultOrders` reads as the current default (iPhone only: Android has none of the iPhone-only sections).
 enum TodayLayoutPrefs {
     /// UserDefaults key — a comma-joined list of `TodaySection` rawValues in display order.
     static let orderKey = "today.sectionOrder"
@@ -123,7 +139,7 @@ enum TodayLayoutPrefs {
             let insertAt = saved.firstIndex { defIdx($0) > defIdx(missing) }
             if let insertAt { saved.insert(missing, at: insertAt) } else { saved.append(missing) }
         }
-        return saved
+        return TodaySection.previousDefaultOrders.contains(saved) ? TodaySection.defaultOrder : saved
     }
 
     /// Decode explicitly hidden sections. Empty/unset means nothing is hidden. Unknown tokens are ignored

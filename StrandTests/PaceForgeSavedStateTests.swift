@@ -39,7 +39,7 @@ final class PaceForgeSavedStateTests: XCTestCase {
 
     func testBuild464CustomTodayOrderKeepsTheUsersOrderAndPlacesTheNewSections() {
         let order = TodayLayoutPrefs.decodeOrder(noopCustomOrder464)
-        XCTAssertEqual(order.prefix(6).map(\.rawValue), ["todays-call", "day-in-review", "my-plan", "my-dashboard", "journal", "hero"])
+        XCTAssertEqual(order.prefix(7).map(\.rawValue), ["todays-call", "day-in-review", "my-day", "my-plan", "my-dashboard", "journal", "hero"])
     }
 
     func testBuild464CustomTodayOrderContainsEverySectionOnce() {

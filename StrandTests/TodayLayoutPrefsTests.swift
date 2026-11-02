@@ -13,11 +13,11 @@ final class TodayLayoutPrefsTests: XCTestCase {
 
     func testEncodeDecodeRoundTripsAReorderedList() {
         let reordered: [TodaySection] = [
-            .todaysCall, .dayInReview, .myPlan, .myDashboard, .heartRate, .hero, .yourCards, .liveSession, .synthesis, .keyMetrics,
+            .todaysCall, .dayInReview, .myDay, .myPlan, .myDashboard, .heartRate, .hero, .yourCards, .liveSession, .synthesis, .keyMetrics,
             .workouts, .recoveryVitals, .journal, .menstrualCycle, .addedCards,
         ]
         let encoded = TodayLayoutPrefs.encode(reordered)
-        XCTAssertEqual(encoded, "todays-call,day-in-review,my-plan,my-dashboard,heartRate,hero,yourCards,liveSession,synthesis,keyMetrics,workouts,recoveryVitals,journal,menstrualCycle,addedCards")
+        XCTAssertEqual(encoded, "todays-call,day-in-review,my-day,my-plan,my-dashboard,heartRate,hero,yourCards,liveSession,synthesis,keyMetrics,workouts,recoveryVitals,journal,menstrualCycle,addedCards")
         XCTAssertEqual(TodayLayoutPrefs.decodeOrder(encoded), reordered)
     }
 
@@ -28,8 +28,8 @@ final class TodayLayoutPrefsTests: XCTestCase {
         let firstCut = "synthesis,keyMetrics,workouts,heartRate,recoveryVitals,yourCards"
         XCTAssertEqual(
             TodayLayoutPrefs.decodeOrder(firstCut),
-            // journal(8) follows everything saved → appended; addedCards(10) is last, appended after it.
-            [.todaysCall, .dayInReview, .hero, .myPlan, .myDashboard, .liveSession, .synthesis, .keyMetrics, .workouts, .heartRate, .recoveryVitals, .yourCards, .menstrualCycle, .journal, .addedCards]
+            // The merge lands on the previous default order, which reads as "never customised": the current default.
+            TodaySection.defaultOrder
         )
     }
 
@@ -37,7 +37,7 @@ final class TodayLayoutPrefsTests: XCTestCase {
         let partial = "heartRate,synthesis,keyMetrics,recoveryVitals"
         XCTAssertEqual(
             TodayLayoutPrefs.decodeOrder(partial),
-            [.todaysCall, .dayInReview, .hero, .myPlan, .myDashboard, .liveSession, .workouts, .heartRate, .synthesis, .keyMetrics, .recoveryVitals, .yourCards, .menstrualCycle, .journal, .addedCards]
+            [.hero, .heartRate, .todaysCall, .dayInReview, .myDay, .myPlan, .myDashboard, .liveSession, .synthesis, .keyMetrics, .workouts, .recoveryVitals, .yourCards, .menstrualCycle, .journal, .addedCards]
         )
     }
 
@@ -45,7 +45,7 @@ final class TodayLayoutPrefsTests: XCTestCase {
         let messy = "yourCards,BOGUS,yourCards,heartRate, ,heartRate"
         XCTAssertEqual(
             TodayLayoutPrefs.decodeOrder(messy),
-            [.todaysCall, .dayInReview, .hero, .myPlan, .myDashboard, .liveSession, .synthesis, .keyMetrics, .workouts, .recoveryVitals, .yourCards, .heartRate, .menstrualCycle, .journal, .addedCards]
+            [.hero, .todaysCall, .dayInReview, .myDay, .myPlan, .myDashboard, .liveSession, .synthesis, .keyMetrics, .workouts, .recoveryVitals, .yourCards, .heartRate, .menstrualCycle, .journal, .addedCards]
         )
     }
 
@@ -63,12 +63,26 @@ final class TodayLayoutPrefsTests: XCTestCase {
         let order = "heartRate,hero,yourCards,liveSession,synthesis,keyMetrics,workouts,recoveryVitals,journal"
         XCTAssertEqual(
             TodayLayoutPrefs.visibleOrder(orderRaw: order, hiddenRaw: "hero,workouts"),
-            [.todaysCall, .dayInReview, .myPlan, .myDashboard, .heartRate, .yourCards, .liveSession, .synthesis, .keyMetrics, .recoveryVitals, .menstrualCycle, .journal, .addedCards]
+            [.heartRate, .todaysCall, .dayInReview, .myDay, .myPlan, .myDashboard, .yourCards, .liveSession, .synthesis, .keyMetrics, .recoveryVitals, .menstrualCycle, .journal, .addedCards]
         )
         XCTAssertEqual(TodayLayoutPrefs.decodeOrder(order), [
-            .todaysCall, .dayInReview, .myPlan, .myDashboard, .heartRate, .hero, .yourCards, .liveSession, .synthesis, .keyMetrics,
+            .heartRate, .hero, .todaysCall, .dayInReview, .myDay, .myPlan, .myDashboard, .yourCards, .liveSession, .synthesis, .keyMetrics,
             .workouts, .recoveryVitals, .menstrualCycle, .journal, .addedCards,
         ])
+    }
+
+    /// An order saved while a previous default was in force (the Arrange sheet writes one on Done) is not a customisation: it follows
+    /// the new default. Any real change to it is kept as saved.
+    func testSavedPreviousDefaultOrdersFollowTheNewDefault() {
+        for previous in TodaySection.previousDefaultOrders {
+            XCTAssertEqual(TodayLayoutPrefs.decodeOrder(TodayLayoutPrefs.encode(previous)), TodaySection.defaultOrder)
+        }
+    }
+
+    func testCustomisedOrderIsNotReplacedByTheNewDefault() {
+        var custom = TodaySection.previousDefaultOrders[0]
+        custom.swapAt(custom.firstIndex(of: .workouts) ?? 0, custom.firstIndex(of: .synthesis) ?? 0)
+        XCTAssertEqual(TodayLayoutPrefs.decodeOrder(TodayLayoutPrefs.encode(custom)), custom)
     }
 
     func testNewOrPreviouslyMissingSectionsDefaultToVisible() {
@@ -90,11 +104,11 @@ final class TodayLayoutPrefsTests: XCTestCase {
     func testSectionRawKeysAreStableAndUnique() {
         let raws = TodaySection.allCases.map(\.rawValue)
         XCTAssertEqual(raws.count, Set(raws).count, "raw keys must be unique (they're the persisted identity)")
-        // Pin the exact wire strings. todays-call, day-in-review, my-plan and my-dashboard are iPhone-only; every other one must match the
-        // Android TodaySection byte-for-byte, and Android's decoder drops the four it does not know.
+        // Pin the exact wire strings. todays-call, day-in-review, my-day, my-plan and my-dashboard are iPhone-only; every other one must match the
+        // Android TodaySection byte-for-byte, and Android's decoder drops the five it does not know.
         XCTAssertEqual(
             raws,
-            ["todays-call", "day-in-review", "hero", "my-plan", "my-dashboard", "liveSession", "synthesis", "keyMetrics", "workouts", "heartRate", "recoveryVitals", "yourCards", "menstrualCycle", "journal", "addedCards"]
+            ["todays-call", "day-in-review", "hero", "my-day", "my-plan", "my-dashboard", "liveSession", "synthesis", "keyMetrics", "workouts", "heartRate", "recoveryVitals", "yourCards", "menstrualCycle", "journal", "addedCards"]
         )
     }
 

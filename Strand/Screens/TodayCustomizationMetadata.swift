@@ -7,6 +7,7 @@ extension TodaySection {
         case .todaysCall: return "scope"
         case .dayInReview: return "moon.stars"
         case .hero: return "gauge.with.dots.needle.67percent"
+        case .myDay: return "clock"
         case .myPlan: return "checklist"
         case .myDashboard: return "list.bullet.rectangle"
         case .liveSession: return "figure.run.circle"
@@ -27,6 +28,7 @@ extension TodaySection {
         case .todaysCall: return StrandPalette.effortColor
         case .dayInReview: return StrandPalette.restColor
         case .hero: return StrandPalette.chargeColor
+        case .myDay: return StrandPalette.metricCyan
         case .myPlan: return StrandPalette.effortColor
         case .myDashboard: return StrandPalette.metricCyan
         case .liveSession: return StrandPalette.metricCyan

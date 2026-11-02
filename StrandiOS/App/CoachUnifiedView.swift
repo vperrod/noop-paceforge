@@ -27,17 +27,22 @@ struct CoachUnifiedView: View {
             .foregroundStyle(StrandPalette.accent)
             .accessibilityIdentifier("coach-brief-settings")
         }) {
-            PFPageNote(key: "coach")
-            if reports.showsReports {
-                IndexSection("Reports") {
-                    IndexRow("Coach reports", "doc.text.fill", TabRoute.reports(PFReportKind.daily.rawValue), id: "coach-reports-row")
-                }
-            }
-            briefStatusCard
+            // The Coach is where PaceForge's text lives, in this order: the assessment, the briefing, Today's call and the readings that
+            // sit behind the rows on Today, the Expert reading with the reports row, Day in review, the reviews and the conversation (all
+            // inside CoachPaceForgeChip), then the status of the morning briefing.
+            PFPageNote(key: "today", alwaysOpen: true)
+            PFPageNote(key: "coach", alwaysOpen: true)
             CoachPaceForgeChip()
+            briefStatusCard
         }
         .containerIdentifier("coach-host")
-        .task { await reports.loadCapabilities() }
+        // The stores behind the cards below draw nothing until they have a file, and an empty view never runs its own task.
+        .task {
+            await reports.loadCapabilities()
+            await reports.refreshLatestIfStale()
+            await PFDailyIntelStore.shared.refreshIfStale()
+            await PFScoresStore.shared.refreshIfStale()
+        }
         .sheet(isPresented: $showBriefSettings) {
             CoachSettingsView(sharedBrainMode: true)
                 .environmentObject(coach)
@@ -94,7 +99,28 @@ private struct CoachPaceForgeContent: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            PFCoachView(snapshot: snapshot)
+            PFCoachView(snapshot: snapshot, afterBrief: AnyView(CoachTextCards()))
+        }
+    }
+}
+
+/// What moved here from Today, in the Coach's order: Today's call with its narrative, the body-signal and verdict lines, the Expert
+/// reading, the reports row and Day in review (evening). Each draws nothing when it has nothing.
+private struct CoachTextCards: View {
+    @ObservedObject private var reports = PFReportsStore.shared
+
+    var body: some View {
+        // A Group, not a stack: the column it joins spaces its children, and an empty stack would still add a gap.
+        Group {
+            PFTodaysCallStoreHost()
+            CoachPFReadout()
+            PFExpertReadingHost()
+            if reports.showsReports {
+                IndexSection("Reports") {
+                    IndexRow("Coach reports", "doc.text.fill", TabRoute.reports(PFReportKind.daily.rawValue), id: "coach-reports-row")
+                }
+            }
+            PFDayReviewStoreHost()
         }
     }
 }
