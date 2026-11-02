@@ -200,7 +200,8 @@ struct RootTabView: View {
         TabView(selection: nativeTabSelection) {
             tab(LiquidTodayView(), "Today", "square.grid.2x2", path: $tabPaths[0], scrollSignal: scrollTop[0]).tag(0)
             tab(WorkoutsOrCalendarRoot(), UnifiedNav.secondTabTitle, UnifiedNav.secondTabIcon, path: $tabPaths[1], scrollSignal: scrollTop[1]).tag(1)
-            tab(SleepOrDayRoot(), UnifiedDay.tabTitle, UnifiedDay.tabIcon, path: $tabPaths[2], scrollSignal: scrollTop[2]).tag(2)
+            // The third tab is Athlete with the switch on and Sleep in the classic map. Sleep is a push from the Rest ring on Today and a row in More.
+            tab(SleepOrAthleteRoot(), UnifiedNav.thirdTabTitle, UnifiedNav.thirdTabIcon, path: $tabPaths[2], scrollSignal: scrollTop[2]).tag(2)
             // The fourth tab is PaceForge in the classic map and Insights in the unified map. Coach has
             // one visible entry in the floating bar; Coach deep links route to that same surface below.
             tab(PaceForgeOrInsightsRoot(), UnifiedNav.fourthTabTitle, UnifiedNav.fourthTabIcon, path: $tabPaths[3], scrollSignal: scrollTop[3]).tag(3)
@@ -337,10 +338,15 @@ struct RootTabView: View {
                 withAnimation(Self.sheetEase) { quickAction = .journal }
                 router.requestedDestination = nil
             case .sleep:
-                // Sleep is a tab: a link elsewhere switches to it (and leaves the tab it came from at its root) rather than
-                // pushing a second Sleep screen over that tab.
-                tabPaths[selectedTab] = NavigationPath()
-                withAnimation(.timingCurve(0.22, 1, 0.36, 1, duration: 0.24)) { selectedTab = 2 }
+                if UnifiedNav.isOn {
+                    // Sleep is not a tab with unified navigation: it opens over the tab on show, and Back returns to it.
+                    tabPaths[selectedTab].append(TabRoute.sleep)
+                } else {
+                    // Sleep is a tab: a link elsewhere switches to it (and leaves the tab it came from at its root) rather than
+                    // pushing a second Sleep screen over that tab.
+                    tabPaths[selectedTab] = NavigationPath()
+                    withAnimation(.timingCurve(0.22, 1, 0.36, 1, duration: 0.24)) { selectedTab = 2 }
+                }
                 router.requestedDestination = nil
             case nil:
                 break
@@ -585,6 +591,8 @@ struct RootTabView: View {
                 }
                 IndexSection("Body") {
                     if UnifiedNav.isOn {
+                        // Sleep left the tab bar: this row and the Rest ring on Today open it.
+                        IndexRow("Sleep", "bed.double", MoreDestination.sleep, id: "more-row-sleep")
                         IndexRow("Body", "figure.stand", MoreDestination.body, id: "more-row-body")
                     }
                     IndexRow("Lift Log", "dumbbell.fill", MoreDestination.liftLog, id: "more-row-liftlog")
@@ -628,7 +636,7 @@ struct RootTabView: View {
     }
 }
 
-/// Tab 1 gives Workouts a direct home in classic navigation and as the first Training screen in unified navigation.
+/// Tab 1 gives Workouts a direct home in classic navigation and, in unified navigation, is the Plan tab (Plan, Calendar, Workouts and the rest as chips).
 private struct WorkoutsOrCalendarRoot: View {
     var body: some View {
         if UnifiedNav.isOn {
@@ -657,10 +665,14 @@ private struct CoachOrUnifiedCoach: View {
     }
 }
 
-/// Sleep stays directly available in both navigation modes; the former Day hub remains reachable through its existing links.
-private struct SleepOrDayRoot: View {
+/// The root of tab 2: the Athlete tab with unified navigation, Sleep in the classic map (the former Day hub remains reachable through its existing links).
+private struct SleepOrAthleteRoot: View {
     var body: some View {
-        SleepView()
+        if UnifiedNav.isOn {
+            AthleteHostView()
+        } else {
+            SleepView()
+        }
     }
 }
 
@@ -674,6 +686,8 @@ private enum MoreDestination: String, Hashable {
     case data, settings
     /// Body and the Lab Book as chips; the row exists only with unified navigation on.
     case body
+    /// Sleep as a More row; it exists only with unified navigation on, where Sleep is not a tab.
+    case sleep
 
     @ViewBuilder var destination: some View {
         switch self {
@@ -690,6 +704,7 @@ private enum MoreDestination: String, Hashable {
         case .data:            DataHubView()
         case .settings:        SettingsView()
         case .body:            BodyHostView()
+        case .sleep:           SleepView()
         }
     }
 }

@@ -976,7 +976,7 @@ struct LiquidTodayView: View {
         let isWhoopScale = effortScale == .whoop
         let inputs = [
             SixRingNoopInput(name: String(localized: "Rest"), score: restScore, maxValue: 100, decimals: 0, tint: NoopLook.rest,
-                             unit: "%", target: nil, route: .metric(HeroRingMetric.rest), onGuide: { guideSection = .rest }),
+                             unit: "%", target: nil, route: UnifiedNav.isOn ? TabRoute.sleep : TabRoute.metric(HeroRingMetric.rest), onGuide: { guideSection = .rest }),
             SixRingNoopInput(name: String(localized: "Charge"), score: chargeDisplay.pct, maxValue: 100, decimals: 0,
                              tint: chargeColor, unit: "%", target: nil, route: .metric(HeroRingMetric.charge),
                              onGuide: { guideSection = .charge }),
