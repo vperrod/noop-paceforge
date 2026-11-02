@@ -16,9 +16,9 @@ struct PFMyPlanCard: View {
     var showsOpen = true
     @State private var isExpanded: Bool
 
-    @MainActor init(plan: PFMyPlan, onOpen: @escaping () -> Void = { PFDeepLink.open(.week) }, collapsible: Bool = false, showsOpen: Bool = true) {
+    @MainActor init(plan: PFMyPlan, onOpen: (() -> Void)? = nil, collapsible: Bool = false, showsOpen: Bool = true) {
         self.plan = plan
-        self.onOpen = onOpen
+        self.onOpen = onOpen ?? { PFDeepLink.open(.week) }
         self.collapsible = collapsible
         self.showsOpen = showsOpen
         _isExpanded = State(initialValue: !collapsible)
