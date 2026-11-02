@@ -126,47 +126,90 @@ private struct PFIntelLine: View {
 
 /// TODAY'S CALL: the verdict chip, the Effort target, the planned session, the sentence on why the two scores differ when they do,
 /// and the actions. The score rings live in the six-ring row at the top of Today, not here.
+///
+/// `compact` is Today's version: the chip, the Effort target and the planned session, with "Why" opening the rest in place (the
+/// sentence, the Effort progress, why the scores differ, tomorrow, the actions and the sources). The Coach shows the whole card.
 struct PFTodaysCallCard: View {
     let call: PFTodaysCall
     let item: PFIntelItem
+    var compact = false
     private let hiding = PFHiding()
     /// The line about the two scores differing is about PaceForge's Recovery, which a day-only wearer does not have.
     @ObservedObject private var reports = PFReportsStore.shared
+    @State private var isWhyOpen = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             header
             effortTargetLine
-            if let progress = call.effortTarget?.progress?.text {
-                Text(hiding.text(progress))
-                    .font(LookFont.text(13.5, weight: .medium))
-                    .foregroundStyle(NoopLook.textSecondary)
-                    .frame(maxWidth: .infinity, alignment: .center)
-                    .multilineTextAlignment(.center)
-                    .accessibilityIdentifier("pf-call-effort-progress")
+            if compact {
+                plannedLine
+                if isWhyOpen {
+                    progressLine
+                    verdictSentence
+                    disagreementLine
+                    tomorrowLine
+                    actionCards
+                    PFIntelFootnote(item: item)
+                }
+                Button {
+                    withAnimation(.easeOut(duration: 0.2)) { isWhyOpen.toggle() }
+                } label: {
+                    InsightLink(isWhyOpen ? "Hide the reason" : "Why")
+                        .frame(minHeight: 44, alignment: .leading)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("pf-call-why")
+            } else {
+                progressLine
+                verdictSentence
+                disagreementLine
+                plannedLine
+                tomorrowLine
+                actionCards
+                PFIntelFootnote(item: item)
             }
-            if let sentence = item.base.meaning ?? call.verdict {
-                Text(hiding.text(sentence))
-                    .font(LookFont.text(15.5, weight: .semibold))
-                    .foregroundStyle(NoopLook.textPrimary)
-                    .multilineTextAlignment(.leading)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .accessibilityIdentifier("pf-call-verdict-text")
-            }
-            if reports.showsOvernight, let disagreement = call.disagreement {
-                PFIntelLine(label: "Why the two scores differ", text: disagreement.text, icon: "arrow.triangle.branch")
-                    .accessibilityIdentifier("pf-call-disagreement")
-            }
-            sessions
-            ForEach(item.base.actions) { action in
-                PFIntelActionCard(action: action, identifier: "pf-call-action-\(action.id)")
-            }
-            PFIntelFootnote(item: item)
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(RoundedRectangle(cornerRadius: NoopLook.Metric.tileRadius, style: .continuous).fill(NoopLook.card))
         .containerIdentifier("pf-todays-call")
+    }
+
+    @ViewBuilder private var progressLine: some View {
+        if let progress = call.effortTarget?.progress?.text {
+            Text(hiding.text(progress))
+                .font(LookFont.text(13.5, weight: .medium))
+                .foregroundStyle(NoopLook.textSecondary)
+                .frame(maxWidth: .infinity, alignment: .center)
+                .multilineTextAlignment(.center)
+                .accessibilityIdentifier("pf-call-effort-progress")
+        }
+    }
+
+    @ViewBuilder private var verdictSentence: some View {
+        if let sentence = item.base.meaning ?? call.verdict {
+            Text(hiding.text(sentence))
+                .font(LookFont.text(15.5, weight: .semibold))
+                .foregroundStyle(NoopLook.textPrimary)
+                .multilineTextAlignment(.leading)
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityIdentifier("pf-call-verdict-text")
+        }
+    }
+
+    @ViewBuilder private var disagreementLine: some View {
+        if reports.showsOvernight, let disagreement = call.disagreement {
+            PFIntelLine(label: "Why the two scores differ", text: disagreement.text, icon: "arrow.triangle.branch")
+                .accessibilityIdentifier("pf-call-disagreement")
+        }
+    }
+
+    @ViewBuilder private var actionCards: some View {
+        ForEach(item.base.actions) { action in
+            PFIntelActionCard(action: action, identifier: "pf-call-action-\(action.id)")
+        }
     }
 
     private var header: some View {
@@ -195,7 +238,7 @@ struct PFTodaysCallCard: View {
         }
     }
 
-    @ViewBuilder private var sessions: some View {
+    @ViewBuilder private var plannedLine: some View {
         if let session = call.plannedSession {
             PFIntelLine(label: "Planned today", text: session.lineText, icon: "figure.run")
                 .accessibilityIdentifier("pf-call-session")
@@ -203,6 +246,9 @@ struct PFTodaysCallCard: View {
             PFIntelLine(label: "Planned today", text: "No session planned", icon: "figure.run")
                 .accessibilityIdentifier("pf-call-session")
         }
+    }
+
+    @ViewBuilder private var tomorrowLine: some View {
         if let tomorrow = call.tomorrowSession {
             PFIntelLine(label: "Tomorrow", text: tomorrow.lineText, icon: "calendar")
                 .accessibilityIdentifier("pf-call-tomorrow")
@@ -217,6 +263,8 @@ struct PFTodaysCallHost: View {
     let todayISO: String
     /// The server's dismissed.json, so a Today's call put away in PaceForge stays away here too.
     var server: [PFDismissal] = []
+    /// Today's short version of the card (see `PFTodaysCallCard`); the Coach passes false.
+    var compact = false
 
     var body: some View {
         if let intel {
@@ -235,7 +283,7 @@ struct PFTodaysCallHost: View {
         } else if let call = intel.call, let item = intel.callItem {
             // Only the real card can be put away; the two notes around it are notices and stay.
             PFDismissable(.todaysCall, text: PFCardText.todaysCall(call), todayISO: todayISO, server: server) {
-                PFTodaysCallCard(call: call, item: item)
+                PFTodaysCallCard(call: call, item: item, compact: compact)
             }
         } else {
             PFIntelNote(title: "Today's call", icon: "scope",
@@ -247,11 +295,12 @@ struct PFTodaysCallHost: View {
 
 /// NOOP Today's Today's call: reads the shared store and refreshes it when its copy is old.
 struct PFTodaysCallStoreHost: View {
+    var compact = false
     @ObservedObject private var store = PFDailyIntelStore.shared
     @ObservedObject private var model = PFUnified.model
 
     var body: some View {
-        PFTodaysCallHost(intel: store.intel, todayISO: PFAPI.todayISO, server: model.snapshot?.dismissed ?? [])
+        PFTodaysCallHost(intel: store.intel, todayISO: PFAPI.todayISO, server: model.snapshot?.dismissed ?? [], compact: compact)
             .task { await store.refreshIfStale() }
     }
 }

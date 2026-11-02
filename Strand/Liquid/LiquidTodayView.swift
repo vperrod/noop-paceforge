@@ -108,6 +108,11 @@ struct LiquidTodayView: View {
     /// #1862: the optional Coach launcher sheet. Presentation state only — opening it requests nothing.
     @State private var showCoachLauncher = false
     @State private var showSettings = false
+    /// The sheet behind the Needs you row (the whole card with its answers); a tapped Needs you notification opens it too.
+    @State private var showNeedsYouSheet = false
+    /// Set by a tapped Needs you notification until the sheet has opened (or a minute has passed): on a cold launch the snapshot with
+    /// the items arrives after the tap, and another sheet may be up.
+    @State private var pendingNeedsYouUntil: Date?
     @State private var synthesisExpanded = false
     @State private var showLiveSession = false
 
@@ -124,9 +129,9 @@ struct LiquidTodayView: View {
     @AppStorage(HideScoresPrefs.bodyKey) private var hideBodyOn = false
     @AppStorage(TodayLayoutPrefs.hiddenKey) private var hiddenSectionsRaw = ""
     private var sectionOrder: [TodaySection] {
-        // My Plan (this week's plan progress) duplicates the Calendar tab, so Today no longer draws it;
-        // the enum case stays for the saved-layout format shared with Android.
-        TodayLayoutPrefs.visibleOrder(orderRaw: sectionOrderRaw, hiddenRaw: hiddenSectionsRaw).filter { $0 != .myPlan }
+        // My Plan (this week's plan progress) duplicates the Calendar tab, and Day in review moved to the Coach, so Today no longer
+        // draws them; the enum cases stay for the saved-layout format shared with Android.
+        TodayLayoutPrefs.visibleOrder(orderRaw: sectionOrderRaw, hiddenRaw: hiddenSectionsRaw).filter { $0 != .myPlan && $0 != .dayInReview }
     }
     // #430 parity: the Key-Metrics grid honours the SAME editor selection/order + Detailed-tiles switch as
     // Android (byte-identical @AppStorage keys). `kSparks` holds the trailing-30-day series the detailed
@@ -374,7 +379,6 @@ struct LiquidTodayView: View {
     /// Scroll-to-top on an at-root Today re-tap (#198 follow-up); default 0 so macOS/other contexts stay inert.
     @Environment(\.scrollToTopSignal) private var scrollToTopSignal
     private static let topAnchorID = "liquidToday.top"
-    private static let needsYouAnchorID = "liquidToday.needsYou"
 
     var body: some View {
         #if os(iOS)
@@ -425,32 +429,35 @@ struct LiquidTodayView: View {
                     // The six-ring row leads Today, above Today's call and whatever else the saved order puts first. It is the row the
                     // sticky mini dials measure, so it stays one view in the scroll column; the Arrange sheet still hides it with the
                     // "Charge / Effort / Rest" section.
-                    // Anything PaceForge is waiting on him for leads everything, until he answers it.
-                    // Then the open live alerts (stress, heart rate at rest, Body Battery) and PaceForge's one paragraph about the
-                    // day's metrics. One `if`, so the column gains no children; each draws nothing when it has nothing to show.
+                    // Anything PaceForge is waiting on him for leads everything, until he answers it: one 44 pt row that opens a sheet with
+                    // the whole card. Then the open live alerts (stress, heart rate at rest, Body Battery). One `if`, so the column gains no
+                    // children; each draws nothing when it has nothing to show. PaceForge's one paragraph about the day's metrics is a
+                    // one-line row further down (the Today's call section).
                     if selectedDayOffset == 0 {
-                        PFTodayNeedsYouHost().id(Self.needsYouAnchorID)
+                        PFTodayNeedsYouHost(onOpen: { showNeedsYouSheet = true })
                         PFTodayLiveAlertsHost()
-                        PFPageNote(key: "today")
                     }
                     if order.contains(.hero) { heroCard }
                     #endif
                     ForEach(order.prefix(Self.mountedSectionCount(order, stage: mountStage))) { section in
                         switch section {
-                        // The daily loop (PaceForge's daily-intel.json): the day's call above the dials, the evening
-                        // wrap after 18:00. Today only; each says so itself when its item is unavailable.
+                        // PaceForge's text, kept short: the assessment as one line, the two body-signal bars (their sentences behind an
+                        // (i)) and Today's call as a chip, the Effort target and the planned session (the rest behind "Why"). Today
+                        // only; each draws nothing, or says so itself, when it has nothing. The Expert reading, the Day in review, the
+                        // call's narrative and the verdict lines are in the Coach.
                         case .todaysCall:
                             #if os(iOS)
-                            if selectedDayOffset == 0 { PFTodaysCallStoreHost(); PFExpertReadingHost() }
+                            if selectedDayOffset == 0 {
+                                PFPageNote(key: "today")
+                                TodayPFReadout(isToday: true)
+                                PFTodaysCallStoreHost(compact: true)
+                            }
                             #else
                             EmptyView()
                             #endif
+                        // The evening wrap moved to the Coach; the case stays for the saved-layout format.
                         case .dayInReview:
-                            #if os(iOS)
-                            if selectedDayOffset == 0 { PFDayReviewStoreHost() }
-                            #else
                             EmptyView()
-                            #endif
                         // This week's plan progress and the user's own metrics. Today only; each draws nothing when it has nothing to say.
                         case .myPlan:
                             #if os(iOS)
@@ -471,14 +478,16 @@ struct LiquidTodayView: View {
                             // Mounted in steps after the dials (see `mountStage`).
                             if mountStage >= 1 {
                                 #if os(iOS)
-                                // The dark look: monitor tiles under the dials, then My Day with today's activities.
-                                // Everything the classic stack held is still here (the My Day entry became the header).
+                                // The dark look: monitor tiles under the dials (the Heart rate chart follows, then My Day).
                                 lookMonitorRow
                                 if chargeLegacyRRGap { ChargeLegacyRRGapNote() }
                                 #else
                                 if chargeLegacyRRGap { ChargeLegacyRRGapNote() }
                                 #endif
                             }
+                        // My Day with today's activities and the cards that went with it in the hero section. Everything the classic
+                        // stack held is still here (the My Day entry became the header).
+                        case .myDay:
                             if mountStage >= 2 {
                                 #if os(iOS)
                                 if selectedDayOffset == 0 {
@@ -548,7 +557,8 @@ struct LiquidTodayView: View {
         // The streak chip and My Plan read a store that draws nothing until it has loaded, and an empty view never runs
         // its own .task, so Today starts the load.
         .task { await PFPhase4Store.shared.refreshIfStale() }
-        // And the Expert reading card: it draws nothing until the daily reading is on the phone, so Today fetches it.
+        // And the reports capabilities (a day-only watch has no PaceForge Recovery or Sleep ring) with the latest daily reading, which the
+        // Coach's Expert reading card draws nothing without.
         .task { await PFReportsStore.shared.refreshLatestIfStale() }
         // The same for Today's call (the NOOP Charge, PaceForge readiness and Effort target dials): its host draws nothing until the
         // store has a file, so its own .task never runs. With New navigation (beta) on there is no PaceForge tab to fill the store
@@ -637,6 +647,11 @@ struct LiquidTodayView: View {
         .sheet(isPresented: $showCoachLauncher) {
             CoachLauncherSheet()
         }
+        #if os(iOS)
+        .sheet(isPresented: $showNeedsYouSheet) {
+            PFNeedsYouSheet()
+        }
+        #endif
         .sheet(isPresented: $showSettings) {
             NavigationStack {
                 SettingsView()
@@ -658,10 +673,12 @@ struct LiquidTodayView: View {
         .onChange(of: scrollToTopSignal) { _, _ in
             withAnimation(.easeOut(duration: 0.35)) { proxy.scrollTo(Self.topAnchorID, anchor: .top) }
         }
-        // A tapped PaceForge notification: back to today, then to the Needs you card. The activity such a notification can be about opens
+        // A tapped PaceForge notification: back to today, then the Needs you sheet. The activity such a notification can be about opens
         // from the router behind the scroll view.
         .onReceive(NotificationCenter.default.publisher(for: .pfShowNeedsYou)) { _ in showNeedsYou(proxy) }
         .background(PFAlertActivityRouter())
+        .background(PFNeedsYouArrival { openPendingNeedsYou() })
+        .onChange(of: isOtherSheetUp) { _, _ in openPendingNeedsYou() }
         #endif
         }
     }
@@ -673,17 +690,40 @@ struct LiquidTodayView: View {
         await PFScoresStore.shared.refresh()
     }
 
-    /// Scrolls to the Needs you card, or to the top while there is none (a live alert sits just below it). A past day has no card, so
-    /// it goes back to today first; the short wait lets the tab switch and that day change land before the scroll.
+    /// Goes to the top of today and opens the Needs you sheet while something is waiting (the row sits at the top, a live alert just
+    /// below it). A past day has no row, so it goes back to today first; the short wait lets the tab switch and that day change land first.
     private func showNeedsYou(_ proxy: ScrollViewProxy) {
         if selectedDayOffset != 0 { selectedDayOffset = 0 }
+        pendingNeedsYouUntil = Date().addingTimeInterval(60)
         Task { @MainActor in
             try? await Task.sleep(nanoseconds: 300_000_000)
-            let hasCard = PFUnified.model.snapshot?.needsYou.isEmpty == false
             withAnimation(.easeOut(duration: 0.35)) {
-                proxy.scrollTo(hasCard ? Self.needsYouAnchorID : Self.topAnchorID, anchor: .top)
+                proxy.scrollTo(Self.topAnchorID, anchor: .top)
             }
+            openPendingNeedsYou()
+            // A cold launch from the tap has no snapshot yet: load it, and the arrival watcher opens the sheet if it brings items.
+            if pendingNeedsYouUntil != nil { await PFUnified.model.refreshIfStale() }
+            openPendingNeedsYou()
         }
+    }
+
+    /// Another sheet of this screen is up; presenting a second one over it would be dropped, so the tap waits for it to close.
+    private var isOtherSheetUp: Bool {
+        guideSection != nil || customizationDestination != nil || showCoachLauncher || showSettings || showLiveSession
+    }
+
+    /// Opens the Needs you sheet for a tap made in the last minute, once there are items to show, today is selected and no other sheet
+    /// of this screen is up. Called again when a sheet closes and when the snapshot changes.
+    private func openPendingNeedsYou() {
+        guard let until = pendingNeedsYouUntil else { return }
+        guard until > Date() else {
+            pendingNeedsYouUntil = nil
+            return
+        }
+        guard selectedDayOffset == 0, !isOtherSheetUp, !showNeedsYouSheet,
+              PFUnified.model.snapshot?.needsYou.isEmpty == false else { return }
+        pendingNeedsYouUntil = nil
+        showNeedsYouSheet = true
     }
     #endif
 

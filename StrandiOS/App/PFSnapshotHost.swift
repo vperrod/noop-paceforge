@@ -10,8 +10,13 @@ import StrandDesign
 /// `isPrimary` is true for exactly one host (Insights). Only that one answers the link notifications (`noop://paceforge/standing`,
 /// an insight item) and refreshes the heart-recovery summary, so a link opens one sheet, not one per tab. Taps inside any host open
 /// their sheets locally.
+///
+/// `drawsChrome` is false for a second host on the same screen (the Coach splits its PaceForge cards around cards that do not need the
+/// snapshot): it then draws only the content once the snapshot is ready, and nothing for the lock, loading, failed and offline states,
+/// which the first host already shows.
 struct PFSnapshotHost: View {
     var isPrimary = false
+    var drawsChrome = true
     let content: (PFSnapshot) -> AnyView
 
     @ObservedObject private var model = PFUnified.model
@@ -24,7 +29,7 @@ struct PFSnapshotHost: View {
     var body: some View {
         Group {
             if lockEnabled && !lock.isUnlocked {
-                PFLockedView(lock: lock)
+                if drawsChrome { PFLockedView(lock: lock) }
             } else {
                 loaded
             }
@@ -40,7 +45,7 @@ struct PFSnapshotHost: View {
     }
 
     private var loaded: some View {
-        PFHostPhase(model: model, content: content)
+        PFHostPhase(model: model, drawsChrome: drawsChrome, content: content)
             .environmentObject(model)
             .environment(\.pfOpenStanding, { openStanding() })
             .environment(\.pfOpenInsight, { id in openInsight(id) })
@@ -103,38 +108,44 @@ private struct HeartRecoveryTaskSlot: View {
 /// The load states and, once there is a snapshot, the chip's content. Each branch is a small type; only the chip itself is erased.
 private struct PFHostPhase: View {
     @ObservedObject var model: PFModel
+    let drawsChrome: Bool
     let content: (PFSnapshot) -> AnyView
 
     var body: some View {
         switch model.phase {
         case .loading:
-            PFLoadingView()
+            if drawsChrome { PFLoadingView() }
         case .notSetUp:
-            PFNotSetUpView()
+            if drawsChrome { PFNotSetUpView() }
         case .failed(let message):
-            PFFailedView(message: message, detail: model.failureDetail, isRetrying: model.isRefreshing) {
-                Task { await model.refresh() }
+            if drawsChrome {
+                PFFailedView(message: message, detail: model.failureDetail, isRetrying: model.isRefreshing) {
+                    Task { await model.refresh() }
+                }
             }
         case .ready:
-            PFHostReady(model: model, content: content)
+            PFHostReady(model: model, drawsChrome: drawsChrome, content: content)
         }
     }
 }
 
 private struct PFHostReady: View {
     @ObservedObject var model: PFModel
+    let drawsChrome: Bool
     let content: (PFSnapshot) -> AnyView
 
     var body: some View {
         if let snapshot = model.snapshot {
             VStack(alignment: .leading, spacing: 16) {
-                PFRevealBar()
-                if let note = model.offlineNote {
-                    PFOfflineBanner(text: note, detail: model.failureDetail, isRetrying: model.isRefreshing) {
-                        Task { await model.refresh() }
+                if drawsChrome {
+                    PFRevealBar()
+                    if let note = model.offlineNote {
+                        PFOfflineBanner(text: note, detail: model.failureDetail, isRetrying: model.isRefreshing) {
+                            Task { await model.refresh() }
+                        }
                     }
+                    PFStaleDocsLine(paths: model.staleDocs)
                 }
-                PFStaleDocsLine(paths: model.staleDocs)
                 content(snapshot)
                     .environment(\.pfExplainers, snapshot.explainerMap)
             }
