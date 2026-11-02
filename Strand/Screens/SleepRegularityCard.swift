@@ -10,7 +10,8 @@ import WhoopStore
 // the "steadier / about as steady / less steady than usual" line only when earlier fortnights give an own baseline.
 // Display only: it feeds no score.
 
-/// The Sleep screen's regularity tile with PaceForge's sleep section under it (the planner entry itself leads the Sleep screen). The
+/// The Sleep screen's regularity tile with PaceForge's sleep section under it (on the iPhone the planner entry itself leads the Sleep
+/// screen; on the Mac it is the first child here, as it always was). The
 /// Sleep screen's section column is already at the ten-child limit of a SwiftUI builder, so the tile rides with a sibling instead of
 /// becoming an 11th child. The read is started from this always-present wrapper, never from the tile that may not exist yet.
 struct SleepPlannerWithRegularity: View {
@@ -22,8 +23,14 @@ struct SleepPlannerWithRegularity: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
+            #if !os(iOS)
+            SleepPlannerEntryCard()
+            #endif
             if let assessment {
                 SleepRegularityTile(assessment: assessment)
+                    #if !os(iOS)
+                    .padding(.top, NoopMetrics.sectionSpacing)
+                    #endif
             }
             #if os(iOS)
             PFSleepSection()

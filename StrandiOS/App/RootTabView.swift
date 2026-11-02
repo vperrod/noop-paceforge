@@ -142,7 +142,11 @@ struct RootTabView: View {
 
     private func openOnMore(_ barID: String, _ destination: MoreDestination) {
         if barSelection == barID {
+            // A re-tap of the item on show, like a re-tap of a tab: back to its root screen, then to the top of it.
             Task { await repo.refresh() }
+            if tabPaths[UnifiedNav.moreTab].count > (moreBarItem?.count ?? 1) {
+                pushOnMore(destination, barID: barID)
+            }
             scrollTop[UnifiedNav.moreTab] += 1
         } else {
             pushOnMore(destination, barID: barID)
@@ -399,8 +403,8 @@ struct RootTabView: View {
                 withAnimation(Self.sheetEase) { quickAction = .live }
                 router.requestedDestination = nil
             case .liveSession:
-                // Live Sessions is presented from Today's own Start entry (a cover, not a routed sheet),
-                // so a deep-link lands on the Today tab where that entry lives.
+                // Live Sessions is a cover owned by Today (its Start row has left Today in build 502), so a deep-link just
+                // lands on the Today tab.
                 withAnimation(.timingCurve(0.22, 1, 0.36, 1, duration: 0.24)) { selectedTab = 0 }
                 router.requestedDestination = nil
             case .journal:
@@ -409,7 +413,10 @@ struct RootTabView: View {
                 withAnimation(Self.sheetEase) { quickAction = .journal }
                 router.requestedDestination = nil
             case .sleep:
-                if UnifiedNav.isOn {
+                if UnifiedNav.isOn && selectedTab == UnifiedNav.moreTab {
+                    // On More the request becomes the Sleep item of the bar (replacing what More held, never stacked on it).
+                    openOnMore("sleep", .sleep)
+                } else if UnifiedNav.isOn {
                     // Sleep is not a tab with unified navigation: it opens over the tab on show, and Back returns to it.
                     // Not twice: a second request while that Sleep is still the top of this tab's path adds nothing.
                     if sleepPushedCount[selectedTab] != tabPaths[selectedTab].count {
