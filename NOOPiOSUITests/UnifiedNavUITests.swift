@@ -1,8 +1,9 @@
 import XCTest
 
-/// The New navigation (beta), Settings > Tools. With the switch on at launch the tab bar is Today, Calendar, Day, Insights and More;
-/// with it off the tabs are the ones build 480 has. The switch is a launch argument here (`-unifiedNav YES`); like the other UI tests
-/// these run on `--demo-seed` data, and the PaceForge chips on the synthetic fixture (`-PaceForgeFixture`). Not run in CI.
+/// The unified navigation, Settings > Tools. With the switch on (the default) the tab bar is Today, Plan, Athlete, Insights and More,
+/// with Sleep reached from the Rest ring on Today and from a More row; with it off the tabs are the ones build 480 has. The switch is a
+/// launch argument here (`-unifiedNav YES`); like the other UI tests these run on `--demo-seed` data, and the PaceForge chips on
+/// the synthetic fixture (`-PaceForgeFixture`). Not run in CI.
 final class UnifiedNavUITests: XCTestCase {
     private func launch(unifiedNav: Bool, fixture: Bool = true) throws -> XCUIApplication {
         let app = XCUIApplication()
@@ -39,19 +40,20 @@ final class UnifiedNavUITests: XCTestCase {
 
     // MARK: The switch
 
-    func testFlagOnShowsTheFiveNewTabs() throws {
+    func testFlagOnShowsTheFiveTabs() throws {
         let app = try launch(unifiedNav: true)
-        XCTAssertTrue(app.shellTab("Calendar").waitForExistence(timeout: 20), "With the switch on, tab 2 is Calendar.")
-        XCTAssertTrue(app.shellTab("Day").exists, "With the switch on, Day is a tab.")
+        XCTAssertTrue(app.shellTab("Plan").waitForExistence(timeout: 20), "With the switch on, tab 2 is Plan.")
+        XCTAssertTrue(app.shellTab("Athlete").exists, "With the switch on, tab 3 is Athlete.")
         XCTAssertTrue(app.shellTab("Insights").exists, "With the switch on, tab 4 is Insights.")
     }
 
-    func testFlagOnHasNoPaceForgeTrendsOrSleepTab() throws {
+    func testFlagOnHasNoPaceForgeTrendsSleepOrCalendarTab() throws {
         let app = try launch(unifiedNav: true)
-        XCTAssertTrue(app.shellTab("Calendar").waitForExistence(timeout: 20))
+        XCTAssertTrue(app.shellTab("Plan").waitForExistence(timeout: 20))
         XCTAssertFalse(app.shellTab("PaceForge").exists, "With the switch on there is no PaceForge tab.")
         XCTAssertFalse(app.shellTab("Trends").exists, "With the switch on there is no Trends tab.")
-        XCTAssertFalse(app.shellTab("Sleep").exists, "With the switch on there is no Sleep tab.")
+        XCTAssertFalse(app.shellTab("Sleep").exists, "With the switch on Sleep is not a tab.")
+        XCTAssertFalse(app.shellTab("Calendar").exists, "Calendar is a chip of Plan, not a tab.")
     }
 
     func testFlagOnKeepsTheCoachButton() throws {
@@ -67,22 +69,50 @@ final class UnifiedNavUITests: XCTestCase {
         XCTAssertFalse(app.shellTab("Insights").exists, "With the switch off there is no Insights tab.")
     }
 
-    // MARK: Calendar
+    // MARK: Plan
 
-    func testCalendarOpensOnTheCalendarChip() throws {
+    func testPlanOpensOnThePlanChip() throws {
         let app = try launch(unifiedNav: true)
-        open("Calendar", host: "calendar-host", in: app)
-        XCTAssertTrue(element(app, "calendar-chip-content-calendar").waitForExistence(timeout: 30), "Calendar opens on its Calendar chip.")
+        open("Plan", host: "calendar-host", in: app)
+        XCTAssertTrue(element(app, "calendar-chip-content-plan").waitForExistence(timeout: 30), "Plan opens on its Plan chip.")
+    }
+
+    func testCalendarIsTheSecondChipOfPlan() throws {
+        let app = try launch(unifiedNav: true)
+        open("Plan", host: "calendar-host", in: app)
+        choose("calendar", prefix: "calendar", in: app)
+        XCTAssertTrue(element(app, "calendar-chip-content-calendar").waitForExistence(timeout: 30), "The Calendar chip should mount.")
         XCTAssertTrue(element(app, "calendar-month").exists, "The Calendar chip draws the month.")
     }
 
-    func testEveryCalendarChipMounts() throws {
+    func testEveryPlanChipMounts() throws {
         let app = try launch(unifiedNav: true)
-        open("Calendar", host: "calendar-host", in: app)
-        for chip in ["plan", "season", "events", "hyrox"] {
+        open("Plan", host: "calendar-host", in: app)
+        for chip in ["workouts", "season", "events", "hyrox"] {
             choose(chip, prefix: "calendar", in: app)
             XCTAssertTrue(element(app, "calendar-chip-content-\(chip)").waitForExistence(timeout: 30), "The \(chip) chip should mount.")
         }
+    }
+
+    // MARK: Athlete
+
+    func testAthleteOpensOnTheProfileHeader() throws {
+        let app = try launch(unifiedNav: true)
+        open("Athlete", host: "athlete-host", in: app)
+        XCTAssertTrue(element(app, "athlete-header").waitForExistence(timeout: 30), "Athlete opens on the profile header.")
+    }
+
+    // MARK: Sleep
+
+    func testSleepIsAMoreRowNotATab() throws {
+        let app = try launch(unifiedNav: true)
+        let tab = app.shellTab("More")
+        XCTAssertTrue(tab.waitForExistence(timeout: 20))
+        tab.tap()
+        let row = element(app, "more-row-sleep")
+        XCTAssertTrue(row.waitForExistence(timeout: 20), "More offers Sleep.")
+        row.tap()
+        XCTAssertTrue(element(app, "screen-sleep").waitForExistence(timeout: 30), "The Sleep row opens the Sleep screen.")
     }
 
     // MARK: Insights

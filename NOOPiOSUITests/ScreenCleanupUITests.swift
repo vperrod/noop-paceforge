@@ -102,17 +102,17 @@ final class ScreenCleanupUITests: XCTestCase {
         XCTAssertTrue(today.waitForExistence(timeout: 30), "The Today tab should be present.")
         XCTAssertTrue(element(app, "today-settings").waitForExistence(timeout: 20), "Today should open its top bar.")
 
-        app.shellTab("Workouts").tap()
-        XCTAssertTrue(app.staticTexts["Workouts"].waitForExistence(timeout: 20), "Workouts should open on one tap.")
-        alive(app, "opening Workouts")
-        app.shellTab("Sleep").tap()
-        XCTAssertTrue(reveal(element(app, "look-last-night"), in: app), "Sleep should open on one tap.")
-        alive(app, "opening Sleep")
-        app.shellTab("PaceForge").tap()
-        XCTAssertTrue(app.segmentedControls["pf-segments"].waitForExistence(timeout: 20), "PaceForge should open on one tap.")
-        alive(app, "opening PaceForge")
+        app.shellTab("Plan").tap()
+        XCTAssertTrue(element(app, "calendar-host").waitForExistence(timeout: 30), "Plan should open on one tap.")
+        alive(app, "opening Plan")
+        app.shellTab("Athlete").tap()
+        XCTAssertTrue(element(app, "athlete-host").waitForExistence(timeout: 30), "Athlete should open on one tap.")
+        alive(app, "opening Athlete")
+        app.shellTab("Insights").tap()
+        XCTAssertTrue(element(app, "insights-host").waitForExistence(timeout: 30), "Insights should open on one tap.")
+        alive(app, "opening Insights")
         openMore(app)
-        XCTAssertTrue(element(app, "more-row-insights").waitForExistence(timeout: 20), "More should open on one tap.")
+        XCTAssertTrue(element(app, "more-row-sleep").waitForExistence(timeout: 20), "More should open on one tap.")
 
         let coach = element(app, "look-coach")
         XCTAssertTrue(coach.exists, "The centre button should be NOOP Coach.")
@@ -242,18 +242,14 @@ final class ScreenCleanupUITests: XCTestCase {
         alive(app, "opening Stress from its tile")
     }
 
-    func testTheRestDetailLinksToTheSleepTabNotASecondSleepScreen() throws {
+    func testTheRestRingOpensSleepOverTodayAndSleepIsNotATab() throws {
         let app = try launch()
         // The ring's button reads "Rest, 87"; the sticky mini dial ("Rest 87") and the "See how it is scored" button are other elements.
         let ring = app.buttons.matching(NSPredicate(format: "label MATCHES %@", "Rest, [0-9]+")).firstMatch
         XCTAssertTrue(reveal(ring, in: app, maxSwipes: 6), "Today should show the Rest ring.")
         ring.tap()
-        XCTAssertTrue(element(app, "look-score-detail-rest").waitForExistence(timeout: 30), "The Rest ring should open the Rest detail.")
-        let link = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Explore your sleep insights")).firstMatch  // the label ends with an arrow
-        XCTAssertTrue(reveal(link, in: app), "The Rest insight card should link to sleep.")
-        link.tap()
-        XCTAssertTrue(reveal(element(app, "look-last-night"), in: app), "The link should land on the Sleep tab.")
-        XCTAssertTrue(app.shellTab("Sleep").isSelected, "The Sleep tab should be the selected tab, not a screen over Today.")
-        alive(app, "following the Rest detail's sleep link")
+        XCTAssertTrue(reveal(element(app, "look-last-night"), in: app), "The Rest ring should open Sleep.")
+        XCTAssertFalse(app.shellTab("Sleep").exists, "Sleep is not in the tab bar.")
+        alive(app, "opening Sleep from the Rest ring")
     }
 }
