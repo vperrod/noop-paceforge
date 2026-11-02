@@ -100,6 +100,20 @@ struct PFNeedsYouSheet: View {
     }
 }
 
+/// Draws nothing. Tells Today when the number of open Needs you items changes (the snapshot arrives after a cold launch from a tapped
+/// notification), so a tap that found nothing to open yet can open the sheet now. Today does not observe the model itself: every
+/// model change would re-run its whole body.
+struct PFNeedsYouArrival: View {
+    let onChange: () -> Void
+    @ObservedObject private var model = PFUnified.model
+
+    var body: some View {
+        Color.clear
+            .frame(width: 0, height: 0)
+            .onChange(of: model.snapshot?.needsYou.count) { _, _ in onChange() }
+    }
+}
+
 /// Opens the results of the activity a tapped PaceForge alert is about. It draws nothing: NOOP Today carries it as a background, so the
 /// sheet always has a view to come from, whether or not the Needs you card is on screen. The tap leaves the activity in
 /// `PFAlertLink`; it waits here for the snapshot to hold that activity, for a minute after the tap at most (`PFWantedActivity`).

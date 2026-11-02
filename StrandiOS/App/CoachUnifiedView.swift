@@ -28,11 +28,14 @@ struct CoachUnifiedView: View {
             .accessibilityIdentifier("coach-brief-settings")
         }) {
             // The Coach is where PaceForge's text lives, in this order: the assessment, the briefing, Today's call and the readings that
-            // sit behind the rows on Today, the Expert reading with the reports row, Day in review, the reviews and the conversation (all
-            // inside CoachPaceForgeChip), then the status of the morning briefing.
+            // sit behind the rows on Today, the Expert reading with the reports row, Day in review, the reviews and the conversation,
+            // then the status of the morning briefing. The cards in the middle read their own stores, so they are siblings of the two
+            // snapshot hosts around them and stay reachable while the PaceForge snapshot is loading or has failed.
             PFPageNote(key: "today", alwaysOpen: true)
             PFPageNote(key: "coach", alwaysOpen: true)
-            CoachPaceForgeChip()
+            CoachPaceForgeChip(part: .brief)
+            CoachTextCards()
+            CoachPaceForgeChip(part: .reviews)
             briefStatusCard
         }
         .containerIdentifier("coach-host")
@@ -87,19 +90,26 @@ struct CoachUnifiedView: View {
 }
 
 /// PaceForge's Coach screen. What PaceForge is waiting on him for lives only on Today.
+/// `part` is `.brief` for the first host (it also shows the lock and the loading, failed and offline states) and `.reviews` for the
+/// second, which draws only its cards once the snapshot is ready.
 private struct CoachPaceForgeChip: View {
+    let part: PFCoachPart
+
     var body: some View {
-        PFSnapshotHost(content: { snapshot in AnyView(CoachPaceForgeContent(snapshot: snapshot)) })
-            .containerIdentifier("coach-full-brain")
+        PFSnapshotHost(drawsChrome: part != .reviews, content: { snapshot in
+            AnyView(CoachPaceForgeContent(snapshot: snapshot, part: part))
+        })
+        .containerIdentifier(part == .reviews ? "coach-reviews" : "coach-full-brain")
     }
 }
 
 private struct CoachPaceForgeContent: View {
     let snapshot: PFSnapshot
+    let part: PFCoachPart
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            PFCoachView(snapshot: snapshot, afterBrief: AnyView(CoachTextCards()))
+            PFCoachView(snapshot: snapshot, part: part)
         }
     }
 }

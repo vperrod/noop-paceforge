@@ -1,8 +1,8 @@
 import XCTest
 
-/// Simulator checks for the Needs you card on PaceForge Today. They serve the synthetic PaceForgeFixture.json
-/// (made-up values only): `-PaceForgeNeedsYou` switches on the list in `data/needs-you.active.json`, and the
-/// `api/app/answer` entry stands in for the server's reply to an answer.
+/// Simulator checks for Needs you on NOOP Today: a 44 pt row (`pf-needs-row`) that opens a sheet holding the whole card
+/// (`pf-needs-card`). They serve the synthetic PaceForgeFixture.json (made-up values only): `-PaceForgeNeedsYou` switches on the list
+/// in `data/needs-you.active.json`, and the `api/app/answer` entry stands in for the server's reply to an answer.
 final class PaceForgeNeedsYouUITests: XCTestCase {
     private func launch(_ extraArguments: [String] = []) throws -> XCUIApplication {
         let app = XCUIApplication()
@@ -13,16 +13,16 @@ final class PaceForgeNeedsYouUITests: XCTestCase {
                                 "The synthetic fixture should be bundled with the UI tests.")
         app.launchEnvironment["PF_FIXTURE_JSON"] = String(decoding: try Data(contentsOf: url), as: UTF8.self)
         app.launch()
-        let tab = app.shellTab("PaceForge")
-        XCTAssertTrue(tab.waitForExistence(timeout: 20), "The PaceForge tab should be present.")
-        tab.tap()
-        let segments = app.segmentedControls["pf-segments"]
-        XCTAssertTrue(segments.waitForExistence(timeout: 15), "The PaceForge segmented control should load from the fixture.")
-        let today = segments.buttons["Today"]
-        today.tap()
-        // The segment is remembered between launches; a tap that lands while the previous one is restored is lost.
-        if !today.isSelected { today.tap() }
+        XCTAssertTrue(app.shellTab("Today").waitForExistence(timeout: 20), "NOOP Today should be on screen.")
         return app
+    }
+
+    /// Taps the Needs you row and waits for the sheet's card.
+    private func openSheet(_ app: XCUIApplication) {
+        let row = element(app, "pf-needs-row")
+        XCTAssertTrue(row.waitForExistence(timeout: 20), "Today should lead with the Needs you row.")
+        row.tap()
+        XCTAssertTrue(element(app, "pf-needs-card").waitForExistence(timeout: 10), "The row should open the Needs you card.")
     }
 
     private func element(_ app: XCUIApplication, _ id: String) -> XCUIElement {
@@ -48,17 +48,16 @@ final class PaceForgeNeedsYouUITests: XCTestCase {
         return element.exists && element.isHittable
     }
 
-    func testNoCardWhenNothingIsWaiting() throws {
+    func testNoRowWhenNothingIsWaiting() throws {
         let app = try launch()
-        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label ==[c] %@", "Daily briefing")).firstMatch
-            .waitForExistence(timeout: 15), "Today should have loaded.")
-        XCTAssertFalse(element(app, "pf-needs-card").exists, "With nothing waiting the Needs you card is not shown.")
+        XCTAssertFalse(element(app, "pf-needs-row").waitForExistence(timeout: 8), "With nothing waiting there is no Needs you row.")
+        XCTAssertFalse(element(app, "pf-needs-card").exists, "With nothing waiting there is no Needs you card.")
     }
 
-    func testCardShowsEveryKindAndAcceptingAProposalRemovesIt() throws {
+    func testRowOpensTheSheetWithEveryKindAndAnsweringEverythingClosesIt() throws {
         let app = try launch(["-PaceForgeNeedsYou"])
-        XCTAssertTrue(element(app, "pf-needs-card").waitForExistence(timeout: 15), "The Needs you card should lead Today.")
-        attach(app, "Needs you card")
+        openSheet(app)
+        attach(app, "Needs you sheet")
 
         // Treadmill: Save waits for a valid number inside the server's limits.
         let save = element(app, "pf-needs-save-treadmill_pace:9100000001")
@@ -76,10 +75,6 @@ final class PaceForgeNeedsYouUITests: XCTestCase {
         let done = app.keyboards.buttons["return"]
         if done.exists { done.tap() }
 
-        // Effort 1-10 and feel 1-5 are one tap each.
-        XCTAssertTrue(reveal(element(app, "pf-needs-rpe-7-rpe:9100000002"), in: app), "The effort row has a 7.")
-        XCTAssertTrue(reveal(element(app, "pf-needs-feel-4-feel:2030-03-13"), in: app), "The feel row has a 4.")
-
         // A proposal is one line with Accept and Dismiss; accepting it removes it and keeps the rest.
         let accept = element(app, "pf-needs-accept-proposal:synth01")
         XCTAssertTrue(reveal(accept, in: app), "The proposal has an Accept button.")
@@ -89,11 +84,26 @@ final class PaceForgeNeedsYouUITests: XCTestCase {
         waitForExpectations(timeout: 10)
         XCTAssertTrue(element(app, "pf-needs-card").exists, "The other items are still waiting.")
         attach(app, "After accepting the proposal")
+
+        // Effort 1-10 and feel 1-5 are one tap each; Don't know answers the treadmill run. The last answer closes the sheet.
+        let rpe = element(app, "pf-needs-rpe-7-rpe:9100000002")
+        XCTAssertTrue(reveal(rpe, in: app), "The effort row has a 7.")
+        rpe.tap()
+        let feel = element(app, "pf-needs-feel-4-feel:2030-03-13")
+        XCTAssertTrue(reveal(feel, in: app), "The feel row has a 4.")
+        feel.tap()
+        let unknown = element(app, "pf-needs-unknown-treadmill_pace:9100000001")
+        XCTAssertTrue(reveal(unknown, in: app), "The treadmill row has Don't know.")
+        unknown.tap()
+        expectation(for: gone, evaluatedWith: element(app, "pf-needs-sheet-done"))
+        waitForExpectations(timeout: 10)
+        XCTAssertFalse(element(app, "pf-needs-row").exists, "With everything answered the row is gone too.")
+        attach(app, "After the last answer")
     }
 
     func testFailedAnswerBringsTheRowBackWithAReason() throws {
         let app = try launch(["-PaceForgeNeedsYou", "-PaceForgeAnswerFails"])
-        XCTAssertTrue(element(app, "pf-needs-card").waitForExistence(timeout: 15))
+        openSheet(app)
         let dismiss = element(app, "pf-needs-dismiss-proposal:synth01")
         XCTAssertTrue(reveal(dismiss, in: app), "The proposal has a Dismiss button.")
         dismiss.tap()

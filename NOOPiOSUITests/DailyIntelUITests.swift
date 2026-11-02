@@ -205,10 +205,16 @@ final class DailyIntelUITests: XCTestCase {
 
     // MARK: Day in review
 
+    /// Opens the Coach sheet from the floating N button (`look-coach`), where Day in review lives.
+    private func openCoach(_ app: XCUIApplication) {
+        let coach = element(app, "look-coach")
+        XCTAssertTrue(coach.waitForExistence(timeout: 20), "The Coach button should be on screen.")
+        coach.tap()
+    }
+
     func testDayInReviewShowsInTheEvening() throws {
-        // Day in review moved from Today to the Coach sheet (N button), which this test does not open yet.
-        try XCTSkipIf(true, "Day in review is in the Coach now; open the Coach here once the tab-bar ids are settled.")
         let app = try launch(extra: ["-PaceForgeEvening"])
+        openCoach(app)
         let card = element(app, "pf-day-review")
         XCTAssertTrue(reveal(card, in: app), "After 18:00 Today should show Day in review.")
         XCTAssertTrue(element(app, "pf-review-outcome").exists, "It should say whether the target was met.")
@@ -219,9 +225,10 @@ final class DailyIntelUITests: XCTestCase {
 
     func testDayInReviewIsAbsentInTheMorning() throws {
         let app = try launch(extra: ["-PaceForgeMorning"])
-        XCTAssertTrue(reveal(element(app, "pf-todays-call"), in: app), "Today should have loaded.")
+        openCoach(app)
+        XCTAssertTrue(reveal(element(app, "pf-todays-call"), in: app), "The Coach should have loaded.")
         XCTAssertFalse(element(app, "pf-day-review").waitForExistence(timeout: 3), "Before 18:00 there is no Day in review.")
-        attach(app, "Intel 61 Today in the morning, no Day in review")
+        attach(app, "Intel 61 Coach in the morning, no Day in review")
     }
 
     func testPaceForgeTodayShowsDayInReviewInTheEvening() throws {

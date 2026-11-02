@@ -1,11 +1,17 @@
 import SwiftUI
 import StrandDesign
 
+/// The halves of `PFCoachView` (see `part`).
+enum PFCoachPart {
+    case all, brief, reviews
+}
+
 /// PaceForge "Coach": the daily brief, Coach's Take, the latest weekly review and the chat tail.
 struct PFCoachView: View {
     let snapshot: PFSnapshot
-    /// Cards the unified Coach puts between the briefing and the reviews (Today's call, the readings, the Expert reading, Day in review).
-    var afterBrief: AnyView?
+    /// Which cards to draw. The unified Coach draws the briefing first, its text cards that do not need the snapshot, then the reviews
+    /// and the conversation, so it asks for the two halves separately; everywhere else draws everything.
+    var part: PFCoachPart = .all
     @EnvironmentObject private var model: PFModel
     @EnvironmentObject private var noopCoach: AICoachEngine
     @State private var draft = ""
@@ -18,20 +24,25 @@ struct PFCoachView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            if coach.brief != nil || coach.take != nil {
+            if part != .reviews, coach.brief != nil || coach.take != nil {
                 todayReadCard(brief: coach.brief, take: coach.take)
             }
-            if let afterBrief { afterBrief }
-            if let review = coach.weeklyReview { weeklyReviewCard(review) }
-            if let monthlyRead { monthlyReviewCard(monthlyRead) }
-            if !pendingWorkoutReviews.isEmpty { pendingWorkoutReviewsCard }
-            if !recentWorkoutReads.isEmpty { workoutReadsCard }
-            chatCard
-            PFTellCoachCard()
+            if part != .brief {
+                if let review = coach.weeklyReview { weeklyReviewCard(review) }
+                if let monthlyRead { monthlyReviewCard(monthlyRead) }
+                if !pendingWorkoutReviews.isEmpty { pendingWorkoutReviewsCard }
+                if !recentWorkoutReads.isEmpty { workoutReadsCard }
+                chatCard
+                PFTellCoachCard()
+            }
         }
-        .task(id: snapshot.todayISO) { await loadMonthlyRead() }
+        .task(id: snapshot.todayISO) {
+            guard part != .brief else { return }
+            await loadMonthlyRead()
+        }
         .task(id: noopCoach.pendingPrompt) {
-            guard let prompt = noopCoach.pendingPrompt, !prompt.isEmpty else { return }
+            // The chat lives in the reviews half; the briefing half must not also send the pending prompt.
+            guard part != .brief, let prompt = noopCoach.pendingPrompt, !prompt.isEmpty else { return }
             let sessionID = noopCoach.pendingSessionID
             noopCoach.pendingPrompt = nil
             noopCoach.pendingSessionID = nil

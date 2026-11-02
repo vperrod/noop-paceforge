@@ -63,7 +63,8 @@ final class TodayLayoutPrefsTests: XCTestCase {
         let order = "heartRate,hero,yourCards,liveSession,synthesis,keyMetrics,workouts,recoveryVitals,journal"
         XCTAssertEqual(
             TodayLayoutPrefs.visibleOrder(orderRaw: order, hiddenRaw: "hero,workouts"),
-            [.heartRate, .todaysCall, .dayInReview, .myDay, .myPlan, .myDashboard, .yourCards, .liveSession, .synthesis, .keyMetrics, .recoveryVitals, .menstrualCycle, .journal, .addedCards]
+            // hero is hidden and the saved order predates my-day, so My Day stays hidden with it.
+            [.heartRate, .todaysCall, .dayInReview, .myPlan, .myDashboard, .yourCards, .liveSession, .synthesis, .keyMetrics, .recoveryVitals, .menstrualCycle, .journal, .addedCards]
         )
         XCTAssertEqual(TodayLayoutPrefs.decodeOrder(order), [
             .heartRate, .hero, .todaysCall, .dayInReview, .myDay, .myPlan, .myDashboard, .yourCards, .liveSession, .synthesis, .keyMetrics,
@@ -83,6 +84,18 @@ final class TodayLayoutPrefsTests: XCTestCase {
         var custom = TodaySection.previousDefaultOrders[0]
         custom.swapAt(custom.firstIndex(of: .workouts) ?? 0, custom.firstIndex(of: .synthesis) ?? 0)
         XCTAssertEqual(TodayLayoutPrefs.decodeOrder(TodayLayoutPrefs.encode(custom)), custom)
+    }
+
+    /// My Day was part of the Charge / Effort / Rest section: a phone that hid that section before the split keeps My Day hidden.
+    func testHiddenHeroFromBeforeTheSplitAlsoHidesMyDay() {
+        let before = "todays-call,day-in-review,hero,my-plan,my-dashboard,liveSession,synthesis,keyMetrics,workouts,heartRate"
+        XCTAssertFalse(TodayLayoutPrefs.visibleOrder(orderRaw: before, hiddenRaw: "hero").contains(.myDay))
+        XCTAssertEqual(TodayLayoutPrefs.effectiveHidden(orderRaw: before, hiddenRaw: "hero"), [.hero, .myDay])
+    }
+
+    func testHiddenHeroWithMyDayInTheSavedOrderLeavesMyDayVisible() {
+        let after = TodayLayoutPrefs.encode(TodaySection.defaultOrder)
+        XCTAssertTrue(TodayLayoutPrefs.visibleOrder(orderRaw: after, hiddenRaw: "hero").contains(.myDay))
     }
 
     func testNewOrPreviouslyMissingSectionsDefaultToVisible() {

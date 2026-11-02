@@ -157,10 +157,22 @@ enum TodayLayoutPrefs {
         return hidden
     }
 
+    /// The hidden sections as Today applies them: `decodeHidden`, plus My Day when the saved copy predates it. My Day used to be part of
+    /// the Charge / Effort / Rest section, so a phone that hid that section (and whose saved order has no `my-day` token, which the
+    /// editor always writes since the split) keeps My Day hidden too.
+    static func effectiveHidden(orderRaw: String, hiddenRaw: String) -> [TodaySection] {
+        var hidden = decodeHidden(hiddenRaw)
+        let savedTokens = orderRaw.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }
+        if hidden.contains(.hero), !hidden.contains(.myDay), !savedTokens.contains(TodaySection.myDay.rawValue) {
+            hidden.append(.myDay)
+        }
+        return hidden
+    }
+
     /// The sections Today should render, preserving the full saved order while filtering only the user's
     /// explicit hidden set. At least one visible section is enforced by the editor, not the decoder.
     static func visibleOrder(orderRaw: String, hiddenRaw: String) -> [TodaySection] {
-        let hidden = Set(decodeHidden(hiddenRaw))
+        let hidden = Set(effectiveHidden(orderRaw: orderRaw, hiddenRaw: hiddenRaw))
         return decodeOrder(orderRaw).filter { !hidden.contains($0) }
     }
 }

@@ -110,6 +110,9 @@ struct LiquidTodayView: View {
     @State private var showSettings = false
     /// The sheet behind the Needs you row (the whole card with its answers); a tapped Needs you notification opens it too.
     @State private var showNeedsYouSheet = false
+    /// Set by a tapped Needs you notification until the sheet has opened (or a minute has passed): on a cold launch the snapshot with
+    /// the items arrives after the tap, and another sheet may be up.
+    @State private var pendingNeedsYouUntil: Date?
     @State private var synthesisExpanded = false
     @State private var showLiveSession = false
 
@@ -674,6 +677,8 @@ struct LiquidTodayView: View {
         // from the router behind the scroll view.
         .onReceive(NotificationCenter.default.publisher(for: .pfShowNeedsYou)) { _ in showNeedsYou(proxy) }
         .background(PFAlertActivityRouter())
+        .background(PFNeedsYouArrival { openPendingNeedsYou() })
+        .onChange(of: isOtherSheetUp) { _, _ in openPendingNeedsYou() }
         #endif
         }
     }
@@ -689,13 +694,36 @@ struct LiquidTodayView: View {
     /// below it). A past day has no row, so it goes back to today first; the short wait lets the tab switch and that day change land first.
     private func showNeedsYou(_ proxy: ScrollViewProxy) {
         if selectedDayOffset != 0 { selectedDayOffset = 0 }
+        pendingNeedsYouUntil = Date().addingTimeInterval(60)
         Task { @MainActor in
             try? await Task.sleep(nanoseconds: 300_000_000)
             withAnimation(.easeOut(duration: 0.35)) {
                 proxy.scrollTo(Self.topAnchorID, anchor: .top)
             }
-            if PFUnified.model.snapshot?.needsYou.isEmpty == false { showNeedsYouSheet = true }
+            openPendingNeedsYou()
+            // A cold launch from the tap has no snapshot yet: load it, and the arrival watcher opens the sheet if it brings items.
+            if pendingNeedsYouUntil != nil { await PFUnified.model.refreshIfStale() }
+            openPendingNeedsYou()
         }
+    }
+
+    /// Another sheet of this screen is up; presenting a second one over it would be dropped, so the tap waits for it to close.
+    private var isOtherSheetUp: Bool {
+        guideSection != nil || customizationDestination != nil || showCoachLauncher || showSettings || showLiveSession
+    }
+
+    /// Opens the Needs you sheet for a tap made in the last minute, once there are items to show, today is selected and no other sheet
+    /// of this screen is up. Called again when a sheet closes and when the snapshot changes.
+    private func openPendingNeedsYou() {
+        guard let until = pendingNeedsYouUntil else { return }
+        guard until > Date() else {
+            pendingNeedsYouUntil = nil
+            return
+        }
+        guard selectedDayOffset == 0, !isOtherSheetUp, !showNeedsYouSheet,
+              PFUnified.model.snapshot?.needsYou.isEmpty == false else { return }
+        pendingNeedsYouUntil = nil
+        showNeedsYouSheet = true
     }
     #endif
 

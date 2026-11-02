@@ -126,6 +126,11 @@ struct PFPageNote: View {
                 withAnimation(.easeOut(duration: 0.2)) { isOpen = false }
             }
             .accessibilityElement(children: .combine)
+            .accessibilityActions {
+                if !alwaysOpen {
+                    Button("Collapse") { withAnimation(.easeOut(duration: 0.2)) { isOpen = false } }
+                }
+            }
             .accessibilityIdentifier("pf-page-note-\(key)")
             PFDismissMenu(key: PFDismissKey.pageNoteKey(key), title: "the note on this screen", text: PFDismissKey.pageNoteText(note),
                           todayISO: PFAPI.todayISO)
