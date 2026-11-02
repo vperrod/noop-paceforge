@@ -49,6 +49,10 @@ struct PFAthleteMetric: Identifiable, Equatable {
     var standingId: String?
     /// True when the "Body weight and body fat" Hide numbers switch covers this tile.
     var hidesWithBody = false
+    /// Today, so the sparkline's window and its staleness count from today and not from the series' last point.
+    var anchorDate: String?
+    /// True for a figure that changes in steps when someone files a new value (FTP): it reads "since <date>", never an arrow.
+    var isStep = false
 
     init(id: String, label: String, unit: String, value: Double?, valueText: String, source: String, what: String) {
         self.id = id
@@ -62,10 +66,17 @@ struct PFAthleteMetric: Identifiable, Equatable {
 
     var hasSeries: Bool { series.count >= 2 }
 
-    /// The values of the tile's sparkline: the last four weeks of the series, or its last two points when fewer fall inside that.
+    /// "since 1 Feb" for a step figure, "as of 1 Feb" otherwise; nil without a date.
+    var datedText: String? {
+        guard let asOf else { return nil }
+        return (isStep ? "since " : "as of ") + PFFormat.shortDate(asOf)
+    }
+
+    /// The values of the tile's sparkline: the last four weeks before today (or before the last point when no day is known), or the
+    /// last two points when fewer fall inside that. Empty when the last point is too old to say anything about now.
     var sparkValues: [Double] {
-        guard let last = series.last else { return [] }
-        let cutoff = PFFormat.addDays(last.date, -PFAthleteMath.windowDays)
+        guard let last = series.last, !PFAthleteMath.isStale(latest: last.date, today: anchorDate) else { return [] }
+        let cutoff = PFFormat.addDays(anchorDate ?? last.date, -PFAthleteMath.windowDays)
         let recent = series.filter { $0.date >= cutoff }
         return (recent.count >= 2 ? recent : Array(series.suffix(2))).map { $0.value }
     }
@@ -86,6 +97,8 @@ struct PFAthleteMetric: Identifiable, Equatable {
 struct PFAthleteFact: Identifiable, Equatable {
     let label: String
     var text: String
+    /// Where the figure comes from when that is not obvious ("NOOP setting", "auto").
+    var note: String?
     /// True when the Hide numbers switch for body weight covers it.
     var hidesWithBody = false
     var id: String { label }
@@ -163,6 +176,8 @@ struct PFAthleteFitness: Equatable {
     var effectiveVo2: [PFAthletePoint] = []
     var effectiveVo2Current: Double?
     var ftpHistory: [PFAthletePoint] = []
+    /// `bike.ftp`: the FTP on file. `autoFtp` is only the estimate from rides.
+    var ftp: Double?
     var autoFtp: Double?
     var criticalPaceSecPerKm: Double?
     var restingHrLatest: Double?
@@ -184,6 +199,7 @@ enum PFAthleteParse {
 
         let bike = f["bike"]
         out.ftpHistory = points(bike["ftp_history"], valueKey: "ftp", fallbackKey: nil)
+        out.ftp = bike["ftp"].double
         out.autoFtp = bike["auto_ftp"].double
 
         let critical = f["running"]["critical_speed"]
@@ -218,18 +234,28 @@ enum PFAthleteParse {
 enum PFAthleteMath {
     static let windowDays = 28
     static let windowLabel = "4 wk"
+    /// A last point older than this (counted to today) says nothing about the last four weeks.
+    static let staleDays = 14
+
+    /// True when `latest` is more than `staleDays` before `today`. With no day known nothing is stale.
+    static func isStale(latest: String, today: String?) -> Bool {
+        guard let today, !today.isEmpty else { return false }
+        return PFFormat.daysBetween(latest, today) > staleDays
+    }
 
     /// The last value at or before `date` in a series sorted oldest first; nil when the series starts later.
     static func value(onOrBefore date: String, in series: [PFAthletePoint]) -> Double? {
         series.last(where: { $0.date <= date })?.value
     }
 
-    /// The newest value minus the value at or before four weeks earlier (counted from the newest point). nil when the series does not
-    /// reach back that far, so a short history shows no arrow rather than a guess. A move inside `noise` (the scale's own day-to-day
+    /// The newest value minus the value at or before four weeks before `today` (the newest point's day when `today` is nil). nil when
+    /// the newest point is more than two weeks old, or the series does not reach back that far, so a stale or short history shows no
+    /// arrow rather than a guess. A move inside `noise` (the scale's own day-to-day
     /// band) or inside 1 % of the earlier value is flat.
-    static func change(series: [PFAthletePoint], higherIsBetter: Bool?, noise: Double? = nil) -> PFAthleteChange? {
-        guard let latest = series.last else { return nil }
-        let cutoff = PFFormat.addDays(latest.date, -windowDays)
+    static func change(series: [PFAthletePoint], today: String? = nil, higherIsBetter: Bool?, noise: Double? = nil) -> PFAthleteChange? {
+        guard let latest = series.last, !isStale(latest: latest.date, today: today) else { return nil }
+        let anchor = (today?.isEmpty == false ? today : nil) ?? latest.date
+        let cutoff = PFFormat.addDays(anchor, -windowDays)
         guard let earlier = value(onOrBefore: cutoff, in: series) else { return nil }
         let delta = latest.value - earlier
         let band = max(noise ?? 0, abs(earlier) * 0.01)
@@ -268,20 +294,21 @@ enum PFAthleteBuild {
         var out = PFAthlete()
         let fit = s.athleteFitness
         let standing = s.standing
+        let today: String? = s.todayISO.isEmpty ? nil : s.todayISO
 
         let candidates: [PFAthleteMetric?] = [
             vo2maxTile(standing),
-            vo2RunsTile(fit),
+            vo2RunsTile(fit, today: today),
             thresholdPaceTile(fit),
-            ftpTile(fit),
+            ftpTile(fit, today: today),
             restingHrTile(standing, fit),
             hrvTile(standing),
             bodyTile(s, key: "weight_kg", id: "weight", label: "Weight", unit: "kg", decimals: 1,
-                     what: Copy.weight),
+                     what: Copy.weight, today: today),
             bodyTile(s, key: "body_fat_pct", id: "body_fat", label: "Body fat", unit: "%", decimals: 1,
-                     what: Copy.bodyFat),
-            loadTile(s, id: "ctl", label: "Fitness (CTL)", key: \PFLoadPoint.ctl, higherIsBetter: true, what: Copy.ctl),
-            loadTile(s, id: "tsb", label: "Form (TSB)", key: \PFLoadPoint.tsb, higherIsBetter: nil, what: Copy.tsb),
+                     what: Copy.bodyFat, today: today),
+            loadTile(s, id: "ctl", label: "Fitness (CTL)", key: \PFLoadPoint.ctl, higherIsBetter: true, what: Copy.ctl, today: today),
+            loadTile(s, id: "tsb", label: "Form (TSB)", key: \PFLoadPoint.tsb, higherIsBetter: nil, what: Copy.tsb, today: today),
         ]
         out.tiles = candidates.compactMap { $0 }
 
@@ -326,7 +353,8 @@ enum PFAthleteBuild {
             PFAthleteFact(label: "Age", text: age.map { String($0) } ?? dash),
             PFAthleteFact(label: "Height", text: height.map { PFFormat.trimmed($0) + " cm" } ?? dash),
             weightFact,
-            PFAthleteFact(label: "Max HR", text: maxHr.map { "\($0) bpm" } ?? dash),
+            // NOOP's own setting (Settings > Profile); PaceForge's max HR is in profile.json, which the next slice fetches.
+            PFAthleteFact(label: "Max HR", text: maxHr.map { "\($0) bpm" } ?? dash, note: maxHr == nil ? "auto" : "NOOP setting"),
             PFAthleteFact(label: "Resting HR", text: tileText("resting_hr", suffix: " bpm")),
             PFAthleteFact(label: "FTP", text: tileText("ftp", suffix: " W")),
             PFAthleteFact(label: "LT pace", text: tileText("lt_pace", suffix: " /km")),
@@ -355,14 +383,15 @@ enum PFAthleteBuild {
         return tile
     }
 
-    private static func vo2RunsTile(_ fit: PFAthleteFitness?) -> PFAthleteMetric? {
+    private static func vo2RunsTile(_ fit: PFAthleteFitness?, today: String?) -> PFAthleteMetric? {
         guard let fit, let value = fit.effectiveVo2Current ?? fit.effectiveVo2.last?.value else { return nil }
         var tile = PFAthleteMetric(id: "vo2max_runs", label: "VO2max from runs", unit: "ml/kg/min", value: value,
                                    valueText: PFFormat.oneDecimal(value), source: "PaceForge \u{00B7} from your runs", what: Copy.vo2Runs)
         tile.decimals = 1
         tile.asOf = fit.effectiveVo2.last?.date
         tile.series = fit.effectiveVo2
-        tile.change = PFAthleteMath.change(series: fit.effectiveVo2, higherIsBetter: true)
+        tile.anchorDate = today
+        tile.change = PFAthleteMath.change(series: fit.effectiveVo2, today: today, higherIsBetter: true)
         return tile
     }
 
@@ -373,16 +402,19 @@ enum PFAthleteBuild {
                                valueText: PFFormat.pace(pace), source: "PaceForge \u{00B7} critical speed", what: Copy.thresholdPace)
     }
 
-    private static func ftpTile(_ fit: PFAthleteFitness?) -> PFAthleteMetric? {
+    private static func ftpTile(_ fit: PFAthleteFitness?, today: String?) -> PFAthleteMetric? {
         guard let fit else { return nil }
-        let current = fit.ftpHistory.last?.value ?? fit.autoFtp
-        guard let current else { return nil }
+        // The FTP on file wins; the estimate from rides is only the fallback and says so.
+        let filed = fit.ftp ?? fit.ftpHistory.last?.value
+        guard let current = filed ?? fit.autoFtp else { return nil }
         var tile = PFAthleteMetric(id: "ftp", label: "FTP", unit: "W", value: current, valueText: PFFormat.trimmed(current),
-                                   source: fit.ftpHistory.isEmpty ? "PaceForge \u{00B7} from your rides" : "PaceForge \u{00B7} FTP on file",
+                                   source: filed == nil ? "PaceForge \u{00B7} from your rides" : "PaceForge \u{00B7} FTP on file",
                                    what: Copy.ftp)
-        tile.asOf = fit.ftpHistory.last?.date
+        // FTP changes in steps when a new figure is filed: the tile says since when, and never draws an arrow from a step.
+        tile.isStep = true
+        tile.asOf = filed == nil ? nil : fit.ftpHistory.last?.date
         tile.series = fit.ftpHistory
-        tile.change = PFAthleteMath.change(series: fit.ftpHistory, higherIsBetter: true)
+        tile.anchorDate = today
         return tile
     }
 
@@ -406,7 +438,7 @@ enum PFAthleteBuild {
     }
 
     private static func bodyTile(_ s: PFSnapshot, key: String, id: String, label: String, unit: String, decimals: Int,
-                                 what: String) -> PFAthleteMetric? {
+                                 what: String, today: String?) -> PFAthleteMetric? {
         guard let body = s.body else { return nil }
         let rows: [PFAthletePoint] = body.series.compactMap { r in
             guard let v = r.values[key] else { return nil }
@@ -421,7 +453,9 @@ enum PFAthleteBuild {
         tile.asOf = points.last?.date ?? body.date
         tile.series = points
         tile.hidesWithBody = true
-        tile.change = PFAthleteMath.change(series: points, higherIsBetter: bodyDirection(s, key: key), noise: bodyNoise(s, key: key))
+        tile.anchorDate = today
+        tile.change = PFAthleteMath.change(series: points, today: today, higherIsBetter: bodyDirection(s, key: key),
+                                           noise: bodyNoise(s, key: key))
         return tile
     }
 
@@ -447,7 +481,7 @@ enum PFAthleteBuild {
     }
 
     private static func loadTile(_ s: PFSnapshot, id: String, label: String, key: KeyPath<PFLoadPoint, Double>,
-                                 higherIsBetter: Bool?, what: String) -> PFAthleteMetric? {
+                                 higherIsBetter: Bool?, what: String, today: String?) -> PFAthleteMetric? {
         let history = s.insights.history
         guard let last = history.last else { return nil }
         let value = last[keyPath: key]
@@ -456,7 +490,8 @@ enum PFAthleteBuild {
                                    source: "PaceForge \u{00B7} training load", what: what)
         tile.asOf = points.last?.date
         tile.series = points
-        tile.change = PFAthleteMath.change(series: points, higherIsBetter: higherIsBetter)
+        tile.anchorDate = today
+        tile.change = PFAthleteMath.change(series: points, today: today, higherIsBetter: higherIsBetter)
         return tile
     }
 

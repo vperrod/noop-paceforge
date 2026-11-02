@@ -111,7 +111,7 @@ private struct AthleteScreen: View {
                 HStack {
                     Text("My metrics").lookCaps(11).foregroundStyle(NoopLook.textTertiary)
                     Spacer(minLength: 8)
-                    Text("Change vs 4 weeks ago").font(LookFont.text(11, weight: .medium)).foregroundStyle(NoopLook.textTertiary)
+                    Text("Change").font(LookFont.text(11, weight: .medium)).foregroundStyle(NoopLook.textTertiary)
                 }
                 if !athlete.tiles.isEmpty {
                     LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
@@ -270,6 +270,9 @@ private struct AthleteHeader: View {
                         .lineLimit(1)
                         .minimumScaleFactor(0.6)
                     Text(fact.label).lookCaps(10, weight: .semibold).foregroundStyle(NoopLook.textTertiary).lineLimit(1)
+                    if let note = fact.note {
+                        Text(note).font(LookFont.text(10, weight: .medium)).foregroundStyle(NoopLook.textTertiary).lineLimit(1)
+                    }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
@@ -307,7 +310,7 @@ private struct AthleteTile: View {
             }
             changeLine
             Spacer(minLength: 0)
-            if tile.hasSeries && !isHidden {
+            if tile.sparkValues.count >= 2 && !isHidden {
                 AthleteSparkline(values: tile.sparkValues, color: PFColor.sky)
             } else {
                 Color.clear.frame(height: 24)
@@ -332,7 +335,7 @@ private struct AthleteTile: View {
                     .minimumScaleFactor(0.8)
             }
         } else {
-            Text(isHidden ? " " : (tile.asOf.map { "as of \(PFFormat.shortDate($0))" } ?? "no change history yet"))
+            Text(isHidden ? " " : (tile.datedText ?? "no change history yet"))
                 .font(LookFont.text(11, weight: .medium))
                 .foregroundStyle(NoopLook.textTertiary)
                 .lineLimit(1)
@@ -641,8 +644,8 @@ private struct AthleteMetricSheet: View {
                         Text(tile.changeText ?? "").font(LookFont.text(14, weight: .medium)).foregroundStyle(NoopLook.textSecondary)
                     }
                 }
-                if let asOf = tile.asOf {
-                    Text("As of \(PFFormat.shortDate(asOf))").font(StrandFont.caption).foregroundStyle(StrandPalette.textTertiary)
+                if let dated = tile.datedText {
+                    Text(dated.prefix(1).uppercased() + dated.dropFirst()).font(StrandFont.caption).foregroundStyle(StrandPalette.textTertiary)
                 }
             }
         }

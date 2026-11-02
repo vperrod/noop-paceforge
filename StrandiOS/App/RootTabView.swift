@@ -61,6 +61,9 @@ struct RootTabView: View {
     /// a no-op). Threaded into each tab's root via `\.scrollToTopSignal`; ScreenScaffold / LiquidTodayView
     /// scroll to their top anchor when their tab's token changes.
     @State private var scrollTop: [Int] = Array(repeating: 0, count: 5)
+    /// Per tab, the length of its path right after the router pushed Sleep onto it, so a repeat request can tell Sleep is still on top.
+    /// Any other push or pop changes the length and clears the entry (see the `onChange` on `tabPaths`).
+    @State private var sleepPushedCount: [Int: Int] = [:]
     /// Native tab selection binding. SwiftUI sends taps on the already-selected item through the
     /// setter, which lets the system tab bar retain the app's refresh / pop-to-root / scroll-to-top
     /// convention without placing a custom hit-testing layer over the platform bar.
@@ -228,6 +231,11 @@ struct RootTabView: View {
                 if tab != 3 || UnifiedNav.isOn { NoopDiag.screen(Self.lookTabs.indices.contains(tab) ? "tab.\(Self.lookTabs[tab].id)" : "tab.\(tab)") }
                 if UnifiedNav.isOn { NoopDiag.crumb("nav.tab \(Self.lookTabs.indices.contains(tab) ? Self.lookTabs[tab].id : String(tab))") }
             }
+            .onChange(of: tabPaths.map { $0.count }) { _, counts in
+                for (tab, pushed) in sleepPushedCount where !counts.indices.contains(tab) || counts[tab] != pushed {
+                    sleepPushedCount[tab] = nil
+                }
+            }
             #if DEBUG
             // `-NoopPerfAutopilot` walks the tabs itself (NoopPerfAutopilot).
             .onReceive(NotificationCenter.default.publisher(for: .noopPerfSelectTab)) { note in
@@ -340,7 +348,11 @@ struct RootTabView: View {
             case .sleep:
                 if UnifiedNav.isOn {
                     // Sleep is not a tab with unified navigation: it opens over the tab on show, and Back returns to it.
-                    tabPaths[selectedTab].append(TabRoute.sleep)
+                    // Not twice: a second request while that Sleep is still the top of this tab's path adds nothing.
+                    if sleepPushedCount[selectedTab] != tabPaths[selectedTab].count {
+                        tabPaths[selectedTab].append(TabRoute.sleep)
+                        sleepPushedCount[selectedTab] = tabPaths[selectedTab].count
+                    }
                 } else {
                     // Sleep is a tab: a link elsewhere switches to it (and leaves the tab it came from at its root) rather than
                     // pushing a second Sleep screen over that tab.

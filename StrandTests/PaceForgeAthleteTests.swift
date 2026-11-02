@@ -84,6 +84,61 @@ final class PaceForgeAthleteTests: XCTestCase {
         XCTAssertEqual(tile.changeText, "+1.3 vs 4 wk")
     }
 
+    func testALastPointOlderThanTwoWeeksGivesNoChange() {
+        let series = points([("2029-11-01", 50), ("2029-12-15", 52)])
+        XCTAssertNil(PFAthleteMath.change(series: series, today: "2030-01-29", higherIsBetter: true))
+    }
+
+    func testTheCutoffCountsFromTodayNotFromTheLastPoint() {
+        let series = points([("2030-01-01", 50), ("2030-01-20", 52), ("2030-01-26", 53)])
+        XCTAssertEqual(PFAthleteMath.change(series: series, today: "2030-01-29", higherIsBetter: true)?.delta, 3)
+    }
+
+    func testAStaleSeriesDrawsNoSparkline() {
+        var tile = PFAthleteMetric(id: "x", label: "X", unit: "", value: 1, valueText: "1", source: "s", what: "w")
+        tile.series = points([("2029-11-01", 1), ("2029-11-10", 2)])
+        tile.anchorDate = "2030-01-29"
+        XCTAssertEqual(tile.sparkValues, [])
+    }
+
+    func testAFreshSeriesDrawsItsLastFourWeeks() {
+        var tile = PFAthleteMetric(id: "x", label: "X", unit: "", value: 1, valueText: "1", source: "s", what: "w")
+        tile.series = points([("2029-12-01", 1), ("2030-01-10", 2), ("2030-01-25", 3)])
+        tile.anchorDate = "2030-01-29"
+        XCTAssertEqual(tile.sparkValues, [2, 3])
+    }
+
+    func testTheFtpStepHasNoArrowAndSaysSince() {
+        var snap = snapshot()
+        snap.todayISO = "2030-01-29"
+        snap.athleteFitness = PFAthleteFitness(ftpHistory: points([("2029-10-01", 230), ("2030-01-10", 240)]), ftp: 240, autoFtp: 250)
+        let tile = PFAthleteBuild.make(snap).tile("ftp")
+        XCTAssertNil(tile?.change)
+        XCTAssertEqual(tile?.datedText, "since 10 Jan")
+    }
+
+    func testTheFtpOnFileWinsOverTheEstimateFromRides() {
+        var snap = snapshot()
+        snap.athleteFitness = PFAthleteFitness(ftpHistory: points([("2029-10-01", 230)]), ftp: 240, autoFtp: 250)
+        XCTAssertEqual(PFAthleteBuild.make(snap).tile("ftp")?.value, 240)
+    }
+
+    func testTheEstimateFromRidesIsLabelledAsSuch() {
+        var snap = snapshot()
+        snap.athleteFitness = PFAthleteFitness(autoFtp: 250)
+        XCTAssertEqual(PFAthleteBuild.make(snap).tile("ftp")?.source, "PaceForge \u{00B7} from your rides")
+    }
+
+    func testTheFtpOnFileIsParsed() {
+        XCTAssertEqual(PFAthleteParse.fitness(json("{\"bike\": {\"ftp\": 245, \"auto_ftp\": 250}}"))?.ftp, 245)
+    }
+
+    func testMaxHrNamesItsSource() {
+        let notes = [PFAthleteBuild.make(snapshot()).facts.first { $0.label == "Max HR" }?.note,
+                     PFAthleteBuild.make(snapshot(), maxHr: 185).facts.first { $0.label == "Max HR" }?.note]
+        XCTAssertEqual(notes, ["auto", "NOOP setting"])
+    }
+
     // MARK: fitness.json extras
 
     func testTheEffectiveVo2maxSeriesReadsTheSmoothedValueOldestFirst() {
