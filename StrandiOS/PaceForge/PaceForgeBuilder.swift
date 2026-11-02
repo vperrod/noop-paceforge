@@ -37,6 +37,9 @@ struct PFRawBundle {
     var dismissed = PFJ(nil)
     var todayLayout = PFJ(nil)
     var needsYou = PFJ(nil)
+    var profile = PFJ(nil)
+    var analytics = PFJ(nil)
+    var benchmarks = PFJ(nil)
 }
 
 extension PFRawBundle {
@@ -79,6 +82,9 @@ extension PFRawBundle {
         raw.dismissed = PFJ(data: read("data/dismissed.json"))
         raw.todayLayout = PFJ(data: read("data/today-layout.json"))
         raw.needsYou = PFJ(data: read("data/needs-you.json"))
+        raw.profile = PFJ(data: read(PFDocs.profile))
+        raw.analytics = PFJ(data: read(PFDocs.analytics))
+        raw.benchmarks = PFJ(data: read(PFDocs.benchmarks))
         return raw
     }
 }
@@ -88,7 +94,7 @@ extension PFRawBundle {
 enum PFLeaf: CaseIterable {
     case insightsV2, body, bodyProgress, alerts, readiness, feel, whatChanged, behaviour, explainers, raceWeek, simulations
     case easyMode, muscle, tape, standing, dailyIntel, intelDocs, rides, dismissed, todayLayout, needsYou, serverHidesBody
-    case activities, analyses
+    case activities, analyses, athleteDocs
 
     var docs: [String] {
         switch self {
@@ -116,6 +122,7 @@ enum PFLeaf: CaseIterable {
         case .serverHidesBody: return [PFDocs.state]
         case .activities: return [PFDocs.activities, PFDocs.workoutMatches]
         case .analyses: return [PFDocs.analysesIndex, PFDocs.analysisStatus]
+        case .athleteDocs: return [PFDocs.profile, PFDocs.analytics, PFDocs.benchmarks]
         }
     }
 }
@@ -174,6 +181,7 @@ enum PFBuilder {
                                today: today)
         )
         snapshot.athleteFitness = PFAthleteParse.fitness(raw.fitness)
+        snapshot.athleteDocs = PFAthleteParse.documents(profile: raw.profile, analytics: raw.analytics, benchmarks: raw.benchmarks)
         snapshot.body = body(raw.body)
         snapshot.bodyProgress = bodyProgress(raw.bodyProgress)
         snapshot.alerts = alerts(raw.alerts)
@@ -333,6 +341,9 @@ enum PFBuilder {
                 if let activity = activity(item) { snapshot.activities[activity.id] = activity }
             }
             addStandaloneNOOPActivities(raw.workoutMatches, to: &snapshot.activities)
+        }
+        if stale(.athleteDocs) {
+            snapshot.athleteDocs = PFAthleteParse.documents(profile: raw.profile, analytics: raw.analytics, benchmarks: raw.benchmarks)
         }
         if stale(.analyses) {
             snapshot.analyses = [:]

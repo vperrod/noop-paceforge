@@ -199,6 +199,8 @@ targets:
       - StrandiOS/PaceForge/PaceForgeStanding.swift
       # The Athlete tab's data: the fitness.json extras, the change over four weeks and the strengths / weaknesses / areas.
       - StrandiOS/PaceForge/PaceForgeAthlete.swift
+      # Its second layer (build 501): profile.json, analytics.json and benchmarks.json.
+      - StrandiOS/PaceForge/PaceForgeAthleteProfile.swift
       # Insights v2: insights-v2.json parsing, the card order, status and effort wording, the finish bar and sleep clock maths.
       - StrandiOS/PaceForge/PaceForgeInsightsV2.swift
       # The HYROX prognosis card: the race_countdown finish beside the goal, the last races and the personal best; a running prognosis only for a road-race goal.

@@ -64,6 +64,8 @@ struct PFSnapshot {
     var photoSummaries: [String: String] = [:]
     /// The few `fitness.json` fields only the Athlete tab reads (effective VO2max series, FTP history, critical pace, ranked limiters); nil when there is no fitness document.
     var athleteFitness: PFAthleteFitness?
+    /// The Garmin profile, PaceForge's race forecast and the filed benchmarks (`profile.json`, `analytics.json`, `benchmarks.json`); nil when the server has none of them.
+    var athleteDocs: PFAthleteDocs?
 
     /// The rides of one day.
     func rides(on date: String) -> [PFRide] { rides.filter { $0.date == date } }

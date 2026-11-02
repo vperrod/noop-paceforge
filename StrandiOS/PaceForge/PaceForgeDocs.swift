@@ -42,6 +42,9 @@ enum PFDocs {
     static let needsYou = "data/needs-you.json"
     static let workoutMatches = "data/workout-matches.json"
     static let pageNotes = "data/page-notes.json"
+    static let profile = "data/profile.json"
+    static let analytics = "data/analytics.json"
+    static let benchmarks = "data/benchmarks.json"
 
     static let all: [PFDocSpec] = [
         PFDocSpec(path: state, key: \PFRawBundle.state, isRequired: true),
@@ -79,6 +82,10 @@ enum PFDocs {
         PFDocSpec(path: needsYou, key: \PFRawBundle.needsYou),
         // Not part of the bundle's view models: fetched so My Day finds it saved on the phone (PFStore).
         PFDocSpec(path: workoutMatches, key: \PFRawBundle.workoutMatches),
+        // The Athlete tab's second layer (build 501); each is optional, a missing one just leaves its cards out.
+        PFDocSpec(path: profile, key: \PFRawBundle.profile),
+        PFDocSpec(path: analytics, key: \PFRawBundle.analytics),
+        PFDocSpec(path: benchmarks, key: \PFRawBundle.benchmarks),
         // No key: the notes are read from the saved copy by PFPageNotesStore, so a change never rebuilds the snapshot.
         PFDocSpec(path: pageNotes, key: nil),
     ]
@@ -87,7 +94,7 @@ enum PFDocs {
     /// added later counts as read until it is listed here, so a missed entry costs a widget reload, never a stale widget.
     static let summaryInputs: Set<String> = Set(all.map { $0.path }).subtracting(
         [analysesIndex, analysisStatus, bodyProgress, whatChanged, explainers, behaviour, hyroxSims, hyroxSimAnalysis, easyMode, muscle, tape,
-         dailyIntel, dismissed, todayLayout, needsYou, workoutMatches, pageNotes] + PFDocPath.all)
+         dailyIntel, dismissed, todayLayout, needsYou, workoutMatches, pageNotes, profile, analytics, benchmarks] + PFDocPath.all)
 
     static func specs(for scope: PFRefreshScope) -> [PFDocSpec] {
         if scope.contains(.snapshot) { return all }

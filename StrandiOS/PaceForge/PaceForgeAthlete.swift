@@ -5,9 +5,8 @@ import Foundation
 //
 // Everything is made from documents the app already fetches: standing.json, fitness.json, body.json, body-progress.json and
 // hyrox_analysis.json, through the snapshot, plus the few fitness.json fields the snapshot did not keep (`PFAthleteFitness`).
-// A document the app does not fetch yet (profile.json, analytics.json, benchmarks.json) is not read here: the next slice adds one
-// parser beside `PFAthleteParse.fitness` and one line to `PFAthleteBuild.make`. Nothing here asks the athlete for anything: a
-// value that is missing reads as a dash.
+// profile.json, analytics.json and benchmarks.json (build 501) are parsed in PaceForgeAthleteProfile.swift and arrive as `athleteDocs`.
+// Nothing here asks the athlete for anything: a value that is missing reads as a dash.
 
 // MARK: - Model
 
@@ -53,6 +52,10 @@ struct PFAthleteMetric: Identifiable, Equatable {
     var anchorDate: String?
     /// True for a figure that changes in steps when someone files a new value (FTP): it reads "since <date>", never an arrow.
     var isStep = false
+    /// One short line under a tile that has no sparkline (the lactate threshold's heart rate).
+    var secondary: String?
+    /// Figures from the same family as this one, shown on the detail page with their own dates and sources.
+    var rows: [PFAthleteDetailRow] = []
 
     init(id: String, label: String, unit: String, value: Double?, valueText: String, source: String, what: String) {
         self.id = id
@@ -145,6 +148,9 @@ struct PFAthlete {
     var runTimes: [PFAthleteRunTime] = []
     var hyroxCard: PFHyroxFinishCard?
     var hyrox: PFHyrox?
+    var predictions: PFAthletePredictions?
+    var zones: PFAthleteZones?
+    var records: [PFAthleteRecord] = []
     var strengths: [PFAthleteFinding] = []
     var weaknesses: [PFAthleteFinding] = []
     var areas: [PFAthleteFinding] = []
@@ -158,6 +164,7 @@ struct PFAthlete {
     /// Nothing to draw beyond a header of dashes.
     var isEmpty: Bool {
         tiles.isEmpty && runTimes.isEmpty && !hasHyrox && !hasFindings && goalTitle == nil
+            && predictions == nil && zones == nil && records.isEmpty
     }
 
     func tile(_ id: String) -> PFAthleteMetric? { tiles.first { $0.id == id } }
@@ -294,12 +301,14 @@ enum PFAthleteBuild {
         var out = PFAthlete()
         let fit = s.athleteFitness
         let standing = s.standing
+        let docs = s.athleteDocs
+        let profile = docs?.profile
         let today: String? = s.todayISO.isEmpty ? nil : s.todayISO
 
         let candidates: [PFAthleteMetric?] = [
-            vo2maxTile(standing),
+            vo2maxTile(standing, profile),
             vo2RunsTile(fit, today: today),
-            thresholdPaceTile(fit),
+            thresholdTile(profile, fit),
             ftpTile(fit, today: today),
             restingHrTile(standing, fit),
             hrvTile(standing),
@@ -309,13 +318,23 @@ enum PFAthleteBuild {
                      what: Copy.bodyFat, today: today),
             loadTile(s, id: "ctl", label: "Fitness (CTL)", key: \PFLoadPoint.ctl, higherIsBetter: true, what: Copy.ctl, today: today),
             loadTile(s, id: "tsb", label: "Form (TSB)", key: \PFLoadPoint.tsb, higherIsBetter: nil, what: Copy.tsb, today: today),
+            enduranceTile(profile),
+            trainingStatusTile(profile),
         ]
         out.tiles = candidates.compactMap { $0 }
+        // The one detail page for VO2max and the threshold: whichever of the three tiles is opened shows the same figures.
+        let family = vo2AndThresholdRows(profile, fit)
+        for index in out.tiles.indices where ["vo2max", "vo2max_runs", "lt_pace"].contains(out.tiles[index].id) {
+            out.tiles[index].rows = family
+        }
 
         out.runTimes = runTimes(standing, fit)
+        out.predictions = predictions(profile, docs?.analytics)
+        out.zones = zones(profile)
+        out.records = (profile?.personalRecords ?? []) + (docs?.benchmarks ?? [])
         out.hyroxCard = s.insights.hyroxFinish
         out.hyrox = s.insights.hyrox
-        out.facts = facts(s, tiles: out.tiles, maxHr: maxHr)
+        out.facts = facts(s, tiles: out.tiles, profile: profile, maxHr: maxHr)
         applyGoal(s, to: &out)
 
         out.strengths = strengths(standing)
@@ -338,7 +357,7 @@ enum PFAthleteBuild {
         out.goalLine = line
     }
 
-    private static func facts(_ s: PFSnapshot, tiles: [PFAthleteMetric], maxHr: Int?) -> [PFAthleteFact] {
+    private static func facts(_ s: PFSnapshot, tiles: [PFAthleteMetric], profile: PFAthleteProfile?, maxHr: Int?) -> [PFAthleteFact] {
         let dash = "\u{2014}"
         func tileText(_ id: String, suffix: String) -> String {
             guard let tile = tiles.first(where: { $0.id == id }), tile.value != nil else { return dash }
@@ -349,18 +368,31 @@ enum PFAthleteBuild {
         let weight = s.body?.latest["weight_kg"] ?? s.standing?.profile?.weightKg
         var weightFact = PFAthleteFact(label: "Weight", text: weight.map { PFFormat.oneDecimal($0) + " kg" } ?? dash)
         weightFact.hidesWithBody = true
+        var ltPace = PFAthleteFact(label: "LT pace", text: tileText("lt_pace", suffix: " /km"))
+        if profile?.ltPaceSecPerKm == nil, ltPace.text != dash { ltPace.note = "critical speed" }
         return [
             PFAthleteFact(label: "Age", text: age.map { String($0) } ?? dash),
             PFAthleteFact(label: "Height", text: height.map { PFFormat.trimmed($0) + " cm" } ?? dash),
             weightFact,
-            // NOOP's own setting (Settings > Profile); PaceForge's max HR is in profile.json, which the next slice fetches.
-            PFAthleteFact(label: "Max HR", text: maxHr.map { "\($0) bpm" } ?? dash, note: maxHr == nil ? "auto" : "NOOP setting"),
+            maxHrFact(profile, noopSetting: maxHr),
             PFAthleteFact(label: "Resting HR", text: tileText("resting_hr", suffix: " bpm")),
             PFAthleteFact(label: "FTP", text: tileText("ftp", suffix: " W")),
-            PFAthleteFact(label: "LT pace", text: tileText("lt_pace", suffix: " /km")),
-            // The lactate-threshold heart rate is in profile.json, which the next slice fetches.
-            PFAthleteFact(label: "LT HR", text: dash),
+            ltPace,
+            PFAthleteFact(label: "LT HR", text: profile?.ltHr.map { String(format: "%.0f", $0) + " bpm" } ?? dash),
         ]
+    }
+
+    /// NOOP's own setting when the athlete has set one (Settings > Profile); else the maximum in Garmin's running zone set, which is a
+    /// setting; else the highest peak Garmin saw, which is not (the server says so), and is labelled that way.
+    private static func maxHrFact(_ profile: PFAthleteProfile?, noopSetting: Int?) -> PFAthleteFact {
+        if let noopSetting { return PFAthleteFact(label: "Max HR", text: "\(noopSetting) bpm", note: "NOOP setting") }
+        if let zoneMax = profile?.zoneMaxHr {
+            return PFAthleteFact(label: "Max HR", text: String(format: "%.0f", zoneMax) + " bpm", note: "Garmin zones")
+        }
+        if let seen = profile?.maxHrSeen {
+            return PFAthleteFact(label: "Max HR", text: String(format: "%.0f", seen) + " bpm", note: "highest seen")
+        }
+        return PFAthleteFact(label: "Max HR", text: "\u{2014}", note: "auto")
     }
 
     // MARK: Tiles
@@ -373,13 +405,21 @@ enum PFAthleteBuild {
         return nil
     }
 
-    private static func vo2maxTile(_ standing: PFStanding?) -> PFAthleteMetric? {
-        guard let metric = standingMetric(standing, ["vo2max", "vo2"]), let value = metric.value else { return nil }
-        var tile = PFAthleteMetric(id: "vo2max", label: "VO2max", unit: metric.unit ?? "ml/kg/min", value: value,
-                                   valueText: PFFormat.trimmed(value), source: "PaceForge \u{00B7} Garmin estimate", what: Copy.vo2max)
+    private static func vo2maxTile(_ standing: PFStanding?, _ profile: PFAthleteProfile?) -> PFAthleteMetric? {
+        if let metric = standingMetric(standing, ["vo2max", "vo2"]), let value = metric.value {
+            var tile = PFAthleteMetric(id: "vo2max", label: "VO2max", unit: metric.unit ?? "ml/kg/min", value: value,
+                                       valueText: PFFormat.trimmed(value), source: "PaceForge \u{00B7} Garmin estimate", what: Copy.vo2max)
+            tile.decimals = 1
+            tile.standingId = metric.id
+            tile.change = PFAthleteMath.change(from: metric.trend)
+            return tile
+        }
+        // No Standing document (or no rating for it): the Garmin profile's own figure, with its date and no change.
+        guard let value = profile?.vo2Max else { return nil }
+        var tile = PFAthleteMetric(id: "vo2max", label: "VO2max", unit: "ml/kg/min", value: value, valueText: PFFormat.trimmed(value),
+                                   source: "PaceForge \u{00B7} Garmin estimate", what: Copy.vo2max)
         tile.decimals = 1
-        tile.standingId = metric.id
-        tile.change = PFAthleteMath.change(from: metric.trend)
+        tile.asOf = profile?.date
         return tile
     }
 
@@ -395,11 +435,66 @@ enum PFAthleteBuild {
         return tile
     }
 
-    private static func thresholdPaceTile(_ fit: PFAthleteFitness?) -> PFAthleteMetric? {
+    /// The Garmin lactate threshold (pace, with the heart rate under it) when the profile holds one, else the critical speed PaceForge fits
+    /// from the runs. Either way the tile is "lt_pace" and has no arrow: neither figure keeps a history the app can read.
+    private static func thresholdTile(_ profile: PFAthleteProfile?, _ fit: PFAthleteFitness?) -> PFAthleteMetric? {
+        if let pace = profile?.ltPaceSecPerKm {
+            var tile = PFAthleteMetric(id: "lt_pace", label: "Lactate threshold", unit: "/km", value: pace, valueText: PFFormat.pace(pace),
+                                       source: "PaceForge \u{00B7} Garmin lactate threshold", what: Copy.lactateThreshold)
+            tile.asOf = profile?.ltDate
+            tile.secondary = profile?.ltHr.map { "Heart rate " + String(format: "%.0f", $0) + " bpm" }
+            return tile
+        }
         guard let pace = fit?.criticalPaceSecPerKm else { return nil }
-        // The history of this figure is not kept (a current value only), so the tile has no arrow.
         return PFAthleteMetric(id: "lt_pace", label: "Threshold pace", unit: "/km", value: pace,
                                valueText: PFFormat.pace(pace), source: "PaceForge \u{00B7} critical speed", what: Copy.thresholdPace)
+    }
+
+    private static func enduranceTile(_ profile: PFAthleteProfile?) -> PFAthleteMetric? {
+        guard let score = profile?.enduranceScore else { return nil }
+        // Only today's value is held (no history in any document the app reads), so the tile says "as of" and draws no arrow.
+        var tile = PFAthleteMetric(id: "endurance", label: "Endurance score", unit: "", value: score, valueText: String(format: "%.0f", score),
+                                   source: "PaceForge \u{00B7} Garmin watch", what: Copy.endurance)
+        tile.asOf = profile?.enduranceDate
+        return tile
+    }
+
+    private static func trainingStatusTile(_ profile: PFAthleteProfile?) -> PFAthleteMetric? {
+        guard let status = profile?.trainingStatus else { return nil }
+        var tile = PFAthleteMetric(id: "training_status", label: "Training status", unit: "", value: nil, valueText: status,
+                                   source: "PaceForge \u{00B7} Garmin watch", what: Copy.trainingStatus)
+        tile.asOf = profile?.trainingStatusDate
+        return tile
+    }
+
+    /// The figures behind the VO2max and threshold pages, each with its own source and date so the watch's and PaceForge's never blur.
+    private static func vo2AndThresholdRows(_ profile: PFAthleteProfile?, _ fit: PFAthleteFitness?) -> [PFAthleteDetailRow] {
+        func note(_ source: String, _ prefix: String, _ date: String?) -> String {
+            guard let date else { return source }
+            return source + ", " + prefix + " " + PFFormat.shortDate(date)
+        }
+        var rows: [PFAthleteDetailRow] = []
+        if let vo2 = profile?.vo2Max {
+            rows.append(PFAthleteDetailRow(label: "VO2max, Garmin estimate", text: PFFormat.oneDecimal(vo2) + " ml/kg/min",
+                                           note: note("Garmin watch", "as of", profile?.date)))
+        }
+        if let runs = fit?.effectiveVo2Current ?? fit?.effectiveVo2.last?.value {
+            rows.append(PFAthleteDetailRow(label: "VO2max, from your runs", text: PFFormat.oneDecimal(runs) + " ml/kg/min",
+                                           note: note("PaceForge", "as of", fit?.effectiveVo2.last?.date)))
+        }
+        if let pace = profile?.ltPaceSecPerKm {
+            rows.append(PFAthleteDetailRow(label: "Lactate threshold pace", text: PFFormat.pace(pace) + " /km",
+                                           note: note("Garmin watch", "measured", profile?.ltDate)))
+        }
+        if let hr = profile?.ltHr {
+            rows.append(PFAthleteDetailRow(label: "Lactate threshold heart rate", text: String(format: "%.0f", hr) + " bpm",
+                                           note: note("Garmin watch", "measured", profile?.ltDate)))
+        }
+        if let critical = fit?.criticalPaceSecPerKm {
+            rows.append(PFAthleteDetailRow(label: "Critical speed, from your runs", text: PFFormat.pace(critical) + " /km",
+                                           note: "PaceForge, fitted from your best efforts"))
+        }
+        return rows
     }
 
     private static func ftpTile(_ fit: PFAthleteFitness?, today: String?) -> PFAthleteMetric? {
@@ -510,6 +605,29 @@ enum PFAthleteBuild {
         return out
     }
 
+    // MARK: Race predictions and heart-rate zones
+
+    private static let distanceOrder = ["5k", "10k", "half", "marathon"]
+
+    private static func inRaceOrder(_ list: [PFAthletePrediction]) -> [PFAthletePrediction] {
+        list.sorted { (distanceOrder.firstIndex(of: $0.id) ?? 9) < (distanceOrder.firstIndex(of: $1.id) ?? 9) }
+    }
+
+    /// Garmin's forecast and PaceForge's own (VDOT) side by side, never averaged. No history of either is held in a document the app
+    /// reads, so the card names the date of the forecast and draws no change.
+    private static func predictions(_ profile: PFAthleteProfile?, _ analytics: PFAthleteAnalytics?) -> PFAthletePredictions? {
+        let garmin = inRaceOrder(profile?.racePredictions ?? [])
+        let model = inRaceOrder(analytics?.predictions ?? [])
+        guard !garmin.isEmpty || !model.isEmpty else { return nil }
+        return PFAthletePredictions(garmin: garmin, garminDate: profile?.racePredictionsDate, model: model, vdot: analytics?.vdot)
+    }
+
+    private static func zones(_ profile: PFAthleteProfile?) -> PFAthleteZones? {
+        guard let profile, !profile.zones.isEmpty else { return nil }
+        return PFAthleteZones(zones: profile.zones, sport: profile.zoneSport, maxHr: profile.zoneMaxHr, maxHrSeen: profile.maxHrSeen,
+                              ltHr: profile.ltHr, restingHr: profile.restingHr, date: profile.date)
+    }
+
     // MARK: Strengths, weaknesses, areas
 
     private static func strengths(_ standing: PFStanding?) -> [PFAthleteFinding] {
@@ -575,6 +693,9 @@ enum PFAthleteBuild {
         static let vo2max = "Garmin's wrist estimate of the most oxygen your body can use in a minute, per kilogram of body weight. A higher number is a bigger aerobic engine. It moves slowly, over weeks."
         static let vo2Runs = "PaceForge's own estimate from your ordinary runs: the pace you hold at the heart rate it costs, set to Garmin's level. Its direction over weeks is the useful part."
         static let thresholdPace = "Critical speed: the fastest pace you can hold through a long effort, fitted from your best efforts over several distances. A lower time per kilometre is faster."
+        static let lactateThreshold = "Garmin's measure of the pace (and the heart rate) at which lactate starts to build faster than your body clears it, the edge between hard-but-steady and unsustainable. A lower time per kilometre is faster. It changes only when the watch measures it, so read the date."
+        static let endurance = "Garmin's endurance score: one number for how much endurance your recent training has built, on Garmin's own scale. It moves slowly. PaceForge holds only today's value, so there is no change to show."
+        static let trainingStatus = "Garmin's one-word reading of whether your recent training load is building, holding or losing fitness. It is the watch's label, not a PaceForge score."
         static let ftp = "Functional threshold power: the power you can hold for about an hour on the bike. It is the figure on file, or an estimate from your rides when none is filed."
         static let restingHr = "Your heart rate at rest, from the Garmin watch. A lower number over several weeks usually goes with better recovery and fitness."
         static let hrv = "The average of your last seven nights of heart-rate variability from the Garmin watch. It is a trend to read against your own usual, not a score."

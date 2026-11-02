@@ -168,7 +168,15 @@ final class PaceForgeCrashGuardTests: XCTestCase {
         raw.myPlan = try doc("data/my-plan.json")
         raw.dismissed = try doc("data/dismissed.json")
         raw.todayLayout = try doc("data/today-layout.json")
+        raw.profile = try doc("data/profile.json")
+        raw.analytics = try doc("data/analytics.json")
+        raw.benchmarks = try doc("data/benchmarks.json")
         return raw
+    }
+
+    func testRealShapedAthleteDocumentsReachTheSnapshot() throws {
+        let snapshot = try XCTUnwrap(PFBuilder.snapshot(from: try rawBundle(), today: "2030-03-13"))
+        XCTAssertNotNil(snapshot.athleteDocs?.profile)
     }
 
     func testRealShapedDocumentsBuildASnapshot() throws {

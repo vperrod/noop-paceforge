@@ -310,6 +310,9 @@ enum PFAPI {
         async let needsYou = fetchDoc("data/needs-you.json")
         // Not part of the bundle's view models: fetched so My Day finds it saved on the phone (PFStore).
         async let workoutMatches = fetchDoc("data/workout-matches.json")
+        async let profile = fetchDoc(PFDocs.profile)
+        async let analytics = fetchDoc(PFDocs.analytics)
+        async let benchmarks = fetchDoc(PFDocs.benchmarks)
         async let state = fetch("api/state")
         async let fitness = fetch("data/fitness.json")
         let (stateData, fitnessData) = try await (state, fitness)
@@ -359,6 +362,9 @@ enum PFAPI {
         raw.todayLayout = takeDoc(await todayLayout)
         raw.needsYou = takeDoc(await needsYou)
         raw.workoutMatches = takeDoc(await workoutMatches)
+        raw.profile = takeDoc(await profile)
+        raw.analytics = takeDoc(await analytics)
+        raw.benchmarks = takeDoc(await benchmarks)
         return Fetched(raw: raw, digest: hasher.finalize(), bytes: bytes, failed: failed)
     }
 }

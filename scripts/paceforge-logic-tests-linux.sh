@@ -13,15 +13,18 @@ export PF_FIXTURE_FILE="$root/NOOPiOSUITests/PaceForgeFixture.json"
 # The crash-guard tests also read the live documents' shapes with every value replaced.
 export PF_REAL_SHAPES_FILE="$root/StrandTests/LiveShapes/PaceForgeRealShapes.json"
 pf="$root/StrandiOS/PaceForge"
-tests=("$@"); [ ${#tests[@]} -gt 0 ] || tests=(PaceForgeLogTests PaceForgeTodayLayoutTests PaceForgeDismissTests PaceForgeHRRGarminTests PaceForgeRedactTests WidgetSnapshotHideTests PaceForgeGlanceTests LiftFiltersTests PaceForgeInsightsV2Tests PaceForgeHyroxPrognosisTests PaceForgeDailyIntelTests PaceForgeIntelDocsTests PaceForgeMovementTests MyDashboardPrefsTests JournalFlowLogicTests StressMonitorLogicTests PaceForgeCrashGuardTests PaceForgeSavedStateTests PaceForgeBandReportTests PaceForgeBatchDTests PaceForgeAthleteTests)
+tests=("$@"); [ ${#tests[@]} -gt 0 ] || tests=(PaceForgeLogTests PaceForgeTodayLayoutTests PaceForgeDismissTests PaceForgeHRRGarminTests PaceForgeRedactTests WidgetSnapshotHideTests PaceForgeGlanceTests LiftFiltersTests PaceForgeInsightsV2Tests PaceForgeHyroxPrognosisTests PaceForgeDailyIntelTests PaceForgeIntelDocsTests PaceForgeMovementTests MyDashboardPrefsTests JournalFlowLogicTests StressMonitorLogicTests PaceForgeCrashGuardTests PaceForgeSavedStateTests PaceForgeBandReportTests PaceForgeBatchDTests PaceForgeAthleteTests PaceForgeAthleteProfileTests)
 sources=("$root/StrandiOSShared/SafeNumber.swift" "$pf/PaceForgeFormat.swift" "$pf/PaceForgeModels.swift" "$pf/PaceForgeBuilder.swift" "$pf/PaceForgeDocs.swift" "$pf/PaceForgeWave2.swift" "$pf/PaceForgeLocalExplainers.swift" "$pf/PaceForgeDayMerge.swift" "$pf/PaceForgeJSON.swift" "$pf/PaceForgeWave3.swift" "$pf/PaceForgeDismiss.swift" "$pf/PaceForgeLog.swift" "$pf/PaceForgeTodayLayout.swift" "$pf/PaceForgeHRRGarmin.swift" "$root/StrandiOSShared/PaceForgeRedact.swift" "$root/Strand/Data/HideScores.swift"
-         "$pf/PaceForgeStanding.swift" "$pf/PaceForgeAthlete.swift" "$pf/PaceForgeInsightsV2.swift" "$pf/PaceForgeHyroxPrognosis.swift" "$pf/PaceForgeDailyIntel.swift" "$pf/PaceForgeIntelDocs.swift" "$pf/PaceForgeMovement.swift" "$pf/PaceForgeBandReport.swift" "$pf/PaceForgeBandBatchD.swift" "$pf/PaceForgeRide.swift" "$root/Strand/Data/MyDashboardPrefs.swift" "$root/Strand/Data/JournalFlowLogic.swift" "$root/Strand/Data/StressMonitorLogic.swift" "$pf/PaceForgeGlanceBuilder.swift" "$root/StrandiOSShared/PaceForgeGlance.swift"
-         "$root/StrandiOSShared/WidgetSnapshot.swift" "$root/StrandiOSShared/HrTrace.swift" "$root/StrandiOSShared/StressTrace.swift"
+         "$pf/PaceForgeStanding.swift" "$pf/PaceForgeNeedsYou.swift" "$pf/PaceForgeAthlete.swift" "$pf/PaceForgeAthleteProfile.swift" "$pf/PaceForgeInsightsV2.swift" "$pf/PaceForgeHyroxPrognosis.swift" "$pf/PaceForgeDailyIntel.swift" "$pf/PaceForgeIntelDocs.swift" "$pf/PaceForgeMovement.swift" "$pf/PaceForgeBandReport.swift" "$pf/PaceForgeBandBatchD.swift" "$pf/PaceForgeRide.swift" "$root/Strand/Data/MyDashboardPrefs.swift" "$root/Strand/Data/JournalFlowLogic.swift" "$root/Strand/Data/StressMonitorLogic.swift" "$pf/PaceForgeGlanceBuilder.swift" "$root/StrandiOSShared/PaceForgeGlance.swift"
+         "$root/StrandiOSShared/HrTrace.swift" "$root/StrandiOSShared/StressTrace.swift"
          "$root/Strand/Data/LiftFilters.swift" "$root/Packages/WhoopStore/Sources/WhoopStore/LiftMuscle.swift")
 # TodayLayoutPrefs imports SwiftUI for nothing it uses here and localises its titles; the Linux Foundation has no
 # `String(localized:)`, so the staged copy drops the import and reads the key as the title.
 sed -e '/^import SwiftUI$/d' -e 's/String(localized: /String(/g' "$root/Strand/Data/TodayLayoutPrefs.swift" > "$work/TodayLayoutPrefs.swift"
 sources+=("$work/TodayLayoutPrefs.swift")
+# Linux Foundation has no FileManager.containerURL(forSecurityApplicationGroupIdentifier:); no App Group exists here anyway.
+sed 's/FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: \$0) != nil/$0.isEmpty \&\& false/' "$root/StrandiOSShared/WidgetSnapshot.swift" > "$work/WidgetSnapshot.swift"
+sources+=("$work/WidgetSnapshot.swift")
 entries=""
 for t in "${tests[@]}"; do
   sed '/^@testable import Strand$/d' "$root/StrandTests/$t.swift" > "$work/$t.swift"

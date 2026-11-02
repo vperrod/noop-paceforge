@@ -46,6 +46,8 @@ private enum AthleteSheet: Identifiable {
     case standing(String)
     case plan(String)
     case hyrox
+    case predictions
+    case zones
 
     var id: String {
         switch self {
@@ -53,6 +55,8 @@ private enum AthleteSheet: Identifiable {
         case .standing(let id): return "standing-\(id)"
         case .plan(let id): return "plan-\(id)"
         case .hyrox: return "hyrox"
+        case .predictions: return "predictions"
+        case .zones: return "zones"
         }
     }
 }
@@ -96,6 +100,7 @@ private struct AthleteScreen: View {
                 .accessibilityIdentifier("athlete-empty")
             } else {
                 metrics
+                recordsCard
                 findings
                 scorecardRow
             }
@@ -106,7 +111,7 @@ private struct AthleteScreen: View {
     // MARK: Metrics
 
     @ViewBuilder private var metrics: some View {
-        if !athlete.tiles.isEmpty || !athlete.runTimes.isEmpty || athlete.hasHyrox {
+        if !athlete.tiles.isEmpty || !athlete.runTimes.isEmpty || athlete.hasHyrox || athlete.predictions != nil || athlete.zones != nil {
             VStack(alignment: .leading, spacing: 10) {
                 HStack {
                     Text("My metrics").lookCaps(11).foregroundStyle(NoopLook.textTertiary)
@@ -122,6 +127,12 @@ private struct AthleteScreen: View {
                         }
                     }
                 }
+                if let predictions = athlete.predictions {
+                    AthletePredictionsCard(predictions: predictions) { sheet = .predictions }
+                }
+                if let zones = athlete.zones {
+                    AthleteZonesCard(zones: zones) { sheet = .zones }
+                }
                 if !athlete.runTimes.isEmpty {
                     AthleteRunTimes(times: athlete.runTimes) { time in
                         if let id = time.standingId { sheet = .standing(id) }
@@ -134,6 +145,14 @@ private struct AthleteScreen: View {
                 }
             }
             .containerIdentifier("athlete-metrics")
+        }
+    }
+
+    // MARK: Records
+
+    @ViewBuilder private var recordsCard: some View {
+        if !athlete.records.isEmpty {
+            AthleteRecordsCard(records: athlete.records)
         }
     }
 
@@ -216,6 +235,14 @@ private struct AthleteScreen: View {
             }
         case .hyrox:
             AthleteHyroxSheet(card: athlete.hyroxCard, hyrox: athlete.hyrox)
+        case .predictions:
+            if let predictions = athlete.predictions {
+                AthletePredictionsSheet(predictions: predictions)
+            }
+        case .zones:
+            if let zones = athlete.zones {
+                AthleteZonesSheet(zones: zones)
+            }
         }
     }
 }
@@ -312,6 +339,13 @@ private struct AthleteTile: View {
             Spacer(minLength: 0)
             if tile.sparkValues.count >= 2 && !isHidden {
                 AthleteSparkline(values: tile.sparkValues, color: PFColor.sky)
+            } else if let secondary = tile.secondary, !isHidden {
+                Text(secondary)
+                    .font(LookFont.text(11, weight: .medium))
+                    .foregroundStyle(NoopLook.textSecondary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+                    .frame(maxWidth: .infinity, minHeight: 24, alignment: .bottomLeading)
             } else {
                 Color.clear.frame(height: 24)
             }
@@ -584,6 +618,7 @@ private struct AthleteMetricSheet: View {
                 VStack(alignment: .leading, spacing: 16) {
                     PFRevealBar()
                     headerCard
+                    if !tile.rows.isEmpty { relatedCard }
                     if tile.hasSeries && !isHidden { historyCard }
                     if standingMetric != nil { standingCard }
                     PFCard("What it is", icon: "questionmark.circle") {
@@ -652,6 +687,17 @@ private struct AthleteMetricSheet: View {
         .accessibilityIdentifier("athlete-metric-header")
     }
 
+    /// The figures of the same family (Garmin's VO2max beside the one from the runs, the threshold's pace and heart rate), each with its own
+    /// source and date.
+    private var relatedCard: some View {
+        PFCard("Related figures", icon: "list.bullet") {
+            VStack(alignment: .leading, spacing: 12) {
+                ForEach(tile.rows) { row in AthleteFigureRow(label: row.label, value: row.text, note: row.note) }
+            }
+        }
+        .accessibilityIdentifier("athlete-metric-rows")
+    }
+
     private var historyCard: some View {
         PFCard("History", icon: "chart.xyaxis.line") {
             VStack(alignment: .leading, spacing: 12) {
@@ -708,6 +754,281 @@ private struct AthleteMetricSheet: View {
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+// MARK: - Race predictions, heart-rate zones, records
+
+/// One labelled figure with its source line, as on the detail pages.
+private struct AthleteFigureRow: View {
+    let label: String
+    let value: String
+    var note: String?
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(label).font(StrandFont.subhead).foregroundStyle(StrandPalette.textPrimary)
+                if let note {
+                    Text(note).font(StrandFont.caption).foregroundStyle(StrandPalette.textTertiary)
+                }
+            }
+            Spacer(minLength: 8)
+            Text(value)
+                .font(LookFont.numeral(18))
+                .foregroundStyle(NoopLook.textPrimary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+        }
+    }
+}
+
+private struct AthletePredictionsCard: View {
+    let predictions: PFAthletePredictions
+    let onTap: () -> Void
+
+    private var shown: [PFAthletePrediction] { predictions.garmin.isEmpty ? predictions.model : predictions.garmin }
+
+    private var caption: String {
+        if predictions.garmin.isEmpty { return "PaceForge's own forecast, from your runs" }
+        guard let date = predictions.garminDate else { return "Garmin's forecast" }
+        return "Garmin's forecast \u{00B7} as of " + PFFormat.shortDate(date)
+    }
+
+    var body: some View {
+        Button(action: onTap) {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack {
+                    Text("Race predictions").lookCaps(10.5, weight: .semibold).foregroundStyle(NoopLook.textTertiary)
+                    Spacer(minLength: 8)
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(NoopLook.textTertiary)
+                }
+                HStack(alignment: .top, spacing: 8) {
+                    ForEach(shown) { item in
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(item.text)
+                                .font(LookFont.numeral(20))
+                                .foregroundStyle(NoopLook.textPrimary)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.6)
+                            Text(item.label).lookCaps(10, weight: .semibold).foregroundStyle(NoopLook.textTertiary).lineLimit(1)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                }
+                Text(caption)
+                    .font(LookFont.text(11, weight: .medium))
+                    .foregroundStyle(NoopLook.textTertiary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(AthleteLook.cardShape.fill(NoopLook.card))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("athlete-predictions")
+    }
+}
+
+private struct AthleteZonesCard: View {
+    let zones: PFAthleteZones
+    let onTap: () -> Void
+
+    private var caption: String {
+        var text = "Garmin "
+        if let sport = zones.sport { text += sport.lowercased() + " " }
+        text += "zones, beats per minute"
+        if let date = zones.date { text += " \u{00B7} as of " + PFFormat.shortDate(date) }
+        return text
+    }
+
+    var body: some View {
+        Button(action: onTap) {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack {
+                    Text("Heart-rate zones").lookCaps(10.5, weight: .semibold).foregroundStyle(NoopLook.textTertiary)
+                    Spacer(minLength: 8)
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(NoopLook.textTertiary)
+                }
+                HStack(alignment: .top, spacing: 6) {
+                    ForEach(zones.zones) { zone in
+                        VStack(alignment: .leading, spacing: 4) {
+                            RoundedRectangle(cornerRadius: 3, style: .continuous)
+                                .fill(PFColor.sky.opacity(0.2 + 0.16 * Double(zone.zone)))
+                                .frame(height: 6)
+                            Text("\(zone.low)\u{2013}\(zone.high)")
+                                .font(LookFont.numeral(13))
+                                .foregroundStyle(NoopLook.textPrimary)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.6)
+                            Text("Z\(zone.zone)").lookCaps(10, weight: .semibold).foregroundStyle(NoopLook.textTertiary)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                }
+                Text(caption)
+                    .font(LookFont.text(11, weight: .medium))
+                    .foregroundStyle(NoopLook.textTertiary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(AthleteLook.cardShape.fill(NoopLook.card))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("athlete-zones")
+    }
+}
+
+private struct AthleteRecordsCard: View {
+    let records: [PFAthleteRecord]
+
+    private func line(_ record: PFAthleteRecord) -> String {
+        let source = PFFormat.capitalized(record.source)
+        guard let date = record.date else { return source }
+        return source + ", " + PFFormat.shortDate(date)
+    }
+
+    var body: some View {
+        PFCard("Personal records", icon: "trophy") {
+            VStack(alignment: .leading, spacing: 12) {
+                ForEach(records) { record in AthleteFigureRow(label: record.label, value: record.text, note: line(record)) }
+            }
+        }
+        .containerIdentifier("athlete-records")
+    }
+}
+
+private struct AthletePredictionsSheet: View {
+    let predictions: PFAthletePredictions
+    @Environment(\.dismiss) private var dismiss
+
+    private func paceNote(_ item: PFAthletePrediction) -> String? {
+        item.paceSecPerKm.map { PFFormat.pace($0) + " /km" }
+    }
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    if !predictions.garmin.isEmpty { garminCard }
+                    if !predictions.model.isEmpty { modelCard }
+                    PFCard("What it is", icon: "questionmark.circle") {
+                        PFParagraph("An estimate of the finish time your current fitness points to. Garmin's comes from the watch; PaceForge's is its own model, worked out from your runs. They are shown apart and never averaged, and neither is a promise. PaceForge holds only the latest forecast of each, so no change over time is shown.")
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
+            }
+            .background(StrandPalette.surfaceBase.ignoresSafeArea())
+            .navigationTitle("Race predictions")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Done") { dismiss() }
+                        .foregroundStyle(StrandPalette.accent)
+                        .accessibilityIdentifier("athlete-predictions-done")
+                }
+            }
+        }
+        .presentationDetents([.medium, .large])
+        .containerIdentifier("athlete-predictions-sheet")
+    }
+
+    private var garminCard: some View {
+        PFCard("Garmin forecast", icon: "applewatch") {
+            VStack(alignment: .leading, spacing: 12) {
+                ForEach(predictions.garmin) { item in AthleteFigureRow(label: item.label, value: item.text, note: paceNote(item)) }
+                if let date = predictions.garminDate {
+                    Text("As of " + PFFormat.shortDate(date)).font(StrandFont.caption).foregroundStyle(StrandPalette.textTertiary)
+                }
+            }
+        }
+    }
+
+    private var modelCard: some View {
+        PFCard("PaceForge forecast", icon: "function") {
+            VStack(alignment: .leading, spacing: 12) {
+                if let vdot = predictions.vdot {
+                    Text("VDOT " + PFFormat.oneDecimal(vdot)).font(StrandFont.caption).foregroundStyle(StrandPalette.textSecondary)
+                }
+                ForEach(predictions.model) { item in
+                    AthleteFigureRow(label: item.label, value: item.text,
+                                     note: [paceNote(item), item.confidence.map { "confidence " + $0.lowercased() }]
+                                         .compactMap { $0 }.joined(separator: " \u{00B7} "))
+                }
+            }
+        }
+    }
+}
+
+private struct AthleteZonesSheet: View {
+    let zones: PFAthleteZones
+    @Environment(\.dismiss) private var dismiss
+
+    private func bpm(_ value: Double) -> String { String(format: "%.0f", value) + " bpm" }
+
+    private var sourceLine: String {
+        var text = "Garmin "
+        if let sport = zones.sport { text += sport.lowercased() + " " }
+        text += "zones"
+        if let date = zones.date { text += ", as of " + PFFormat.shortDate(date) }
+        return text
+    }
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    PFCard("Zones", icon: "heart") {
+                        VStack(alignment: .leading, spacing: 12) {
+                            ForEach(zones.zones) { zone in
+                                AthleteFigureRow(label: "Zone \(zone.zone)", value: "\(zone.low) to \(zone.high) bpm", note: nil)
+                            }
+                            Text(sourceLine)
+                                .font(StrandFont.caption)
+                                .foregroundStyle(StrandPalette.textTertiary)
+                        }
+                    }
+                    .accessibilityIdentifier("athlete-zones-table")
+                    if zones.ltHr != nil || zones.maxHr != nil || zones.maxHrSeen != nil || zones.restingHr != nil { referenceCard }
+                    PFCard("What it is", icon: "questionmark.circle") {
+                        PFParagraph("Five heart-rate bands from your watch, from easy to maximal. The maximum above is the one the watch is set to; the highest heart rate it saw in recent activities is shown apart, because the two differ. PaceForge keeps the last zones it received if a sync fails, so check the date.")
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
+            }
+            .background(StrandPalette.surfaceBase.ignoresSafeArea())
+            .navigationTitle("Heart-rate zones")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Done") { dismiss() }
+                        .foregroundStyle(StrandPalette.accent)
+                        .accessibilityIdentifier("athlete-zones-done")
+                }
+            }
+        }
+        .presentationDetents([.medium, .large])
+        .containerIdentifier("athlete-zones-sheet")
+    }
+
+    private var referenceCard: some View {
+        PFCard("Reference points", icon: "scope") {
+            VStack(alignment: .leading, spacing: 12) {
+                if let ltHr = zones.ltHr { AthleteFigureRow(label: "Lactate threshold", value: bpm(ltHr), note: "Garmin watch") }
+                if let maxHr = zones.maxHr { AthleteFigureRow(label: "Maximum, as set", value: bpm(maxHr), note: "Garmin zone setting") }
+                if let seen = zones.maxHrSeen { AthleteFigureRow(label: "Highest seen", value: bpm(seen), note: "Garmin, recent activities") }
+                if let resting = zones.restingHr { AthleteFigureRow(label: "Resting", value: bpm(resting), note: "Garmin watch") }
             }
         }
     }
