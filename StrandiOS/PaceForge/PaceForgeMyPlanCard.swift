@@ -3,15 +3,65 @@ import StrandDesign
 
 // "My Plan": this week's plan on Today. A line of "5 DAYS LEFT . 62 % ACCOMPLISHED", a green progress bar, one row per planned
 // session with a check or a ring, the next session, and VIEW MY PLAN, which opens the This week screen in the PaceForge tab. It
-// is the same card on NOOP Today and on PaceForge Today, read from my-plan.json; nothing here edits the plan.
+// is the same card on NOOP Today and on PaceForge Today, read from my-plan.json; nothing here edits the plan. On the Plan tab it is
+// `collapsible`: one line (the title and the days-left read-out) that opens the card, and without VIEW MY PLAN, which only re-selects
+// the tab it is already on (the week is the section under it).
 
 struct PFMyPlanCard: View {
     let plan: PFMyPlan
     /// Opens the This week screen. Injected so a preview or a test needs no navigation.
     var onOpen: () -> Void = { PFDeepLink.open(.week) }
+    /// Whether the title row folds the card to one line, and whether VIEW MY PLAN is drawn.
+    var collapsible = false
+    var showsOpen = true
+    @State private var isExpanded: Bool
+
+    init(plan: PFMyPlan, onOpen: @escaping () -> Void = { PFDeepLink.open(.week) }, collapsible: Bool = false, showsOpen: Bool = true) {
+        self.plan = plan
+        self.onOpen = onOpen
+        self.collapsible = collapsible
+        self.showsOpen = showsOpen
+        _isExpanded = State(initialValue: !collapsible)
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
+            titleRow
+            if isExpanded { details }
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: NoopLook.Metric.tileRadius, style: .continuous).fill(NoopLook.tile))
+        .containerIdentifier("pf-my-plan")
+    }
+
+    @ViewBuilder private var titleRow: some View {
+        if collapsible {
+            Button { withAnimation(.easeInOut(duration: 0.2)) { isExpanded.toggle() } } label: {
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    Text("MY PLAN")
+                        .lookCaps(13)
+                        .foregroundStyle(NoopLook.textPrimary)
+                    Spacer(minLength: 8)
+                    if !isExpanded {
+                        Text(plan.headerText)
+                            .lookCaps(11)
+                            .foregroundStyle(NoopLook.textSecondary)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.7)
+                    }
+                    Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(NoopLook.textTertiary)
+                        .accessibilityHidden(true)
+                }
+                .frame(minHeight: 28)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityValue(isExpanded ? "expanded" : "collapsed")
+            .accessibilityIdentifier("pf-plan-toggle")
+        } else {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 Text("MY PLAN")
                     .lookCaps(13)
@@ -24,6 +74,11 @@ struct PFMyPlanCard: View {
                         .lineLimit(1)
                 }
             }
+        }
+    }
+
+    private var details: some View {
+        VStack(alignment: .leading, spacing: 14) {
             VStack(alignment: .leading, spacing: 8) {
                 Text(plan.headerText)
                     .lookCaps(12)
@@ -57,22 +112,20 @@ struct PFMyPlanCard: View {
                 .accessibilityElement(children: .combine)
                 .accessibilityIdentifier("pf-plan-next")
             }
-            Button(action: onOpen) {
-                Text("VIEW MY PLAN")
-                    .lookCaps(13)
-                    .foregroundStyle(NoopLook.textPrimary)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 44)
-                    .background(RoundedRectangle(cornerRadius: NoopLook.Metric.rowRadius, style: .continuous).fill(NoopLook.row))
+            if showsOpen {
+                Button(action: onOpen) {
+                    Text("VIEW MY PLAN")
+                        .lookCaps(13)
+                        .foregroundStyle(NoopLook.textPrimary)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 44)
+                        .background(RoundedRectangle(cornerRadius: NoopLook.Metric.rowRadius, style: .continuous).fill(NoopLook.row))
+                }
+                .buttonStyle(.plain)
+                .accessibilityHint("Opens this week in PaceForge")
+                .accessibilityIdentifier("pf-plan-view")
             }
-            .buttonStyle(.plain)
-            .accessibilityHint("Opens this week in PaceForge")
-            .accessibilityIdentifier("pf-plan-view")
         }
-        .padding(16)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: NoopLook.Metric.tileRadius, style: .continuous).fill(NoopLook.tile))
-        .containerIdentifier("pf-my-plan")
     }
 
     private var progressBar: some View {
@@ -145,14 +198,19 @@ struct PFMyPlanCard: View {
 struct PFMyPlanStoreHost: View {
     @ObservedObject private var store = PFPhase4Store.shared
     private let showsAdjust: Bool
+    private let isOnPlanTab: Bool
 
-    init(showsAdjust: Bool = false) { self.showsAdjust = showsAdjust }
+    /// `isOnPlanTab`: the card sits on the Plan tab itself, so it folds to one line and has no VIEW MY PLAN (it would only re-select Plan).
+    init(showsAdjust: Bool = false, isOnPlanTab: Bool = false) {
+        self.showsAdjust = showsAdjust
+        self.isOnPlanTab = isOnPlanTab
+    }
 
     var body: some View {
         Group {
             if let plan = store.docs.myPlan.value {
                 VStack(spacing: 12) {
-                    PFMyPlanCard(plan: plan)
+                    PFMyPlanCard(plan: plan, collapsible: isOnPlanTab, showsOpen: !isOnPlanTab)
                     if showsAdjust, plan.items.contains(where: { $0.status == "today" }) {
                         PFAdjustTodayCard()
                     }

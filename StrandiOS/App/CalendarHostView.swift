@@ -391,11 +391,57 @@ private struct CalendarPlanChip: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            PFMyPlanStoreHost()
-            if let easy = snapshot.easyMode { PFEasyModeSection(easy: easy) }
+            PFMyPlanStoreHost(isOnPlanTab: true)
+            if let easy = snapshot.easyMode { CalendarEasyModeRow(easy: easy) }
             if !snapshot.weeks.isEmpty { PFWeekView(snapshot: snapshot) }
         }
         .containerIdentifier("calendar-chip-content-plan")
+    }
+}
+
+/// Easy mode on the Plan tab: one compact row (its state at a glance) that opens the card or the start card. Closed by default, since it is
+/// rarely used.
+private struct CalendarEasyModeRow: View {
+    let easy: PFEasyMode
+    @State private var isExpanded = false
+
+    private var status: String {
+        if let mode = easy.mode {
+            return mode.dayText.map { "Level \(mode.level) \u{00B7} \($0.lowercased())" } ?? "Level \(mode.level)"
+        }
+        return easy.pending.isEmpty ? "Off" : "Proposal waiting"
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Button { withAnimation(.easeInOut(duration: 0.2)) { isExpanded.toggle() } } label: {
+                HStack(spacing: 10) {
+                    Image(systemName: "leaf")
+                        .foregroundStyle(StrandPalette.accent)
+                        .accessibilityHidden(true)
+                    Text("Easy mode")
+                        .font(StrandFont.subhead.weight(.semibold))
+                        .foregroundStyle(StrandPalette.textPrimary)
+                    Spacer(minLength: 8)
+                    Text(status)
+                        .font(StrandFont.caption)
+                        .foregroundStyle(StrandPalette.textTertiary)
+                        .lineLimit(1)
+                    Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(StrandPalette.textTertiary)
+                        .accessibilityHidden(true)
+                }
+                .padding(.horizontal, 14)
+                .frame(minHeight: 44)
+                .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(StrandPalette.surfaceInset))
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityValue(isExpanded ? "expanded" : "collapsed")
+            .accessibilityIdentifier("pf-easy-toggle")
+            if isExpanded { PFEasyModeSection(easy: easy) }
+        }
     }
 }
 

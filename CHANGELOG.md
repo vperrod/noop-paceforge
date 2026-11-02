@@ -19,9 +19,10 @@ approximate; downloads are on the [Releases](https://github.com/NoopApp/noop/rel
 
 ## 12.0.12 build 502 (PaceForge iPhone build): My Day tab, a plainer Today
 
-- **Not verified on a real iPhone.** The tab bar is now Today, My Day, Plan, Athlete and More, with the Coach button at the end. Insights is the first row of More.
+- **Not verified on a real iPhone.** The bottom bar is smaller and scrolls sideways: Today, My Day, Plan, Athlete, Sleep, Insights, Workouts and More, with the Coach button beside it. The item you open scrolls into view. The Sleep and Insights rows left More, since the bar has them now.
 - **My Day is a tab.** The day's 24-hour graph and its events open from the bar instead of from a card on Today. The "My Day" header, its activities card and its Add and Start buttons are gone from Today.
-- **Tonight's sleep is on the Sleep screen.** The bedtime card leads the Sleep screen (tap the Rest ring on Today, or the Sleep row in More) and is no longer on Today.
+- **Tonight's sleep is on the Sleep screen.** The bedtime card leads the Sleep screen (tap the Rest ring on Today, or Sleep in the bar) and is no longer on Today.
+- **Plan tab, two folded cards.** My Plan is one line (the days left and percent done) that opens on tap, and Easy mode is one compact row that opens on tap. VIEW MY PLAN is gone from the Plan tab: it only re-selected the tab you were on, so it did nothing there. It stays on Today, where it opens Plan.
 - **Today lost five blocks.** Key Metrics (My Dashboard is the one list of figures), Recovery Vitals, Your Cards, the Start session row, and the "Good morning / afternoon / evening" line. The readiness words and the Synthesis card stay. A saved Today arrangement drops the removed blocks by itself; the Effort target and Weekly goals cards, which sat in the old My Day block, are still on Today.
 
 ## 12.0.12 build 501 (PaceForge iPhone build): Athlete profile from your Garmin watch

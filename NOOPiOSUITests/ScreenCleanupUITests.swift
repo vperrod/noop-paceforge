@@ -47,13 +47,12 @@ final class ScreenCleanupUITests: XCTestCase {
         XCTAssertEqual(app.state, .runningForeground, "The app should still be running after \(what).")
     }
 
-    /// The Insights screen: the first row of More.
+    /// The Insights screen: an item of the scrolling bar.
     private func openInsights(_ app: XCUIApplication) {
-        openMore(app)
-        let row = element(app, "more-row-insights")
-        XCTAssertTrue(row.waitForExistence(timeout: 20), "More should open with the Insights row.")
-        row.tap()
-        XCTAssertTrue(element(app, "insights-host").waitForExistence(timeout: 30), "The Insights row should open Insights.")
+        let tab = app.shellTab("Insights")
+        XCTAssertTrue(tab.waitForExistence(timeout: 30), "The bar should have an Insights item.")
+        tab.tap()
+        XCTAssertTrue(element(app, "insights-host").waitForExistence(timeout: 30), "The Insights item should open Insights.")
     }
 
     /// Tap 1: the More tab (a re-tap pops whatever it had open back to the list).
@@ -66,16 +65,16 @@ final class ScreenCleanupUITests: XCTestCase {
     // MARK: More
 
     /// (More row, the screen container it opens). The container id is `screen-` plus the destination's raw value. With the unified bar
-    /// Trends, Explore, Compare and the Lab Book are chips of Insights or of Body, and Insights, Sleep and Body are rows here.
+    /// Trends, Explore, Compare and the Lab Book are chips of Insights or of Body; Insights and Sleep are items of the bar and Body is a row here.
     private static let moreRows: [(row: String, screen: String)] = [
-        ("insights", "insights"), ("sleep", "sleep"), ("body", "body"), ("liftlog", "liftLog"), ("health", "health"), ("stress", "stress"),
+        ("body", "body"), ("liftlog", "liftLog"), ("health", "health"), ("stress", "stress"),
         ("rhythm", "rhythm"), ("alarms", "alarms"), ("data", "data"), ("settings", "settings"),
     ]
 
     func testMoreListsAtMostTwelveRowsAndNothingIsCollapsed() throws {
         let app = try launch()
         openMore(app)
-        XCTAssertTrue(element(app, "more-row-sleep").waitForExistence(timeout: 20), "More should list its rows.")
+        XCTAssertTrue(element(app, "more-row-body").waitForExistence(timeout: 20), "More should list its rows.")
         var found = Set<String>()
         for _ in 0..<4 {
             let rows = app.descendants(matching: .any).matching(NSPredicate(format: "identifier BEGINSWITH %@", "more-row-"))
@@ -84,7 +83,7 @@ final class ScreenCleanupUITests: XCTestCase {
         }
         attach(app, "Cleanup 01 More")
         XCTAssertLessThanOrEqual(found.count, 12, "More should list 12 rows or fewer, found \(found.sorted()).")
-        XCTAssertEqual(found, Set(Self.moreRows.map { "more-row-\($0.row)" }), "More should list exactly the ten rows.")
+        XCTAssertEqual(found, Set(Self.moreRows.map { "more-row-\($0.row)" }), "More should list exactly the eight rows.")
         alive(app, "listing More")
     }
 
@@ -123,7 +122,7 @@ final class ScreenCleanupUITests: XCTestCase {
         openInsights(app)
         alive(app, "opening Insights")
         openMore(app)
-        XCTAssertTrue(element(app, "more-row-sleep").waitForExistence(timeout: 20), "More should open on one tap.")
+        XCTAssertTrue(element(app, "more-row-body").waitForExistence(timeout: 20), "More should open on one tap.")
 
         let coach = element(app, "look-coach")
         XCTAssertTrue(coach.exists, "The centre button should be NOOP Coach.")
@@ -236,7 +235,6 @@ final class ScreenCleanupUITests: XCTestCase {
         XCTAssertTrue(reveal(ring, in: app, maxSwipes: 6), "Today should show the Rest ring.")
         ring.tap()
         XCTAssertTrue(reveal(element(app, "look-last-night"), in: app), "The Rest ring should open Sleep.")
-        XCTAssertFalse(app.shellTab("Sleep").exists, "Sleep is not in the tab bar.")
         alive(app, "opening Sleep from the Rest ring")
     }
 }

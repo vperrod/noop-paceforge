@@ -193,8 +193,10 @@ final class LookScreensUITests: XCTestCase {
         app.shellTab("Athlete").tap()
         XCTAssertTrue(element(app, "athlete-host").waitForExistence(timeout: 20), "Athlete should open from the floating bar.")
         attach(app, "Look B2 floating tab bar on Athlete")
+        app.shellTab("Sleep").tap()
+        XCTAssertTrue(element(app, "screen-sleep").waitForExistence(timeout: 20), "Sleep should open from the scrolling bar.")
         app.shellTab("More").tap()
-        XCTAssertTrue(reveal(element(app, "more-row-sleep"), in: app), "More should expose Sleep after it leaves the tab bar.")
+        XCTAssertTrue(reveal(element(app, "more-row-body"), in: app), "More should list its rows.")
         attach(app, "Look B3 floating tab bar on More")
     }
 }

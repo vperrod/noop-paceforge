@@ -174,10 +174,9 @@ final class DailyIntelUITests: XCTestCase {
     func testTonightsSleepCardLeadsTheSleepScreen() throws {
         let app = try launch()
         XCTAssertFalse(element(app, "sleep-planner-entry").exists, "Today no longer shows Tonight's sleep.")
-        app.shellTab("More").tap()
-        let row = element(app, "more-row-sleep")
-        XCTAssertTrue(row.waitForExistence(timeout: 20), "More should offer Sleep.")
-        row.tap()
+        let sleep = app.shellTab("Sleep")
+        XCTAssertTrue(sleep.waitForExistence(timeout: 20), "The bar should have a Sleep item.")
+        sleep.tap()
         let entry = element(app, "sleep-planner-entry")
         XCTAssertTrue(reveal(entry, in: app), "The Sleep screen should show Tonight's sleep.")
         attach(app, "Intel 43 Sleep, Tonight's sleep")

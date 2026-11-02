@@ -64,6 +64,9 @@ struct RootTabView: View {
     /// Per tab, the length of its path right after the router pushed Sleep onto it, so a repeat request can tell Sleep is still on top.
     /// Any other push or pop changes the length and clears the entry (see the `onChange` on `tabPaths`).
     @State private var sleepPushedCount: [Int: Int] = [:]
+    /// With unified navigation, the bar item (Sleep, Insights or Workouts) whose screen is the root of More's stack, and the length of More's
+    /// path right after it was pushed. The bar highlights it while More's path is at least that long; popping to More's list clears it.
+    @State private var moreBarItem: (id: String, count: Int)?
     /// Native tab selection binding. SwiftUI sends taps on the already-selected item through the
     /// setter, which lets the system tab bar retain the app's refresh / pop-to-root / scroll-to-top
     /// convention without placing a custom hit-testing layer over the platform bar.
@@ -94,13 +97,62 @@ struct RootTabView: View {
 
     private static let lookTabs: [LookTabItem] = UnifiedNav.isOn ? UnifiedNav.tabs : classicTabs
 
+    /// The bar item on show. With unified navigation the first four items are tabs 0 to 3, and tab 4 (More) is the item named by
+    /// `moreBarItem` while one of Sleep, Insights or Workouts is its root screen, else More itself.
+    private var barSelection: String {
+        guard UnifiedNav.isOn else { return Self.lookTabs.indices.contains(selectedTab) ? Self.lookTabs[selectedTab].id : "today" }
+        if selectedTab == UnifiedNav.moreTab {
+            if let item = moreBarItem, tabPaths[UnifiedNav.moreTab].count >= item.count { return item.id }
+            return "more"
+        }
+        return Self.lookTabs.indices.contains(selectedTab) ? Self.lookTabs[selectedTab].id : "today"
+    }
+
     private var lookTabSelection: Binding<String> {
         Binding(
-            get: { Self.lookTabs.indices.contains(selectedTab) ? Self.lookTabs[selectedTab].id : "today" },
+            get: { barSelection },
             set: { id in
-                if let tag = Self.lookTabs.firstIndex(where: { $0.id == id }) { nativeTabSelection.wrappedValue = tag }
+                if UnifiedNav.isOn {
+                    selectBarItem(id)
+                } else if let tag = Self.lookTabs.firstIndex(where: { $0.id == id }) {
+                    nativeTabSelection.wrappedValue = tag
+                }
             }
         )
+    }
+
+    /// A tap on a bar item with unified navigation. Sleep, Insights and Workouts open as the only screen on More's stack; a second tap on
+    /// the one on show scrolls it to the top. More itself shows its list, dropping a bar screen it was holding.
+    private func selectBarItem(_ id: String) {
+        switch id {
+        case "sleep": openOnMore(id, .sleep)
+        case "insights": openOnMore(id, .insights)
+        case "workouts": openOnMore(id, .workouts)
+        case "more":
+            if selectedTab == UnifiedNav.moreTab {
+                reselectTab(UnifiedNav.moreTab)
+            } else {
+                if moreBarItem != nil { tabPaths[UnifiedNav.moreTab] = NavigationPath() }
+                withAnimation(.timingCurve(0.22, 1, 0.36, 1, duration: 0.24)) { selectedTab = UnifiedNav.moreTab }
+            }
+        default:
+            if let tag = Self.lookTabs.firstIndex(where: { $0.id == id }) { nativeTabSelection.wrappedValue = tag }
+        }
+    }
+
+    private func openOnMore(_ barID: String, _ destination: MoreDestination) {
+        if barSelection == barID {
+            Task { await repo.refresh() }
+            scrollTop[UnifiedNav.moreTab] += 1
+        } else {
+            pushOnMore(destination, barID: barID)
+        }
+    }
+
+    /// The tab on show named for the breadcrumbs.
+    private func tabName(_ tab: Int) -> String {
+        if UnifiedNav.isOn && tab == UnifiedNav.moreTab { return "more" }
+        return Self.lookTabs.indices.contains(tab) ? Self.lookTabs[tab].id : String(tab)
     }
 
     private func openPaceForgeToday() {
@@ -135,7 +187,7 @@ struct RootTabView: View {
             go(to: UnifiedNav.calendarTab)
         case .insights(let chip):
             defaults.set(chip.rawValue, forKey: InsightsChip.storageKey)
-            pushOnMore(.insights)
+            pushOnMore(.insights, barID: "insights")
         case .coach:
             routedPillar = .coach
         case .body:
@@ -148,11 +200,13 @@ struct RootTabView: View {
         pushOnMore(.body)
     }
 
-    /// Insights and Body have no tab: they open as the only screen pushed on More.
-    private func pushOnMore(_ destination: MoreDestination) {
+    /// Sleep, Insights, Workouts and Body have no tab: they open as the only screen pushed on More. `barID` names the bar item that is
+    /// highlighted while it is on show (Body has none, so More is).
+    private func pushOnMore(_ destination: MoreDestination, barID: String? = nil) {
         var path = NavigationPath()
         path.append(destination)
         tabPaths[UnifiedNav.moreTab] = path
+        moreBarItem = barID.map { (id: $0, count: 1) }
         withAnimation(.timingCurve(0.22, 1, 0.36, 1, duration: 0.24)) { selectedTab = UnifiedNav.moreTab }
     }
 
@@ -209,7 +263,7 @@ struct RootTabView: View {
         TabView(selection: nativeTabSelection) {
             tab(LiquidTodayView(), "Today", "square.grid.2x2", path: $tabPaths[0], scrollSignal: scrollTop[0]).tag(0)
             tab(WorkoutsOrMyDayRoot(), UnifiedNav.secondTabTitle, UnifiedNav.secondTabIcon, path: $tabPaths[1], scrollSignal: scrollTop[1]).tag(1)
-            // The third tab is Plan with the switch on and Sleep in the classic map. Sleep is a push from the Rest ring on Today and a row in More.
+            // The third tab is Plan with the switch on and Sleep in the classic map. Sleep is a push from the Rest ring on Today and an item of the bar (a screen on More's stack).
             tab(SleepOrPlanRoot(), UnifiedNav.thirdTabTitle, UnifiedNav.thirdTabIcon, path: $tabPaths[2], scrollSignal: scrollTop[2]).tag(2)
             // The fourth tab is PaceForge in the classic map and Athlete in the unified map. Coach has
             // one visible entry in the floating bar; Coach deep links route to that same surface below.
@@ -234,12 +288,15 @@ struct RootTabView: View {
             // The tab on show, for the diagnostics breadcrumbs and the per-screen stall numbers (NoopDiag). The PaceForge
             // tab names its own segment.
             .onChange(of: selectedTab, initial: true) { _, tab in
-                if tab != 3 || UnifiedNav.isOn { NoopDiag.screen(Self.lookTabs.indices.contains(tab) ? "tab.\(Self.lookTabs[tab].id)" : "tab.\(tab)") }
-                if UnifiedNav.isOn { NoopDiag.crumb("nav.tab \(Self.lookTabs.indices.contains(tab) ? Self.lookTabs[tab].id : String(tab))") }
+                if tab != 3 || UnifiedNav.isOn { NoopDiag.screen("tab.\(tabName(tab))") }
+                if UnifiedNav.isOn { NoopDiag.crumb("nav.tab \(tabName(tab))") }
             }
             .onChange(of: tabPaths.map { $0.count }) { _, counts in
                 for (tab, pushed) in sleepPushedCount where !counts.indices.contains(tab) || counts[tab] != pushed {
                     sleepPushedCount[tab] = nil
+                }
+                if let item = moreBarItem, !counts.indices.contains(UnifiedNav.moreTab) || counts[UnifiedNav.moreTab] < item.count {
+                    moreBarItem = nil
                 }
             }
             #if DEBUG
@@ -589,8 +646,9 @@ struct RootTabView: View {
         .tabItem { Label(title, systemImage: icon) }
     }
 
-    // The "More" tab is the app's index of everything that is not a tab. Eleven rows in three groups, all visible at rest: Insights
-    // (one screen with its sections, Reports among them), Trends, Explore and Compare; the body screens; and Data and Settings. Live,
+    // The "More" tab is the app's index of everything that is not a tab. With unified navigation, Sleep, Insights and Workouts are items of
+    // the bar and the rows are the body screens and Data and Settings. Classic navigation has eleven rows in three groups, all visible at
+    // rest: Insights (one screen with its sections, Reports among them), Trends, Explore and Compare; the body screens; and Data and Settings. Live,
     // Breathe and Intervals are in the quick-action sheet; Test Centre, Automations, Siri & Shortcuts and Power saving are in Settings;
     // Fused, Apple Health, Mi Band, Data Sources, Backup & Sync, Shortcuts Export, PaceForge sync and NOOP Limitations are in Data.
     private func moreTab(path: Binding<NavigationPath>, scrollSignal: Int) -> some View {
@@ -598,11 +656,11 @@ struct RootTabView: View {
             ScreenScaffold(title: "More", subtitle: "Everything else, two taps away",
                            onRefresh: { await repo.refresh() },
                            topBackground: liquidScaffoldSky()) {
-                // With unified navigation on, Insights is one row (it opens the chips: Trends, Explore and Compare are inside) and Body
+                // With unified navigation on, Insights (with Trends, Explore and Compare inside) and Sleep are items of the bar, and Body
                 // (with the Lab Book) is one row below.
-                IndexSection("Insights") {
-                    IndexRow("Insights", "lightbulb.fill", MoreDestination.insights, id: "more-row-insights")
-                    if !UnifiedNav.isOn {
+                if !UnifiedNav.isOn {
+                    IndexSection("Insights") {
+                        IndexRow("Insights", "lightbulb.fill", MoreDestination.insights, id: "more-row-insights")
                         IndexRow("Trends", "chart.line.uptrend.xyaxis", MoreDestination.trends, id: "more-row-trends")
                         IndexRow("Explore", "square.grid.2x2.fill", MoreDestination.explore, id: "more-row-explore")
                         IndexRow("Compare", "rectangle.split.2x1.fill", MoreDestination.compare, id: "more-row-compare")
@@ -610,8 +668,6 @@ struct RootTabView: View {
                 }
                 IndexSection("Body") {
                     if UnifiedNav.isOn {
-                        // Sleep left the tab bar: this row and the Rest ring on Today open it.
-                        IndexRow("Sleep", "bed.double", MoreDestination.sleep, id: "more-row-sleep")
                         IndexRow("Body", "figure.stand", MoreDestination.body, id: "more-row-body")
                     }
                     IndexRow("Lift Log", "dumbbell.fill", MoreDestination.liftLog, id: "more-row-liftlog")
@@ -643,6 +699,8 @@ struct RootTabView: View {
                     .background(StrandPalette.surfaceBase.ignoresSafeArea())
                     .navigationBarTitleDisplayMode(.inline)
                     .toolbarBackground(.hidden, for: .navigationBar)
+                    // A bar item's screen is a tab root in all but name: no back button to a list the bar already reaches.
+                    .toolbar(UnifiedNav.isOn && route.barID != nil && moreBarItem?.id == route.barID ? .hidden : .automatic, for: .navigationBar)
             }
             // Screens pushed from inside a More destination (the Reports entries, the streak chip's Highlights) push TabRoute
             // values, which this stack must resolve like every tab's.
@@ -706,8 +764,18 @@ private enum MoreDestination: String, Hashable {
     case data, settings
     /// Body and the Lab Book as chips; the row exists only with unified navigation on.
     case body
-    /// Sleep as a More row; it exists only with unified navigation on, where Sleep is not a tab.
-    case sleep
+    /// Sleep and Workouts as bar items; they exist only with unified navigation on, where neither is a tab.
+    case sleep, workouts
+
+    /// The bar item that opens this screen with unified navigation.
+    var barID: String? {
+        switch self {
+        case .sleep: return "sleep"
+        case .insights: return "insights"
+        case .workouts: return "workouts"
+        default: return nil
+        }
+    }
 
     @ViewBuilder var destination: some View {
         switch self {
@@ -727,6 +795,7 @@ private enum MoreDestination: String, Hashable {
         case .settings:        SettingsView()
         case .body:            BodyHostView()
         case .sleep:           SleepView()
+        case .workouts:        WorkoutsView()
         }
     }
 }
