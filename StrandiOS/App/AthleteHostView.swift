@@ -771,7 +771,7 @@ private struct AthleteFigureRow: View {
         HStack(alignment: .firstTextBaseline, spacing: 8) {
             VStack(alignment: .leading, spacing: 2) {
                 Text(label).font(StrandFont.subhead).foregroundStyle(StrandPalette.textPrimary)
-                if let note {
+                if let note, !note.isEmpty {
                     Text(note).font(StrandFont.caption).foregroundStyle(StrandPalette.textTertiary)
                 }
             }
@@ -915,6 +915,12 @@ private struct AthletePredictionsSheet: View {
         item.paceSecPerKm.map { PFFormat.pace($0) + " /km" }
     }
 
+    /// Pace and confidence on one line; nil (no caption drawn) when the forecast has neither.
+    private func modelNote(_ item: PFAthletePrediction) -> String? {
+        let parts = [paceNote(item), item.confidence.map { "confidence " + $0.lowercased() }].compactMap { $0 }
+        return parts.isEmpty ? nil : parts.joined(separator: " \u{00B7} ")
+    }
+
     var body: some View {
         NavigationStack {
             ScrollView {
@@ -961,9 +967,7 @@ private struct AthletePredictionsSheet: View {
                     Text("VDOT " + PFFormat.oneDecimal(vdot)).font(StrandFont.caption).foregroundStyle(StrandPalette.textSecondary)
                 }
                 ForEach(predictions.model) { item in
-                    AthleteFigureRow(label: item.label, value: item.text,
-                                     note: [paceNote(item), item.confidence.map { "confidence " + $0.lowercased() }]
-                                         .compactMap { $0 }.joined(separator: " \u{00B7} "))
+                    AthleteFigureRow(label: item.label, value: item.text, note: modelNote(item))
                 }
             }
         }

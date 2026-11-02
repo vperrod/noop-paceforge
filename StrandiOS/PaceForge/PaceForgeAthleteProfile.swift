@@ -131,9 +131,12 @@ extension PFAthleteParse {
         }
         out.racePredictionsDate = day(p["race_predictions_date"])
 
+        // A zone number appears once (the zone is the row's id); a later duplicate is dropped.
+        var seenZones = Set<Int>()
         out.zones = p["hr_zones"].array.compactMap { row in
             guard let zone = row["zone"].int, (1...5).contains(zone),
-                  let low = row["low_bpm"].int, let high = row["high_bpm"].int, low > 0, high >= low else { return nil }
+                  let low = row["low_bpm"].int, let high = row["high_bpm"].int, low > 0, high >= low,
+                  seenZones.insert(zone).inserted else { return nil }
             return PFAthleteZone(zone: zone, low: low, high: high)
         }.sorted { $0.zone < $1.zone }
 

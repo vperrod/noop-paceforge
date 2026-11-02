@@ -52,6 +52,8 @@ struct PFAthleteMetric: Identifiable, Equatable {
     var anchorDate: String?
     /// True for a figure that changes in steps when someone files a new value (FTP): it reads "since <date>", never an arrow.
     var isStep = false
+    /// What the date line reads when the figure has no date of its own ("date unknown"); never a guessed day.
+    var undatedText: String?
     /// One short line under a tile that has no sparkline (the lactate threshold's heart rate).
     var secondary: String?
     /// Figures from the same family as this one, shown on the detail page with their own dates and sources.
@@ -71,7 +73,7 @@ struct PFAthleteMetric: Identifiable, Equatable {
 
     /// "since 1 Feb" for a step figure, "as of 1 Feb" otherwise; nil without a date.
     var datedText: String? {
-        guard let asOf else { return nil }
+        guard let asOf else { return undatedText }
         return (isStep ? "since " : "as of ") + PFFormat.shortDate(asOf)
     }
 
@@ -442,6 +444,8 @@ enum PFAthleteBuild {
             var tile = PFAthleteMetric(id: "lt_pace", label: "Lactate threshold", unit: "/km", value: pace, valueText: PFFormat.pace(pace),
                                        source: "PaceForge \u{00B7} Garmin lactate threshold", what: Copy.lactateThreshold)
             tile.asOf = profile?.ltDate
+            // The profile's own date is when it was synced, not when the threshold was measured, so it is not borrowed here.
+            if profile?.ltDate == nil { tile.undatedText = "Date unknown" }
             tile.secondary = profile?.ltHr.map { "Heart rate " + String(format: "%.0f", $0) + " bpm" }
             return tile
         }
@@ -469,14 +473,14 @@ enum PFAthleteBuild {
 
     /// The figures behind the VO2max and threshold pages, each with its own source and date so the watch's and PaceForge's never blur.
     private static func vo2AndThresholdRows(_ profile: PFAthleteProfile?, _ fit: PFAthleteFitness?) -> [PFAthleteDetailRow] {
-        func note(_ source: String, _ prefix: String, _ date: String?) -> String {
-            guard let date else { return source }
+        func note(_ source: String, _ prefix: String, _ date: String?, needsDate: Bool = false) -> String {
+            guard let date else { return needsDate ? source + ", date unknown" : source }
             return source + ", " + prefix + " " + PFFormat.shortDate(date)
         }
         var rows: [PFAthleteDetailRow] = []
         if let vo2 = profile?.vo2Max {
             rows.append(PFAthleteDetailRow(label: "VO2max, Garmin estimate", text: PFFormat.oneDecimal(vo2) + " ml/kg/min",
-                                           note: note("Garmin watch", "as of", profile?.date)))
+                                           note: note("Garmin watch", "as of", profile?.date, needsDate: true)))
         }
         if let runs = fit?.effectiveVo2Current ?? fit?.effectiveVo2.last?.value {
             rows.append(PFAthleteDetailRow(label: "VO2max, from your runs", text: PFFormat.oneDecimal(runs) + " ml/kg/min",
@@ -484,11 +488,11 @@ enum PFAthleteBuild {
         }
         if let pace = profile?.ltPaceSecPerKm {
             rows.append(PFAthleteDetailRow(label: "Lactate threshold pace", text: PFFormat.pace(pace) + " /km",
-                                           note: note("Garmin watch", "measured", profile?.ltDate)))
+                                           note: note("Garmin watch", "measured", profile?.ltDate, needsDate: true)))
         }
         if let hr = profile?.ltHr {
             rows.append(PFAthleteDetailRow(label: "Lactate threshold heart rate", text: String(format: "%.0f", hr) + " bpm",
-                                           note: note("Garmin watch", "measured", profile?.ltDate)))
+                                           note: note("Garmin watch", "measured", profile?.ltDate, needsDate: true)))
         }
         if let critical = fit?.criticalPaceSecPerKm {
             rows.append(PFAthleteDetailRow(label: "Critical speed, from your runs", text: PFFormat.pace(critical) + " /km",

@@ -78,6 +78,13 @@ final class PaceForgeAthleteProfileTests: XCTestCase {
         XCTAssertEqual(profile().zones.map { $0.zone }, [1, 2])
     }
 
+    func testALaterDuplicateOfAZoneNumberIsDropped() {
+        let p = PFAthleteParse.profile(json("""
+        {"hr_zones": [{"zone": 3, "low_bpm": 131, "high_bpm": 149}, {"zone": 3, "low_bpm": 1, "high_bpm": 2}, {"zone": 1, "low_bpm": 94, "high_bpm": 111}]}
+        """))
+        XCTAssertEqual(p.zones, [PFAthleteZone(zone: 1, low: 94, high: 111), PFAthleteZone(zone: 3, low: 131, high: 149)])
+    }
+
     func testAZoneWithItsCeilingBelowItsFloorIsDropped() {
         let p = PFAthleteParse.profile(json("{\"hr_zones\": [{\"zone\": 1, \"low_bpm\": 120, \"high_bpm\": 100}]}"))
         XCTAssertEqual(p.zones, [])
@@ -178,6 +185,19 @@ final class PaceForgeAthleteProfileTests: XCTestCase {
 
     func testTheLactateThresholdTileSaysWhenItWasMeasured() {
         XCTAssertEqual(PFAthleteBuild.make(snapshot(with: profile())).tile("lt_pace")?.datedText, "as of 15 Jan")
+    }
+
+    func testAThresholdWithNoDateSaysDateUnknownOnTheTile() {
+        var p = profile()
+        p.ltDate = nil
+        XCTAssertEqual(PFAthleteBuild.make(snapshot(with: p)).tile("lt_pace")?.datedText, "Date unknown")
+    }
+
+    func testAThresholdWithNoDateSaysDateUnknownOnThePage() {
+        var p = profile()
+        p.ltDate = nil
+        let row = PFAthleteBuild.make(snapshot(with: p)).tile("lt_pace")?.rows.first { $0.label == "Lactate threshold pace" }
+        XCTAssertEqual(row?.note, "Garmin watch, date unknown")
     }
 
     func testTheLactateThresholdTileDrawsNoArrow() {
