@@ -185,10 +185,15 @@ struct SleepView: View {
                         // Bleed past ScreenScaffold's 16/24 gutters so the hero column is edge-to-edge
                         // in the upper band; the night scene itself is the fixed topBackground.
                         // Customize sits at the end of the hero (not floating in a blank band).
-                        restHero(resolved)
-                            .padding(.horizontal, -16)
-                            .padding(.top, -24)
-                            .staggeredAppear(index: 0)
+                        // A Group so the hero and the planner card are one child of this builder (the column is at its ten-child limit).
+                        Group {
+                            restHero(resolved)
+                                .padding(.horizontal, -16)
+                                .padding(.top, -24)
+                                .staggeredAppear(index: 0)
+                            // Tonight's sleep (the bedtime plan) leads the cards; it used to sit on Today.
+                            SleepPlannerEntryCard()
+                        }
                         #if os(iOS)
                         PFPageNote(key: "sleep")
                         LookLastNightSleepCard(model: resolved)
@@ -205,8 +210,8 @@ struct SleepView: View {
                     }
                 } else {
                     emptyState
-                    alarmsEntry
                     SleepPlannerEntryCard()
+                    alarmsEntry
                 }
             }
             // LiquidScoreGauge owns its own count-up animation (same as Home heroes).

@@ -82,8 +82,7 @@ struct TodayCustomizationSheet: View {
         _hostedCardsRaw = hostedCardsRaw
 
         let fullSectionOrder = TodayLayoutPrefs.decodeOrder(sectionOrderRaw.wrappedValue)
-        let hiddenSectionSet = Set(TodayLayoutPrefs.effectiveHidden(orderRaw: sectionOrderRaw.wrappedValue,
-                                                                    hiddenRaw: hiddenSectionsRaw.wrappedValue))
+        let hiddenSectionSet = Set(TodayLayoutPrefs.decodeHidden(hiddenSectionsRaw.wrappedValue))
         let sections = EditableLayoutDraft(
             visible: fullSectionOrder.filter { !hiddenSectionSet.contains($0) },
             hidden: fullSectionOrder.filter { hiddenSectionSet.contains($0) }

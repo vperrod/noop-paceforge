@@ -45,7 +45,7 @@ final class PaceForgeSavedStateTests: XCTestCase {
     func testBuild464CustomTodayOrderContainsEverySectionOnce() {
         let order = TodayLayoutPrefs.decodeOrder(noopCustomOrder464)
         XCTAssertEqual(order.count, Set(order).count)
-        XCTAssertEqual(Set(order), Set(TodaySection.allCases))
+        XCTAssertEqual(Set(order), Set(TodaySection.allCases).subtracting(TodaySection.retired))
     }
 
     func testBuild464HiddenSectionsStayHiddenAndTheNewOnesStayVisible() {
@@ -59,7 +59,7 @@ final class PaceForgeSavedStateTests: XCTestCase {
                        "todays-call,TODAYS-CALL,my-plan", "{\"a\":1}", "   hero  ,  journal "]
         for raw in damaged {
             let order = TodayLayoutPrefs.decodeOrder(raw)
-            XCTAssertEqual(Set(order), Set(TodaySection.allCases), raw)
+            XCTAssertEqual(Set(order), Set(TodaySection.allCases).subtracting(TodaySection.retired), raw)
             XCTAssertEqual(order.count, Set(order).count, raw)
         }
     }

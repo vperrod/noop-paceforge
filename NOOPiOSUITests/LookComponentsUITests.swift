@@ -122,16 +122,16 @@ final class LookComponentsUITests: XCTestCase {
 
     // MARK: Today
 
-    func testTodayShowsDialsTilesAndMyDay() throws {
+    func testTodayShowsDialsAndTiles() throws {
         let app = try launch()
         XCTAssertTrue(element(app, "look-day-title").waitForExistence(timeout: 30), "Today should show the day pill.")
         attach(app, "Look 20 Today top")
-        for id in ["look-health-tile", "look-stress-tile", "look-activities-card"] {
+        for id in ["look-health-tile", "look-stress-tile"] {
             XCTAssertTrue(reveal(element(app, id), in: app), "Today should show \(id).")
         }
-        attach(app, "Look 21 Today monitor tiles and My Day")
-        XCTAssertTrue(reveal(element(app, "sleep-planner-entry"), in: app), "Today should still show tonight's sleep.")
-        attach(app, "Look 22 Today tonight's sleep")
+        attach(app, "Look 21 Today monitor tiles")
+        XCTAssertFalse(element(app, "look-activities-card").exists, "My Day is a tab, not a section of Today.")
+        XCTAssertFalse(element(app, "sleep-planner-entry").exists, "Tonight's sleep is on the Sleep screen, not on Today.")
     }
 
     func testStickyMiniDialsAppearOnceTheDialsScrollAway() throws {

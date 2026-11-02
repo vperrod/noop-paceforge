@@ -154,9 +154,9 @@ final class PaceForgeRideUITests: XCTestCase {
 
     func testMyDayListsTheRideAndItOpensTheRideScreen() throws {
         let app = try launch(extraArguments: ["-MyDayFixture", "ride"])
-        let card = element(app, "myday-entry")
-        XCTAssertTrue(card.waitForExistence(timeout: 30), "Today should show the My Day card under the rings.")
-        card.tap()
+        let tab = app.shellTab("My Day")
+        XCTAssertTrue(tab.waitForExistence(timeout: 30), "The bar should have a My Day tab.")
+        tab.tap()
         XCTAssertTrue(element(app, "myday-strip").waitForExistence(timeout: 20))
         let row = element(app, "myday-row-ride-bike:2030-03-13")
         for _ in 0..<6 where !row.exists { app.swipeUp() }

@@ -119,7 +119,7 @@ struct RootTabView: View {
     private func openUnifiedLanding() {
         let raw = UserDefaults.standard.string(forKey: "noop.paceforge.segment") ?? PFSegment.today.rawValue
         var landing = UnifiedNav.landing(for: PFSegment(rawValue: raw) ?? .today)
-        // An insight item's link (`noop://paceforge/insights/<id>`, also the next best action) opens its sheet from the Insights tab.
+        // An insight item's link (`noop://paceforge/insights/<id>`, also the next best action) opens its sheet from Insights, the first row of More.
         if landing == .today, PFInsightLink.pending != nil { landing = .insights(.overview) }
         NoopDiag.crumb("nav.redirect pf.\(raw)")
         showUnified(landing)
@@ -135,7 +135,7 @@ struct RootTabView: View {
             go(to: UnifiedNav.calendarTab)
         case .insights(let chip):
             defaults.set(chip.rawValue, forKey: InsightsChip.storageKey)
-            go(to: UnifiedNav.insightsTab)
+            pushOnMore(.insights)
         case .coach:
             routedPillar = .coach
         case .body:
@@ -145,8 +145,13 @@ struct RootTabView: View {
 
     private func showBody(_ chip: BodyChip) {
         UserDefaults.standard.set(chip.rawValue, forKey: BodyChip.storageKey)
+        pushOnMore(.body)
+    }
+
+    /// Insights and Body have no tab: they open as the only screen pushed on More.
+    private func pushOnMore(_ destination: MoreDestination) {
         var path = NavigationPath()
-        path.append(MoreDestination.body)
+        path.append(destination)
         tabPaths[UnifiedNav.moreTab] = path
         withAnimation(.timingCurve(0.22, 1, 0.36, 1, duration: 0.24)) { selectedTab = UnifiedNav.moreTab }
     }
@@ -158,6 +163,7 @@ struct RootTabView: View {
 
     private func openMyDay() {
         MyDayDeepLink.pending = false
+        if UnifiedNav.isOn { go(to: UnifiedNav.myDayTab); return }
         withAnimation(.timingCurve(0.22, 1, 0.36, 1, duration: 0.24)) { selectedTab = 0 }
         var path = NavigationPath()
         path.append(TabRoute.myDay)
@@ -202,12 +208,12 @@ struct RootTabView: View {
         // the corresponding system material and safe-area behaviour from the same TabView.
         TabView(selection: nativeTabSelection) {
             tab(LiquidTodayView(), "Today", "square.grid.2x2", path: $tabPaths[0], scrollSignal: scrollTop[0]).tag(0)
-            tab(WorkoutsOrCalendarRoot(), UnifiedNav.secondTabTitle, UnifiedNav.secondTabIcon, path: $tabPaths[1], scrollSignal: scrollTop[1]).tag(1)
-            // The third tab is Athlete with the switch on and Sleep in the classic map. Sleep is a push from the Rest ring on Today and a row in More.
-            tab(SleepOrAthleteRoot(), UnifiedNav.thirdTabTitle, UnifiedNav.thirdTabIcon, path: $tabPaths[2], scrollSignal: scrollTop[2]).tag(2)
-            // The fourth tab is PaceForge in the classic map and Insights in the unified map. Coach has
+            tab(WorkoutsOrMyDayRoot(), UnifiedNav.secondTabTitle, UnifiedNav.secondTabIcon, path: $tabPaths[1], scrollSignal: scrollTop[1]).tag(1)
+            // The third tab is Plan with the switch on and Sleep in the classic map. Sleep is a push from the Rest ring on Today and a row in More.
+            tab(SleepOrPlanRoot(), UnifiedNav.thirdTabTitle, UnifiedNav.thirdTabIcon, path: $tabPaths[2], scrollSignal: scrollTop[2]).tag(2)
+            // The fourth tab is PaceForge in the classic map and Athlete in the unified map. Coach has
             // one visible entry in the floating bar; Coach deep links route to that same surface below.
-            tab(PaceForgeOrInsightsRoot(), UnifiedNav.fourthTabTitle, UnifiedNav.fourthTabIcon, path: $tabPaths[3], scrollSignal: scrollTop[3]).tag(3)
+            tab(PaceForgeOrAthleteRoot(), UnifiedNav.fourthTabTitle, UnifiedNav.fourthTabIcon, path: $tabPaths[3], scrollSignal: scrollTop[3]).tag(3)
             moreTab(path: $tabPaths[4], scrollSignal: scrollTop[4]).tag(4)
         }
         .tint(StrandPalette.accent)
@@ -306,7 +312,7 @@ struct RootTabView: View {
                 showDevices = true
                 router.requestedDestination = nil
             case .insightsHub where UnifiedNav.isOn:
-                // What moves you is on the Insights tab's Overview chip.
+                // What moves you is on Insights' Overview chip (the first row of More).
                 showUnified(.insights(.overview))
                 router.requestedDestination = nil
             case .labBook where UnifiedNav.isOn:
@@ -592,10 +598,11 @@ struct RootTabView: View {
             ScreenScaffold(title: "More", subtitle: "Everything else, two taps away",
                            onRefresh: { await repo.refresh() },
                            topBackground: liquidScaffoldSky()) {
-                // With unified navigation on, these three are chips of the Insights tab and Body (with the Lab Book) is one row here.
-                if !UnifiedNav.isOn {
-                    IndexSection("Insights") {
-                        IndexRow("Insights", "lightbulb.fill", MoreDestination.insights, id: "more-row-insights")
+                // With unified navigation on, Insights is one row (it opens the chips: Trends, Explore and Compare are inside) and Body
+                // (with the Lab Book) is one row below.
+                IndexSection("Insights") {
+                    IndexRow("Insights", "lightbulb.fill", MoreDestination.insights, id: "more-row-insights")
+                    if !UnifiedNav.isOn {
                         IndexRow("Trends", "chart.line.uptrend.xyaxis", MoreDestination.trends, id: "more-row-trends")
                         IndexRow("Explore", "square.grid.2x2.fill", MoreDestination.explore, id: "more-row-explore")
                         IndexRow("Compare", "rectangle.split.2x1.fill", MoreDestination.compare, id: "more-row-compare")
@@ -648,22 +655,22 @@ struct RootTabView: View {
     }
 }
 
-/// Tab 1 gives Workouts a direct home in classic navigation and, in unified navigation, is the Plan tab (Plan, Calendar, Workouts and the rest as chips).
-private struct WorkoutsOrCalendarRoot: View {
+/// Tab 1 gives Workouts a direct home in classic navigation and, in unified navigation, is the My Day tab (the day's graph and its events).
+private struct WorkoutsOrMyDayRoot: View {
     var body: some View {
         if UnifiedNav.isOn {
-            CalendarHostView()
+            MyDayView()
         } else {
             WorkoutsView()
         }
     }
 }
 
-/// The root of tab 3: the PaceForge tab (build 480), or Insights when unified navigation was on at launch.
-private struct PaceForgeOrInsightsRoot: View {
+/// The root of tab 3: the PaceForge tab (build 480), or Athlete when unified navigation was on at launch.
+private struct PaceForgeOrAthleteRoot: View {
     var body: some View {
         if UnifiedNav.isOn {
-            InsightsUnifiedHost()
+            AthleteHostView()
         } else {
             PaceForgeTabView()
         }
@@ -677,11 +684,12 @@ private struct CoachOrUnifiedCoach: View {
     }
 }
 
-/// The root of tab 2: the Athlete tab with unified navigation, Sleep in the classic map (the former Day hub remains reachable through its existing links).
-private struct SleepOrAthleteRoot: View {
+/// The root of tab 2: the Plan tab with unified navigation (Plan, Calendar, Workouts and the rest as chips), Sleep in the classic map (the
+/// former Day hub remains reachable through its existing links).
+private struct SleepOrPlanRoot: View {
     var body: some View {
         if UnifiedNav.isOn {
-            AthleteHostView()
+            CalendarHostView()
         } else {
             SleepView()
         }
@@ -703,7 +711,9 @@ private enum MoreDestination: String, Hashable {
 
     @ViewBuilder var destination: some View {
         switch self {
-        case .insights:        InsightsHomeView()
+        case .insights:
+            // The unified Insights (chips for Overview, Trends, Reports, Journal and Deep dives) has no tab: this row is its door.
+            if UnifiedNav.isOn { InsightsUnifiedHost() } else { InsightsHomeView() }
         case .trends:          TrendsView()
         case .explore:         MetricExplorerView()
         case .compare:         CompareView()

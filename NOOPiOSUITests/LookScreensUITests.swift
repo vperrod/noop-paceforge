@@ -188,6 +188,8 @@ final class LookScreensUITests: XCTestCase {
         plan.tap()
         XCTAssertTrue(element(app, "calendar-host").waitForExistence(timeout: 20), "Plan should open from the floating bar.")
         attach(app, "Look B1 floating tab bar on Plan")
+        app.shellTab("My Day").tap()
+        XCTAssertTrue(element(app, "myday-strip").waitForExistence(timeout: 20), "My Day should open from the floating bar.")
         app.shellTab("Athlete").tap()
         XCTAssertTrue(element(app, "athlete-host").waitForExistence(timeout: 20), "Athlete should open from the floating bar.")
         attach(app, "Look B2 floating tab bar on Athlete")

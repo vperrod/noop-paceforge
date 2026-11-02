@@ -94,9 +94,16 @@ final class PlannerUITests: XCTestCase {
 
     // MARK: Sleep Planner
 
+    /// More, Sleep, then the Sleep Planner card at the top of the Sleep screen.
     private func openPlanner(_ app: XCUIApplication) {
+        let more = app.shellTab("More")
+        XCTAssertTrue(more.waitForExistence(timeout: 30), "The bar should have a More tab.")
+        more.tap()
+        let sleep = element(app, "more-row-sleep")
+        XCTAssertTrue(sleep.waitForExistence(timeout: 20), "More should offer Sleep.")
+        sleep.tap()
         let entry = element(app, "sleep-planner-entry")
-        XCTAssertTrue(entry.waitForExistence(timeout: 30), "Today should show the Sleep Planner card.")
+        XCTAssertTrue(entry.waitForExistence(timeout: 30), "The Sleep screen should show the Sleep Planner card.")
         reveal(entry, in: app)
         entry.tap()
         XCTAssertTrue(element(app, "sleep-planner-bedtime").waitForExistence(timeout: 20), "The planner should show tonight's bedtime.")

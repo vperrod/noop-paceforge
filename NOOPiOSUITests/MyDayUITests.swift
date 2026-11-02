@@ -43,11 +43,11 @@ final class MyDayUITests: XCTestCase {
         app.staticTexts.matching(NSPredicate(format: "label CONTAINS[c] %@", text)).firstMatch
     }
 
-    /// Today tab, then the My Day card under the rings.
+    /// The My Day tab in the bottom bar.
     private func openMyDay(_ app: XCUIApplication) {
-        let card = element(app, "myday-entry")
-        XCTAssertTrue(card.waitForExistence(timeout: 30), "Today should show the My Day card under the rings.")
-        card.tap()
+        let tab = app.shellTab("My Day")
+        XCTAssertTrue(tab.waitForExistence(timeout: 30), "The bar should have a My Day tab.")
+        tab.tap()
         XCTAssertTrue(element(app, "myday-strip").waitForExistence(timeout: 20), "My Day should draw its 24 h strip.")
     }
 

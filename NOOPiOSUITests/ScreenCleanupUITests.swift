@@ -47,6 +47,15 @@ final class ScreenCleanupUITests: XCTestCase {
         XCTAssertEqual(app.state, .runningForeground, "The app should still be running after \(what).")
     }
 
+    /// The Insights screen: the first row of More.
+    private func openInsights(_ app: XCUIApplication) {
+        openMore(app)
+        let row = element(app, "more-row-insights")
+        XCTAssertTrue(row.waitForExistence(timeout: 20), "More should open with the Insights row.")
+        row.tap()
+        XCTAssertTrue(element(app, "insights-host").waitForExistence(timeout: 30), "The Insights row should open Insights.")
+    }
+
     /// Tap 1: the More tab (a re-tap pops whatever it had open back to the list).
     private func openMore(_ app: XCUIApplication) {
         let more = app.shellTab("More")
@@ -57,9 +66,9 @@ final class ScreenCleanupUITests: XCTestCase {
     // MARK: More
 
     /// (More row, the screen container it opens). The container id is `screen-` plus the destination's raw value. With the unified bar
-    /// Insights, Trends, Explore, Compare and the Lab Book are chips of the Insights tab or of Body, and Sleep and Body are rows here.
+    /// Trends, Explore, Compare and the Lab Book are chips of Insights or of Body, and Insights, Sleep and Body are rows here.
     private static let moreRows: [(row: String, screen: String)] = [
-        ("sleep", "sleep"), ("body", "body"), ("liftlog", "liftLog"), ("health", "health"), ("stress", "stress"),
+        ("insights", "insights"), ("sleep", "sleep"), ("body", "body"), ("liftlog", "liftLog"), ("health", "health"), ("stress", "stress"),
         ("rhythm", "rhythm"), ("alarms", "alarms"), ("data", "data"), ("settings", "settings"),
     ]
 
@@ -75,7 +84,7 @@ final class ScreenCleanupUITests: XCTestCase {
         }
         attach(app, "Cleanup 01 More")
         XCTAssertLessThanOrEqual(found.count, 12, "More should list 12 rows or fewer, found \(found.sorted()).")
-        XCTAssertEqual(found, Set(Self.moreRows.map { "more-row-\($0.row)" }), "More should list exactly the nine rows.")
+        XCTAssertEqual(found, Set(Self.moreRows.map { "more-row-\($0.row)" }), "More should list exactly the ten rows.")
         alive(app, "listing More")
     }
 
@@ -102,14 +111,16 @@ final class ScreenCleanupUITests: XCTestCase {
         XCTAssertTrue(today.waitForExistence(timeout: 30), "The Today tab should be present.")
         XCTAssertTrue(element(app, "today-settings").waitForExistence(timeout: 20), "Today should open its top bar.")
 
+        app.shellTab("My Day").tap()
+        XCTAssertTrue(element(app, "myday-strip").waitForExistence(timeout: 30), "My Day should open on one tap.")
+        alive(app, "opening My Day")
         app.shellTab("Plan").tap()
         XCTAssertTrue(element(app, "calendar-host").waitForExistence(timeout: 30), "Plan should open on one tap.")
         alive(app, "opening Plan")
         app.shellTab("Athlete").tap()
         XCTAssertTrue(element(app, "athlete-host").waitForExistence(timeout: 30), "Athlete should open on one tap.")
         alive(app, "opening Athlete")
-        app.shellTab("Insights").tap()
-        XCTAssertTrue(element(app, "insights-host").waitForExistence(timeout: 30), "Insights should open on one tap.")
+        openInsights(app)
         alive(app, "opening Insights")
         openMore(app)
         XCTAssertTrue(element(app, "more-row-sleep").waitForExistence(timeout: 20), "More should open on one tap.")
@@ -126,10 +137,7 @@ final class ScreenCleanupUITests: XCTestCase {
 
     func testInsightsHasEveryChipAndTheReportsOpenTheirScreens() throws {
         let app = try launch(fixture: true)
-        let tab = app.shellTab("Insights")
-        XCTAssertTrue(tab.waitForExistence(timeout: 30), "The Insights tab should be present.")
-        tab.tap()
-        XCTAssertTrue(element(app, "insights-host").waitForExistence(timeout: 30), "Insights should open on the first tap.")
+        openInsights(app)
         XCTAssertTrue(element(app, "insights-chip-content-overview").waitForExistence(timeout: 30), "Insights opens on Overview.")
         for chip in ["trends", "reports", "journal", "deepDives"] {
             let button = element(app, "insights-chip-\(chip)")

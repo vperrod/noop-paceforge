@@ -17,6 +17,13 @@ approximate; downloads are on the [Releases](https://github.com/NoopApp/noop/rel
 
 ---
 
+## 12.0.12 build 502 (PaceForge iPhone build): My Day tab, a plainer Today
+
+- **Not verified on a real iPhone.** The tab bar is now Today, My Day, Plan, Athlete and More, with the Coach button at the end. Insights is the first row of More.
+- **My Day is a tab.** The day's 24-hour graph and its events open from the bar instead of from a card on Today. The "My Day" header, its activities card and its Add and Start buttons are gone from Today.
+- **Tonight's sleep is on the Sleep screen.** The bedtime card leads the Sleep screen (tap the Rest ring on Today, or the Sleep row in More) and is no longer on Today.
+- **Today lost five blocks.** Key Metrics (My Dashboard is the one list of figures), Recovery Vitals, Your Cards, the Start session row, and the "Good morning / afternoon / evening" line. The readiness words and the Synthesis card stay. A saved Today arrangement drops the removed blocks by itself; the Effort target and Weekly goals cards, which sat in the old My Day block, are still on Today.
+
 ## 12.0.12 build 501 (PaceForge iPhone build): Athlete profile from your Garmin watch
 
 - **Not verified on a real iPhone.** The new cards read three documents PaceForge already serves to the phone (`profile.json`, `analytics.json`, `benchmarks.json`); against an older server, or one that has none of them, each card is simply absent.

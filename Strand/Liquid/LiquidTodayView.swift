@@ -485,15 +485,12 @@ struct LiquidTodayView: View {
                                 if chargeLegacyRRGap { ChargeLegacyRRGapNote() }
                                 #endif
                             }
-                        // My Day with today's activities and the cards that went with it in the hero section. Everything the classic
-                        // stack held is still here (the My Day entry became the header).
+                        // The cards that went with My Day in the hero section. My Day itself is a tab on iPhone and Tonight's sleep leads
+                        // the Sleep screen; the Effort target and the Weekly goals stay here.
                         case .myDay:
                             if mountStage >= 2 {
                                 #if os(iOS)
-                                if selectedDayOffset == 0 {
-                                    LookMyDaySection(day: selectedLogicalDay)
-                                    EffortTargetCard(); SleepPlannerEntryCard(); WeeklyGoalsCard()
-                                }
+                                if selectedDayOffset == 0 { EffortTargetCard(); WeeklyGoalsCard() }
                                 #else
                                 if selectedDayOffset == 0 { MyDayEntryCard(); EffortTargetCard(); SleepPlannerEntryCard(); WeeklyGoalsCard() }
                                 #endif
@@ -1581,7 +1578,7 @@ struct LiquidTodayView: View {
         .background(NoopPanelSurface(tint: tint, cornerRadius: 20, surfaceOpacity: cardOpacity))
     }
 
-    // MARK: - Synthesis (greeting + readiness pills + one-liner)
+    // MARK: - Synthesis (readiness pills + one-liner)
 
     /// Liquid parity with classic `effortZeroNote`: the "no cardio load yet" line shown in the synthesis
     /// card when today's Effort is ~0, so a calm day explains itself instead of a bare 0. Reuses classic's
@@ -1594,8 +1591,6 @@ struct LiquidTodayView: View {
     private var synthesisSection: some View {
         VStack(spacing: 8) {
             HStack {
-                Text(greeting).font(StrandFont.rounded(19)).foregroundStyle(StrandPalette.textPrimary)
-                    .lineLimit(1).minimumScaleFactor(0.6)   // yield to the pills rather than push them to wrap
                 Spacer(minLength: 8)
                 HStack(spacing: 8) {
                     if let word = readinessWord {
@@ -2508,13 +2503,6 @@ struct LiquidTodayView: View {
         case .rundown: return String(localized: "Several recovery signals are down. Prioritise rest today.")
         case .insufficient: return String(localized: "Still learning your baseline. A few more nights and this fills in.")
         }
-    }
-
-    private var greeting: String {
-        let h = Calendar.current.component(.hour, from: Date())
-        return h < 12 ? String(localized: "Good morning")
-            : h < 17 ? String(localized: "Good afternoon")
-            : String(localized: "Good evening")
     }
 
     /// The selected day's step count and who counted it: Apple Health, then the Garmin mirror, then the strap's

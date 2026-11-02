@@ -2,7 +2,7 @@
 import SwiftUI
 import StrandDesign
 
-// MARK: - Plan: the second tab with the unified navigation
+// MARK: - Plan: the third tab with the unified navigation
 //
 // Chips at the top and ONE chip mounted below them: Plan (This week, My Plan), Calendar (a month grid with the chosen day's sessions under it, built from the PaceForge snapshot),
 // Workouts (the old Training screen, whole), Season (the weeks ahead and behind), Events (races) and HYROX (the prognosis and race simulations). Each chip

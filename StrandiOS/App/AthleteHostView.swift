@@ -3,7 +3,7 @@ import SwiftUI
 import Charts
 import StrandDesign
 
-// MARK: - Athlete: the third tab with the unified navigation
+// MARK: - Athlete: the fourth tab with the unified navigation
 //
 // The athlete's profile header, the metric tiles with their change over four weeks, the strengths / weaknesses / areas to work on, and a
 // row to the full "Where you stand" scorecard. A tile (or a row's link) opens a detail sheet: the history chart, what the number is and

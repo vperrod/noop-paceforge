@@ -37,11 +37,11 @@ final class MyDayWalksUITests: XCTestCase {
         app.staticTexts.matching(NSPredicate(format: "label == %@", "Walking"))
     }
 
-    /// Today tab, My Day card, then scrolled down to the saved walks in the timeline.
+    /// The My Day tab, then scrolled down to the saved walks in the timeline.
     private func openTimeline(_ app: XCUIApplication) {
-        let card = element(app, "myday-entry")
-        XCTAssertTrue(card.waitForExistence(timeout: 30), "Today should show the My Day card under the rings.")
-        card.tap()
+        let tab = app.shellTab("My Day")
+        XCTAssertTrue(tab.waitForExistence(timeout: 30), "The bar should have a My Day tab.")
+        tab.tap()
         XCTAssertTrue(element(app, "myday-strip").waitForExistence(timeout: 20), "My Day should draw its 24 h strip.")
         for _ in 0..<8 where walkingRows(app).count == 0 { app.swipeUp() }
         XCTAssertGreaterThan(walkingRows(app).count, 0, "The saved walks should be in the timeline.")
