@@ -71,7 +71,7 @@ struct StrandApp: App {
                 // clipping; the common Larger-Text range still scales fully.
                 .dynamicTypeSize(...DynamicTypeSize.accessibility1)
                 // #267: pull a reasonably fresh sync when the window comes to the foreground rather than
-                // waiting for the 900s periodic timer or an incidental reconnect. Floored at 90s and never
+                // waiting for the 30-min periodic timer or an incidental reconnect. Floored at 90s and never
                 // clock/empty-streak-suppressed (BackfillPolicy.shouldRun's .foreground case), so this is
                 // a safe no-op on rapid re-focusing. Mirrors the iOS scenePhase == .active handler.
                 // Single-param form (not the two-param `{ _, phase in }`) — that overload needs macOS 14,

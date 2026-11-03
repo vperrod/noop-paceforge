@@ -398,6 +398,8 @@ struct StrandiOSApp: App {
                 }
                 // Retry any batches that were interrupted while iOS suspended the app.
                 Task(priority: .utility) {
+                    // This push sends what a held-back strap-sync push would, so drop that timer.
+                    await model.cancelDeferredStrapSyncPush()
                     await SelfHostedPushClient.pushIfEnabled(repo: model.repo)
                 }
                 CoachBriefScheduler.activateIfEnabled { await model.coach.generateBrief() }

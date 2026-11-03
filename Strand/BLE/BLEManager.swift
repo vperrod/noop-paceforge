@@ -3126,7 +3126,9 @@ public final class BLEManager: NSObject, ObservableObject {
                                           "duration_s": duration.rounded()])
         log("Sync: finished — reason=\(reason) chunks=\(chunks) rows=\(logicalSyncRows) duration=\(Int(duration))s")
         if chunks > 0 || logicalSyncRows > 0 || reason == "complete" || reason == "idle_complete" {
-            state.syncFinishedSeq += 1
+            state.syncFinishedSeq += 1   // AppModel's sink reads and clears syncWantsImmediatePush
+        } else {
+            syncWantsImmediatePush = false   // no sink will run, so do not leave a stale true for the next sync
         }
     }
 
@@ -3142,7 +3144,7 @@ public final class BLEManager: NSObject, ObservableObject {
     /// stays unit-testable; this method only gathers the inputs, bumps the counter (or clears it on the
     /// caught-up else path — see #25), and re-kicks via the SAME gated requestSync path (so it still
     /// respects connected/bonded and can't double-start). The `.autoContinue` trigger ⇒
-    /// the BackfillPolicy 15-min floor is bypassed for this expedited continuation (the cap is the guard).
+    /// the BackfillPolicy periodic floor is bypassed for this expedited continuation (the cap is the guard).
     /// `trimAdvanced` is the spin-detector signal computed in exitBackfilling (did this session move the
     /// trim cursor vs the previous one) — passed in because exitBackfilling has already advanced
     /// `lastSessionEndTrim` past the comparison point by the time this Task runs.
@@ -3231,8 +3233,8 @@ public final class BLEManager: NSObject, ObservableObject {
             // A hard cap or the user's Stop ended the sync while this Task was in flight: do not restart it.
             guard logicalSyncStartedAt != nil else { return }
             consecutiveAutoContinues += 1
-            log("Backfill: auto-continuing (#364/#451) — the trim advanced and the strap is still handing over real records (frontier \(frontier.map(String.init) ?? "?"), strap-reported newest \(newest.map(String.init) ?? "?")); re-kicking offload \(consecutiveAutoContinues)/\(BackfillContinuation.defaultMaxAutoContinues) without waiting the 15-min floor.")
-            // .autoContinue bypasses the BackfillPolicy floor (the whole point — don't wait 15 min);
+            log("Backfill: auto-continuing (#364/#451) — the trim advanced and the strap is still handing over real records (frontier \(frontier.map(String.init) ?? "?"), strap-reported newest \(newest.map(String.init) ?? "?")); re-kicking offload \(consecutiveAutoContinues)/\(BackfillContinuation.defaultMaxAutoContinues) without waiting for the next periodic offload (30 min).")
+            // .autoContinue bypasses the BackfillPolicy floor (the whole point — don't wait 30 min for the next periodic offload);
             // requestSync still re-checks connected/bonded/not-backfilling before kicking, and the
             // consecutive-cap above is the runaway guard.
             requestSync(.autoContinue)
@@ -3478,7 +3480,7 @@ public final class BLEManager: NSObject, ObservableObject {
     /// power (#477). Reads the battery snapshot only when the lever is armed (threshold > 0).
     /// #battery: a 5/MG whose history offload is known-empty (`whoop5EmptyOffload.historyEmpty`, crossed
     /// after 2 consecutive empty offloads) is stretched to the low-battery cadence (45 min) regardless of
-    /// battery % — history sync is experimental on 5.0 and such a strap banks nothing per pass, so a 15-min
+    /// battery % — history sync is experimental on 5.0 and such a strap banks nothing per pass, so a 30-min
     /// periodic kick just holds the link ~60 s for zero data. The BackfillPolicy empty-backoff also
     /// stretches (after 3 empties, doubling to a 1-hr cap), but this engages one cycle earlier (the
     /// tracker's quietThreshold is 2) and at a fixed 45-min floor that stacks with it. Twin of Android
@@ -5047,14 +5049,16 @@ public final class BLEManager: NSObject, ObservableObject {
         if beginBackfill() {
             UserDefaults.standard.set(now, forKey: BLEManager.backfillLastAtKey)
             diag("sync.requested \(trigger)", diagLinkFields())
-            // An auto-continue is the same logical sync as the one that started it, so it keeps the flag.
-            if trigger != .autoContinue { syncWantsImmediatePush = trigger == .manual || trigger == .foreground }
+            // Only ever raised here: a periodic/strap/connect kick that joins a logical sync a user started must not
+            // clear the user's flag. finishLogicalSync clears it.
+            if trigger == .manual || trigger == .foreground { syncWantsImmediatePush = true }
         }
     }
 
     /// True while the running logical sync was started by the user or by opening the app. The server push after a
-    /// periodic or strap-event sync is coalesced to once an hour; one the user is waiting on is not. AppModel reads
-    /// and clears it when the sync finishes.
+    /// periodic or strap-event sync is coalesced to once an hour; one the user is waiting on is not. Raised by a user or
+    /// foreground request (also one that finds a sync already running); AppModel reads and clears it when the sync banked
+    /// rows, and finishLogicalSync clears it when the sync did not.
     var syncWantsImmediatePush = false
 
     /// Periodic-timer callback: routes through the rate-limited requestSync entry point.
@@ -5076,6 +5080,7 @@ public final class BLEManager: NSObject, ObservableObject {
         }
         if backfilling {
             log("Sync now: a sync is already in progress.")
+            syncWantsImmediatePush = true   // the user is waiting on the running sync, so its push goes at once
             return
         }
         log("Sync now: manual sync requested by user.")
@@ -5149,7 +5154,10 @@ public final class BLEManager: NSObject, ObservableObject {
         default: break
         }
         guard state.activeIsWhoop else { return .otherDeviceActive }
-        if backfilling { return .alreadyRunning }
+        if backfilling {
+            syncWantsImmediatePush = true   // the user is waiting on the running sync, so its push goes at once
+            return .alreadyRunning
+        }
         guard state.connected, state.bonded else {
             armPendingManualSync()
             connect()

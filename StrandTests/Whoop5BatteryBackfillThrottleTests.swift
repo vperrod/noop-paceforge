@@ -10,7 +10,7 @@ import XCTest
 ///    re-seed.
 ///
 /// 2. `whoop5EmptyHistoryBackfillInterval` — a 5/MG whose history offload is known-empty (experimental on
-///    5.0) is stretched to the 45-min low-battery floor regardless of battery %, so the 15-min periodic
+///    5.0) is stretched to the 45-min low-battery floor regardless of battery %, so the 30-min periodic
 ///    kick stops holding the link ~60 s for zero data. Engages after the tracker's 2-empty threshold
 ///    (one cycle earlier than the BackfillPolicy 3-empty backoff) and stacks with it.
 ///
@@ -58,7 +58,7 @@ final class Whoop5BatteryBackfillThrottleTests: XCTestCase {
 
     // MARK: - empty-history 5/MG backfill stretch
 
-    // History NOT known-empty → unchanged (the normal 15-min cadence; the lever only acts on a sustained
+    // History NOT known-empty → unchanged (the normal 30-min cadence; the lever only acts on a sustained
     // empty streak, never on a healthy or unknown strap).
     func testNonEmptyReturnsBase() {
         XCTAssertEqual(
