@@ -617,8 +617,9 @@ public final class BLEManager: NSObject, ObservableObject {
     /// User-elected hourly background-sync cadence (Settings → Power saving → "Low refresh"). Default off.
     private var lowRefreshMode = false
     // The timer fires this often, but BackfillPolicy.periodicFloorSeconds is the real floor (a recent
-    // event-triggered sync defers the next periodic tick). 900s = 15 min, matching WHOOP.
-    static let backfillIntervalSeconds = 900
+    // event-triggered sync defers the next periodic tick). 1800s = 30 min: each offload holds the radio
+    // and wakes the app, which showed as ~14%/day of battery. Manual and foreground syncs bypass it.
+    static let backfillIntervalSeconds = 1800
     /// Scheduling flexibility for the long-running periodic offload timer. The offload remains no
     /// earlier than its battery-adaptive deadline; this only lets Darwin coalesce the wake with nearby
     /// system work instead of waking the CPU at an unnecessarily exact instant.
@@ -5046,8 +5047,15 @@ public final class BLEManager: NSObject, ObservableObject {
         if beginBackfill() {
             UserDefaults.standard.set(now, forKey: BLEManager.backfillLastAtKey)
             diag("sync.requested \(trigger)", diagLinkFields())
+            // An auto-continue is the same logical sync as the one that started it, so it keeps the flag.
+            if trigger != .autoContinue { syncWantsImmediatePush = trigger == .manual || trigger == .foreground }
         }
     }
+
+    /// True while the running logical sync was started by the user or by opening the app. The server push after a
+    /// periodic or strap-event sync is coalesced to once an hour; one the user is waiting on is not. AppModel reads
+    /// and clears it when the sync finishes.
+    var syncWantsImmediatePush = false
 
     /// Periodic-timer callback: routes through the rate-limited requestSync entry point.
     private func triggerPeriodicBackfill() {

@@ -17,9 +17,9 @@ import XCTest
 @MainActor
 final class LowRefreshCadenceTests: XCTestCase {
 
-    func testBaseIsFifteenMinutesWhenOff() {
+    func testBaseIsThirtyMinutesWhenOff() {
         XCTAssertEqual(BLEManager.baseBackfillInterval(lowRefresh: false), BLEManager.backfillIntervalSeconds)
-        XCTAssertEqual(BLEManager.backfillIntervalSeconds, 900)
+        XCTAssertEqual(BLEManager.backfillIntervalSeconds, 1800)
     }
 
     func testBaseIsHourlyWhenOn() {

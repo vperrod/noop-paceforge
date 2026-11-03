@@ -445,7 +445,7 @@ final class AppModel: ObservableObject {
                 Task { [weak self] in
                     guard let self else { return }
                     await self.refreshAfterCompletedBackfill()
-                    await SelfHostedPushClient.pushIfEnabled(repo: self.repo)
+                    await self.pushAfterStrapSync()
                 }
             }
             .store(in: &hrCancellables)
@@ -521,6 +521,8 @@ final class AppModel: ObservableObject {
             // history and repair sleep rejected by unmatched WRIST_OFF in one pass. Both persisted flags
             // describe that shared pass; either pending flag triggers it.
             await self.intelligence.runEffortRescoreIfNeeded()
+            // -1 so the first tick (launch) always scores; afterwards a tick scores only when a sync banked rows.
+            var lastScoredSyncSeq = -1
             while !Task.isCancelled {
                 // #547 RE-POLLUTION: a sync since the last tick may have armed a re-heal (its ingest gate
                 // dropped bad-clock records). `runTimestampHealIfNeeded` honours the pending flag even after
@@ -547,11 +549,17 @@ final class AppModel: ObservableObject {
                 // `live = self.live` spelled out: this is nested inside the cadence `Task`, which
                 // requires explicit `self`, so the bare-name capture shorthand used elsewhere in this
                 // type would not resolve here.
-                await RescoreBackgroundScheduler.run(owesOnDefer: false,
-                                                     log: { [live = self.live] line in
-                                                         live.append(log: line)
-                                                     }) {
-                    await self.intelligence.analyzeRecent(force: false)
+                // Battery: `syncFinishedSeq` moves only when a sync banked rows, and that sync already ran its own
+                // post-offload pass, so with the seq unchanged this tick would only re-read the HR the strap streamed live.
+                let syncSeq = self.live.syncFinishedSeq
+                if syncSeq != lastScoredSyncSeq {
+                    lastScoredSyncSeq = syncSeq
+                    await RescoreBackgroundScheduler.run(owesOnDefer: false,
+                                                         log: { [live = self.live] line in
+                                                             live.append(log: line)
+                                                         }) {
+                        await self.intelligence.analyzeRecent(force: false)
+                    }
                 }
                 // v5: recompute the skin-temp suite snapshots (cycle phase + body clock) from the
                 // freshly-scored history so the Health hub cards read a ready result.
@@ -771,6 +779,32 @@ final class AppModel: ObservableObject {
         await selfHostedPush?()
         #endif
     }
+
+    /// Server push after a finished strap sync: at most once an hour for periodic and strap-event syncs (each push wakes the
+    /// radio and the receiver). A user or foreground sync, or a last push over an hour old, goes at once. A push held back is
+    /// not dropped: one timer sends it when the hour is up, and the foreground push sends it sooner if the app is opened.
+    private func pushAfterStrapSync() async {
+        let immediate = ble.syncWantsImmediatePush
+        ble.syncWantsImmediatePush = false
+        let lastPush = UserDefaults.standard.double(forKey: SelfHostedPushClient.lastSuccessKey)
+        let wait = lastPush + AppModel.strapSyncPushMinInterval - Date().timeIntervalSince1970
+        if immediate || wait <= 0 {
+            deferredStrapSyncPush?.cancel()
+            deferredStrapSyncPush = nil
+            await SelfHostedPushClient.pushIfEnabled(repo: repo)
+            return
+        }
+        guard deferredStrapSyncPush == nil else { return }
+        deferredStrapSyncPush = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: UInt64(wait * 1_000_000_000))
+            guard !Task.isCancelled, let self else { return }
+            self.deferredStrapSyncPush = nil
+            await SelfHostedPushClient.pushIfEnabled(repo: self.repo)
+        }
+    }
+
+    private static let strapSyncPushMinInterval: TimeInterval = 3600
+    private var deferredStrapSyncPush: Task<Void, Never>?
 
     private func refreshAfterCompletedBackfill() async {
         live.append(log: "Backfill: refreshing dashboard cache from completed sync")
