@@ -826,7 +826,6 @@ final class AppModel: ObservableObject {
 
     private func refreshAfterCompletedBackfill() async {
         let syncSeq = live.syncFinishedSeq
-        defer { scoredSyncSeq = syncSeq }
         live.append(log: "Backfill: refreshing dashboard cache from completed sync")
         await repo.refresh(days: 120)
         // Score the freshly-offloaded raw data RIGHT NOW rather than waiting for the next 15-minute
@@ -845,10 +844,17 @@ final class AppModel: ObservableObject {
         // the #1538 report while never producing a score. Decide first whether this pass can finish here,
         // and hand it to a background-processing task when it cannot. A no-op on macOS, and on iOS a
         // foreground pass is never deferred.
+        // WHY: record the seq as scored only if the pass actually started here. A pass deferred to a
+        // background task never runs `work`, and one that finds a tick already running (`computing`) does
+        // not start its own; marking those scored would make the 30-min tick skip, leaving the just-synced
+        // rows unscored until the next sync bumps the seq.
+        var passRan = false
         await RescoreBackgroundScheduler.run(passInProgress: intelligence.computing,
                                              log: { [live] line in live.append(log: line) }) {
+            passRan = !intelligence.computing
             await intelligence.analyzeRecent(skipIfUnchanged: true)
         }
+        if passRan { scoredSyncSeq = syncSeq }
         await refreshV5Signals()
         #if os(iOS)
         // #980: a strap backfill routinely completes while the app is BACKGROUNDED (it runs as a
