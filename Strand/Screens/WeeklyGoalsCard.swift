@@ -27,7 +27,7 @@ enum WeeklyGoalsLoader {
                      calendar: Calendar = .current) async -> Week {
         let todayKey = Repository.localDayKey(now)
         let start = WeeklyGoalEngine.weekStart(containing: todayKey)
-        let key = "\(repo.refreshSeq)|\(start)|\(needsZones)|\(WindDownNudge.isEnabled)|\(Int(now.timeIntervalSince1970 / 900))"
+        let key = "\(repo.refreshSeq)|\(repo.days.count)|\(repo.days.last?.day ?? "")|\(start)|\(needsZones)|\(WindDownNudge.isEnabled)|\(Int(now.timeIntervalSince1970 / 900))"
         if let memo, memo.key == key { return memo.week }
 
         let keys = WeeklyGoalEngine.weekDays(startingAt: start)
@@ -119,7 +119,7 @@ struct WeeklyGoalsCard: View {
     @State private var isShowingPlans = false
 
     private var loadKey: String {
-        "\(repo.refreshSeq)|\(plan?.preset.rawValue ?? "-")|" + (plan?.targets.map { "\($0.metric.rawValue)\($0.target)" }.joined(separator: ",") ?? "")
+        "\(repo.refreshSeq)|\(repo.days.count)|\(repo.days.last?.day ?? "")|\(plan?.preset.rawValue ?? "-")|" + (plan?.targets.map { "\($0.metric.rawValue)\($0.target)" }.joined(separator: ",") ?? "")
     }
 
     var body: some View {
