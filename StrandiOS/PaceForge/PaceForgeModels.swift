@@ -767,9 +767,12 @@ struct PFZoneSet: Equatable, Sendable {
 
     static func parse(_ j: PFJ) -> PFZoneSet? {
         guard j.exists, let sport = j["sport"].text else { return nil }
-        return PFZoneSet(sport: sport, floors: j["floors"].array.compactMap { $0.int }, maxHr: j["max"].double, ltHr: j["lt"].double,
+        return PFZoneSet(sport: sport, floors: Self.fiveFloors(j["floors"].array.compactMap { $0.int }), maxHr: j["max"].double, ltHr: j["lt"].double,
                          restingHr: j["resting"].double)
     }
+
+    /// A short list (a null floor dropped) would shift zones 2 to 5 down one place, so anything but five floors counts as none.
+    private static func fiveFloors(_ floors: [Int]) -> [Int] { floors.count == 5 ? floors : [] }
 
     /// Every set in `profile.json` `hr_zone_sets`, in the file's order.
     static func parseAll(_ list: PFJ) -> [PFZoneSet] { list.array.compactMap { parse($0) } }
