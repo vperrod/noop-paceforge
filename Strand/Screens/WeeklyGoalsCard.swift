@@ -37,6 +37,9 @@ enum WeeklyGoalsLoader {
 
         let metrics = Dictionary(repo.days.map { ($0.day, $0) }, uniquingKeysWith: { first, _ in first })
         let apple = Dictionary((await repo.appleDailyRows(days: 21)).map { ($0.day, $0) }, uniquingKeysWith: { first, _ in first })
+        let resolvedSteps = Dictionary(
+            (await repo.resolvedSteps(from: keys.first ?? start, to: keys.last ?? start)).values.map { ($0.day, $0.value) },
+            uniquingKeysWith: { first, _ in first })
 
         // Main sleeps (long enough not to be a nap), by the day they ended. Of several in one day the longest wins.
         var longest: [String: (length: Int, bedtime: Int)] = [:]
@@ -68,7 +71,7 @@ enum WeeklyGoalsLoader {
             var out = WeeklyGoalDay(day: day)
             out.sleepMinutes = metrics[day]?.totalSleepMin
             out.bedtimeMinute = longest[day]?.bedtime
-            out.steps = metrics[day]?.steps ?? apple[day]?.steps
+            out.steps = resolvedSteps[day].map { Int($0.rounded()) } ?? metrics[day]?.steps ?? apple[day]?.steps
             out.zone45Minutes = zoneByDay[day]
             if WindDownNudge.isEnabled, let weekday = WeeklyGoalEngine.weekday(of: day) {
                 out.plannedBedtimeMinute = ((WindDownNudge.wakeMinutes(forWeekday: weekday) - WindDownNudge.sleepSpanMinutes) % 1_440 + 1_440) % 1_440
@@ -92,6 +95,12 @@ enum WeeklyGoalsLoader {
         if let minutes = await repo.workoutZoneMinutes(from: row.startTs, to: row.endTs, zoneSet: profile.hrZoneSet,
                                                        source: row.source), minutes.count >= 5 {
             return minutes[3] + minutes[4]
+        }
+        // shortcut: whole-session credit from average HR for sources without zone data, replace when PaceForge zones are stored locally
+        if let avgHr = row.avgHr, duration > 0,
+           let zone4Lower = profile.hrZoneSet.zones.first(where: { $0.number == 4 })?.lower,
+           Double(avgHr) >= zone4Lower {
+            return duration
         }
         return 0
     }
