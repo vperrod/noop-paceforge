@@ -103,8 +103,8 @@ final class TodayLayoutPrefsTests: XCTestCase {
         XCTAssertTrue(TodayLayoutPrefs.visibleOrder(orderRaw: after, hiddenRaw: "hero").contains(.myDay))
     }
 
-    /// Build 502 took Start session, Key Metrics, Recovery Vitals and Your Cards off the iPhone's Today. The order the Arrange sheet saved
-    /// while they were in the default reads as "not customised" and follows the new default.
+    /// Builds 502 and 504 took Start session, Recovery Vitals, Your Cards and My Dashboard off the iPhone's Today (Key Metrics is back in 504). The
+    /// order the Arrange sheet saved while they were in the default reads as "not customised" and follows the new default.
     func testBuild501DefaultOrderSavedOnThePhoneFollowsTheNewDefault() {
         let saved = "hero,heartRate,todays-call,day-in-review,my-day,my-plan,my-dashboard,liveSession,synthesis,keyMetrics,workouts,recoveryVitals,yourCards,menstrualCycle,journal,addedCards"
         XCTAssertEqual(TodayLayoutPrefs.decodeOrder(saved), TodaySection.defaultOrder)
@@ -121,7 +121,7 @@ final class TodayLayoutPrefsTests: XCTestCase {
 
     /// Whatever a phone saved, a retired section is neither in the order nor visible, even when it was never hidden.
     func testRetiredSectionsNeverReturnWhateverIsSaved() {
-        for raw in ["", "liveSession,keyMetrics,recoveryVitals,yourCards", TodayLayoutPrefs.encode(TodaySection.allCases)] {
+        for raw in ["", "liveSession,myDashboard,recoveryVitals,yourCards", TodayLayoutPrefs.encode(TodaySection.allCases)] {
             let order = TodayLayoutPrefs.decodeOrder(raw)
             XCTAssertTrue(TodaySection.retired.isDisjoint(with: order), raw)
             XCTAssertTrue(TodaySection.retired.isDisjoint(with: TodayLayoutPrefs.visibleOrder(orderRaw: raw, hiddenRaw: "")), raw)

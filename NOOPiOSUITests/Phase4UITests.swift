@@ -268,6 +268,7 @@ final class Phase4UITests: XCTestCase {
     // MARK: My Dashboard
 
     func testMyDashboardRowsOnToday() throws {
+        throw XCTSkip("My Dashboard is off Today since build 504 (Key Metrics took its place); it needs another way in before this runs.")
         let app = try launch()
         let section = element(app, "look-my-dashboard")
         XCTAssertTrue(reveal(section, in: app), "Today should carry My Dashboard.")
@@ -276,6 +277,7 @@ final class Phase4UITests: XCTestCase {
     }
 
     func testMyDashboardEditorAddsAMetricAndSaves() throws {
+        throw XCTSkip("My Dashboard is off Today since build 504 (Key Metrics took its place); it needs another way in before this runs.")
         let app = try launch()
         let customize = element(app, "look-dashboard-customize")
         XCTAssertTrue(reveal(customize, in: app), "My Dashboard should offer CUSTOMIZE.")

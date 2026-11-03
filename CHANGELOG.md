@@ -17,6 +17,10 @@ approximate; downloads are on the [Releases](https://github.com/NoopApp/noop/rel
 
 ---
 
+## 12.0.12 build 504 (PaceForge iPhone build): Key Metrics back on Today
+
+- **Key Metrics are back on Today, My Dashboard is off it.** The tiles you tap to see a metric's detail replace the My Dashboard rows. Recovery Vitals, Your Cards and Start session stay off Today. A saved Today arrangement picks the change up by itself. Not verified on a real iPhone.
+
 ## 12.0.12 build 502 (PaceForge iPhone build): My Day tab, a plainer Today
 
 - **Not verified on a real iPhone.** The bottom bar is smaller and scrolls sideways: Today, My Day, Plan, Athlete, Sleep, Insights, Workouts and More, with the Coach button beside it. The item you open scrolls into view. The Sleep and Insights rows left More, since the bar has them now.

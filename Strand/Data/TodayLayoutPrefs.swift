@@ -77,7 +77,8 @@ enum TodaySection: String, CaseIterable, Identifiable {
         }
     }
 
-    /// Sections the iPhone's Today no longer draws (build 502): Start session, Key Metrics, Recovery Vitals and Your Cards. (`myDay` stays:
+    /// Sections the iPhone's Today does not draw: Start session, Recovery Vitals, Your Cards (build 502) and My Dashboard (build 504, which gave
+    /// the Key Metrics tiles, each opening its detail, their place back: Victor found the rows a poor swap). (`myDay` stays:
     /// on the iPhone it holds the Effort target and the Weekly goals cards only; the My Day timeline is its own tab and the Sleep planner
     /// card moved to the Sleep screen. Adding `.myDay` here would retire those two cards from Today as well.) The cases and their rawValues
     /// stay so the persisted wire format and the Android twin are unchanged, but on iOS they are outside `defaultOrder`,
@@ -85,7 +86,7 @@ enum TodaySection: String, CaseIterable, Identifiable {
     /// sheet shows them, whatever a phone saved before. Empty on macOS, whose Today keeps every section.
     static let retired: Set<TodaySection> = {
         #if os(iOS)
-        return [.liveSession, .keyMetrics, .recoveryVitals, .yourCards]
+        return [.liveSession, .recoveryVitals, .yourCards, .myDashboard]
         #else
         return []
         #endif
