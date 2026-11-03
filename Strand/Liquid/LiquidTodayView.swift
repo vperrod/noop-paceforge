@@ -28,6 +28,7 @@ struct LiquidTodayView: View {
     // would re-render all of Today every second (the exact churn the LiveState leaves isolate). BLEManager
     // only publishes connect/discovery state, never HR. Injected at the app roots beside .environmentObject(model).
     @EnvironmentObject var ble: BLEManager
+    @EnvironmentObject var model: AppModel
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     /// Low Power Mode — and the in-app "Reduce motion in NOOP" toggle — pose the sky still too, the
     /// behaviour the comment on the sky branch below has always described. Neither has a SwiftUI
@@ -745,16 +746,10 @@ struct LiquidTodayView: View {
         // dashboard for every such frame when the visible pull indicator is already at zero.
         if nextPullY != pullY { pullY = nextPullY }
         guard !refreshing else { return }
-        // #1748 twin: gate the ARM, not the release. `syncNow()`'s own gate checks connected + bonded, and
-        // `bonded` is set by the live-HR path for a 5/MG that has never completed a handshake — so the pull
-        // was accepted and then declined in silence. `historyReady` is the client's OWN precondition, so
-        // this cannot withhold a sync that would have run.
-        //
-        // On the ARM specifically: gating the RELEASE below would leave `refreshArmed` stuck true for the
-        // rest of the gesture, since that branch is the only thing that clears it — a worse failure than
-        // the silent one being fixed. Not arming also withholds the haptic, which is the honest signal
-        // that the gesture is unavailable rather than unresponsive.
-        if pullY >= pullThreshold, !refreshArmed, ble.state.historyReady {
+        // A pull always runs: PaceForge, the reload and the server push do not need the strap, and a strap that is not ready yet is
+        // reconnected by `syncNowReporting` and synced as soon as it is. (It used to arm only when `historyReady`, so with the strap
+        // down the pull did nothing and said nothing.)
+        if pullY >= pullThreshold, !refreshArmed {
             refreshArmed = true
             pullHaptic &+= 1
         }
@@ -766,7 +761,7 @@ struct LiquidTodayView: View {
                 // a UI reload. syncNow() is internally gated (connected + bonded + not-already-backfilling),
                 // so a pull while disconnected or mid-offload safely no-ops. The sync status chip owns the
                 // ongoing offload progress; the pull spinner stays short (the reload below).
-                ble.syncNow()
+                _ = ble.syncNowReporting()
                 #if os(iOS)
                 // PaceForge's Needs you list, rings and cards read their own stores, which a strap sync does not touch. Started first
                 // so its network wait overlaps the reload below instead of adding to it.
@@ -776,6 +771,9 @@ struct LiquidTodayView: View {
                 await load()
                 #if os(iOS)
                 await paceForge
+                // And the phone's data to the server now, strap or no strap: this is the user's own "update everything".
+                model.cancelDeferredStrapSyncPush()
+                await SelfHostedPushClient.pushIfEnabled(repo: repo)
                 #endif
                 try? await Task.sleep(nanoseconds: 350_000_000)   // let the fill read as "done"
                 withAnimation(.easeOut(duration: 0.25)) { refreshing = false }

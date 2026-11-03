@@ -17,6 +17,10 @@ approximate; downloads are on the [Releases](https://github.com/NoopApp/noop/rel
 
 ---
 
+## 12.0.12 build 505 (PaceForge iPhone build): pull down on Today updates everything
+
+- **Pull down on Today always does the full update.** It syncs the strap (reconnecting it first if it is not ready), refreshes PaceForge, reloads the screen and sends your data to the server at once. Before, it did nothing at all unless the strap was ready, and it never sent to the server by itself. Not verified on a real iPhone.
+
 ## 12.0.12 build 504 (PaceForge iPhone build): Key Metrics back on Today
 
 - **Key Metrics are back on Today, My Dashboard is off it.** The tiles you tap to see a metric's detail replace the My Dashboard rows. Recovery Vitals, Your Cards and Start session stay off Today. A saved Today arrangement picks the change up by itself. Not verified on a real iPhone.
