@@ -161,6 +161,9 @@ struct PFWorkout: Identifiable {
 struct PFBriefing {
     var purpose: String?; var structure: String?; var feel: String?; var ifWrong: String?
     var cue: String?; var venue: String?; var fuel: String?; var warmup: String?
+    /// The session explainer the server stamps next to `purpose` (2026-10-28): what the run does to the body, the lactate and VO2 effect,
+    /// why it is built this way, what it buys, and the Garmin lactate-threshold line (`yours`). Each reads as missing on an older plan.
+    var body: String?; var energy: String?; var shape: String?; var payoff: String?; var yours: String?
 }
 
 struct PFStep: Identifiable {
@@ -244,6 +247,10 @@ struct PFDetail {
     var splits: [PFSplit] = []
     var zones: [PFZone] = []
     var weather: PFWeather?
+    /// Stamped on the detail document by the server from 2026-10-28; each is nil on a run it does not apply to or on an older document.
+    var runExplainer: PFRunExplainer?
+    var ltSplit: PFLtSplit?
+    var effortRank: PFEffortRank?
 }
 
 /// One row of `/data/analyses/index.json`: the coach's verdict plus the scored insights.
@@ -610,4 +617,169 @@ struct PFReadinessFactor: Identifiable {
     var value: String?
     var status: String?
     var id: String { name }
+}
+
+// MARK: Fields the server added 2026-10-28/29
+//
+// Each type below is all-optional and parses leniently from a `PFJ` (the app's decode path: a missing key, a null or a wrong type reads
+// as nil), so an older document still decodes. `parse` returns nil when the block is absent or holds none of the known fields.
+
+/// `run_explainer` of `/data/details/<id>.json`: the explainer of a run no plan or calendar session was matched to. A best guess read
+/// from the run's name, length and heart-rate zones, so views show it as one (`looksLike` is the type it was guessed to be).
+struct PFRunExplainer: Equatable, Sendable {
+    var looksLike: String?
+    var purpose: String?
+    var body: String?
+    var energy: String?
+    var shape: String?
+    var payoff: String?
+    var yours: String?
+
+    static func parse(_ j: PFJ) -> PFRunExplainer? {
+        guard j.exists else { return nil }
+        let out = PFRunExplainer(looksLike: j["looks_like"].text, purpose: j["purpose"].text, body: j["body"].text, energy: j["energy"].text,
+                                 shape: j["shape"].text, payoff: j["payoff"].text, yours: j["yours"].text)
+        return [out.purpose, out.body, out.energy, out.shape, out.payoff, out.yours].contains { $0 != nil } ? out : nil
+    }
+}
+
+/// `lt_split` of `/data/details/<id>.json` (runs only): seconds of heart-rate samples below, at (within 5 bpm) and above the Garmin
+/// lactate-threshold heart rate, with the threshold used.
+struct PFLtSplit: Equatable, Sendable {
+    var belowS: Double?
+    var atS: Double?
+    var aboveS: Double?
+    var ltHr: Double?
+    var ltPaceSecPerKm: Double?
+    var ltDate: String?
+
+    /// Seconds counted in all three bands; nil when none of them is known.
+    var totalS: Double? {
+        let parts = [belowS, atS, aboveS].compactMap { $0 }
+        return parts.isEmpty ? nil : parts.reduce(0, +)
+    }
+
+    static func parse(_ j: PFJ) -> PFLtSplit? {
+        guard j.exists else { return nil }
+        let out = PFLtSplit(belowS: j["below_s"].double, atS: j["at_s"].double, aboveS: j["above_s"].double, ltHr: j["lt_hr"].double,
+                            ltPaceSecPerKm: j["lt_pace_sec_per_km"].double, ltDate: j["lt_date"].text)
+        return out.totalS != nil ? out : nil
+    }
+}
+
+/// `effort_rank` of `/data/details/<id>.json`: where the session's load sits among the athlete's previous `days` days of sessions.
+struct PFEffortRank: Equatable, Sendable {
+    /// Share (0-100) of the `n` counted earlier sessions this one's load beat.
+    var pct: Int?
+    var n: Int?
+    var days: Int?
+    /// The load counted for the session, the heart-rate load before the class correction, and the correction factor (nil when none applied).
+    var trimp: Double?
+    var rawTrimp: Double?
+    var classFactor: Double?
+    /// Garmin's anaerobic training effect (0-5).
+    var anaerobicTE: Double?
+    /// That morning's recovery score, shown beside the effort and never folded into it.
+    var recovery: Double?
+
+    /// The chip word the web card uses in place of the 0-21 day-scale band word: 85+ among your hardest, 60+ harder than usual,
+    /// 35+ typical for you, else lighter than usual. nil without a `pct`.
+    var chipWord: String? {
+        guard let pct else { return nil }
+        if pct >= 85 { return "among your hardest" }
+        if pct >= 60 { return "harder than usual" }
+        if pct >= 35 { return "typical for you" }
+        return "lighter than usual"
+    }
+
+    static func parse(_ j: PFJ) -> PFEffortRank? {
+        guard j.exists, let pct = j["pct"].int else { return nil }
+        return PFEffortRank(pct: pct, n: j["n"].int, days: j["days"].int, trimp: j["trimp"].double, rawTrimp: j["raw_trimp"].double,
+                            classFactor: j["class_factor"].double, anaerobicTE: j["anaerobic_te"].double, recovery: j["recovery"].double)
+    }
+}
+
+/// `running.effective_vo2max.compare` of `fitness.json`: Garmin's own VO2max readings beside PaceForge's estimate.
+struct PFVo2Compare: Equatable, Sendable {
+    var garminLatest: Double?
+    var garminDate: String?
+    /// Days from that reading to the last run in the estimate.
+    var garminAgeDays: Int?
+    /// PaceForge's current estimate minus Garmin's latest reading; nil when there is no estimate.
+    var gap: Double?
+    /// Up to 12 months both sides have, oldest first.
+    var monthly: [PFVo2Month] = []
+
+    static func parse(_ j: PFJ) -> PFVo2Compare? {
+        guard j.exists, let latest = j["garmin_latest"].double else { return nil }
+        return PFVo2Compare(garminLatest: latest, garminDate: j["garmin_date"].text, garminAgeDays: j["garmin_age_days"].int, gap: j["gap"].double,
+                            monthly: j["monthly"].array.compactMap { m in
+                                guard let month = m["month"].text else { return nil }
+                                return PFVo2Month(month: month, garmin: m["garmin"].double, paceforge: m["paceforge"].double)
+                            })
+    }
+}
+
+/// One month of `compare.monthly`: the mean of Garmin's readings and of PaceForge's smoothed estimate, `month` being `yyyy-MM`.
+struct PFVo2Month: Equatable, Sendable {
+    var month: String
+    var garmin: Double?
+    var paceforge: Double?
+}
+
+/// `running.effective_vo2max.efficiency` of `fitness.json`: the speed the athlete runs at a fixed heart rate, the last 6 weeks against the 6 before.
+struct PFVo2Efficiency: Equatable, Sendable {
+    /// The fixed heart rate in bpm (140 on the server).
+    var hr: Double?
+    /// Speed in km/h at `hr` over the 6 weeks to `through`, and over the 6 weeks before that; either is nil without enough runs.
+    var now: Double?
+    var prev: Double?
+    var through: String?
+
+    static func parse(_ j: PFJ) -> PFVo2Efficiency? {
+        guard j.exists, j["now"].double != nil else { return nil }
+        return PFVo2Efficiency(hr: j["hr"].double, now: j["now"].double, prev: j["prev"].double, through: j["through"].text)
+    }
+}
+
+/// `compare` and `efficiency` together, parsed from `fitness.json` `running.effective_vo2max`. nil when the block is unavailable or holds neither.
+struct PFVo2Detail: Equatable, Sendable {
+    var compare: PFVo2Compare?
+    var efficiency: PFVo2Efficiency?
+
+    static func parse(_ effectiveVo2max: PFJ) -> PFVo2Detail? {
+        guard effectiveVo2max["available"].bool != false else { return nil }
+        let out = PFVo2Detail(compare: PFVo2Compare.parse(effectiveVo2max["compare"]), efficiency: PFVo2Efficiency.parse(effectiveVo2max["efficiency"]))
+        return out.compare != nil || out.efficiency != nil ? out : nil
+    }
+}
+
+/// One entry of `hr_zone_sets` in `profile.json`: a sport's heart-rate zone set as Garmin holds it.
+struct PFZoneSet: Equatable, Sendable {
+    /// Garmin's sport key, upper case (`RUNNING`, `DEFAULT`, `CYCLING` ...).
+    var sport: String?
+    /// The lowest bpm of zones 1 to 5; empty when the document predates the field.
+    var floors: [Int] = []
+    var maxHr: Double?
+    var ltHr: Double?
+    /// The resting heart rate the set records, which may be stale.
+    var restingHr: Double?
+
+    static func parse(_ j: PFJ) -> PFZoneSet? {
+        guard j.exists, let sport = j["sport"].text else { return nil }
+        return PFZoneSet(sport: sport, floors: j["floors"].array.compactMap { $0.int }, maxHr: j["max"].double, ltHr: j["lt"].double,
+                         restingHr: j["resting"].double)
+    }
+
+    /// Every set in `profile.json` `hr_zone_sets`, in the file's order.
+    static func parseAll(_ list: PFJ) -> [PFZoneSet] { list.array.compactMap { parse($0) } }
+}
+
+/// The `kind` of the three profile-check alerts in `alerts.json`. They carry the same `metrics` as every `live_*` alert (`reading`,
+/// `source`, `plan_effect`, no `his_normal`), so `PFAlert.live` fills as for the others. The server never pushes them: the app shows them.
+enum PFProfileAlertKind {
+    static let zonesDiffer = "live_zones_differ"
+    static let ltStale = "live_lt_stale"
+    static let maxHrDiffers = "live_max_hr_differs"
+    static let all: Set<String> = [zonesDiffer, ltStale, maxHrDiffers]
 }

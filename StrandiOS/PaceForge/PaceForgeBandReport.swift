@@ -166,6 +166,19 @@ struct PFStrapHRV: Equatable {
     var bandHigh: Double?
     var nightsUsed: Int
     var nights: [PFStrapNight]
+    /// `nights_recorded`, `nights_set_aside`, `set_aside_reasons`, `nights_needed`, `baseline_includes`; nil/empty on an older document.
+    var nightsRecorded: Int? = nil
+    var nightsSetAside: Int? = nil
+    var setAsideReasons: [String] = []
+    var nightsNeeded: Int? = nil
+    var baselineIncludes: [String] = []
+
+    /// Same wording as the PaceForge web card; nil when the document predates the night counts.
+    var calibratingText: String? {
+        guard let nightsRecorded, let nightsNeeded else { return nil }
+        let why = setAsideReasons.isEmpty ? "" : " (\(setAsideReasons.joined(separator: ", ")))"
+        return "\(nightsRecorded) strap nights recorded; \(nightsSetAside ?? 0) set aside\(why); \(nightsUsed) counted; \(nightsNeeded) needed"
+    }
 }
 
 // MARK: - Healthspan input panel (healthspan.json: metric.input_panel)
@@ -335,7 +348,10 @@ enum PFBandParse {
         let s = doc["status"]
         return PFStrapHRV(generatedAt: doc["generated_at"].text, state: s["state"].text ?? "calibrating", mean7: number(s["mean7"]),
                           baseline60: number(s["baseline60"]), bandLow: number(s["band_low"]), bandHigh: number(s["band_high"]),
-                          nightsUsed: s["nights_used"].int ?? 0, nights: nights)
+                          nightsUsed: s["nights_used"].int ?? 0, nights: nights,
+                          nightsRecorded: s["nights_recorded"].int, nightsSetAside: s["nights_set_aside"].int,
+                          setAsideReasons: s["set_aside_reasons"].array.compactMap { $0.text }, nightsNeeded: s["nights_needed"].int,
+                          baselineIncludes: s["baseline_includes"].array.compactMap { $0.text })
     }
 
     // MARK: Healthspan inputs

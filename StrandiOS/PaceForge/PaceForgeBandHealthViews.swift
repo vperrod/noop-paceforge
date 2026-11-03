@@ -122,7 +122,7 @@ private struct PFStrapFigures: View {
                         .foregroundStyle(NoopLook.textTertiary)
                 }
             } else {
-                Text("Calibrating: \(hrv.nightsUsed) full nights so far")
+                Text(hrv.calibratingText ?? "Calibrating: \(hrv.nightsUsed) full nights so far")
                     .font(LookFont.text(15, weight: .semibold))
                     .foregroundStyle(NoopLook.textSecondary)
             }
@@ -131,6 +131,10 @@ private struct PFStrapFigures: View {
             }
             if let lastNight {
                 Text(hiding.text(lastNight)).font(LookFont.text(13, weight: .medium)).foregroundStyle(NoopLook.textTertiary)
+            }
+            if !hrv.baselineIncludes.isEmpty {
+                Text("Baseline includes \(hrv.baselineIncludes.joined(separator: ", ")) nights")
+                    .font(LookFont.text(13, weight: .medium)).foregroundStyle(NoopLook.textTertiary)
             }
         }
     }

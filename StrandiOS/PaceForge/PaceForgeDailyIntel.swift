@@ -360,6 +360,13 @@ struct PFVital: Equatable, Identifiable {
     var word: String?
     var illnessDirection: Bool
     var reason: String?
+    /// Night counts behind the range (`recorded_nights`, `excluded_nights`, `nights_needed`), the families of set-aside nights
+    /// (`exclusion_reasons`) and the families put back when too few were left (`baseline_includes`); nil/empty on an older server.
+    var recordedNights: Int? = nil
+    var excludedNights: Int? = nil
+    var nightsNeeded: Int? = nil
+    var exclusionReasons: [String] = []
+    var baselineIncludes: [String] = []
     var id: String { key }
 
     var isOut: Bool { available && status != nil && status != "within" }
@@ -782,7 +789,10 @@ enum PFDailyIntelParse {
             available: v["available"].bool ?? false, value: v["value"].double, nights: v["n"].int,
             typicalLow: v["typical"]["low"].double, typicalHigh: v["typical"]["high"].double,
             typicalCenter: v["typical"]["center"].double, z: v["z"].double, status: v["status"].text, word: v["word"].text,
-            illnessDirection: v["illness_direction"].bool ?? false, reason: v["reason"].text)
+            illnessDirection: v["illness_direction"].bool ?? false, reason: v["reason"].text,
+            recordedNights: v["recorded_nights"].int, excludedNights: v["excluded_nights"].int, nightsNeeded: v["nights_needed"].int,
+            exclusionReasons: v["exclusion_reasons"].array.compactMap { $0.text },
+            baselineIncludes: v["baseline_includes"].array.compactMap { $0.text })
     }
 
     static func health(_ m: PFJ) -> PFHealthMonitor? {

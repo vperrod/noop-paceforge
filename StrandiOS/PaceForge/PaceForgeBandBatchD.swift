@@ -27,6 +27,8 @@ struct PFSettleStatus: Equatable {
     var baselineMin: Double?
     var line: String?
     var gloss: String?
+    /// `baseline_includes`: the families of set-aside nights put back because too few were left; empty on an older document.
+    var baselineIncludes: [String] = []
 }
 
 struct PFSleepSettle: Equatable {
@@ -158,7 +160,8 @@ enum PFBatchDParse {
         let s = doc["status"]
         let status: PFSettleStatus? = isObject(s)
             ? PFSettleStatus(state: s["state"].text ?? "calibrating", settleMin: number(s["settle_min"]),
-                             baselineMin: number(s["baseline_min"]), line: s["line"].text, gloss: s["gloss"].text)
+                             baselineMin: number(s["baseline_min"]), line: s["line"].text, gloss: s["gloss"].text,
+                             baselineIncludes: s["baseline_includes"].array.compactMap { $0.text })
             : nil
         let out = PFSleepSettle(source: doc["source"].text ?? s["source"].text, latest: latest, status: status)
         return out.sentence == nil ? nil : out
