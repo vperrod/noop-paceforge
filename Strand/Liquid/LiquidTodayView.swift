@@ -758,10 +758,16 @@ struct LiquidTodayView: View {
             refreshing = true
             Task {
                 // #334 (iOS twin of Android #426): a pull requests a fresh strap history offload, not just
-                // a UI reload. syncNow() is internally gated (connected + bonded + not-already-backfilling),
-                // so a pull while disconnected or mid-offload safely no-ops. The sync status chip owns the
+                // a UI reload. syncNowReporting() reconnects a strap that is not ready and arms the sync for when it is, and a
+                // pull mid-offload just asks for an immediate push at its end. The sync status chip owns the
                 // ongoing offload progress; the pull spinner stays short (the reload below).
                 _ = ble.syncNowReporting()
+                #if os(iOS)
+                // And the phone's data to the server now, strap or no strap: this is the user's own "update everything". Its own task, so a
+                // slow server never holds the spinner; the held-back hourly push is dropped because this one sends what it would.
+                model.cancelDeferredStrapSyncPush()
+                Task { await SelfHostedPushClient.pushIfEnabled(repo: repo) }
+                #endif
                 #if os(iOS)
                 // PaceForge's Needs you list, rings and cards read their own stores, which a strap sync does not touch. Started first
                 // so its network wait overlaps the reload below instead of adding to it.
@@ -771,9 +777,6 @@ struct LiquidTodayView: View {
                 await load()
                 #if os(iOS)
                 await paceForge
-                // And the phone's data to the server now, strap or no strap: this is the user's own "update everything".
-                model.cancelDeferredStrapSyncPush()
-                await SelfHostedPushClient.pushIfEnabled(repo: repo)
                 #endif
                 try? await Task.sleep(nanoseconds: 350_000_000)   // let the fill read as "done"
                 withAnimation(.easeOut(duration: 0.25)) { refreshing = false }
