@@ -73,6 +73,7 @@ struct PFResultsSheet: View {
         if let detail {
             PFHeartRateCard(samples: detail.samples, splits: detail.splits, avgHr: activity?.avgHr)
             if !detail.zones.isEmpty { PFZonesCard(zones: detail.zones) }
+            if let split = detail.ltSplit { PFLtSplitCard(split: split) }
         } else {
             PFCard("Heart rate", icon: "heart.fill") {
                 PFParagraph("Heart-rate detail for this session is not synced. PaceForge keeps it for recent sessions only.")
@@ -84,7 +85,8 @@ struct PFResultsSheet: View {
             PFHRR1Card(hrr: hrr ?? PFHRR1(kind: PFHRR1.notMeasurable), garmin: garmin, tipsGarminWait: true)
         }
         PFEffortCard(strain: analysis?.strain, band: analysis?.strainBand, trimp: trimp,
-                     recovery: analysis?.recoveryReason)
+                     recovery: analysis?.recoveryReason, rank: detail?.effortRank)
+        if let explainer = detail?.runExplainer, workout.briefing == nil { PFRunExplainerCard(explainer: explainer) }
         PFPlanVersusActual(workout: workout, analysis: analysis)
         if let detail {
             PFPaceCard(samples: detail.samples, splits: detail.splits)
@@ -504,6 +506,8 @@ private struct PFEffortCard: View {
     let band: String?
     let trimp: Double?
     let recovery: String?
+    /// Where this session's load sits among the athlete's recent ones (2026-10-29); nil on an older document.
+    var rank: PFEffortRank?
 
     var body: some View {
         PFCard("Effort", icon: "flame.fill") {
@@ -514,7 +518,7 @@ private struct PFEffortCard: View {
                             .font(StrandFont.rounded(30))
                             .foregroundStyle(StrandPalette.effortColor)
                         Text("of 21").font(StrandFont.caption).foregroundStyle(StrandPalette.textTertiary)
-                        if let band { PFChip(text: band, color: StrandPalette.effortColor) }
+                        if let word = rank?.chipWord ?? band { PFChip(text: word, color: StrandPalette.effortColor) }
                     }
                     GeometryReader { geo in
                         ZStack(alignment: .leading) {
@@ -540,9 +544,77 @@ private struct PFEffortCard: View {
                     }
                 }
                 if let recovery { PFParagraph(PFFormat.capitalized(recovery) + ".") }
+                if let rank { rankRow(rank) }
             }
         }
         .containerIdentifier("pf-effort")
+    }
+
+    /// What the chip word means, and that morning's recovery as its own figure beside it (never folded into the effort).
+    private func rankRow(_ rank: PFEffortRank) -> some View {
+        HStack(alignment: .top, spacing: 14) {
+            PFParagraph(rankSentence(rank))
+            if let score = rank.recovery {
+                PFFigure(value: String(Safe.int(score)), unit: nil, label: "Recovery that morning")
+                    .frame(width: 96)
+            }
+        }
+    }
+
+    private func rankSentence(_ rank: PFEffortRank) -> String {
+        var line = PFFormat.capitalized(rank.chipWord ?? "")
+        if let pct = rank.pct {
+            line += ": this session's load beat \(pct) % of your"
+            if let n = rank.n { line += " \(n)" }
+            line += " earlier sessions"
+            if let days = rank.days { line += " in the last \(days) days" }
+            line += "."
+        }
+        if strain != nil, let band { line += " On the 0 to 21 day scale it reads as \(band.lowercased())." }
+        return line
+    }
+}
+
+/// Time against the Garmin lactate threshold, only when the server stamped `lt_split` on the run.
+private struct PFLtSplitCard: View {
+    let split: PFLtSplit
+
+    var body: some View {
+        PFCard("Against your threshold", icon: "waveform.path.ecg") {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(alignment: .top, spacing: 18) {
+                    if let s = split.belowS { PFFigure(value: PFFormat.clock(s), unit: nil, label: "Below") }
+                    if let s = split.atS { PFFigure(value: PFFormat.clock(s), unit: nil, label: "At") }
+                    if let s = split.aboveS { PFFigure(value: PFFormat.clock(s), unit: nil, label: "Above") }
+                    if let hr = split.ltHr { PFFigure(value: String(Safe.int(hr)), unit: "bpm", label: "Threshold HR") }
+                }
+                Text("Time spent below, within 5 bpm of, and above your lactate-threshold heart rate. Time above it is the hard part of the run.")
+                    .font(StrandFont.caption)
+                    .foregroundStyle(StrandPalette.textTertiary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+}
+
+/// A run no plan session was matched to: the server's best guess at what it was, shown as one.
+private struct PFRunExplainerCard: View {
+    let explainer: PFRunExplainer
+
+    var body: some View {
+        PFCard("What this run looks like", icon: "sparkles") {
+            VStack(alignment: .leading, spacing: 10) {
+                if let t = explainer.looksLike {
+                    PFLabeled(label: "Best guess", text: "This looks like " + t + ". No plan session was matched, so this is inferred from the run itself.")
+                }
+                if let t = explainer.purpose { PFLabeled(label: "Why this session", text: t) }
+                if let t = explainer.body { PFLabeled(label: "What it does", text: t) }
+                if let t = explainer.energy { PFLabeled(label: "Lactate and VO2 effect", text: t) }
+                if let t = explainer.shape { PFLabeled(label: "Why it is built this way", text: t) }
+                if let t = explainer.payoff { PFLabeled(label: "What it buys you", text: t) }
+                if let t = explainer.yours { PFLabeled(label: "Your lactate threshold", text: t) }
+            }
+        }
     }
 }
 

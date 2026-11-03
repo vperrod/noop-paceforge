@@ -57,6 +57,8 @@ struct PFAthleteProfile: Equatable {
     /// The maximum in the running zone set (else the default one): the maximum the watch is configured with.
     var zoneMaxHr: Double?
     var zoneSport: String?
+    /// Every sport's zone set in `hr_zone_sets`, with the floors of zones 1 to 5 where the document has them.
+    var zoneSets: [PFZoneSet] = []
     var ltHr: Double?
     var ltPaceSecPerKm: Double?
     var ltDate: String?
@@ -100,6 +102,7 @@ struct PFAthleteZones: Equatable {
     var ltHr: Double?
     var restingHr: Double?
     var date: String?
+    var sets: [PFZoneSet] = []
 }
 
 // MARK: - Parsing
@@ -141,6 +144,7 @@ extension PFAthleteParse {
         }.sorted { $0.zone < $1.zone }
 
         // The configured maximum lives in the sport's zone set; the running set first, then the default one.
+        out.zoneSets = PFZoneSet.parseAll(p["hr_zone_sets"])
         let sets = p["hr_zone_sets"].array
         let chosen = ["RUNNING", "DEFAULT"].compactMap { sport in sets.first { $0["sport"].text?.uppercased() == sport } }.first
             ?? sets.first { positive($0["max"]) != nil }

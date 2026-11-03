@@ -619,6 +619,7 @@ private struct AthleteMetricSheet: View {
                     PFRevealBar()
                     headerCard
                     if !tile.rows.isEmpty { relatedCard }
+                    if let detail = tile.vo2Detail { vo2Card(detail) }
                     if tile.hasSeries && !isHidden { historyCard }
                     if standingMetric != nil { standingCard }
                     PFCard("What it is", icon: "questionmark.circle") {
@@ -696,6 +697,70 @@ private struct AthleteMetricSheet: View {
             }
         }
         .accessibilityIdentifier("athlete-metric-rows")
+    }
+
+    /// PaceForge's estimate against Garmin's latest reading, the recent months both have, and the speed held at a fixed heart rate.
+    private func vo2Card(_ detail: PFVo2Detail) -> some View {
+        PFCard("Against Garmin", icon: "arrow.left.arrow.right") {
+            VStack(alignment: .leading, spacing: 12) {
+                if let compare = detail.compare, let latest = compare.garminLatest {
+                    AthleteFigureRow(label: "Garmin, latest", value: PFFormat.oneDecimal(latest) + " ml/kg/min", note: garminNote(compare))
+                    if let estimate = tile.vo2Estimate {
+                        AthleteFigureRow(label: "PaceForge, from your runs", value: PFFormat.oneDecimal(estimate) + " ml/kg/min",
+                                         note: compare.gap.map { PFNumber.signed($0, decimals: 1) + " against Garmin" })
+                    }
+                    let months = Array(compare.monthly.suffix(6))
+                    if !months.isEmpty { monthTable(months) }
+                }
+                if let line = efficiencyLine(detail.efficiency) {
+                    Text(line).font(StrandFont.caption).foregroundStyle(StrandPalette.textSecondary)
+                }
+                if let meaning = tile.vo2Meaning { PFParagraph(meaning) }
+            }
+        }
+        .accessibilityIdentifier("athlete-metric-vo2-compare")
+    }
+
+    private func garminNote(_ compare: PFVo2Compare) -> String {
+        var text = "Garmin watch"
+        if let date = compare.garminDate { text += ", " + PFFormat.shortDate(date) }
+        if let age = compare.garminAgeDays, age > 0 { text += ", \(age) days before your last run" }
+        return text
+    }
+
+    private func monthTable(_ months: [PFVo2Month]) -> some View {
+        func cell(_ value: Double?) -> String { value.map { PFFormat.oneDecimal($0) } ?? "\u{2014}" }
+        return VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                Text("Month").frame(maxWidth: .infinity, alignment: .leading)
+                Text("Garmin").frame(width: 64, alignment: .trailing)
+                Text("PaceForge").frame(width: 80, alignment: .trailing)
+            }
+            .font(StrandFont.caption)
+            .foregroundStyle(StrandPalette.textTertiary)
+            ForEach(months, id: \.month) { month in
+                HStack {
+                    Text(month.month).frame(maxWidth: .infinity, alignment: .leading)
+                    Text(cell(month.garmin)).frame(width: 64, alignment: .trailing)
+                    Text(cell(month.paceforge)).frame(width: 80, alignment: .trailing)
+                }
+                .font(StrandFont.subhead)
+                .foregroundStyle(StrandPalette.textPrimary)
+            }
+        }
+        .accessibilityIdentifier("athlete-metric-vo2-months")
+    }
+
+    /// Speed at the fixed heart rate over the last 6 weeks against the 6 before; nil when the document has no efficiency block.
+    private func efficiencyLine(_ efficiency: PFVo2Efficiency?) -> String? {
+        guard let efficiency, let now = efficiency.now else { return nil }
+        let at = efficiency.hr.map { "at " + PFFormat.trimmed($0) + " bpm" } ?? "at a fixed heart rate"
+        var text = "Running efficiency: \(at) you run " + PFFormat.oneDecimal(now) + " km/h over the last 6 weeks"
+        if let through = efficiency.through { text += " to " + PFFormat.shortDate(through) }
+        if let prev = efficiency.prev {
+            text += ", against " + PFFormat.oneDecimal(prev) + " km/h in the 6 before (" + PFNumber.signed(now - prev, decimals: 1) + ")"
+        }
+        return text + "."
     }
 
     private var historyCard: some View {
@@ -1004,6 +1069,7 @@ private struct AthleteZonesSheet: View {
                     }
                     .accessibilityIdentifier("athlete-zones-table")
                     if zones.ltHr != nil || zones.maxHr != nil || zones.maxHrSeen != nil || zones.restingHr != nil { referenceCard }
+                    ForEach(floorSets, id: \.sport) { set in setCard(set) }
                     PFCard("What it is", icon: "questionmark.circle") {
                         PFParagraph("Five heart-rate bands from your watch, from easy to maximal. The maximum above is the one the watch is set to; the highest heart rate it saw in recent activities is shown apart, because the two differ. PaceForge keeps the last zones it received if a sync fails, so check the date.")
                     }
@@ -1024,6 +1090,31 @@ private struct AthleteZonesSheet: View {
         }
         .presentationDetents([.medium, .large])
         .containerIdentifier("athlete-zones-sheet")
+    }
+
+    /// The sports whose set carries the floors of zones 1 to 5; documents from before the field have none, and nothing extra is drawn.
+    private var floorSets: [PFZoneSet] { zones.sets.filter { !$0.floors.isEmpty } }
+
+    private func setCard(_ set: PFZoneSet) -> some View {
+        let name = PFFormat.capitalized((set.sport ?? "").lowercased())
+        return PFCard(name.isEmpty ? "Zone set" : name + " zones", icon: "heart") {
+            VStack(alignment: .leading, spacing: 12) {
+                ForEach(Array(set.floors.enumerated()), id: \.offset) { index, floor in
+                    AthleteFigureRow(label: "Zone \(index + 1)", value: zoneRange(set, index: index, floor: floor), note: nil)
+                }
+                if let lt = set.ltHr { AthleteFigureRow(label: "Lactate threshold", value: bpm(lt), note: "Garmin watch") }
+                if let max = set.maxHr { AthleteFigureRow(label: "Maximum", value: bpm(max), note: "Garmin zone setting") }
+                if let resting = set.restingHr { AthleteFigureRow(label: "Resting", value: bpm(resting), note: "Garmin watch, may be out of date") }
+            }
+        }
+        .accessibilityIdentifier("athlete-zones-set-\((set.sport ?? "").lowercased())")
+    }
+
+    /// A zone runs from its floor to just under the next floor; the last one to the set's maximum when it has one.
+    private func zoneRange(_ set: PFZoneSet, index: Int, floor: Int) -> String {
+        if index + 1 < set.floors.count { return "\(floor) to \(set.floors[index + 1] - 1) bpm" }
+        if let max = set.maxHr { return "\(floor) to " + String(format: "%.0f", max) + " bpm" }
+        return "\(floor) bpm and up"
     }
 
     private var referenceCard: some View {

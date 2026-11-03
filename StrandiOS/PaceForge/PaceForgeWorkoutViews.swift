@@ -108,6 +108,11 @@ struct PFWorkoutDetail: View {
 
             if let b = workout.briefing {
                 if let t = b.purpose { PFLabeled(label: "Why this session", text: t) }
+                if let t = b.body { PFLabeled(label: "What it does", text: t) }
+                if let t = b.energy { PFLabeled(label: "Lactate and VO2 effect", text: t) }
+                if let t = b.shape { PFLabeled(label: "Why it is built this way", text: t) }
+                if let t = b.payoff { PFLabeled(label: "What it buys you", text: t) }
+                if let t = b.yours { PFLabeled(label: "Your lactate threshold", text: t) }
                 if let t = b.structure { PFLabeled(label: "Structure", text: t) }
                 if let t = b.feel { PFLabeled(label: "How it should feel", text: t) }
                 if let t = b.ifWrong { PFLabeled(label: "If it goes wrong", text: t) }

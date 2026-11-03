@@ -58,6 +58,10 @@ struct PFAthleteMetric: Identifiable, Equatable {
     var secondary: String?
     /// Figures from the same family as this one, shown on the detail page with their own dates and sources.
     var rows: [PFAthleteDetailRow] = []
+    /// Garmin's VO2max readings beside PaceForge's estimate and the running efficiency; set on the VO2max tiles only, when the document has them.
+    var vo2Detail: PFVo2Detail?
+    /// PaceForge's current VO2max estimate from the runs, the figure `vo2Detail` is compared against.
+    var vo2Estimate: Double?
 
     init(id: String, label: String, unit: String, value: Double?, valueText: String, source: String, what: String) {
         self.id = id
@@ -70,6 +74,15 @@ struct PFAthleteMetric: Identifiable, Equatable {
     }
 
     var hasSeries: Bool { series.count >= 2 }
+
+    /// One plain line on which side of Garmin's reading the estimate sits; nil without a gap, or under half a point, where they agree.
+    var vo2Meaning: String? {
+        guard let gap = vo2Detail?.compare?.gap, gap.isFinite else { return nil }
+        let size = PFFormat.oneDecimal(abs(gap))
+        if abs(gap) < 0.5 { return "PaceForge's estimate from your runs sits within half a point of Garmin's latest reading, so the two agree." }
+        if gap > 0 { return "Your runs put PaceForge's estimate \(size) above Garmin's latest reading, so the watch may be lagging behind your running." }
+        return "Your runs put PaceForge's estimate \(size) below Garmin's latest reading, so recent runs have not yet shown the level the watch reports."
+    }
 
     /// "since 1 Feb" for a step figure, "as of 1 Feb" otherwise; nil without a date.
     var datedText: String? {
@@ -184,6 +197,8 @@ struct PFAthleteFitness: Equatable {
     /// The effective VO2max per run, smoothed (the `ewma` of each point), oldest first.
     var effectiveVo2: [PFAthletePoint] = []
     var effectiveVo2Current: Double?
+    /// `running.effective_vo2max.compare` and `.efficiency`; nil when the document has neither.
+    var vo2Detail: PFVo2Detail?
     var ftpHistory: [PFAthletePoint] = []
     /// `bike.ftp`: the FTP on file. `autoFtp` is only the estimate from rides.
     var ftp: Double?
@@ -205,6 +220,8 @@ enum PFAthleteParse {
             out.effectiveVo2 = points(effective["series"], valueKey: "ewma", fallbackKey: "value")
             out.effectiveVo2Current = effective["current"].double
         }
+
+        out.vo2Detail = PFVo2Detail.parse(f["running"]["effective_vo2max"])
 
         let bike = f["bike"]
         out.ftpHistory = points(bike["ftp_history"], valueKey: "ftp", fallbackKey: nil)
@@ -328,6 +345,8 @@ enum PFAthleteBuild {
         let family = vo2AndThresholdRows(profile, fit)
         for index in out.tiles.indices where ["vo2max", "vo2max_runs", "lt_pace"].contains(out.tiles[index].id) {
             out.tiles[index].rows = family
+            out.tiles[index].vo2Detail = fit?.vo2Detail
+            out.tiles[index].vo2Estimate = fit?.effectiveVo2Current ?? fit?.effectiveVo2.last?.value
         }
 
         out.runTimes = runTimes(standing, fit)
@@ -629,7 +648,7 @@ enum PFAthleteBuild {
     private static func zones(_ profile: PFAthleteProfile?) -> PFAthleteZones? {
         guard let profile, !profile.zones.isEmpty else { return nil }
         return PFAthleteZones(zones: profile.zones, sport: profile.zoneSport, maxHr: profile.zoneMaxHr, maxHrSeen: profile.maxHrSeen,
-                              ltHr: profile.ltHr, restingHr: profile.restingHr, date: profile.date)
+                              ltHr: profile.ltHr, restingHr: profile.restingHr, date: profile.date, sets: profile.zoneSets)
     }
 
     // MARK: Strengths, weaknesses, areas

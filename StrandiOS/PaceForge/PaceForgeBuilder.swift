@@ -521,8 +521,11 @@ enum PFBuilder {
         guard b.exists else { return nil }
         let out = PFBriefing(purpose: b["purpose"].text, structure: b["structure"].text, feel: b["feel"].text,
                              ifWrong: b["if_wrong"].text, cue: b["cue"].text, venue: b["venue"].text,
-                             fuel: b["fuel"].text, warmup: b["warmup"].text)
-        let all = [out.purpose, out.structure, out.feel, out.ifWrong, out.cue, out.venue, out.fuel, out.warmup]
+                             fuel: b["fuel"].text, warmup: b["warmup"].text,
+                             body: b["body"].text, energy: b["energy"].text, shape: b["shape"].text,
+                             payoff: b["payoff"].text, yours: b["yours"].text)
+        let all = [out.purpose, out.structure, out.feel, out.ifWrong, out.cue, out.venue, out.fuel, out.warmup,
+                   out.body, out.energy, out.shape, out.payoff, out.yours]
         return all.contains { $0 != nil } ? out : nil
     }
 
@@ -1045,6 +1048,9 @@ enum PFBuilder {
         if w["temp_c"].double != nil || w["desc"].text != nil {
             out.weather = PFWeather(tempC: w["temp_c"].double, desc: w["desc"].text)
         }
+        out.runExplainer = PFRunExplainer.parse(d["run_explainer"])
+        out.ltSplit = PFLtSplit.parse(d["lt_split"])
+        out.effortRank = PFEffortRank.parse(d["effort_rank"])
         return out
     }
 
