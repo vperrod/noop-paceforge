@@ -106,9 +106,9 @@ final class WeeklyGoalsTests: XCTestCase {
         XCTAssertEqual(WeeklyGoalEngine.value(for: .zone45Minutes, days: list, usualBedtime: nil), 42.5)
     }
 
-    func testActiveDaysNeedEightThousandSteps() {
-        let list = [WeeklyGoalDay(day: week[0], steps: 8_000), WeeklyGoalDay(day: week[1], steps: 7_999),
-                    WeeklyGoalDay(day: week[2], steps: 12_000)]
+    func testActiveDaysNeedAWorkoutOfTwentyMinutes() {
+        let list = [WeeklyGoalDay(day: week[0], activeMinutes: 20), WeeklyGoalDay(day: week[1], activeMinutes: 19),
+                    WeeklyGoalDay(day: week[2], activeMinutes: 45)]
         XCTAssertEqual(WeeklyGoalEngine.value(for: .steps, days: list, usualBedtime: nil), 2)
     }
 
@@ -136,13 +136,13 @@ final class WeeklyGoalsTests: XCTestCase {
         XCTAssertEqual(WeeklyGoalEngine.soFar(for: .sleepHours, days: list, usualBedtime: nil, today: week[1]), "Last night 6 h 42 m")
     }
 
-    func testSoFarSaysTodaysSteps() {
-        let list = [WeeklyGoalDay(day: week[1], steps: 4806)]
-        XCTAssertEqual(WeeklyGoalEngine.soFar(for: .steps, days: list, usualBedtime: nil, today: week[1]), "Today 4806")
+    func testSoFarSaysTodaysWorkout() {
+        let list = [WeeklyGoalDay(day: week[1], activeMinutes: 31)]
+        XCTAssertEqual(WeeklyGoalEngine.soFar(for: .steps, days: list, usualBedtime: nil, today: week[1]), "Today 31 min")
     }
 
     func testSoFarSaysNothingWithoutTodaysRow() {
-        let list = [WeeklyGoalDay(day: week[0], steps: 9000)]
+        let list = [WeeklyGoalDay(day: week[0], activeMinutes: 60)]
         XCTAssertNil(WeeklyGoalEngine.soFar(for: .steps, days: list, usualBedtime: nil, today: week[1]))
     }
 
@@ -180,13 +180,13 @@ final class WeeklyGoalsTests: XCTestCase {
     }
 
     func testProgressFollowsThePlansTargetsInOrder() {
-        let list = days { WeeklyGoalDay(day: week[$0], sleepMinutes: 8 * 60, steps: 9_000) }
+        let list = days { WeeklyGoalDay(day: week[$0], sleepMinutes: 8 * 60, activeMinutes: 40) }
         let result = WeeklyGoalEngine.progress(plan: .preset(.feelBetter), days: list, usualBedtime: nil)
         XCTAssertEqual(result.map(\.metric), [.steps, .sleepHours, .sleepConsistency])
     }
 
     func testProgressValuesComeFromTheWeek() {
-        let list = days { WeeklyGoalDay(day: week[$0], sleepMinutes: 8 * 60, steps: 9_000) }
+        let list = days { WeeklyGoalDay(day: week[$0], sleepMinutes: 8 * 60, activeMinutes: 40) }
         let result = WeeklyGoalEngine.progress(plan: .preset(.feelBetter), days: list, usualBedtime: nil)
         XCTAssertEqual(result.map(\.value), [7, 7, 0])
     }

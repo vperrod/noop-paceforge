@@ -17,8 +17,9 @@ approximate; downloads are on the [Releases](https://github.com/NoopApp/noop/rel
 
 ---
 
-## 12.0.12 build 509 (PaceForge iPhone build): Weekly goals hard effort reads the strap's heart rate
+## 12.0.12 build 509 (PaceForge iPhone build): Weekly goals count workouts, hard effort reads the strap's heart rate
 
+- Active days now count days with a workout of 20 minutes or more, not steps.
 - Hard effort (minutes in zones 4 and 5) now uses the strap's own heart rate when it recorded the session, then falls back to the Garmin series. On 2026-11-04 the Garmin watch read a 12 km/h treadmill run at max 146 while the strap read mean 159 and max 179, so the ring showed 8 minutes for a week the strap put near 50.
 
 ## 12.0.12 build 508 (PaceForge iPhone build): the day's results reach the server first

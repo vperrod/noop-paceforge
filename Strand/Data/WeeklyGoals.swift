@@ -15,7 +15,7 @@ enum WeeklyGoalMetric: String, CaseIterable, Codable, Identifiable {
     case sleepConsistency
     /// Minutes in heart-rate zones 4 and 5, over the week.
     case zone45Minutes
-    /// Days with at least `stepsThreshold` steps.
+    /// Days with a workout of at least `activeDayMinutes` minutes. (The case keeps its old name: saved plans store it.)
     case steps
     /// Nights you were asleep by your planned bedtime (plus `windDownGraceMinutes`).
     case windDown
@@ -24,7 +24,7 @@ enum WeeklyGoalMetric: String, CaseIterable, Codable, Identifiable {
 
     static let sleepHoursMinutes = 7 * 60
     static let consistencyWindowMinutes = 45
-    static let stepsThreshold = 8_000
+    static let activeDayMinutes = 20
     static let windDownGraceMinutes = 30
 
     var title: String {
@@ -47,7 +47,7 @@ enum WeeklyGoalMetric: String, CaseIterable, Codable, Identifiable {
         case .zone45Minutes:
             return "Minutes this week with your heart rate in zones 4 and 5."
         case .steps:
-            return "Days with at least 8,000 steps."
+            return "Days with a workout of at least \(Self.activeDayMinutes) minutes."
         case .windDown:
             return "Nights you were asleep by your planned bedtime. Needs the wind-down reminder to be on."
         }
@@ -168,16 +168,17 @@ struct WeeklyGoalDay: Equatable {
     var sleepMinutes: Double?
     var bedtimeMinute: Int?
     var plannedBedtimeMinute: Int?
-    var steps: Int?
+    /// The longest workout of the day, in minutes (0 when there was none).
+    var activeMinutes: Double?
     var zone45Minutes: Double?
 
     init(day: String, sleepMinutes: Double? = nil, bedtimeMinute: Int? = nil, plannedBedtimeMinute: Int? = nil,
-         steps: Int? = nil, zone45Minutes: Double? = nil) {
+         activeMinutes: Double? = nil, zone45Minutes: Double? = nil) {
         self.day = day
         self.sleepMinutes = sleepMinutes
         self.bedtimeMinute = bedtimeMinute
         self.plannedBedtimeMinute = plannedBedtimeMinute
-        self.steps = steps
+        self.activeMinutes = activeMinutes
         self.zone45Minutes = zone45Minutes
     }
 }
@@ -293,7 +294,7 @@ enum WeeklyGoalEngine {
         case .zone45Minutes:
             return days.compactMap(\.zone45Minutes).reduce(0, +)
         case .steps:
-            return Double(days.filter { ($0.steps ?? 0) >= WeeklyGoalMetric.stepsThreshold }.count)
+            return Double(days.filter { ($0.activeMinutes ?? 0) >= Double(WeeklyGoalMetric.activeDayMinutes) }.count)
         case .windDown:
             return Double(days.filter { day in
                 guard let bedtime = day.bedtimeMinute, let planned = day.plannedBedtimeMinute else { return false }
@@ -319,7 +320,7 @@ enum WeeklyGoalEngine {
         return total >= 60 ? "\(total / 60) h \(total % 60) m" : "\(total) m"
     }
 
-    /// Where the week stands today for one metric: last night's sleep or bedtime, today's steps, the best day's hard
+    /// Where the week stands today for one metric: last night's sleep or bedtime, today's workout, the best day's hard
     /// minutes. nil when there is nothing to say yet. Nights are keyed by the morning they ended, so "last night" is today's row.
     static func soFar(for metric: WeeklyGoalMetric, days: [WeeklyGoalDay], usualBedtime: Int?, today: String) -> String? {
         let day = days.first { $0.day == today }
@@ -327,7 +328,7 @@ enum WeeklyGoalEngine {
         case .sleepHours:
             return day?.sleepMinutes.map { "Last night \(durationText(minutes: $0))" }
         case .steps:
-            return day?.steps.map { "Today \($0)" }
+            return day?.activeMinutes.map { $0 >= 1 ? "Today \(Int($0.rounded())) min" : "No workout yet today" }
         case .zone45Minutes:
             let best = days.compactMap(\.zone45Minutes).max() ?? 0
             return best >= 1 ? "Best day \(Int(best.rounded())) min" : nil

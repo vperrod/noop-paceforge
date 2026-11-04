@@ -22,7 +22,7 @@ enum WeeklyGoalsLoader {
     private static var memo: (key: String, week: Week)?
 
     /// The current Monday-to-Sunday week, from the sleep sessions, daily rows and workouts already on the phone.
-    /// Zone minutes read heart-rate samples per workout, so they are only worked out when the plan asks for them.
+    /// Active days count the week's workouts; zone minutes read heart-rate samples per workout, so they are only worked out when the plan asks for them.
     static func load(repo: Repository, profile: ProfileStore, needsZones: Bool, now: Date = Date(),
                      calendar: Calendar = .current) async -> Week {
         let todayKey = Repository.localDayKey(now)
@@ -36,11 +36,6 @@ enum WeeklyGoalsLoader {
         let usualFrom = startDate.addingTimeInterval(-14 * 86_400)
 
         let metrics = Dictionary(repo.days.map { ($0.day, $0) }, uniquingKeysWith: { first, _ in first })
-        let apple = Dictionary((await repo.appleDailyRows(days: 21)).map { ($0.day, $0) }, uniquingKeysWith: { first, _ in first })
-        let resolvedSteps = Dictionary(
-            (await repo.resolvedSteps(from: keys.first ?? start, to: keys.last ?? start)).values.map { ($0.day, $0.value) },
-            uniquingKeysWith: { first, _ in first })
-
         // Main sleeps (long enough not to be a nap), by the day they ended. Of several in one day the longest wins.
         var longest: [String: (length: Int, bedtime: Int)] = [:]
         var prior: [Int] = []
@@ -57,21 +52,23 @@ enum WeeklyGoalsLoader {
             }
         }
 
+        // Every workout of the week gives the day its longest session (an active day); zone minutes are only worked out when
+        // the plan asks for them, because they read heart-rate samples per workout.
         var zoneByDay: [String: Double] = [:]
-        if needsZones {
-            for row in await repo.workoutRows(days: 14) {
-                let began = Date(timeIntervalSince1970: TimeInterval(row.startTs))
-                guard began >= startDate, began < endDate else { continue }
-                let minutes = await zone45Minutes(row, repo: repo, profile: profile)
-                zoneByDay[Repository.localDayKey(began), default: 0] += minutes
-            }
+        var longestWorkout: [String: Double] = [:]
+        for row in await repo.workoutRows(days: 14) {
+            let began = Date(timeIntervalSince1970: TimeInterval(row.startTs))
+            guard began >= startDate, began < endDate else { continue }
+            let day = Repository.localDayKey(began)
+            longestWorkout[day] = max(longestWorkout[day] ?? 0, (row.durationS ?? Double(row.endTs - row.startTs)) / 60.0)
+            if needsZones { zoneByDay[day, default: 0] += await zone45Minutes(row, repo: repo, profile: profile) }
         }
 
         let days = keys.map { day -> WeeklyGoalDay in
             var out = WeeklyGoalDay(day: day)
             out.sleepMinutes = metrics[day]?.totalSleepMin
             out.bedtimeMinute = longest[day]?.bedtime
-            out.steps = resolvedSteps[day].map { Int($0.rounded()) } ?? metrics[day]?.steps ?? apple[day]?.steps
+            out.activeMinutes = longestWorkout[day] ?? 0
             out.zone45Minutes = zoneByDay[day]
             if WindDownNudge.isEnabled, let weekday = WeeklyGoalEngine.weekday(of: day) {
                 out.plannedBedtimeMinute = ((WindDownNudge.wakeMinutes(forWeekday: weekday) - WindDownNudge.sleepSpanMinutes) % 1_440 + 1_440) % 1_440
