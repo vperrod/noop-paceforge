@@ -92,7 +92,7 @@ enum WeeklyGoalsLoader {
         if let percents = WorkoutZones.percents(row.zonesJSON), duration > 0 {
             return duration * (percents[3] + percents[4]) / 100.0
         }
-        if let minutes = await repo.strapZoneMinutes(from: row.startTs, to: row.endTs, zoneSet: profile.hrZoneSet),
+        if let minutes = await repo.strapZoneMinutes(from: row.startTs, to: row.endTs, zoneSet: profile.hrZoneSet, source: row.source),
            minutes.count >= 5 {
             return minutes[3] + minutes[4]
         }

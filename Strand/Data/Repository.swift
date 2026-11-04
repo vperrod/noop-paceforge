@@ -3540,9 +3540,10 @@ final class Repository: ObservableObject {
     /// Zone MINUTES for a window from the worn strap's own heart rate, for the Weekly goals' hard effort. A Garmin treadmill
     /// session can read well under the strap (2026-11-04: Garmin max 146, strap mean 159 and max 179), and the strap is on the
     /// wrist all day, so it is used when it recorded at least 80% of the seconds. nil otherwise, and the caller falls back.
-    func strapZoneMinutes(from: Int, to: Int, zoneSet: HRZoneSet) async -> [Double]? {
-        guard to > from else { return nil }
-        let samples = await hrSamples(deviceIds: [deviceId], from: from, to: to, limit: 20_000)
+    /// Only for PaceForge (Garmin) rows: a strap-detected or file-imported row must keep reading its own device.
+    func strapZoneMinutes(from: Int, to: Int, zoneSet: HRZoneSet, source: String) async -> [Double]? {
+        guard to > from, WorkoutSource.classify(source) == .paceforge else { return nil }
+        let samples = await hrSamples(deviceIds: [deviceId], from: from, to: to, limit: max(20_000, to - from + 1))
         guard Double(samples.count) >= 0.8 * Double(to - from) else { return nil }
         let minutes = HRZones.timeInZone(samples, zoneSet: zoneSet).seconds.map { $0 / 60.0 }
         return minutes.contains(where: { $0 > 0 }) ? minutes : nil
