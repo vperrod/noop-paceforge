@@ -497,6 +497,7 @@ enum SelfHostedPushClient {
             let peerId = stableSourceId()
             UserDefaults.standard.set(cursor, forKey: replicaCursorKey(endpoint, peerId, "upload"))
             UserDefaults.standard.set(cursor, forKey: replicaCursorKey(endpoint, peerId, "download"))
+            UserDefaults.standard.set(cursor, forKey: replicaCursorKey(endpoint, summaryPeerId(for: peerId), "upload"))
         }
         try? fm.removeItem(at: snapshot)
     }
@@ -529,9 +530,13 @@ enum SelfHostedPushClient {
         return json
     }
 
-    /// Exchange all committed, journaled NOOP rows in bounded, retry-safe batches.
-    @MainActor
+    /// The second peer the summary lane writes as: the stable peer id with its last hex digit flipped, still a 36-char UUID.
+    private static func summaryPeerId(for peerId: String) -> String {
+        String(peerId.dropLast()) + (peerId.last == "0" ? "1" : "0")
+    }
+
     /// Sends one lane of the change journal in batches, newest cursor kept per lane.
+    @MainActor
     private static func uploadLane(_ lane: WhoopStore.ReplicaLane, peerId: String, cursorKey: String, endpoint: URL,
                                    token: String, baseServerCursor: Int64, store: WhoopStore) async throws -> Int {
         var exchanged = 0
@@ -569,6 +574,8 @@ enum SelfHostedPushClient {
         return exchanged
     }
 
+    /// Exchange all committed, journaled NOOP rows in bounded, retry-safe batches.
+    @MainActor
     private static func replicateChanges(endpoint: URL, token: String, peerId: String,
                                          store: WhoopStore) async throws -> Int {
         var exchanged = 0
@@ -577,14 +584,14 @@ enum SelfHostedPushClient {
         // The day's results go first on their own peer, then the per-second samples: after an outage last night's HRV
         // and sleep must not queue behind a million sample rows. Each lane keeps its own cursor; the server tracks
         // peers separately, and the bulk lane skips the summary tables so an old version never overwrites a newer one.
-        let summaryPeerId = String(peerId.dropLast()) + (peerId.last == "0" ? "1" : "0")
+        let summaryPeer = summaryPeerId(for: peerId)
         let bulkKey = replicaCursorKey(endpoint, peerId, "upload")
-        let summaryKey = replicaCursorKey(endpoint, summaryPeerId, "upload")
+        let summaryKey = replicaCursorKey(endpoint, summaryPeer, "upload")
         if UserDefaults.standard.object(forKey: summaryKey) == nil {
             // Rows before the bulk cursor already went across (the bulk lane used to carry every table).
             UserDefaults.standard.set(UserDefaults.standard.integer(forKey: bulkKey), forKey: summaryKey)
         }
-        exchanged += try await uploadLane(.summary, peerId: summaryPeerId, cursorKey: summaryKey,
+        exchanged += try await uploadLane(.summary, peerId: summaryPeer, cursorKey: summaryKey,
                                           endpoint: endpoint, token: token, baseServerCursor: baseServerCursor, store: store)
         exchanged += try await uploadLane(.bulk, peerId: peerId, cursorKey: bulkKey,
                                           endpoint: endpoint, token: token, baseServerCursor: baseServerCursor, store: store)

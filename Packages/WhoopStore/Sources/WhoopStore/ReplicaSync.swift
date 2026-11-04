@@ -44,8 +44,8 @@ extension WhoopStore {
         case .summary?: filter = " AND tableName IN (\(marks))"
         case .bulk?: filter = " AND tableName NOT IN (\(marks))"
         }
-        var arguments: [DatabaseValueConvertible] = [cursor]
-        if lane != nil { arguments.append(contentsOf: Self.replicaSummaryTables.map { $0 as DatabaseValueConvertible }) }
+        var arguments: [(any DatabaseValueConvertible)?] = [cursor]
+        if lane != nil { arguments.append(contentsOf: Self.replicaSummaryTables.map { $0 as (any DatabaseValueConvertible)? }) }
         arguments.append(limit)
         return try syncRead { db in
             try Row.fetchAll(db, sql: """

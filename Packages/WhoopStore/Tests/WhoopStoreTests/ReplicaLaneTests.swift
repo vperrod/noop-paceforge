@@ -5,7 +5,7 @@ import GRDB
 final class ReplicaLaneTests: XCTestCase {
     private func storeWithJournal() async throws -> WhoopStore {
         let store = try await WhoopStore.inMemory()
-        try store.syncWrite { db in
+        try await store.syncWrite { db in
             try db.execute(sql: "DELETE FROM __noop_sync_changes")
             for (table, key) in [("hrSample", "1"), ("dailyMetric", "2"), ("rrInterval", "3"), ("sleepSession", "4")] {
                 try db.execute(sql: "INSERT INTO __noop_sync_changes(tableName,keyJSON,operation,rowJSON) VALUES(?,?,'upsert','{}')",
