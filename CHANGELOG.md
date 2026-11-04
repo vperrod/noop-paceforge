@@ -17,6 +17,11 @@ approximate; downloads are on the [Releases](https://github.com/NoopApp/noop/rel
 
 ---
 
+## 12.0.12 build 506 (PaceForge iPhone build): Weekly goals say where the week stands, Daily report on Today
+
+- Each Weekly goals ring has a line under it: last night's sleep, today's steps, last night's bedtime against your usual, or your best hard day. A ring at 0 now shows why.
+- A "Daily report" row on Today (under Today's call) opens the daily report. It was only in the Coach.
+
 ## 12.0.12 build 505 (PaceForge iPhone build): pull down on Today updates everything
 
 - **Pull down on Today always does the full update.** It syncs the strap (reconnecting it first if it is not ready), refreshes PaceForge, reloads the screen and sends your data to the server at once. Before, it did nothing at all unless the strap was ready, and it never sent to the server by itself. Not verified on a real iPhone.

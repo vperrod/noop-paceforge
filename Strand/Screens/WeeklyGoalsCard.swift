@@ -202,7 +202,8 @@ struct WeeklyGoalsCard: View {
         let week = await WeeklyGoalsLoader.load(repo: repo, profile: profile,
                                                 needsZones: plan.targets.contains { $0.metric == .zone45Minutes })
         guard !Task.isCancelled else { return }
-        progress = WeeklyGoalEngine.progress(plan: plan, days: week.days, usualBedtime: week.usualBedtime)
+        progress = WeeklyGoalEngine.progress(plan: plan, days: week.days, usualBedtime: week.usualBedtime,
+                                             today: Repository.localDayKey(Date()))
     }
 }
 
@@ -242,6 +243,14 @@ struct WeeklyGoalRing: View {
                 .multilineTextAlignment(.center)
                 .lineLimit(2)
                 .minimumScaleFactor(0.8)
+            if let soFar = progress.soFar, !needsReminder {
+                Text(verbatim: soFar)
+                    .font(StrandFont.caption)
+                    .foregroundStyle(StrandPalette.accent)
+                    .multilineTextAlignment(.center)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.8)
+            }
         }
         .frame(maxWidth: .infinity)
         .accessibilityElement(children: .ignore)

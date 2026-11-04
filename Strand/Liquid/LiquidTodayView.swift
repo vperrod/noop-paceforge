@@ -452,6 +452,7 @@ struct LiquidTodayView: View {
                                 PFPageNote(key: "today")
                                 TodayPFReadout(isToday: true)
                                 PFTodaysCallStoreHost(compact: true)
+                                PFDailyReportRow()
                             }
                             #else
                             EmptyView()

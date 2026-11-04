@@ -129,6 +129,34 @@ final class WeeklyGoalsTests: XCTestCase {
         XCTAssertEqual(WeeklyGoalEngine.value(for: .windDown, days: list, usualBedtime: nil), 1)
     }
 
+    // MARK: So far
+
+    func testSoFarSaysLastNightsSleep() {
+        let list = [WeeklyGoalDay(day: week[1], sleepMinutes: 6 * 60 + 42)]
+        XCTAssertEqual(WeeklyGoalEngine.soFar(for: .sleepHours, days: list, usualBedtime: nil, today: week[1]), "Last night 6 h 42 m")
+    }
+
+    func testSoFarSaysTodaysSteps() {
+        let list = [WeeklyGoalDay(day: week[1], steps: 4806)]
+        XCTAssertEqual(WeeklyGoalEngine.soFar(for: .steps, days: list, usualBedtime: nil, today: week[1]), "Today 4,806")
+    }
+
+    func testSoFarSaysNothingWithoutTodaysRow() {
+        let list = [WeeklyGoalDay(day: week[0], steps: 9000)]
+        XCTAssertNil(WeeklyGoalEngine.soFar(for: .steps, days: list, usualBedtime: nil, today: week[1]))
+    }
+
+    func testSoFarGivesTheBestHardDay() {
+        let list = [WeeklyGoalDay(day: week[0], zone45Minutes: 12), WeeklyGoalDay(day: week[1], zone45Minutes: 25)]
+        XCTAssertEqual(WeeklyGoalEngine.soFar(for: .zone45Minutes, days: list, usualBedtime: nil, today: week[1]), "Best day 25 min")
+    }
+
+    func testSoFarComparesBedtimeWithTheUsualOne() {
+        let list = [WeeklyGoalDay(day: week[1], bedtimeMinute: 23 * 60 + 40)]
+        XCTAssertEqual(WeeklyGoalEngine.soFar(for: .sleepConsistency, days: list, usualBedtime: 23 * 60 + 15, today: week[1]),
+                       "Last night 25 min later than usual")
+    }
+
     // MARK: Progress
 
     func testProgressFractionIsCappedAtOne() {

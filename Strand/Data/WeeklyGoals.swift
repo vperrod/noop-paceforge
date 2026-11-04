@@ -186,6 +186,8 @@ struct WeeklyGoalProgress: Equatable, Identifiable {
     var metric: WeeklyGoalMetric
     var value: Double
     var target: Int
+    /// One line on where the week stands right now ("Last night 6 h 42 m"), so a ring at 0 still says something.
+    var soFar: String? = nil
     var id: String { metric.rawValue }
 
     /// 0...1, capped at 1 once the target is reached.
@@ -196,7 +198,7 @@ struct WeeklyGoalProgress: Equatable, Identifiable {
     var valueText: String { "\(Int(value.rounded())) of \(target) \(metric.unit)" }
 
     var accessibilityText: String {
-        "\(metric.title): \(valueText)" + (isMet ? ", done" : "")
+        "\(metric.title): \(valueText)" + (isMet ? ", done" : "") + (soFar.map { ". \($0)" } ?? "")
     }
 }
 
@@ -300,12 +302,47 @@ enum WeeklyGoalEngine {
         }
     }
 
-    static func progress(plan: WeeklyGoalPlan, days: [WeeklyGoalDay], usualBedtime: Int?) -> [WeeklyGoalProgress] {
+    static func progress(plan: WeeklyGoalPlan, days: [WeeklyGoalDay], usualBedtime: Int?, today: String? = nil) -> [WeeklyGoalProgress] {
         plan.targets.map { target in
             WeeklyGoalProgress(metric: target.metric,
                                value: value(for: target.metric, days: days, usualBedtime: usualBedtime),
-                               target: target.target)
+                               target: target.target,
+                               soFar: today.flatMap { soFar(for: target.metric, days: days, usualBedtime: usualBedtime, today: $0) })
         }
+    }
+
+    // MARK: So far
+
+    /// "6 h 42 m" from minutes.
+    static func durationText(minutes: Double) -> String {
+        let total = Int(minutes.rounded())
+        return total >= 60 ? "\(total / 60) h \(total % 60) m" : "\(total) m"
+    }
+
+    /// Where the week stands today for one metric: last night's sleep or bedtime, today's steps, the best day's hard
+    /// minutes. nil when there is nothing to say yet. Nights are keyed by the morning they ended, so "last night" is today's row.
+    static func soFar(for metric: WeeklyGoalMetric, days: [WeeklyGoalDay], usualBedtime: Int?, today: String) -> String? {
+        let day = days.first { $0.day == today }
+        switch metric {
+        case .sleepHours:
+            return day?.sleepMinutes.map { "Last night \(durationText(minutes: $0))" }
+        case .steps:
+            return day?.steps.map { "Today \($0.formatted())" }
+        case .zone45Minutes:
+            let best = days.compactMap(\.zone45Minutes).max() ?? 0
+            return best >= 1 ? "Best day \(Int(best.rounded())) min" : nil
+        case .sleepConsistency:
+            guard let bedtime = day?.bedtimeMinute, let usualBedtime else { return nil }
+            return bedtimeText(signedDifference(bedtime, from: usualBedtime), against: "usual")
+        case .windDown:
+            guard let bedtime = day?.bedtimeMinute, let planned = day?.plannedBedtimeMinute else { return nil }
+            return bedtimeText(signedDifference(bedtime, from: planned), against: "plan")
+        }
+    }
+
+    private static func bedtimeText(_ minutes: Int, against reference: String) -> String {
+        if minutes == 0 { return "Last night on your \(reference) time" }
+        return "Last night \(abs(minutes)) min \(minutes > 0 ? "later" : "earlier") than \(reference)"
     }
 }
 
