@@ -138,7 +138,7 @@ final class WeeklyGoalsTests: XCTestCase {
 
     func testSoFarSaysTodaysSteps() {
         let list = [WeeklyGoalDay(day: week[1], steps: 4806)]
-        XCTAssertEqual(WeeklyGoalEngine.soFar(for: .steps, days: list, usualBedtime: nil, today: week[1]), "Today 4,806")
+        XCTAssertEqual(WeeklyGoalEngine.soFar(for: .steps, days: list, usualBedtime: nil, today: week[1]), "Today 4806")
     }
 
     func testSoFarSaysNothingWithoutTodaysRow() {
@@ -154,7 +154,7 @@ final class WeeklyGoalsTests: XCTestCase {
     func testSoFarComparesBedtimeWithTheUsualOne() {
         let list = [WeeklyGoalDay(day: week[1], bedtimeMinute: 23 * 60 + 40)]
         XCTAssertEqual(WeeklyGoalEngine.soFar(for: .sleepConsistency, days: list, usualBedtime: 23 * 60 + 15, today: week[1]),
-                       "Last night 25 min later than usual")
+                       "Bed 25 min later")
     }
 
     // MARK: Progress

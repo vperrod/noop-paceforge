@@ -327,22 +327,21 @@ enum WeeklyGoalEngine {
         case .sleepHours:
             return day?.sleepMinutes.map { "Last night \(durationText(minutes: $0))" }
         case .steps:
-            return day?.steps.map { "Today \($0.formatted())" }
+            return day?.steps.map { "Today \($0)" }
         case .zone45Minutes:
             let best = days.compactMap(\.zone45Minutes).max() ?? 0
             return best >= 1 ? "Best day \(Int(best.rounded())) min" : nil
         case .sleepConsistency:
             guard let bedtime = day?.bedtimeMinute, let usualBedtime else { return nil }
-            return bedtimeText(signedDifference(bedtime, from: usualBedtime), against: "usual")
+            return bedtimeText(signedDifference(bedtime, from: usualBedtime))
         case .windDown:
             guard let bedtime = day?.bedtimeMinute, let planned = day?.plannedBedtimeMinute else { return nil }
-            return bedtimeText(signedDifference(bedtime, from: planned), against: "plan")
+            return bedtimeText(signedDifference(bedtime, from: planned))
         }
     }
 
-    private static func bedtimeText(_ minutes: Int, against reference: String) -> String {
-        if minutes == 0 { return "Last night on your \(reference) time" }
-        return "Last night \(abs(minutes)) min \(minutes > 0 ? "later" : "earlier") than \(reference)"
+    private static func bedtimeText(_ minutes: Int) -> String {
+        minutes == 0 ? "Bed on time" : "Bed \(abs(minutes)) min \(minutes > 0 ? "later" : "earlier")"
     }
 }
 
