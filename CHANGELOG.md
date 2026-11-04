@@ -20,6 +20,7 @@ approximate; downloads are on the [Releases](https://github.com/NoopApp/noop/rel
 ## 12.0.12 build 506 (PaceForge iPhone build): Weekly goals say where the week stands, Daily report on Today
 
 - Each Weekly goals ring has a line under it: last night's sleep, today's steps, last night's bedtime against your usual (e.g. "Bed 25 min later"), or your best hard day. A ring at 0 now shows why.
+- The phone sends its data to the server in batches under 512 KB (a too-big batch was stuck for two days).
 - A "Daily report" row on Today (under Today's call) opens the daily report. It was only in the Coach.
 
 ## 12.0.12 build 505 (PaceForge iPhone build): pull down on Today updates everything

@@ -538,15 +538,23 @@ enum SelfHostedPushClient {
         let downloadKey = replicaCursorKey(endpoint, peerId, "download")
         var uploadCursor = Int64(UserDefaults.standard.integer(forKey: uploadKey))
         let baseServerCursor = Int64(UserDefaults.standard.integer(forKey: downloadKey))
+        var pageLimit = 500
         for _ in 0..<1_000 {
-            let page = try await store.replicaChanges(after: uploadCursor, limit: 500)
+            let page = try await store.replicaChanges(after: uploadCursor, limit: pageLimit)
             guard !page.isEmpty else { break }
         let changes: [[String: Any]] = page.map { change in
             ["seq": change.seq, "table": change.table, "key": change.keyJSON,
              "operation": change.operation, "row": change.rowJSON.map { $0 as Any } ?? NSNull()]
             }
+            let payload: [String: Any] = ["peerId": peerId, "baseServerCursor": baseServerCursor, "changes": changes]
+            // A batch of 500 once passed the receiver's 1 MiB read cap and was retried forever (stuck 2026-11-02 to 11-04),
+            // so a batch over 512 KB is halved before it is sent.
+            if page.count > 1, let size = try? JSONSerialization.data(withJSONObject: payload).count, size > 512 * 1_024 {
+                pageLimit = max(1, pageLimit / 2)
+                continue
+            }
             let response = try await postJSON(databaseEndpoint(from: endpoint, suffix: "changes"), token: token,
-                payload: ["peerId": peerId, "baseServerCursor": baseServerCursor, "changes": changes])
+                payload: payload)
             guard let ack = response["ackCursor"] as? Int64 ?? (response["ackCursor"] as? Int).map(Int64.init),
                   ack >= uploadCursor else {
                 throw Failure.receiver("The Mini PC did not acknowledge the NOOP change batch.")
