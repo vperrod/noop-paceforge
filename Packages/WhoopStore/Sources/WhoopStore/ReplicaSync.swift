@@ -27,13 +27,31 @@ extension WhoopStore {
         }
     }
 
-    public func replicaChanges(after cursor: Int64, limit: Int = 200) async throws -> [ReplicaChange] {
+    /// The small tables that hold a day's results. They are sent on their own lane, ahead of the per-second samples,
+    /// so after an outage last night's HRV and sleep reach PaceForge in minutes and not behind a million sample rows.
+    public static let replicaSummaryTables = ["dailyMetric", "sleepSession", "workout", "liveSession", "journal",
+                                              "metricSeries", "scoreInputProvenance"]
+
+    public enum ReplicaLane: Sendable { case summary, bulk }
+
+    /// `lane` nil is the whole journal; `.summary` only `replicaSummaryTables`; `.bulk` everything else.
+    public func replicaChanges(after cursor: Int64, limit: Int = 200, lane: ReplicaLane? = nil) async throws -> [ReplicaChange] {
         guard (1...1_000).contains(limit) else { throw ReplicaSyncError.invalidChange }
+        let marks = Array(repeating: "?", count: Self.replicaSummaryTables.count).joined(separator: ",")
+        let filter: String
+        switch lane {
+        case nil: filter = ""
+        case .summary?: filter = " AND tableName IN (\(marks))"
+        case .bulk?: filter = " AND tableName NOT IN (\(marks))"
+        }
+        var arguments: [DatabaseValueConvertible] = [cursor]
+        if lane != nil { arguments.append(contentsOf: Self.replicaSummaryTables.map { $0 as DatabaseValueConvertible }) }
+        arguments.append(limit)
         return try syncRead { db in
             try Row.fetchAll(db, sql: """
                 SELECT seq, tableName, keyJSON, operation, rowJSON
-                FROM __noop_sync_changes WHERE seq > ? ORDER BY seq ASC LIMIT ?
-                """, arguments: [cursor, limit]).map {
+                FROM __noop_sync_changes WHERE seq > ?\(filter) ORDER BY seq ASC LIMIT ?
+                """, arguments: StatementArguments(arguments)).map {
                     ReplicaChange(seq: $0["seq"], table: $0["tableName"], keyJSON: $0["keyJSON"],
                                   operation: $0["operation"], rowJSON: $0["rowJSON"])
                 }

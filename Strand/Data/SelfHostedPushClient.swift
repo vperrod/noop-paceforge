@@ -531,20 +531,18 @@ enum SelfHostedPushClient {
 
     /// Exchange all committed, journaled NOOP rows in bounded, retry-safe batches.
     @MainActor
-    private static func replicateChanges(endpoint: URL, token: String, peerId: String,
-                                         store: WhoopStore) async throws -> Int {
+    /// Sends one lane of the change journal in batches, newest cursor kept per lane.
+    private static func uploadLane(_ lane: WhoopStore.ReplicaLane, peerId: String, cursorKey: String, endpoint: URL,
+                                   token: String, baseServerCursor: Int64, store: WhoopStore) async throws -> Int {
         var exchanged = 0
-        let uploadKey = replicaCursorKey(endpoint, peerId, "upload")
-        let downloadKey = replicaCursorKey(endpoint, peerId, "download")
-        var uploadCursor = Int64(UserDefaults.standard.integer(forKey: uploadKey))
-        let baseServerCursor = Int64(UserDefaults.standard.integer(forKey: downloadKey))
+        var uploadCursor = Int64(UserDefaults.standard.integer(forKey: cursorKey))
         var pageLimit = 500
         for _ in 0..<1_000 {
-            let page = try await store.replicaChanges(after: uploadCursor, limit: pageLimit)
+            let page = try await store.replicaChanges(after: uploadCursor, limit: pageLimit, lane: lane)
             guard !page.isEmpty else { break }
-        let changes: [[String: Any]] = page.map { change in
-            ["seq": change.seq, "table": change.table, "key": change.keyJSON,
-             "operation": change.operation, "row": change.rowJSON.map { $0 as Any } ?? NSNull()]
+            let changes: [[String: Any]] = page.map { change in
+                ["seq": change.seq, "table": change.table, "key": change.keyJSON,
+                 "operation": change.operation, "row": change.rowJSON.map { $0 as Any } ?? NSNull()]
             }
             let payload: [String: Any] = ["peerId": peerId, "baseServerCursor": baseServerCursor, "changes": changes]
             // A batch of 500 once passed the receiver's 1 MiB read cap and was retried forever (stuck 2026-11-02 to 11-04),
@@ -554,13 +552,13 @@ enum SelfHostedPushClient {
                 continue
             }
             let response = try await postJSON(databaseEndpoint(from: endpoint, suffix: "changes"), token: token,
-                payload: payload)
+                                              payload: payload)
             guard let ack = response["ackCursor"] as? Int64 ?? (response["ackCursor"] as? Int).map(Int64.init),
                   ack >= uploadCursor else {
                 throw Failure.receiver("The Mini PC did not acknowledge the NOOP change batch.")
             }
             uploadCursor = ack
-            UserDefaults.standard.set(uploadCursor, forKey: uploadKey)
+            UserDefaults.standard.set(uploadCursor, forKey: cursorKey)
             exchanged += page.count
             let conflicts = (response["conflicts"] as? [Int])?.count ?? 0
             if conflicts > 0 {
@@ -568,6 +566,28 @@ enum SelfHostedPushClient {
                                           forKey: replicaConflictCountKey)
             }
         }
+        return exchanged
+    }
+
+    private static func replicateChanges(endpoint: URL, token: String, peerId: String,
+                                         store: WhoopStore) async throws -> Int {
+        var exchanged = 0
+        let downloadKey = replicaCursorKey(endpoint, peerId, "download")
+        let baseServerCursor = Int64(UserDefaults.standard.integer(forKey: downloadKey))
+        // The day's results go first on their own peer, then the per-second samples: after an outage last night's HRV
+        // and sleep must not queue behind a million sample rows. Each lane keeps its own cursor; the server tracks
+        // peers separately, and the bulk lane skips the summary tables so an old version never overwrites a newer one.
+        let summaryPeerId = String(peerId.dropLast()) + (peerId.last == "0" ? "1" : "0")
+        let bulkKey = replicaCursorKey(endpoint, peerId, "upload")
+        let summaryKey = replicaCursorKey(endpoint, summaryPeerId, "upload")
+        if UserDefaults.standard.object(forKey: summaryKey) == nil {
+            // Rows before the bulk cursor already went across (the bulk lane used to carry every table).
+            UserDefaults.standard.set(UserDefaults.standard.integer(forKey: bulkKey), forKey: summaryKey)
+        }
+        exchanged += try await uploadLane(.summary, peerId: summaryPeerId, cursorKey: summaryKey,
+                                          endpoint: endpoint, token: token, baseServerCursor: baseServerCursor, store: store)
+        exchanged += try await uploadLane(.bulk, peerId: peerId, cursorKey: bulkKey,
+                                          endpoint: endpoint, token: token, baseServerCursor: baseServerCursor, store: store)
 
         var downloadCursor = Int64(UserDefaults.standard.integer(forKey: downloadKey))
         for _ in 0..<1_000 {

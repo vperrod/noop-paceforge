@@ -17,6 +17,10 @@ approximate; downloads are on the [Releases](https://github.com/NoopApp/noop/rel
 
 ---
 
+## 12.0.12 build 508 (PaceForge iPhone build): the day's results reach the server first
+
+- The phone now sends the small daily tables (daily metrics, sleep, workouts, journal) ahead of the per-second samples. After an outage last night's HRV, resting heart rate and sleep reach PaceForge in minutes, not behind a million sample rows.
+
 ## 12.0.12 build 507 (PaceForge iPhone build): data reaches the server again, Weekly goals line, Daily report on Today (replaces 506, never installed)
 
 - Each Weekly goals ring has a line under it: last night's sleep, today's steps, last night's bedtime against your usual (e.g. "Bed 25 min later"), or your best hard day. A ring at 0 now shows why.
