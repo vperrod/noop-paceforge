@@ -86,11 +86,15 @@ enum WeeklyGoalsLoader {
     }
 
     /// Minutes in zones 4 and 5 for one workout: the imported split when the row has one, else the strap's own
-    /// heart rate, the same order the workout screen uses.
+    /// heart rate when it covered the session, else the source's own series (Garmin's under-reads on a treadmill).
     private static func zone45Minutes(_ row: WorkoutRow, repo: Repository, profile: ProfileStore) async -> Double {
         let duration = (row.durationS ?? Double(row.endTs - row.startTs)) / 60.0
         if let percents = WorkoutZones.percents(row.zonesJSON), duration > 0 {
             return duration * (percents[3] + percents[4]) / 100.0
+        }
+        if let minutes = await repo.strapZoneMinutes(from: row.startTs, to: row.endTs, zoneSet: profile.hrZoneSet),
+           minutes.count >= 5 {
+            return minutes[3] + minutes[4]
         }
         if let minutes = await repo.workoutZoneMinutes(from: row.startTs, to: row.endTs, zoneSet: profile.hrZoneSet,
                                                        source: row.source), minutes.count >= 5 {

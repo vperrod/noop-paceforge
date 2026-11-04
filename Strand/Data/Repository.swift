@@ -3537,6 +3537,17 @@ final class Repository: ObservableObject {
         return minutes.contains(where: { $0 > 0 }) ? minutes : nil
     }
 
+    /// Zone MINUTES for a window from the worn strap's own heart rate, for the Weekly goals' hard effort. A Garmin treadmill
+    /// session can read well under the strap (2026-11-04: Garmin max 146, strap mean 159 and max 179), and the strap is on the
+    /// wrist all day, so it is used when it recorded at least 80% of the seconds. nil otherwise, and the caller falls back.
+    func strapZoneMinutes(from: Int, to: Int, zoneSet: HRZoneSet) async -> [Double]? {
+        guard to > from else { return nil }
+        let samples = await hrSamples(deviceIds: [deviceId], from: from, to: to, limit: 20_000)
+        guard Double(samples.count) >= 0.8 * Double(to - from) else { return nil }
+        let minutes = HRZones.timeInZone(samples, zoneSet: zoneSet).seconds.map { $0 / 60.0 }
+        return minutes.contains(where: { $0 > 0 }) ? minutes : nil
+    }
+
     /// HRR for one workout (#516), derived from the final five minutes of recorded effort plus the five
     /// post-workout minutes. This is a narrow read (at most ~10 minutes), not a whole-workout scan, and the
     /// pure engine owns every eligibility/coverage guard. Missing post-workout HR therefore returns nil
