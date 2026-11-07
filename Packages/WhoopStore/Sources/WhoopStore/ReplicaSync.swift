@@ -34,6 +34,65 @@ extension WhoopStore {
 
     public enum ReplicaLane: Sendable { case summary, bulk }
 
+    /// Drops journal rows their lane has already sent. Every insert is copied into this journal as JSON and nothing
+    /// ever deleted it, so the phone database held each sample twice (6 GB on 2026-11-07). Each lane is cut by its own
+    /// cursor, because a lane's cursor only moves when that lane has rows. `keep` leaves a margin; chunks keep each
+    /// transaction short.
+    @discardableResult
+    public func pruneSentReplicaChanges(summaryCursor: Int64, bulkCursor: Int64, keep: Int64 = 1_000,
+                                        maxChunks: Int = 20) async throws -> Int {
+        let summaryLimit = summaryCursor - keep, bulkLimit = bulkCursor - keep
+        guard summaryLimit > 0 || bulkLimit > 0 else { return 0 }
+        let marks = Array(repeating: "?", count: Self.replicaSummaryTables.count).joined(separator: ",")
+        var arguments: [(any DatabaseValueConvertible)?] = Self.replicaSummaryTables.map { $0 as (any DatabaseValueConvertible)? }
+        arguments.append(summaryLimit)
+        arguments.append(contentsOf: Self.replicaSummaryTables.map { $0 as (any DatabaseValueConvertible)? })
+        arguments.append(bulkLimit)
+        var pruned = 0
+        for _ in 0..<maxChunks {
+            let n = try syncWrite { db -> Int in
+                try db.execute(sql: """
+                    DELETE FROM __noop_sync_changes WHERE seq IN
+                      (SELECT seq FROM __noop_sync_changes
+                       WHERE seq <= \(max(summaryLimit, bulkLimit))
+                         AND ((tableName IN (\(marks)) AND seq <= ?) OR (tableName NOT IN (\(marks)) AND seq <= ?))
+                       ORDER BY seq LIMIT 20000)
+                    """, arguments: StatementArguments(arguments))
+                return db.changesCount
+            }
+            pruned += n
+            if n < 20_000 { break }
+        }
+        return pruned
+    }
+
+    /// Deleting journal rows only frees pages inside the file; a VACUUM hands them back to iOS. Runs only when the freed
+    /// space is large, the phone has room for the rewrite (twice the live size), and not more than once a day, because it
+    /// blocks writers for its duration. Returns whether it ran.
+    @discardableResult
+    public func reclaimReplicaSpaceIfWasteful(minFreeBytes: Int64 = 500_000_000, now: Date = Date()) async throws -> Bool {
+        let key = "replicaVacuumAt"
+        if let last = UserDefaults.standard.object(forKey: key) as? Date, now.timeIntervalSince(last) < 86_400 { return false }
+        let (pageSize, pages, free) = try syncRead { db -> (Int64, Int64, Int64) in
+            (try Int64.fetchOne(db, sql: "PRAGMA page_size") ?? 0, try Int64.fetchOne(db, sql: "PRAGMA page_count") ?? 0,
+             try Int64.fetchOne(db, sql: "PRAGMA freelist_count") ?? 0)
+        }
+        let freeBytes = free * pageSize, liveBytes = (pages - free) * pageSize
+        guard freeBytes >= minFreeBytes, freeBytes * 5 >= liveBytes else { return false }
+        let room = (try? URL(fileURLWithPath: NSHomeDirectory())
+            .resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey]).volumeAvailableCapacityForImportantUsage) ?? 0
+        // WAL holds the rewritten pages and the temp copy sits beside them: about twice the live size at peak.
+        guard room > 2 * liveBytes + 200_000_000 else { return false }
+        UserDefaults.standard.set(now, forKey: key)
+        // Every connection runs with temp_store = MEMORY; a multi-GB VACUUM there gets the app killed, so use a file.
+        try dbWriter.writeWithoutTransaction { db in
+            try db.execute(sql: "PRAGMA temp_store = FILE")
+            defer { try? db.execute(sql: "PRAGMA temp_store = MEMORY") }
+            try db.execute(sql: "VACUUM")
+        }
+        return true
+    }
+
     /// `lane` nil is the whole journal; `.summary` only `replicaSummaryTables`; `.bulk` everything else.
     public func replicaChanges(after cursor: Int64, limit: Int = 200, lane: ReplicaLane? = nil) async throws -> [ReplicaChange] {
         guard (1...1_000).contains(limit) else { throw ReplicaSyncError.invalidChange }

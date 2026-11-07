@@ -596,6 +596,12 @@ enum SelfHostedPushClient {
         exchanged += try await uploadLane(.bulk, peerId: peerId, cursorKey: bulkKey,
                                           endpoint: endpoint, token: token, baseServerCursor: baseServerCursor, store: store)
 
+        // A failed prune or vacuum must never fail the sync. Vacuum only once the journal has been drained (a pass that
+        // deleted fewer than a full run of chunks).
+        let pruned = (try? await store.pruneSentReplicaChanges(summaryCursor: Int64(UserDefaults.standard.integer(forKey: summaryKey)),
+                                                               bulkCursor: Int64(UserDefaults.standard.integer(forKey: bulkKey)))) ?? 0
+        if pruned < 400_000 { _ = try? await store.reclaimReplicaSpaceIfWasteful() }
+
         var downloadCursor = Int64(UserDefaults.standard.integer(forKey: downloadKey))
         for _ in 0..<1_000 {
             var components = URLComponents(url: databaseEndpoint(from: endpoint, suffix: "changes"),
