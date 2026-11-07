@@ -85,7 +85,7 @@ extension WhoopStore {
         guard room > 2 * liveBytes + 200_000_000 else { return false }
         UserDefaults.standard.set(now, forKey: key)
         // Every connection runs with temp_store = MEMORY; a multi-GB VACUUM there gets the app killed, so use a file.
-        try dbWriter.writeWithoutTransaction { db in
+        try await dbWriter.writeWithoutTransaction { db in
             try db.execute(sql: "PRAGMA temp_store = FILE")
             defer { try? db.execute(sql: "PRAGMA temp_store = MEMORY") }
             try db.execute(sql: "VACUUM")
