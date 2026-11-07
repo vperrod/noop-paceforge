@@ -62,6 +62,10 @@ struct SettingsView: View {
     /// [PuffinExperiment.banisterEffortKey].
     @AppStorage(PuffinExperiment.banisterEffortKey) private var banisterEffortEnabled = false
 
+    /// Effort v2 is the default (all-day movement counts). ON keeps the classic recipe: time above half of
+    /// your heart-rate reserve only. See [PuffinExperiment.effortClassicKey].
+    @AppStorage(PuffinExperiment.effortClassicKey) private var effortClassicEnabled = false
+
     /// Opt-in "Continuous HRV capture" (off by default) — holds the dense realtime stream armed 24/7 so
     /// the strap banks beat-to-beat R-R for better overnight HRV/recovery/sleep, at a battery cost.
     /// See [PuffinExperiment.keepRealtimeForDataKey].
@@ -117,8 +121,8 @@ struct SettingsView: View {
     @AppStorage(UnitPrefs.effortScaleKey) private var effortScaleRaw = EffortScale.hundred.rawValue
     @AppStorage(UnitPrefs.trendChartStyleKey) private var trendChartStyleRaw = TrendChartStyle.line.rawValue
     @AppStorage(UnitPrefs.hrvWindowKey) private var hrvWindowRaw = HrvWindow.whole.rawValue
-    // Live-HR Live Activity (Lock Screen + Dynamic Island), iOS only (#336). Default on.
-    @AppStorage(UnitPrefs.liveActivityKey) private var liveActivityEnabled = true
+    // Live-HR Live Activity (Lock Screen + Dynamic Island), iOS only (#336). Default off.
+    @AppStorage(UnitPrefs.liveActivityKey) private var liveActivityEnabled = false
     // Strap-sync Live Activity, iOS only. Separate from the live-HR one on purpose. Default on.
     @AppStorage(UnitPrefs.syncLiveActivityKey) private var syncLiveActivityEnabled = true
     @AppStorage(UnitPrefs.liftLiveActivityKey) private var liftLiveActivityEnabled = true
@@ -127,7 +131,7 @@ struct SettingsView: View {
     // ("AppIcon-Navy"). Display-only preference; the live switch goes through setAlternateIconName.
     @AppStorage("appIcon.alt") private var useNavyIcon = false
     // Light/Dark/System theme. Read by both app roots' .preferredColorScheme; default follows the OS.
-    @AppStorage(AppearanceMode.storageKey) private var appearanceRaw = AppearanceMode.system.rawValue
+    @AppStorage(AppearanceMode.storageKey) private var appearanceRaw = AppearanceMode.platformDefault.rawValue
     // App-owned copy language. Apple binds a bundle localization at process launch, so this writes the
     // standard AppleLanguages override and takes effect after the user reopens NOOP.
     @AppStorage(AppLanguage.storageKey) private var appLanguageRaw = AppLanguage.system.rawValue
@@ -140,7 +144,7 @@ struct SettingsView: View {
     @AppStorage(AccentColor.customHexKey) private var accentCustomHex = AccentColor.defaultCustomHex
     // Day-cycle scene backdrop behind Today (#698). Default ON. Off swaps the scene for a plain dark
     // canvas. TodayView reads the same key to gate its SceneScreenBackground.
-    @AppStorage(SceneBackgroundPrefs.enabledKey) private var showDayCycleBackground = true
+    @AppStorage(SceneBackgroundPrefs.enabledKey) private var showDayCycleBackground = SceneBackgroundPrefs.defaultEnabled
     // "Sky behind cards" (default ON): extend the day-cycle sky behind the whole Today scroll so
     // Card transparency reveals it under every card. User-toggleable below. Mirrors Kotlin NoopPrefs.skyBehindCards.
     @AppStorage(SkyBehindCardsPrefs.enabledKey) private var skyBehindCards = true
@@ -158,6 +162,7 @@ struct SettingsView: View {
     /// sustained-elevated window and offers — via a single dismissible card — to save it as a workout.
     /// Nothing is ever created automatically. Mirrors the Android `NoopPrefs.KEY_AUTO_DETECT_WORKOUTS`.
     @AppStorage(PuffinExperiment.autoDetectWorkoutsKey) private var autoDetectWorkoutsEnabled = false
+    @AppStorage(MyDayWalkPrefs.autoSaveKey) private var autoSaveWalks = true
 
     /// "Journal reminder" (#627, default ON). When ON, Today shows the persistent journal widget
     /// (last-7-days strip + tap-through). Mirrors the Android `NoopPrefs.KEY_JOURNAL_REMINDER_ENABLED`.
@@ -263,6 +268,7 @@ struct SettingsView: View {
                 // Everyday sections stay expanded (S3): the ones a first-run user actually needs.
                 profileCard.staggeredAppear(index: 0)
                 unitsCard.staggeredAppear(index: 1)
+                HideScoresSettingsCard().staggeredAppear(index: 1)
                 appearanceCard.staggeredAppear(index: 2)
                 strapCard.staggeredAppear(index: 3)
                 #if os(iOS)
@@ -271,6 +277,7 @@ struct SettingsView: View {
                 streakCard.staggeredAppear(index: 4)
                 featuresCard.staggeredAppear(index: 5)
                 #if os(iOS)
+                toolsCard.staggeredAppear(index: 5)
                 syncCard.staggeredAppear(index: 6)
                 #endif
 
@@ -285,7 +292,9 @@ struct SettingsView: View {
                 ) {
                     recoveryCard
                     hrvCard   // #518: Continuous HRV capture + HRV window moved here out of the always-visible Strap card
-                    testCentreCard
+                    #if os(macOS)
+                    testCentreCard   // on iPhone the Test Centre is a row of the Tools card, which is not behind a disclosure
+                    #endif
                     experimentalCard
                     backupCard
                 }
@@ -1028,6 +1037,39 @@ struct SettingsView: View {
                     .font(StrandFont.caption)
                     .foregroundStyle(StrandPalette.textTertiary)
                     .fixedSize(horizontal: false, vertical: true)
+
+                // MARK: Effort v2 — all-day movement. The default; this row keeps the classic recipe selectable.
+                Divider().overlay(StrandPalette.hairline)
+
+                Toggle(isOn: $effortClassicEnabled) {
+                    Text("Effort (classic)")
+                        .font(StrandFont.subhead)
+                        .foregroundStyle(StrandPalette.textPrimary)
+                }
+                .toggleStyle(.switch)
+                .tint(StrandPalette.accent)
+                .onChangeCompat(of: effortClassicEnabled) { _ in
+                    // Same reason as the toggle above: the recipe changes stored Effort for every day, so
+                    // re-score the last 60 days now instead of leaving the old figures on screen.
+                    Task { await model.intelligence.recomputeEffort(); await model.repo.refresh() }
+                }
+                Text("Effort includes all-day movement (heart rate above your resting level), not steps. Turn this on to score Effort only from time above half of your heart-rate reserve, as earlier versions did. Re-scores your last 60 days. Off by default.")
+                    .font(StrandFont.caption)
+                    .foregroundStyle(StrandPalette.textTertiary)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                Button {
+                    Task { await model.intelligence.recomputeEffort(); await model.repo.refresh() }
+                } label: {
+                    Text("Recompute Effort (last 60 days)")
+                        .font(StrandFont.subhead)
+                        .foregroundStyle(StrandPalette.accent)
+                }
+                .buttonStyle(.plain)
+                Text("Days without recorded heart rate keep the figure they have. Each day stores which Effort version scored it.")
+                    .font(StrandFont.caption)
+                    .foregroundStyle(StrandPalette.textTertiary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
     }
@@ -1671,6 +1713,58 @@ struct SettingsView: View {
         }
     }
 
+    // MARK: - Tools (iPhone)
+
+    #if os(iOS)
+    /// The four screens that had a row each in the More list: Test Centre, Automations, Siri & Shortcuts and Power saving. Always
+    /// visible, so none of them sits behind the Advanced disclosure.
+    private var toolsCard: some View {
+        SettingsSection(
+            icon: "wrench.and.screwdriver.fill",
+            title: "Tools",
+            blurb: "Diagnostics, automations, Siri, power saving and crash reports."
+        ) {
+            VStack(spacing: 0) {
+                toolRow("Test Centre", icon: "stethoscope", id: "settings-tool-testcentre") { TestCentreView() }
+                toolRow("Automations", icon: "wand.and.stars", id: "settings-tool-automations") { AutomationsView() }
+                toolRow("Siri & Shortcuts", icon: "mic.fill", id: "settings-tool-siri") { SiriShortcutsSettingsView() }
+                toolRow("Power saving", icon: "battery.25", id: "settings-tool-powersaving") { PowerSavingView() }
+                toolRow("Last crash report", icon: "exclamationmark.triangle", id: "settings-tool-crashreport") { NoopDiagnosticsView() }
+                PFRefreshBetaToggle()
+                UnifiedNavToggle()
+                NoopDiagSendButton()
+            }
+        }
+    }
+
+    private func toolRow<Destination: View>(_ title: LocalizedStringKey, icon: String, id: String,
+                                            @ViewBuilder destination: @escaping () -> Destination) -> some View {
+        NavigationLink {
+            destination()
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: icon)
+                    .font(.system(size: 16, weight: .regular))
+                    .foregroundStyle(StrandPalette.accent)
+                    .frame(width: 24)
+                    .accessibilityHidden(true)
+                Text(title)
+                    .font(StrandFont.body)
+                    .foregroundStyle(StrandPalette.textPrimary)
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(StrandPalette.textTertiary)
+                    .accessibilityHidden(true)
+            }
+            .frame(minHeight: 44)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(LiquidPressStyle())
+        .accessibilityIdentifier(id)
+    }
+    #endif
+
     // MARK: - Features (opt-in trackers)
 
     /// Opt-in, manual-first feature toggles (default OFF). Hydration tracking gates the water-log card on
@@ -1714,12 +1808,30 @@ struct SettingsView: View {
                 .tint(StrandPalette.accent)
                 .accessibilityHint("Offers to save a workout when it spots sustained elevated heart rate")
 
-                Text("After a sync, NOOP looks over your recent heart rate for a sustained, raised stretch that looks like exercise and offers to save it. It only ever suggests. Nothing is saved until you tap Save, and you can dismiss any suggestion. Turning this off stops future suggestions but keeps your existing workout history. Deliberately conservative, so the odd workout may be missed. On \(Platform.deviceNounPhrase) only.")
+                Text("After a sync, NOOP looks over your recent heart rate for a sustained, raised stretch that looks like exercise and offers to save it. It only ever suggests, except for calm walks, which the setting below saves for you. Nothing else is saved until you tap Save, and you can dismiss any suggestion. Turning this off stops future suggestions but keeps your existing workout history. Deliberately conservative, so the odd workout may be missed. On \(Platform.deviceNounPhrase) only.")
                     .font(StrandFont.caption)
                     .foregroundStyle(StrandPalette.textTertiary)
                     .fixedSize(horizontal: false, vertical: true)
 
                 Text("Skips sessions that overlap a saved or imported workout, including workouts from Apple Health.")
+                    .font(StrandFont.caption)
+                    .foregroundStyle(StrandPalette.textTertiary)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                rowDivider
+
+                Toggle(isOn: $autoSaveWalks) {
+                    Text("My Day: auto-save walks")
+                        .font(StrandFont.subhead)
+                        .foregroundStyle(StrandPalette.textPrimary)
+                }
+                .toggleStyle(.switch)
+                .tint(StrandPalette.accent)
+                .disabled(!autoDetectWorkoutsEnabled)
+                .accessibilityIdentifier("settings-autosave-walks")
+                .accessibilityHint("Saves calm stretches that look like a walk as Walk workouts")
+
+                Text("My Day shows a calm, steady stretch as a walk instead of a workout. With this on, a walk of 15 minutes or more is saved by itself as a Walk workout once it is over, the next time you open My Day or Today, and shows in My Day and Workouts. Press and hold it in My Day to change its type or delete it. On by default, and it needs Auto-detect workouts above.")
                     .font(StrandFont.caption)
                     .foregroundStyle(StrandPalette.textTertiary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -1868,7 +1980,9 @@ struct SettingsView: View {
     /// model — a 4.0 owner still needs the export to share decoded streams. The SpO2 candidate card is
     /// split out the same way (see `spo2CandidateCard`'s comment) — it is NOT WHOOP-5/MG-specific.
     @ViewBuilder private var experimentalCard: some View {
-        liquidTodayCard
+        #if os(macOS)
+        liquidTodayCard   // the iPhone has one Today; the classic layout is only a Mac fallback
+        #endif
         liveSessionsCard
         // WHOOP 5/MG protocol research now lives in Test Centre. Everyday Settings no longer carries
         // a second copy; the persisted keys and reversible disable actions remain unchanged there.
@@ -1879,7 +1993,8 @@ struct SettingsView: View {
     }
 
     /// Opt-in liquid Today redesign (default ON in this build). Off falls back to the
-    /// classic dashboard immediately, no rebuild. Same data either way.
+    /// classic dashboard immediately, no rebuild. Same data either way. Mac only: the iPhone always shows the liquid Today.
+    #if os(macOS)
     @AppStorage("noop.liquidTodayEnabled") private var liquidTodayEnabled = true
     private var liquidTodayCard: some View {
         SettingsSection(
@@ -1902,6 +2017,7 @@ struct SettingsView: View {
             }
         }
     }
+    #endif
 
     /// Live Sessions (beta) — the silent-guardian in-workout coach. Default ON (the entry itself is
     /// BETA-labelled on the Liquid Today); off removes the Start-session control entirely. Same key the
@@ -2855,11 +2971,20 @@ private struct SettingsDisclosureGroup<Content: View>: View {
 
 /// A grouped settings card: a "Settings" overline + icon + title header, an explanatory blurb,
 /// then content. The surface stays neutral; accent blue is reserved for the icon and controls.
-private struct SettingsSection<Content: View>: View {
+private struct SettingsSection: View {
     let icon: String
     let title: LocalizedStringKey
     let blurb: LocalizedStringKey
-    @ViewBuilder var content: () -> Content
+    let content: () -> AnyView
+
+    // Content is type-erased so Settings' many sections do not each carry their whole nested view tree in a generic type name.
+    init<Content: View>(icon: String, title: LocalizedStringKey, blurb: LocalizedStringKey,
+                        @ViewBuilder content: @escaping () -> Content) {
+        self.icon = icon
+        self.title = title
+        self.blurb = blurb
+        self.content = { AnyView(content()) }
+    }
 
     var body: some View {
         StrandCard(padding: NoopMetrics.space5) {
@@ -3437,9 +3562,14 @@ struct StepsCalibrationSheet: View {
 // MARK: - Two-column form row
 
 /// Label on the left, control on the right — the two-column form feel.
-private struct FormRow<Control: View>: View {
+private struct FormRow: View {
     let label: LocalizedStringKey
-    @ViewBuilder var control: () -> Control
+    let control: () -> AnyView
+
+    init<Control: View>(label: LocalizedStringKey, @ViewBuilder control: @escaping () -> Control) {
+        self.label = label
+        self.control = { AnyView(control()) }
+    }
 
     var body: some View {
         HStack(alignment: .center, spacing: NoopMetrics.space4) {

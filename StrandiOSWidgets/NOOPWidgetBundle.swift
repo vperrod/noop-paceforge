@@ -4,7 +4,7 @@ import SwiftUI
 /// The widget extension entry point. Bundles the glanceable widget, the live-HR Live Activity,
 /// the K10 Coach brief widget (stored morning brief on Lock Screen / Home Screen), the
 /// heart-rate trace widget (#1957), the stress curve widget (#2040), the Lift Log session
-/// Live Activity, and the strap-sync Live Activity.
+/// Live Activity, the strap-sync Live Activity, the PaceForge widgets (Today, session, race, gauges, week, sleep and HRV, load, body, heart recovery, where you stand, Garmin recovery, rides) and control, the My Day widget and the Effort target widget.
 @main
 struct NOOPWidgetBundle: WidgetBundle {
     var body: some Widget {
@@ -15,5 +15,23 @@ struct NOOPWidgetBundle: WidgetBundle {
         StressWidget()
         LiftLiveActivity()
         SyncLiveActivity()
+        PaceForgeTodayWidget()
+        PaceForgeSessionWidget()
+        PaceForgeRaceWidget()
+        PaceForgeRecoveryGaugeWidget()
+        PaceForgeStrainGaugeWidget()
+        PaceForgeWeekWidget()
+        PaceForgeSleepHrvWidget()
+        PaceForgeLoadWidget()
+        PaceForgeBodyWidget()
+        PaceForgeHeartRecoveryWidget()
+        PaceForgeStandingWidget()
+        PaceForgeGarminRecoveryWidget()
+        PaceForgeRideWidget()
+        MyDayWidget()
+        EffortTargetWidget()
+        if #available(iOS 18.0, *) {
+            PaceForgeTodayControl()
+        }
     }
 }

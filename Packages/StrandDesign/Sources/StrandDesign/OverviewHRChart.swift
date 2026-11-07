@@ -52,6 +52,8 @@ public struct OverviewHRChart: View {
 
     public var points: [TrendPoint]
     public var sleep: SleepSpan?
+    /// Daytime naps, shaded lighter than the main night and never labelled or joined to the wake divider.
+    public var naps: [SleepSpan]
     public var workouts: [WorkoutSpan]
     public var recovery: EdgeMarker?
     public var effort: EdgeMarker?
@@ -84,6 +86,7 @@ public struct OverviewHRChart: View {
     public init(
         points: [TrendPoint],
         sleep: SleepSpan? = nil,
+        naps: [SleepSpan] = [],
         workouts: [WorkoutSpan] = [],
         recovery: EdgeMarker? = nil,
         effort: EdgeMarker? = nil,
@@ -102,6 +105,7 @@ public struct OverviewHRChart: View {
         let sorted = points.sorted { $0.date < $1.date }
         self.points = sorted
         self.sleep = sleep
+        self.naps = naps
         self.workouts = workouts
         self.recovery = recovery
         self.effort = effort
@@ -282,6 +286,16 @@ public struct OverviewHRChart: View {
                 xEnd: .value("Sleep end", clampX(sleep.end))
             )
             .foregroundStyle(StrandPalette.sleepDeep.opacity(0.32))
+        }
+        // Naps: the same band language, lighter, so a daytime sleep reads as sleep but not as the night.
+        ForEach(naps.indices, id: \.self) { i in
+            if naps[i].end > xDomain.lowerBound && naps[i].start < xDomain.upperBound {
+                RectangleMark(
+                    xStart: .value("Nap start", clampX(naps[i].start)),
+                    xEnd: .value("Nap end", clampX(naps[i].end))
+                )
+                .foregroundStyle(StrandPalette.sleepLight.opacity(0.28))
+            }
         }
 
         ForEach(displayPoints) { p in
@@ -542,6 +556,9 @@ public struct OverviewHRChart: View {
         }
         if let recovery { parts.append(recovery.label) }
         if let effort { parts.append(effort.label) }
+        if !naps.isEmpty {
+            parts.append(naps.count == 1 ? String(localized: "1 nap", bundle: .module) : String(localized: "\(naps.count) naps", bundle: .module))
+        }
         if !workouts.isEmpty {
             parts.append(workouts.count == 1 ? String(localized: "1 workout", bundle: .module) : String(localized: "\(workouts.count) workouts", bundle: .module))
         }

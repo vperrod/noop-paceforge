@@ -93,7 +93,7 @@ Content-Encoding: gzip
   is retried by the independent background worker.
 - On iOS, the experimental sender runs independently after a successful strap offload and retries
   when the app next enters the foreground. iOS decides when background execution is available, so
-  this is best-effort scheduling rather than a promise of an exact 15-minute upload interval.
+  this is best-effort scheduling rather than a promise of an exact upload interval (the strap offloads every 30 minutes, and the push after a periodic offload goes at most hourly).
 - Android coalesces triggers that arrive during a running worker, processes at most one remembered
   device scope per attempt, and rotates that durable device cursor only after the slice completes.
   Per-call DNS and HTTP deadlines keep the attempt below WorkManager's execution window; automatic

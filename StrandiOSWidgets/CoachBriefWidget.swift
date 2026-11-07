@@ -46,7 +46,12 @@ struct CoachBriefProvider: TimelineProvider {
 
     private func loadEntry() -> CoachBriefEntry {
         let defaults = UserDefaults(suiteName: WidgetSnapshot.suiteName)
-        let text = defaults?.string(forKey: CoachBriefProvider.briefKey)
+        // Settings > Hide numbers reaches the stored brief too: the numbers the switches cover are taken out of
+        // the sentences before they are drawn on the Lock Screen.
+        let flags = WidgetSnapshot.load()
+        let text = defaults?.string(forKey: CoachBriefProvider.briefKey).map {
+            PFRedact.text($0, scores: flags?.scoresHidden == true, body: flags?.bodyHidden == true)
+        }
         let date = defaults?.object(forKey: CoachBriefProvider.briefDateKey) as? Date
         return CoachBriefEntry(date: Date(), briefText: text, briefDate: date)
     }

@@ -56,6 +56,10 @@ struct WorkoutDetailView: View {
     /// #516: computed from the recorded workout-end + post-workout HR window. nil when the workout was
     /// not intense enough or the strap did not record enough post-workout coverage.
     @State private var heartRateRecovery: HeartRateRecovery.Result?
+    /// Why `heartRateRecovery` is nil, so the card can say so instead of guessing.
+    @State private var heartRateRecoveryReason: HeartRateRecovery.Unavailable?
+    /// Garmin's own 2-minute readings after the stop, when that is all a PaceForge workout has.
+    @State private var garminReadings: HeartRateRecovery.GarminReadings?
 
     /// The GPS route captured for this session on-device (#524), if any. Decoded from `RouteStore` by the
     /// row's natural key. nil = no route was recorded (honest — the map only shows when points exist).
@@ -91,6 +95,8 @@ struct WorkoutDetailView: View {
             heartRateRecoveryCard
             if let strain = row.strain {
                 effortCard(strain: strain)
+            } else if WorkoutSource.classify(row.source) == .paceforge {
+                unavailableEffortCard
             }
         }
         .toolbar {
@@ -136,8 +142,17 @@ struct WorkoutDetailView: View {
                                                     source: row.source)
         }
 
-        let hrr = await repo.workoutHeartRateRecovery(
-            from: row.startTs, to: row.endTs, maxHR: Double(profile.hrMax), source: row.source)
+        let hrrOutcome = await repo.workoutHeartRateRecoveryOutcome(
+            from: row.startTs, to: row.endTs, maxHR: Double(profile.hrMax),
+            maxHRSource: profile.hrMaxOverride > 0 ? .override : .tanaka, source: row.source)
+        var hrr: HeartRateRecovery.Result?
+        var hrrReason: HeartRateRecovery.Unavailable?
+        var garmin: HeartRateRecovery.GarminReadings?
+        switch hrrOutcome {
+        case .measured(let result): hrr = result
+        case .garminReadings(let readings): garmin = readings
+        case .unavailable(let reason): hrrReason = reason
+        }
 
         // Steps for an on-foot session (#398), computed at display time over the exact window so it
         // "fills in after sync": prefer the strap's own counter (MG/5.0) once it has offloaded the window,
@@ -163,6 +178,8 @@ struct WorkoutDetailView: View {
             self.zoneMinutes = minutes
             self.zonesFromImport = fromImport
             self.heartRateRecovery = hrr
+            self.heartRateRecoveryReason = hrrReason
+            self.garminReadings = garmin
             self.steps = stepReadout
             self.loaded = true
         }
@@ -174,7 +191,7 @@ struct WorkoutDetailView: View {
         if let recovery = heartRateRecovery {
             VStack(alignment: .leading, spacing: NoopMetrics.gap) {
                 SectionHeader("Heart Rate Recovery", overline: "After high-intensity effort",
-                              trailing: String(localized: "Peak \(recovery.endHR) bpm"))
+                              trailing: String(localized: "From \(recovery.endHR) bpm at the stop"))
                 NoopCard(tint: StrandPalette.metricRose) {
                     VStack(alignment: .leading, spacing: 14) {
                         HStack(spacing: 0) {
@@ -183,12 +200,125 @@ struct WorkoutDetailView: View {
                             recoveryStat(String(localized: "5 min"), value: recovery.after5Minutes)
                         }
                         Divider().overlay(StrandPalette.hairline)
-                        Text("The change from your heart rate at the end of exercise. Positive values mean your heart rate fell; a dash means the strap did not record enough data around that minute.")
-                            .font(StrandFont.footnote)
-                            .foregroundStyle(StrandPalette.textTertiary)
-                            .fixedSize(horizontal: false, vertical: true)
+                        if recovery.walking {
+                            recoveryNote(String(localized: "Walking cool-down — not scored. Your heart rate barely fell, so there was no clear stop to measure from."))
+                        }
+                        if recovery.risingAfterStop {
+                            recoveryNote(String(localized: "Heart rate rose after you stopped — not scored."))
+                        }
+                        if let band = recovery.contextBand {
+                            recoveryNote(recoveryContextText(band))
+                        }
+                        recoveryNote(String(localized: "The change from your heart rate at the moment you stopped (the median of the last 10 seconds; the highest in the last 30 seconds was \(recovery.peakHR) bpm). Positive values mean your heart rate fell; a dash means the strap did not record enough data around that minute."))
+                        if let maxHR = recovery.maxHR {
+                            recoveryNote(String(localized: "Intensity gate: 70% of your max heart rate, \(Int(maxHR.rounded())) bpm (\(recoveryMaxHRSourceText(recovery.maxHRSource)))."))
+                        }
                     }
                 }
+            }
+        } else if let garmin = garminReadings {
+            NoopCard(tint: StrandPalette.metricRose) {
+                VStack(alignment: .leading, spacing: 6) {
+                    SectionHeader("Heart Rate Recovery", overline: "After high-intensity effort",
+                                  trailing: String(localized: "From \(garmin.endHR) bpm at the stop"))
+                    garminRecoveryLines
+                    Text(String(localized: "Not measured as a 1 or 2 minute recovery: Garmin stopped recording at the stop."))
+                        .font(StrandFont.footnote)
+                        .foregroundStyle(StrandPalette.textTertiary)
+                    ForEach(garmin.readings, id: \.offsetSeconds) { reading in
+                        Text(garminReadingText(reading))
+                            .font(StrandFont.footnote)
+                            .foregroundStyle(StrandPalette.textSecondary)
+                    }
+                    recoveryNote(HeartRateRecovery.garminReadingsLabel)
+                }
+            }
+        } else if loaded {
+            NoopCard(tint: StrandPalette.metricRose) {
+                VStack(alignment: .leading, spacing: 6) {
+                    SectionHeader("Heart Rate Recovery", overline: "After high-intensity effort")
+                    garminRecoveryLines
+                    Text(heartRateRecoveryUnavailableText)
+                        .font(StrandFont.footnote)
+                        .foregroundStyle(StrandPalette.textTertiary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+        }
+    }
+
+    /// Garmin's own recovery heart rate (`hrr_garmin`, left in the row's notes by the PaceForge sync): the watch's
+    /// number, shown as it recorded it. PaceForge workouts only, and the PaceForge type lives in the iOS app.
+    @ViewBuilder private var garminRecoveryLines: some View {
+        #if os(iOS)
+        if WorkoutSource.classify(row.source) == .paceforge, let garmin = PFHRRGarmin.fromNotes(row.notes) {
+            Text(garmin.headline)
+                .font(StrandFont.footnote.weight(.semibold))
+                .foregroundStyle(StrandPalette.textSecondary)
+            if let detail = garmin.detail { recoveryNote(detail) }
+        }
+        #endif
+    }
+
+    private func garminReadingText(_ reading: HeartRateRecovery.GarminReading) -> String {
+        let clock = String(format: "+%d:%02d", reading.offsetSeconds / 60, reading.offsetSeconds % 60)
+        let change = reading.drop >= 0 ? "\(reading.drop) below" : "\(-reading.drop) above"
+        return "\(clock) after the stop: \(reading.bpm) bpm (\(change) the stop)"
+    }
+
+    private func recoveryNote(_ text: String) -> some View {
+        Text(text)
+            .font(StrandFont.footnote)
+            .foregroundStyle(StrandPalette.textTertiary)
+            .fixedSize(horizontal: false, vertical: true)
+    }
+
+    /// Neutral population context for the 1-minute drop (Cole 1999). Caption only, never a grade.
+    private func recoveryContextText(_ band: HeartRateRecovery.ContextBand) -> String {
+        switch band {
+        case .flag: return String(localized: "For context: a 1-minute drop of 12 bpm or less is below the usual range.")
+        case .low: return String(localized: "For context: a 1-minute drop of 13 to 18 bpm is on the low side of the usual range.")
+        case .typical: return String(localized: "For context: a 1-minute drop of 19 to 30 bpm is typical.")
+        case .strong: return String(localized: "For context: a 1-minute drop above 30 bpm is strong.")
+        }
+    }
+
+    private func recoveryMaxHRSourceText(_ source: HeartRateRecovery.MaxHRSource?) -> String {
+        switch source {
+        case .override: return String(localized: "your setting")
+        case .tanaka: return String(localized: "age formula")
+        case .measured: return String(localized: "measured")
+        case nil: return String(localized: "profile")
+        }
+    }
+
+    private var heartRateRecoveryUnavailableText: String {
+        switch heartRateRecoveryReason {
+        case .notHardEnough:
+            return String(localized: "Unavailable: this workout was not hard enough. Recovery needs at least 2 minutes at 70% of your max heart rate or more in the last 5 minutes.")
+        case .noReadingsAfterEnd:
+            return String(localized: "Unavailable: no heart-rate readings were recorded after the workout ended, so there is nothing to compare the end of exercise with.")
+        case .tooFewReadingsAtEnd:
+            return String(localized: "Unavailable: too few heart-rate readings in the last 30 seconds of the workout to set the heart rate at the stop.")
+        case .missingMaxHR:
+            return String(localized: "Unavailable: your max heart rate is not set. Add your date of birth or max heart rate in your profile.")
+        case .noPostStopData:
+            return String(localized: "Not measured: no heart-rate data after the stop")
+        case .invalidWorkout:
+            return String(localized: "Unavailable: this workout has no valid start and end time.")
+        case nil:
+            return String(localized: "Unavailable: not enough heart-rate data around the end of this workout.")
+        }
+    }
+
+    private var unavailableEffortCard: some View {
+        NoopCard(tint: StrandPalette.metricAmber) {
+            VStack(alignment: .leading, spacing: 6) {
+                SectionHeader("Effort", overline: "This session")
+                Text("Unavailable: this activity does not have enough timestamped Garmin heart-rate samples for NOOP to calculate session Effort.")
+                    .font(StrandFont.footnote)
+                    .foregroundStyle(StrandPalette.textTertiary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
     }
@@ -199,7 +329,7 @@ struct WorkoutDetailView: View {
             Text(value.map { "\($0)" } ?? "–")
                 .font(StrandFont.number(24))
                 .foregroundStyle(value.map { $0 >= 0 ? StrandPalette.statusPositive
-                                                     : StrandPalette.statusWarning }
+                                                     : StrandPalette.textPrimary }
                                  ?? StrandPalette.textTertiary)
             Text("bpm")
                 .font(StrandFont.footnote)
@@ -385,7 +515,7 @@ struct WorkoutDetailView: View {
         // ("Imported from Apple Health") would be a NEW key, and nothing catches a missing entry: the i18n
         // audit checks locale coverage OF catalog entries, not that a `String(localized:)` literal has one.
         // It would have read English on every non-English device while the gate stayed green.
-        case .apple, .whoop, .lifting, .activityFile: return "Imported"
+        case .apple, .whoop, .paceforge, .lifting, .activityFile: return "Imported"
         case .detected, .manual: return "Recorded on device"
         }
     }
@@ -395,7 +525,7 @@ struct WorkoutDetailView: View {
         // Same rule as the overline: both of these are existing catalog keys with all nine locales. The
         // imported line carries the privacy claim without the "recorded on your device" the original
         // string opens with, which is the part that was untrue for a route another app collected.
-        case .apple, .whoop, .lifting, .activityFile:
+        case .apple, .whoop, .paceforge, .lifting, .activityFile:
             return String(localized: "This stays on your device. It is never uploaded, never synced, never shared.")
         case .detected, .manual:
             return String(localized: "Your GPS route for this session, recorded and stored on your device. Nothing leaves your phone.")
@@ -585,6 +715,7 @@ struct WorkoutDetailView: View {
             switch WorkoutSource.classify(source) {
             case .whoop:    return (String(localized: "Whoop"), StrandPalette.accent)
             case .apple:    return (String(localized: "Apple"), StrandPalette.metricCyan)
+            case .paceforge: return ("PaceForge", StrandPalette.metricAmber)
             case .detected: return (String(localized: "Detected"), StrandPalette.metricPurple)
             case .manual:   return (String(localized: "Manual"), StrandPalette.statusWarning)
             case .lifting:  return (String(localized: "Lifting"), StrandPalette.zone2)

@@ -1,0 +1,788 @@
+import Foundation
+
+// View models for the PaceForge tab. PaceForgeBuilder fills them from the live JSON the PaceForge
+// server serves (`/api/state` and `/data/*`); the screens only read these value types.
+
+struct PFSnapshot {
+    var generatedAt: String?
+    /// The day the data was built for, as `yyyy-MM-dd` (the phone's today; fixed in UI-test fixtures).
+    var todayISO: String = ""
+    var today: PFToday
+    var coach: PFCoach
+    var weeks: [PFWeek]
+    var currentWeekIndex: Int = 0
+    var insights: PFInsights
+    var body: PFBodyDoc?
+    var activities: [String: PFActivity] = [:]
+    var analyses: [String: PFAnalysisRow] = [:]
+    var analysisStatuses: [String: PFAnalysisStatus] = [:]
+    var trimp: [String: Double] = [:]
+    var rpe: [String: Double] = [:]
+    /// Recent nights of sleep (minutes asleep), oldest first, for the sleep and HRV trend widget.
+    var sleepNights: [PFSleepNight] = []
+    /// Every field below arrives from a file an older server may not serve; each is absent, not broken.
+    var bodyProgress: PFBodyProgress?
+    /// Open alerts only, most urgent first.
+    var alerts: [PFAlert] = []
+    var readiness: PFReadiness?
+    /// Wave 2 files; each is nil or empty when the server does not serve it.
+    var feel: PFFeelSummary?
+    var whatChanged: PFWhatChanged?
+    var behaviour: PFBehaviourImpact?
+    /// Every metric explainer, in the server's order.
+    var explainers: [PFExplainer] = []
+    /// Wave 3 files. Each is nil when the server does not serve it; race week is also nil outside race week.
+    var raceWeek: PFRaceWeek?
+    var simulations: PFHyroxSims?
+    var easyMode: PFEasyMode?
+    var muscle: PFMuscleCheck?
+    var tape: PFTape?
+    /// `standing.json` ("Where you stand"); nil when the server does not serve it.
+    var standing: PFStanding?
+    /// `insights-v2.json` (the rules-written "what to do" items); nil when the server does not serve it.
+    var insightsV2: PFInsightsV2?
+    /// `daily-intel.json` (Today's call, sleep need, Health monitor, What moved it, Day in review); nil when the server does not serve it.
+    var dailyIntel: PFDailyIntel?
+    /// The five Phase 4 documents (healthspan, journal impact, highlights, monthly report, my plan); each reads as missing when not served.
+    var intelDocs = PFIntelDocs()
+    /// Bike rides from `ride-metrics.json`, newest first; empty when the server does not serve it.
+    var rides: [PFRide] = []
+    /// The server's `dismissed.json` (cards hidden in PaceForge); united with the ones hidden on this iPhone.
+    var dismissed: [PFDismissal] = []
+    /// The server's `today-layout.json` (how the web page arranged the Today cards); empty when it serves none.
+    var todayLayout = PFTodayLayout()
+    /// What PaceForge is waiting on him for (`needs_you`), in the server's order; empty hides the Needs you card.
+    var needsYou: [PFNeedsItem] = []
+    /// `state.settings.privacy.hide_body_on_lock_screen` as the server sent it; nil when it sent nothing.
+    var serverHidesBody: Bool?
+    /// Every alert the server still keeps (`alerts.json`, about two weeks), open or not, for the Alerts history; `alerts` above holds the open ones.
+    var alertHistory: [PFAlert] = []
+    /// True when the snapshot was built with an alerts document (`alerts.json`) in hand, however old; false when the build had none, so
+    /// `alertHistory` is empty because nothing was read, not because there were no alerts.
+    var alertsLoaded = false
+    /// PaceForge's saved one-line reading of a workout photo (`photo_extract.summary` of the session's rpe.json entry), by activity id.
+    var photoSummaries: [String: String] = [:]
+    /// The few `fitness.json` fields only the Athlete tab reads (effective VO2max series, FTP history, critical pace, ranked limiters); nil when there is no fitness document.
+    var athleteFitness: PFAthleteFitness?
+    /// The Garmin profile, PaceForge's race forecast and the filed benchmarks (`profile.json`, `analytics.json`, `benchmarks.json`); nil when the server has none of them.
+    var athleteDocs: PFAthleteDocs?
+
+    /// The rides of one day.
+    func rides(on date: String) -> [PFRide] { rides.filter { $0.date == date } }
+
+    /// The explainer with this id, if the server has one.
+    func explainer(_ id: String) -> PFExplainer? { explainers.first { $0.id == id } }
+}
+
+struct PFSleepNight { var date: String; var minutes: Double }
+
+// MARK: Today
+
+struct PFToday {
+    var recovery: PFRecovery?
+    var strain: PFStrain?
+    var sleep: PFSleep?
+    var brief: PFDailyBrief?
+    var nextRace: PFNextRace?
+    var sessions: [PFWorkout] = []
+    var hrv: Double?
+    /// The 7-night HRV baseline and the normal band around it, in ms.
+    var hrvBaselineMs: Double?
+    var hrvLowMs: Double?
+    var hrvHighMs: Double?
+    var restingHr: Double?
+    /// Acute : chronic load ratio.
+    var acwr: Double?
+}
+
+struct PFRecovery { var score: Double; var band: String?; var confidence: String?; var trust: PFTrust? }
+struct PFStrain { var value: Double; var targetLow: Double?; var targetHigh: Double?; var band: String? }
+struct PFSleep {
+    var score: Double
+    var hoursText: String?
+    var needText: String?
+    var sufficiencyPct: Double?
+    var debtHours: Double?
+}
+struct PFNextRace { var name: String; var date: String; var daysOut: Int; var goalTime: String? }
+
+/// The daily coach briefing, with every field the PaceForge web Today card renders.
+struct PFDailyBrief {
+    var date: String?
+    var headline: String
+    var notes: [String] = []
+    var outlook: [String] = []
+    var bodyState: String?
+    var training: String?
+    var recent: String?
+    var focus: [String] = []
+    var pulses: [PFPulse] = []
+    /// True while the brief was written without everything it wants (last night's sleep, HRV, the scale).
+    var partial = false
+    /// What the brief is still waiting for, e.g. ["sleep", "HRV"].
+    var missing: [String] = []
+    /// When the brief was last rewritten after new data arrived.
+    var updatedAt: String?
+    var updateCount = 0
+    /// One plain line on what moved since yesterday, written by the server.
+    var changes: String?
+}
+struct PFPulse { var at: String?; var text: String }
+
+// MARK: Workouts
+
+struct PFWorkout: Identifiable {
+    var id: String
+    var date: String
+    var status: String
+    var name: String?
+    var kind: String?
+    var sport: String?
+    var durationMin: Double?
+    var distanceKm: Double?
+    var targetRpe: Double?
+    var userRpe: Double?
+    var cadenceTarget: Double?
+    var description: String?
+    var briefing: PFBriefing?
+    var steps: [PFStep] = []
+    var exercises: [PFExercise] = []
+    var compliance: PFCompliance?
+    var completionAnalysis: String?
+    var notes: String?
+    /// The Garmin activity this session was matched to, if it has been done.
+    var activityId: String?
+    /// The real planned/calendar session id, or nil for activity-only and synthetic review rows.
+    var coachSessionID: String?
+
+    var hasResults: Bool { (status == "done" || status == "partial") && activityId != nil }
+}
+
+struct PFBriefing {
+    var purpose: String?; var structure: String?; var feel: String?; var ifWrong: String?
+    var cue: String?; var venue: String?; var fuel: String?; var warmup: String?
+    /// The session explainer the server stamps next to `purpose` (2026-10-28): what the run does to the body, the lactate and VO2 effect,
+    /// why it is built this way, what it buys, and the Garmin lactate-threshold line (`yours`). Each reads as missing on an older plan.
+    var body: String?; var energy: String?; var shape: String?; var payoff: String?; var yours: String?
+}
+
+struct PFStep: Identifiable {
+    var type: String?
+    var description: String?
+    var durationSec: Double?
+    var distanceM: Double?
+    var targetType: String?
+    var targetLow: Double?
+    var targetHigh: Double?
+    var repeatCount: Int?
+    var steps: [PFStep] = []
+
+    // Steps have no identity of their own in the source; the view enumerates them.
+    var id: String { "\(type ?? "")|\(description ?? "")|\(durationSec ?? 0)|\(distanceM ?? 0)" }
+}
+
+struct PFExercise { var name: String; var sets: Double?; var reps: String?; var rpe: Double?; var cue: String? }
+struct PFCompliance {
+    var status: String?; var ratio: Double?
+    var plannedKm: Double?; var actualKm: Double?; var plannedMin: Double?; var actualMin: Double?
+}
+
+// MARK: Activities (completed sessions)
+
+struct PFActivity {
+    var id: String
+    var name: String?
+    var type: String?
+    var startTime: String?
+    var distanceM: Double?
+    var durationS: Double?
+    var avgHr: Double?
+    var maxHr: Double?
+    var avgPaceSecPerKm: Double?
+    var calories: Double?
+    var teAerobic: Double?
+    var teAnaerobic: Double?
+    var cadence: Double?
+    var strideCm: Double?
+    var groundContactMs: Double?
+    var avgPower: Double?
+    var elevationM: Double?
+    var hrr1: PFHRR1?
+    var hrrGarmin: PFHRRGarmin?
+    var heat: PFHeat?
+    /// When the wrist heart rate locked onto cadence, `avgHr` and `maxHr` above are PaceForge's corrected figures, these are the ones the
+    /// watch recorded and the note says what was ignored. nil on an activity that was not corrected.
+    var avgHrRecorded: Double?
+    var maxHrRecorded: Double?
+    var hrCorrectionNote: String?
+
+    var hasCorrectedHr: Bool { hrCorrectionNote != nil }
+
+    /// What the watch recorded, to show beside the corrected figures; nil unless the heart rate was corrected and both recorded figures are known.
+    var recordedHr: (avg: Int, peak: Int)? {
+        guard hasCorrectedHr, let avg = avgHrRecorded, let peak = maxHrRecorded, avg > 0, peak > 0 else { return nil }
+        return (avg: Safe.int(avg), peak: Safe.int(peak))
+    }
+
+    var isRun: Bool { (type ?? "").lowercased().contains("run") }
+    var isBike: Bool {
+        let t = (type ?? "").lowercased()
+        return t.contains("cycl") || t.contains("bik")
+    }
+}
+
+struct PFSample { var t: Double; var hr: Double?; var pace: Double?; var cad: Double? }
+struct PFSplit {
+    var n: Int; var distanceM: Double?; var paceSec: Double?
+    var avgHr: Double?; var elevGain: Double?
+}
+struct PFZone { var zone: Int; var secs: Double; var low: Double? }
+struct PFWeather { var tempC: Double?; var desc: String? }
+
+/// `/data/details/<id>.json`: the heart-rate and pace series, per-km splits and heart-rate zones.
+struct PFDetail {
+    var hrr1: PFHRR1?
+    var hrrGarmin: PFHRRGarmin?
+    var samples: [PFSample] = []
+    var splits: [PFSplit] = []
+    var zones: [PFZone] = []
+    var weather: PFWeather?
+    /// Stamped on the detail document by the server from 2026-10-28; each is nil on a run it does not apply to or on an older document.
+    var runExplainer: PFRunExplainer?
+    var ltSplit: PFLtSplit?
+    var effortRank: PFEffortRank?
+}
+
+/// One row of `/data/analyses/index.json`: the coach's verdict plus the scored insights.
+struct PFAnalysisRow {
+    var id: String
+    var headline: String?
+    var strain: Double?
+    var strainBand: String?
+    var recoveryReason: String?
+    var vsTypicalPercentile: Double?
+    var vsTypicalLabel: String?
+    var vsTypicalReason: String?
+    var plannedKm: Double?
+    var plannedMin: Double?
+    var actualKm: Double?
+    var actualMin: Double?
+}
+
+/// Status-only review metadata; it carries no workout health readings.
+struct PFAnalysisStatus {
+    var id: String
+    var status: String?
+    var reason: String?
+}
+
+// MARK: Coach
+
+struct PFCoach {
+    var brief: PFBrief?
+    var take: PFTake?
+    var weeklyReview: PFWeeklyReview?
+    var chat: [PFChatTurn] = []
+}
+struct PFBrief { var date: String?; var headline: String; var outlook: [String]?; var sourceContext: String? = nil }
+struct PFTake {
+    var headline: String
+    var readinessScore: Double?
+    var readinessBand: String?
+    var limiters: [PFLimiter]?
+    var weekActions: [PFWeekAction]?
+}
+struct PFLimiter { var name: String; var area: String; var evidence: String; var recommendation: String }
+struct PFWeekAction { var area: String; var action: String }
+struct PFWeeklyReview {
+    var week: String
+    var period: PFPeriod
+    var headline: String
+    var limiters: [String]?
+    var plannedRuns: Int?
+    var completedRuns: Int?
+    var qualityDone: Int?
+    var sessions: [PFReviewSession]?
+    var fatigue: [PFFatigue]?
+    var strengthSaid: String?
+    var thisWeek: [String]?
+    var fullRead: String?
+    var sourceContext: String? = nil
+}
+struct PFPeriod { var start: String; var end: String }
+struct PFReviewSession { var date: String; var name: String; var completed: Bool; var quality: Bool; var status: String? }
+struct PFFatigue { var kind: String?; var text: String }
+struct PFChatTurn: Identifiable {
+    var role: String; var text: String; var ts: String
+    var id: String { ts + role }
+}
+
+// MARK: Week
+
+struct PFWeek: Identifiable {
+    var key: String
+    var start: String
+    var end: String
+    var days: [PFDay]
+    var phase: String?
+    var focus: String?
+    var intro: String?
+    var targetHours: Double?
+    var tally: String?
+    var headline: String?
+    var plannedHours: Double?
+    var id: String { key }
+}
+struct PFDay: Identifiable {
+    var date: String
+    var dow: String
+    var workouts: [PFWorkout] = []
+    var id: String { date }
+}
+
+// MARK: Insights
+
+struct PFInsights {
+    var ctl: Double; var atl: Double; var tsb: Double
+    var formBand: String?
+    var history: [PFLoadPoint] = []
+    var projection: [PFLoadPoint] = []
+    var markers: [PFMarker]?
+    var warnings: [PFWarning]?
+    var loadSentence: String?
+    var races: [PFRace] = []
+    var goalPrognosis: PFGoalPrognosis?
+    var hyrox: PFHyrox?
+    var hyroxFinish: PFHyroxFinishCard?
+    /// Garmin's Load Focus (`fitness.load.load_focus_panel`), the weekly target-load range (`projection.week_target`) and muscular load
+    /// (`fitness.strength.muscular_load`). Each is nil when the server does not serve it or marks it unavailable.
+    var loadFocus: PFLoadFocus?
+    var weekTarget: PFWeekTarget?
+    var muscular: PFMuscularLoad?
+}
+struct PFLoadPoint: Identifiable {
+    var date: String; var ctl: Double; var atl: Double; var tsb: Double
+    var id: String { date }
+}
+struct PFMarker { var date: String; var name: String }
+struct PFWarning { var date: String; var text: String }
+struct PFRace: Identifiable {
+    var name: String; var date: String; var daysOut: Int
+    var headline: String; var readiness: String; var taperOk: Bool?
+    var id: String { date + name }
+}
+struct PFGoalPrognosis { var prognosisSec: Double; var goalSec: Double; var verdict: String; var sentence: String? }
+struct PFHyrox {
+    var predicted: String
+    var basis: String?
+    var trend: String?
+    var sentence: String?
+    var stations: [PFStation]?
+}
+struct PFStation: Identifiable {
+    var name: String; var athlete: String; var top3: String; var gapSec: Double
+    var id: String { name }
+}
+
+// MARK: Body
+
+/// `/data/body.json`: Hume scale readings with the assessment bands, segmental analysis and goals.
+struct PFBodyDoc {
+    var date: String
+    var score: Double?
+    var band: String?
+    var age: Int?
+    var heightCm: Double?
+    var assessment: [PFBodyRange] = []
+    var latest: [String: Double] = [:]
+    var segments: [PFBodySegment] = []
+    var series: [PFBodyReading] = []
+    var goals: [PFBodyGoal] = []
+    var deltas: [String: PFBodyDelta] = [:]
+    var metrics: [String: PFBodyMetric] = [:]
+    /// Whether the left/right segment figures are an estimate (nil on a server that does not say).
+    var segmentalMeta: PFSegmentalMeta?
+}
+struct PFBodyRange: Identifiable {
+    var key: String; var label: String; var unit: String; var value: Double; var dp: Int
+    var low: Double; var high: Double; var scaleLo: Double; var scaleHi: Double; var pos: Double
+    var status: String
+    var id: String { key }
+}
+struct PFBodySegment: Identifiable {
+    var key: String; var name: String
+    var weightKg: Double?; var fatKg: Double?; var ffmKg: Double?; var muscleKg: Double?
+    var id: String { key }
+    var fatPct: Double? {
+        guard let w = weightKg, w > 0, let f = fatKg else { return nil }
+        return f / w * 100
+    }
+}
+struct PFBodyReading: Identifiable {
+    var date: String
+    var values: [String: Double]
+    var id: String { date }
+}
+struct PFBodyGoal: Identifiable {
+    var metric: String; var label: String; var unit: String
+    var target: Double; var current: Double; var remaining: Double?; var progress: Double?
+    var dp: Int; var reached: Bool; var targetDate: String?
+    var id: String { metric }
+}
+struct PFBodyDelta { var d7: Double?; var d30: Double?; var d90: Double? }
+struct PFBodyMetric { var label: String; var unit: String; var dp: Int; var good: String }
+
+// MARK: Heart-rate recovery
+
+/// First-minute heart-rate recovery of a session. `kind` says what the figure is: `post` (the heart rate
+/// fell after the effort stopped), `interval` (a rebound between intervals, compared with the athlete's
+/// own intervals), `walking` (a walking cool-down, not scored), `no_post_stop_data` (Garmin's per-second
+/// recording ended at the stop and nothing follows yet; `reason` says so), `garmin_2min` (the same, but Garmin's
+/// all-day series has readings after the stop; `readings` lists them as Garmin Connect shows them, not as 1 / 2 minute
+/// values) or `not_measurable`.
+/// Older servers sent `post`/`mid` with fewer fields; `mid` decodes as `interval` with `isEstimated`.
+struct PFHRR1 {
+    /// Beats the heart rate fell in the first minute; nil when it is not measurable.
+    var bpm: Int?
+    var kind: String
+    /// Beats fallen by two minutes.
+    var bpm120: Int?
+    /// Heart rate at the moment of stopping, and the highest in the last 30 seconds before it.
+    var stopBpm: Int?
+    var peakBpm: Int?
+    /// Heart rate rose after the stop instead of falling.
+    var risingAfterStop = false
+    /// Population context for the one-minute drop: flag, low, typical or strong. Neutral caption only.
+    var contextBand: String?
+    var baselineBpm: Double?
+    var delta: Double?
+    /// The athlete's own band: good, normal, watch or flag.
+    var band: String?
+    /// The figure came from an older server's `mid` estimate.
+    var isEstimated = false
+    /// Why there is no figure, in the server's words (kind `no_post_stop_data`).
+    var reason: String?
+    /// Garmin's own readings after the stop and the server's label for them (kind `garmin_2min`).
+    var readings: [Reading] = []
+    var label: String?
+
+    /// One Garmin all-day-series reading, `drop` being the stop value minus it (negative: above the stop value).
+    struct Reading { var offsetSeconds: Int; var bpm: Int; var drop: Int? }
+
+    static let post = "post"
+    static let interval = "interval"
+    static let walking = "walking"
+    static let notMeasurable = "not_measurable"
+    static let noPostStopData = "no_post_stop_data"
+    static let garmin2min = "garmin_2min"
+
+    /// Shown when an older server leaves `reason` out.
+    static let noPostStopLine = "Garmin stopped recording at the stop; keep the activity recording for 2 minutes after your last effort to measure recovery"
+
+    /// The first-minute drop is a real recovery figure only for these kinds.
+    var isScored: Bool { (kind == Self.post || kind == Self.interval) && bpm != nil }
+
+    /// A cool-down rather than a real stop: HR still high at the stop (walking) or climbing back up after it.
+    /// The first-minute drop is kept for the record but never scored, so the card explains why.
+    var isNotScoredCoolDown: Bool { kind == Self.walking || risingAfterStop }
+
+    static let garminLabel = "Garmin records one reading every 2 minutes after the workout; shown as Garmin Connect shows it"
+
+    static let notScoredLine = "Not scored: heart rate was still high at the stop or rose in the last seconds (cool-down)"
+
+    /// The personal band, and only where it applies: a scored kind with a personal baseline.
+    var personalBand: String? { isScored && baselineBpm != nil ? band : nil }
+}
+
+// MARK: Body progress
+
+/// `/data/body-progress.json`: the body goals against the scale's own noise, with fuel, hydration,
+/// balance and visceral notes.
+struct PFBodyProgress {
+    var date: String?
+    var latestReadingDate: String?
+    var digest: String?
+    var goals: [PFProgressGoal] = []
+    /// Half-width of the day-to-day scale noise, in the metric's unit.
+    var noiseWeightKg: Double?
+    var noiseBodyFatPct: Double?
+    var noiseBasis: String?
+    var dailyLine: String?
+    var fuel: PFFuel?
+    var hydration: PFHydration?
+    var balance: PFBalance?
+    var visceral: PFVisceral?
+    var analysis: PFProgressAnalysis?
+}
+
+struct PFProgressGoal: Identifiable {
+    var metric: String
+    var label: String
+    var unit: String
+    var target: Double?
+    var targetDate: String?
+    var startValue: Double?
+    var startDate: String?
+    var current7d: Double?
+    var lastReading: Double?
+    var neededPerWeek: Double?
+    var actualPerWeek: Double?
+    var eta: String?
+    /// on_track, ahead, behind or insufficient_data.
+    var status: String
+    var aggressive: Bool
+    var id: String { metric }
+}
+
+struct PFFuel {
+    var bmrKcal: Double?
+    var trainingDayKcal: Double?
+    var trainingDayBasis: String?
+    var proteinLow: Double?
+    var proteinHigh: Double?
+    var proteinBasis: String?
+}
+struct PFHydration { var waterPct: Double?; var ecwIcwRatio: Double?; var flag: String?; var reason: String?; var ownNormal: String? }
+struct PFBalance {
+    var armsPct: Double?; var legsPct: Double?; var maxPct: Double?; var flag: String?; var note: String?
+    /// The left/right split is our estimate rather than a measurement; nil or false shows no label.
+    var estimate: Bool?
+    var method: String?
+}
+struct PFVisceral { var value: Double?; var band: String?; var standardRange: String? }
+struct PFProgressAnalysis { var text: String; var generatedAt: String? }
+
+// MARK: Alerts
+
+/// `/data/alerts.json`. The app is read-only: an alert's actions are shown, answered in Telegram.
+struct PFAlert: Identifiable {
+    var id: String
+    var kind: String?
+    /// info, watch or act.
+    var severity: String
+    var createdAt: String?
+    var title: String
+    var body: String?
+    var actions: [PFAlertAction] = []
+    /// The numbers behind a live (intraday) alert: its reading, his own normal, the source and what it does to the plan.
+    var live: PFLiveAlertFacts?
+    /// The Garmin activity the alert is about (a load spike, a heart-rate recovery flag); nil for the kinds about a day or a trend.
+    var activityID: String?
+    /// The server's `status` (open, dismissed, done ...); nil when the alert carries none.
+    var status: String?
+
+    var rank: Int { severity == "act" ? 0 : (severity == "watch" ? 1 : 2) }
+
+    /// An intraday alert from the live rules (stress, heart rate at rest, Body Battery); the older daily kinds are not.
+    var isLive: Bool { kind?.hasPrefix("live_") == true }
+}
+struct PFAlertAction: Identifiable { var id: String; var label: String }
+
+/// `metrics` of a `live_*` alert in alerts.json. The reading is always there; the rest read as missing when the server leaves them out.
+struct PFLiveAlertFacts: Equatable {
+    var reading: String
+    var hisNormal: String?
+    var source: String?
+    var planEffect: String?
+}
+
+// MARK: Readiness
+
+/// `/data/readiness-explained.json`: PaceForge's, Garmin's and NOOP's own readiness reads, side by side.
+/// They are different measures and are never merged into one number.
+struct PFReadiness {
+    var date: String?
+    var sources: [PFReadinessSource] = []
+    /// agree, mixed or disagree.
+    var agreement: String?
+    var coachNote: String?
+    /// "Can I train? Can I train hard?", from the same numbers.
+    var answers: PFAnswers?
+}
+struct PFReadinessSource: Identifiable {
+    var source: String
+    var score: Double?
+    var band: String?
+    var drivers: [String] = []
+    var factors: [PFReadinessFactor] = []
+    var recoveryTimeH: Double?
+    var hrv: Double?
+    var rhr: Double?
+    var sleepPerformance: Double?
+    var trust: PFTrust?
+    var id: String { source }
+}
+struct PFReadinessFactor: Identifiable {
+    var name: String
+    var value: String?
+    var status: String?
+    var id: String { name }
+}
+
+// MARK: Fields the server added 2026-10-28/29
+//
+// Each type below is all-optional and parses leniently from a `PFJ` (the app's decode path: a missing key, a null or a wrong type reads
+// as nil), so an older document still decodes. `parse` returns nil when the block is absent or holds none of the known fields.
+
+/// `run_explainer` of `/data/details/<id>.json`: the explainer of a run no plan or calendar session was matched to. A best guess read
+/// from the run's name, length and heart-rate zones, so views show it as one (`looksLike` is the type it was guessed to be).
+struct PFRunExplainer: Equatable, Sendable {
+    var looksLike: String?
+    var purpose: String?
+    var body: String?
+    var energy: String?
+    var shape: String?
+    var payoff: String?
+    var yours: String?
+
+    static func parse(_ j: PFJ) -> PFRunExplainer? {
+        guard j.exists else { return nil }
+        let out = PFRunExplainer(looksLike: j["looks_like"].text, purpose: j["purpose"].text, body: j["body"].text, energy: j["energy"].text,
+                                 shape: j["shape"].text, payoff: j["payoff"].text, yours: j["yours"].text)
+        return [out.purpose, out.body, out.energy, out.shape, out.payoff, out.yours].contains { $0 != nil } ? out : nil
+    }
+}
+
+/// `lt_split` of `/data/details/<id>.json` (runs only): seconds of heart-rate samples below, at (within 5 bpm) and above the Garmin
+/// lactate-threshold heart rate, with the threshold used.
+struct PFLtSplit: Equatable, Sendable {
+    var belowS: Double?
+    var atS: Double?
+    var aboveS: Double?
+    var ltHr: Double?
+    var ltPaceSecPerKm: Double?
+    var ltDate: String?
+
+    /// Seconds counted in all three bands; nil when none of them is known.
+    var totalS: Double? {
+        let parts = [belowS, atS, aboveS].compactMap { $0 }
+        return parts.isEmpty ? nil : parts.reduce(0, +)
+    }
+
+    static func parse(_ j: PFJ) -> PFLtSplit? {
+        guard j.exists else { return nil }
+        let out = PFLtSplit(belowS: j["below_s"].double, atS: j["at_s"].double, aboveS: j["above_s"].double, ltHr: j["lt_hr"].double,
+                            ltPaceSecPerKm: j["lt_pace_sec_per_km"].double, ltDate: j["lt_date"].text)
+        return out.totalS != nil ? out : nil
+    }
+}
+
+/// `effort_rank` of `/data/details/<id>.json`: where the session's load sits among the athlete's previous `days` days of sessions.
+struct PFEffortRank: Equatable, Sendable {
+    /// Share (0-100) of the `n` counted earlier sessions this one's load beat.
+    var pct: Int?
+    var n: Int?
+    var days: Int?
+    /// The load counted for the session, the heart-rate load before the class correction, and the correction factor (nil when none applied).
+    var trimp: Double?
+    var rawTrimp: Double?
+    var classFactor: Double?
+    /// Garmin's anaerobic training effect (0-5).
+    var anaerobicTE: Double?
+    /// That morning's recovery score, shown beside the effort and never folded into it.
+    var recovery: Double?
+
+    /// The chip word the web card uses in place of the 0-21 day-scale band word: 85+ among your hardest, 60+ harder than usual,
+    /// 35+ typical for you, else lighter than usual. nil without a `pct`.
+    var chipWord: String? {
+        guard let pct else { return nil }
+        if pct >= 85 { return "among your hardest" }
+        if pct >= 60 { return "harder than usual" }
+        if pct >= 35 { return "typical for you" }
+        return "lighter than usual"
+    }
+
+    static func parse(_ j: PFJ) -> PFEffortRank? {
+        guard j.exists, let pct = j["pct"].int else { return nil }
+        return PFEffortRank(pct: pct, n: j["n"].int, days: j["days"].int, trimp: j["trimp"].double, rawTrimp: j["raw_trimp"].double,
+                            classFactor: j["class_factor"].double, anaerobicTE: j["anaerobic_te"].double, recovery: j["recovery"].double)
+    }
+}
+
+/// `running.effective_vo2max.compare` of `fitness.json`: Garmin's own VO2max readings beside PaceForge's estimate.
+struct PFVo2Compare: Equatable, Sendable {
+    var garminLatest: Double?
+    var garminDate: String?
+    /// Days from that reading to the last run in the estimate.
+    var garminAgeDays: Int?
+    /// PaceForge's current estimate minus Garmin's latest reading; nil when there is no estimate.
+    var gap: Double?
+    /// Up to 12 months both sides have, oldest first.
+    var monthly: [PFVo2Month] = []
+
+    static func parse(_ j: PFJ) -> PFVo2Compare? {
+        guard j.exists, let latest = j["garmin_latest"].double else { return nil }
+        return PFVo2Compare(garminLatest: latest, garminDate: j["garmin_date"].text, garminAgeDays: j["garmin_age_days"].int, gap: j["gap"].double,
+                            monthly: j["monthly"].array.compactMap { m in
+                                guard let month = m["month"].text else { return nil }
+                                return PFVo2Month(month: month, garmin: m["garmin"].double, paceforge: m["paceforge"].double)
+                            })
+    }
+}
+
+/// One month of `compare.monthly`: the mean of Garmin's readings and of PaceForge's smoothed estimate, `month` being `yyyy-MM`.
+struct PFVo2Month: Equatable, Sendable {
+    var month: String
+    var garmin: Double?
+    var paceforge: Double?
+}
+
+/// `running.effective_vo2max.efficiency` of `fitness.json`: the speed the athlete runs at a fixed heart rate, the last 6 weeks against the 6 before.
+struct PFVo2Efficiency: Equatable, Sendable {
+    /// The fixed heart rate in bpm (140 on the server).
+    var hr: Double?
+    /// Speed in km/h at `hr` over the 6 weeks to `through`, and over the 6 weeks before that; either is nil without enough runs.
+    var now: Double?
+    var prev: Double?
+    var through: String?
+
+    static func parse(_ j: PFJ) -> PFVo2Efficiency? {
+        guard j.exists, j["now"].double != nil else { return nil }
+        return PFVo2Efficiency(hr: j["hr"].double, now: j["now"].double, prev: j["prev"].double, through: j["through"].text)
+    }
+}
+
+/// `compare` and `efficiency` together, parsed from `fitness.json` `running.effective_vo2max`. nil when the block is unavailable or holds neither.
+struct PFVo2Detail: Equatable, Sendable {
+    var compare: PFVo2Compare?
+    var efficiency: PFVo2Efficiency?
+
+    static func parse(_ effectiveVo2max: PFJ) -> PFVo2Detail? {
+        guard effectiveVo2max["available"].bool != false else { return nil }
+        let out = PFVo2Detail(compare: PFVo2Compare.parse(effectiveVo2max["compare"]), efficiency: PFVo2Efficiency.parse(effectiveVo2max["efficiency"]))
+        return out.compare != nil || out.efficiency != nil ? out : nil
+    }
+}
+
+/// One entry of `hr_zone_sets` in `profile.json`: a sport's heart-rate zone set as Garmin holds it.
+struct PFZoneSet: Equatable, Sendable {
+    /// Garmin's sport key, upper case (`RUNNING`, `DEFAULT`, `CYCLING` ...).
+    var sport: String?
+    /// The lowest bpm of zones 1 to 5; empty when the document predates the field.
+    var floors: [Int] = []
+    var maxHr: Double?
+    var ltHr: Double?
+    /// The resting heart rate the set records, which may be stale.
+    var restingHr: Double?
+
+    static func parse(_ j: PFJ) -> PFZoneSet? {
+        guard j.exists, let sport = j["sport"].text else { return nil }
+        return PFZoneSet(sport: sport, floors: Self.fiveFloors(j["floors"].array.compactMap { $0.int }), maxHr: j["max"].double, ltHr: j["lt"].double,
+                         restingHr: j["resting"].double)
+    }
+
+    /// A short list (a null floor dropped) would shift zones 2 to 5 down one place, so anything but five floors counts as none.
+    private static func fiveFloors(_ floors: [Int]) -> [Int] { floors.count == 5 ? floors : [] }
+
+    /// Every set in `profile.json` `hr_zone_sets`, in the file's order.
+    static func parseAll(_ list: PFJ) -> [PFZoneSet] { list.array.compactMap { parse($0) } }
+}
+
+/// The `kind` of the three profile-check alerts in `alerts.json`. They carry the same `metrics` as every `live_*` alert (`reading`,
+/// `source`, `plan_effect`, no `his_normal`), so `PFAlert.live` fills as for the others. The server never pushes them: the app shows them.
+enum PFProfileAlertKind {
+    static let zonesDiffer = "live_zones_differ"
+    static let ltStale = "live_lt_stale"
+    static let maxHrDiffers = "live_max_hr_differs"
+    static let all: Set<String> = [zonesDiffer, ltStale, maxHrDiffers]
+}

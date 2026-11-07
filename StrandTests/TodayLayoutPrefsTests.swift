@@ -6,6 +6,11 @@ import XCTest
 /// platforms so the byte-identical "today.sectionOrder" wire format can't drift.
 final class TodayLayoutPrefsTests: XCTestCase {
 
+    /// The sections the platform keeps: the iPhone retires four of them (`TodaySection.retired`), the Mac none, so the same tests pin both.
+    private func live(_ order: [TodaySection]) -> [TodaySection] {
+        order.filter { !TodaySection.retired.contains($0) }
+    }
+
     func testEmptyOrUnsetYieldsDefaultOrder() {
         XCTAssertEqual(TodayLayoutPrefs.decodeOrder(""), TodaySection.defaultOrder)
         XCTAssertEqual(TodayLayoutPrefs.decodeOrder("   "), TodaySection.defaultOrder)
@@ -13,12 +18,12 @@ final class TodayLayoutPrefsTests: XCTestCase {
 
     func testEncodeDecodeRoundTripsAReorderedList() {
         let reordered: [TodaySection] = [
-            .heartRate, .hero, .yourCards, .liveSession, .synthesis, .keyMetrics, .workouts, .recoveryVitals,
-            .journal, .menstrualCycle, .addedCards,
+            .todaysCall, .dayInReview, .myDay, .myPlan, .myDashboard, .heartRate, .hero, .yourCards, .liveSession, .synthesis, .keyMetrics,
+            .workouts, .recoveryVitals, .journal, .menstrualCycle, .addedCards,
         ]
         let encoded = TodayLayoutPrefs.encode(reordered)
-        XCTAssertEqual(encoded, "heartRate,hero,yourCards,liveSession,synthesis,keyMetrics,workouts,recoveryVitals,journal,menstrualCycle,addedCards")
-        XCTAssertEqual(TodayLayoutPrefs.decodeOrder(encoded), reordered)
+        XCTAssertEqual(encoded, "todays-call,day-in-review,my-day,my-plan,my-dashboard,heartRate,hero,yourCards,liveSession,synthesis,keyMetrics,workouts,recoveryVitals,journal,menstrualCycle,addedCards")
+        XCTAssertEqual(TodayLayoutPrefs.decodeOrder(encoded), live(reordered))
     }
 
     /// The v1 upgrade path: an order saved by the FIRST cut (6 sections — no hero/liveSession, which were
@@ -28,8 +33,8 @@ final class TodayLayoutPrefsTests: XCTestCase {
         let firstCut = "synthesis,keyMetrics,workouts,heartRate,recoveryVitals,yourCards"
         XCTAssertEqual(
             TodayLayoutPrefs.decodeOrder(firstCut),
-            // journal(8) follows everything saved → appended; addedCards(10) is last, appended after it.
-            [.hero, .liveSession, .synthesis, .keyMetrics, .workouts, .heartRate, .recoveryVitals, .yourCards, .menstrualCycle, .journal, .addedCards]
+            // The merge lands on the previous default order, which reads as "never customised": the current default.
+            TodaySection.defaultOrder
         )
     }
 
@@ -37,15 +42,15 @@ final class TodayLayoutPrefsTests: XCTestCase {
         let partial = "heartRate,synthesis,keyMetrics,recoveryVitals"
         XCTAssertEqual(
             TodayLayoutPrefs.decodeOrder(partial),
-            [.hero, .liveSession, .workouts, .heartRate, .synthesis, .keyMetrics, .recoveryVitals, .yourCards, .menstrualCycle, .journal, .addedCards]
+            live([.hero, .heartRate, .todaysCall, .dayInReview, .myDay, .myPlan, .myDashboard, .liveSession, .synthesis, .keyMetrics, .workouts, .recoveryVitals, .yourCards, .menstrualCycle, .journal, .addedCards])
         )
     }
 
     func testDropsUnknownTokensAndCollapsesDuplicates() {
-        let messy = "yourCards,BOGUS,yourCards,heartRate, ,heartRate"
+        let messy = "journal,BOGUS,journal,heartRate, ,heartRate"
         XCTAssertEqual(
             TodayLayoutPrefs.decodeOrder(messy),
-            [.hero, .liveSession, .synthesis, .keyMetrics, .workouts, .recoveryVitals, .yourCards, .heartRate, .menstrualCycle, .journal, .addedCards]
+            live([.hero, .todaysCall, .dayInReview, .myDay, .myPlan, .myDashboard, .liveSession, .synthesis, .keyMetrics, .workouts, .recoveryVitals, .yourCards, .menstrualCycle, .journal, .heartRate, .addedCards])
         )
     }
 
@@ -63,12 +68,64 @@ final class TodayLayoutPrefsTests: XCTestCase {
         let order = "heartRate,hero,yourCards,liveSession,synthesis,keyMetrics,workouts,recoveryVitals,journal"
         XCTAssertEqual(
             TodayLayoutPrefs.visibleOrder(orderRaw: order, hiddenRaw: "hero,workouts"),
-            [.heartRate, .yourCards, .liveSession, .synthesis, .keyMetrics, .recoveryVitals, .menstrualCycle, .journal, .addedCards]
+            // hero is hidden and the saved order predates my-day, so My Day stays hidden with it.
+            live([.heartRate, .todaysCall, .dayInReview, .myPlan, .myDashboard, .yourCards, .liveSession, .synthesis, .keyMetrics, .recoveryVitals, .menstrualCycle, .journal, .addedCards])
         )
-        XCTAssertEqual(TodayLayoutPrefs.decodeOrder(order), [
-            .heartRate, .hero, .yourCards, .liveSession, .synthesis, .keyMetrics, .workouts,
-            .recoveryVitals, .menstrualCycle, .journal, .addedCards,
-        ])
+        XCTAssertEqual(TodayLayoutPrefs.decodeOrder(order), live([
+            .heartRate, .hero, .todaysCall, .dayInReview, .myDay, .myPlan, .myDashboard, .yourCards, .liveSession, .synthesis, .keyMetrics,
+            .workouts, .recoveryVitals, .menstrualCycle, .journal, .addedCards,
+        ]))
+    }
+
+    /// An order saved while a previous default was in force (the Arrange sheet writes one on Done) is not a customisation: it follows
+    /// the new default. Any real change to it is kept as saved.
+    func testSavedPreviousDefaultOrdersFollowTheNewDefault() {
+        for previous in TodaySection.previousDefaultOrders {
+            XCTAssertEqual(TodayLayoutPrefs.decodeOrder(TodayLayoutPrefs.encode(previous)), TodaySection.defaultOrder)
+        }
+    }
+
+    func testCustomisedOrderIsNotReplacedByTheNewDefault() {
+        var custom = TodaySection.previousDefaultOrders[0]
+        custom.swapAt(custom.firstIndex(of: .workouts) ?? 0, custom.firstIndex(of: .synthesis) ?? 0)
+        XCTAssertEqual(TodayLayoutPrefs.decodeOrder(TodayLayoutPrefs.encode(custom)), custom)
+    }
+
+    /// My Day was part of the Charge / Effort / Rest section: a phone that hid that section before the split keeps My Day hidden.
+    func testHiddenHeroFromBeforeTheSplitAlsoHidesMyDay() {
+        let before = "todays-call,day-in-review,hero,my-plan,my-dashboard,liveSession,synthesis,keyMetrics,workouts,heartRate"
+        XCTAssertFalse(TodayLayoutPrefs.visibleOrder(orderRaw: before, hiddenRaw: "hero").contains(.myDay))
+        XCTAssertEqual(TodayLayoutPrefs.effectiveHidden(orderRaw: before, hiddenRaw: "hero"), [.hero, .myDay])
+    }
+
+    func testHiddenHeroWithMyDayInTheSavedOrderLeavesMyDayVisible() {
+        let after = TodayLayoutPrefs.encode(TodaySection.defaultOrder)
+        XCTAssertTrue(TodayLayoutPrefs.visibleOrder(orderRaw: after, hiddenRaw: "hero").contains(.myDay))
+    }
+
+    /// Builds 502 and 504 took Start session, Recovery Vitals, Your Cards and My Dashboard off the iPhone's Today (Key Metrics is back in 504). The
+    /// order the Arrange sheet saved while they were in the default reads as "not customised" and follows the new default.
+    func testBuild501DefaultOrderSavedOnThePhoneFollowsTheNewDefault() {
+        let saved = "hero,heartRate,todays-call,day-in-review,my-day,my-plan,my-dashboard,liveSession,synthesis,keyMetrics,workouts,recoveryVitals,yourCards,menstrualCycle,journal,addedCards"
+        XCTAssertEqual(TodayLayoutPrefs.decodeOrder(saved), TodaySection.defaultOrder)
+    }
+
+    /// A customised order keeps the user's sequence of the sections that remain; the retired ones just drop out.
+    func testCustomisedOrderDropsTheRetiredSectionsAndKeepsTheRest() {
+        let saved = "hero,heartRate,todays-call,day-in-review,my-day,my-plan,my-dashboard,liveSession,workouts,keyMetrics,synthesis,recoveryVitals,yourCards,menstrualCycle,journal,addedCards"
+        XCTAssertEqual(
+            TodayLayoutPrefs.decodeOrder(saved),
+            live([.hero, .heartRate, .todaysCall, .dayInReview, .myDay, .myPlan, .myDashboard, .liveSession, .workouts, .keyMetrics, .synthesis, .recoveryVitals, .yourCards, .menstrualCycle, .journal, .addedCards])
+        )
+    }
+
+    /// Whatever a phone saved, a retired section is neither in the order nor visible, even when it was never hidden.
+    func testRetiredSectionsNeverReturnWhateverIsSaved() {
+        for raw in ["", "liveSession,myDashboard,recoveryVitals,yourCards", TodayLayoutPrefs.encode(TodaySection.allCases)] {
+            let order = TodayLayoutPrefs.decodeOrder(raw)
+            XCTAssertTrue(TodaySection.retired.isDisjoint(with: order), raw)
+            XCTAssertTrue(TodaySection.retired.isDisjoint(with: TodayLayoutPrefs.visibleOrder(orderRaw: raw, hiddenRaw: "")), raw)
+        }
     }
 
     func testNewOrPreviouslyMissingSectionsDefaultToVisible() {
@@ -80,20 +137,22 @@ final class TodayLayoutPrefsTests: XCTestCase {
         )
     }
 
-    /// defaultOrder must cover EVERY case: the never-hide merge iterates it, so a case missing from the
-    /// default order could otherwise be dropped from render (Android) or mis-sorted (iOS).
-    func testDefaultOrderCoversEveryCase() {
-        XCTAssertEqual(Set(TodaySection.defaultOrder), Set(TodaySection.allCases))
-        XCTAssertEqual(TodaySection.defaultOrder.count, TodaySection.allCases.count)
+    /// defaultOrder plus the retired sections (none on the Mac) must cover EVERY case once: the never-hide merge iterates the cases that are
+    /// not retired, so a case missing from the default order could otherwise be dropped from render (Android) or mis-sorted (iOS).
+    func testDefaultOrderAndRetiredSectionsCoverEveryCaseOnce() {
+        XCTAssertEqual(Set(TodaySection.defaultOrder).union(TodaySection.retired), Set(TodaySection.allCases))
+        XCTAssertTrue(Set(TodaySection.defaultOrder).isDisjoint(with: TodaySection.retired))
+        XCTAssertEqual(TodaySection.defaultOrder.count + TodaySection.retired.count, TodaySection.allCases.count)
     }
 
     func testSectionRawKeysAreStableAndUnique() {
         let raws = TodaySection.allCases.map(\.rawValue)
         XCTAssertEqual(raws.count, Set(raws).count, "raw keys must be unique (they're the persisted identity)")
-        // Pin the exact wire strings — they must match the Android TodaySection byte-for-byte.
+        // Pin the exact wire strings. todays-call, day-in-review, my-day, my-plan and my-dashboard are iPhone-only; every other one must match the
+        // Android TodaySection byte-for-byte, and Android's decoder drops the five it does not know.
         XCTAssertEqual(
             raws,
-            ["hero", "liveSession", "synthesis", "keyMetrics", "workouts", "heartRate", "recoveryVitals", "yourCards", "menstrualCycle", "journal", "addedCards"]
+            ["todays-call", "day-in-review", "hero", "my-day", "my-plan", "my-dashboard", "liveSession", "synthesis", "keyMetrics", "workouts", "heartRate", "recoveryVitals", "yourCards", "menstrualCycle", "journal", "addedCards"]
         )
     }
 

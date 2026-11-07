@@ -4,6 +4,7 @@ import WhoopStore
 import WhoopProtocol
 import StrandAnalytics
 import StrandDesign   // TrendPoint , the shared chart point type the Deep Timeline series uses
+import StrandImport
 
 /// Per-day sleep figures the WHOOP export carried verbatim (metricSeries rows written by
 /// WhoopImporter under the imported deviceId). SleepView prefers these over its on-device
@@ -72,6 +73,7 @@ struct ScoreInputProvider: Equatable, Sendable {
 enum DailyMetricSource: Equatable {
     case whoopImport
     case noopComputed
+    case paceForgeGarmin
     case appleHealth
     case localCache
 
@@ -79,8 +81,9 @@ enum DailyMetricSource: Equatable {
         switch self {
         case .whoopImport:  return 0
         case .noopComputed: return 1
-        case .appleHealth:  return 2
-        case .localCache:   return 3
+        case .paceForgeGarmin: return 2
+        case .appleHealth:  return 3
+        case .localCache:   return 4
         }
     }
 }
@@ -296,7 +299,7 @@ final class Repository: ObservableObject {
     /// disagree, and a future namespace added to the read alone would reintroduce exactly this bug.
     nonisolated static func workoutNamespaces(rawIds: [String]) -> [String] {
         deletableWorkoutNamespaces(rawIds: rawIds)
-            + [WorkoutSource.appleHealthSource, "lifting", "activity-file"]
+            + [WorkoutSource.appleHealthSource, "lifting", "activity-file", "paceforge"]
     }
 
     /// The subset of [workoutNamespaces] a DELETE may touch: the strap namespaces only.
@@ -729,7 +732,11 @@ final class Repository: ObservableObject {
     // `nonisolated` so pure callers off the main actor (e.g. the extracted `SleepModel.build`) can key a
     // day the SAME way `DailyMetric.day` is stored. Pure date→string; no actor state is touched.
     private nonisolated static let dayKeyFormatter: DateFormatter = {
-        let f = DateFormatter(); f.dateFormat = "yyyy-MM-dd"; f.locale = Locale(identifier: "en_US_POSIX"); return f
+        let f = DateFormatter(); f.dateFormat = "yyyy-MM-dd"; f.locale = Locale(identifier: "en_US_POSIX")
+        // Follows the device zone as it changes (travel), the same zone `WidgetSnapshot.logicalDayKey` reads
+        // from `Calendar.current`, so the app and the widget extension key the same logical day.
+        f.timeZone = .autoupdatingCurrent
+        return f
     }()
     nonisolated static func localDayKey(_ date: Date) -> String { dayKeyFormatter.string(from: date) }
 
@@ -941,8 +948,41 @@ final class Repository: ObservableObject {
     var loadFireCounts: [String: Int] = [:]
     #endif
 
+    /// Single-flight: at launch the shell, Today, My Day and the importers each call this within a second, and
+    /// every call used to run the full ~50-read merge on its own (3-4 at once on the phone, 4 s to 13 s each) with
+    /// the older ones' results thrown away by the generation guard. Now one run is in flight; callers arriving
+    /// meanwhile share ONE trailing run (the widest window asked for), so their data is read after their call, and
+    /// all of them return when it has published. An unstructured task so a cancelled caller (a view's .task) cannot
+    /// truncate the run the others are waiting on.
     func refresh(days nDays: Int = 4000) async {
+        if let running = refreshTask {
+            refreshRerunDays = max(refreshRerunDays ?? 0, nDays)
+            await running.value
+            return
+        }
+        let task = Task { [self] in
+            var next: Int? = nDays
+            while let window = next {
+                refreshRerunDays = nil
+                await refreshOnce(days: window)
+                next = refreshRerunDays
+            }
+            refreshTask = nil
+        }
+        refreshTask = task
+        await task.value
+    }
+
+    private var refreshTask: Task<Void, Never>?
+    /// The widest window asked for while a refresh was running; nil = nothing waiting. Load-bookkeeping, not @Published.
+    private var refreshRerunDays: Int?
+
+    private func refreshOnce(days nDays: Int) async {
         guard let store = await ensureStore() else { return }
+        #if os(iOS)
+        let diagnostics = NoopDiag.begin("repo.refresh")
+        defer { diagnostics.end(["days": Double(days.count)]) }
+        #endif
         refreshGen &+= 1
         let myGen = refreshGen
         let now = Date()
@@ -957,6 +997,8 @@ final class Repository: ObservableObject {
         let imported = await unionDailyMetrics(store: store, from: fromDay, to: toDay)
         let computed = await unionComputedDailyMetrics(store: store, from: fromDay, to: toDay)
         let apple = (try? await store.dailyMetrics(deviceId: Self.appleHealthSource, from: fromDay, to: toDay)) ?? []
+        let paceForgeGarmin = (try? await store.dailyMetrics(deviceId: "paceforge-garmin",
+                                                              from: fromDay, to: toDay)) ?? []
         let activityFile = (try? await store.dailyMetrics(deviceId: Self.activityFileSource, from: fromDay, to: toDay)) ?? []
         let impSleep = await unionSleepSessions(store: store, from: lo, to: hi)
         let compSleep = await unionComputedSleepSessions(store: store, from: lo, to: hi)
@@ -992,17 +1034,21 @@ final class Repository: ObservableObject {
             return MergedCaches(
                 importedSleep: fig,
                 days: Self.mergeActivityFileSteps(
-                    into: Self.mergeDaily(imported: imported, computed: computed, userEditedDays: editedDays),
-                    activityFile
-                ),
+                    into: Self.mergePaceForgeGarmin(
+                        into: Self.mergeDaily(imported: imported, computed: computed,
+                                              userEditedDays: editedDays),
+                        paceForgeGarmin),
+                    activityFile),
                 // From the two buckets BEFORE `mergeDaily` blends them: the rule needs to know which nights
                 // are imported and which are the wearer's own.
                 chargeBaselines: ChargeBaselines.resolve(imported: imported, own: computed,
                                                          anchorDay: chargeAnchorDay,
                                                          hrvEpoch: hrvEpoch, recoveryEpoch: recoveryEpoch),
                 sleeps: Self.mergeSleep(imported: impSleep, computed: compSleep),
-                vitalRows: Self.sourceRows(imported: imported, computed: computed, apple: apple),
+                vitalRows: Self.sourceRows(imported: imported, computed: computed,
+                                           paceForgeGarmin: paceForgeGarmin, apple: apple),
                 freshness: Self.computeFreshness(imported: imported, computed: computed, apple: apple,
+                                                 paceForgeGarmin: paceForgeGarmin,
                                                  importedSleeps: impSleep, computedSleeps: compSleep))
         }.value
 
@@ -1046,12 +1092,23 @@ final class Repository: ObservableObject {
         self.refreshSeq += 1
     }
 
+    /// External imports and the PaceForge replica can change metricSeries or workouts without changing
+    /// the daily/sleep/vital caches compared by `refresh()`. Tell dependent screens to reload after those
+    /// writes. If `refresh()` already advanced the sequence, avoid a second UI reload for the same batch.
+    func invalidateExternalDataCaches(ifRefreshSeqUnchangedSince previousSequence: Int) {
+        exploreAllCache = nil
+        appleHealthCache = nil
+        appleHealthLoadedSeq = -1
+        if refreshSeq == previousSequence { refreshSeq += 1 }
+    }
+
     /// Per-source coverage counts for the Freshness Pipeline card. Pure over the rows already read.
     /// `nonisolated` (FIX 3) so `refresh()`'s detached merge task can call it off the main actor.
     nonisolated private static func computeFreshness(imported: [DailyMetric], computed: [DailyMetric],
-                                         apple: [DailyMetric], importedSleeps: [CachedSleepSession],
+                                         apple: [DailyMetric], paceForgeGarmin: [DailyMetric],
+                                         importedSleeps: [CachedSleepSession],
                                          computedSleeps: [CachedSleepSession]) -> RepositoryFreshness {
-        let days = (imported + computed + apple).map(\.day)
+        let days = (imported + computed + apple + paceForgeGarmin).map(\.day)
         return RepositoryFreshness(
             importedDays: imported.count,
             computedDays: computed.count,
@@ -1087,6 +1144,59 @@ final class Repository: ObservableObject {
             }
         }
         return byDay.values.sorted { $0.day < $1.day }
+    }
+
+    /// Garmin metrics fetched through PaceForge fill missing fields only; they never replace NOOP/WHOOP data.
+    nonisolated static func mergePaceForgeGarmin(into base: [DailyMetric],
+                                                 _ garmin: [DailyMetric]) -> [DailyMetric] {
+        guard !garmin.isEmpty else { return base }
+        var byDay = Dictionary(base.map { ($0.day, $0) }, uniquingKeysWith: { _, last in last })
+        for row in paceForgeGarminRecoveryRows(garmin) {
+            if let existing = byDay[row.day] {
+                byDay[row.day] = coalesceDay(existing, row)
+            } else {
+                byDay[row.day] = row
+            }
+        }
+        return byDay.values.sorted { $0.day < $1.day }
+    }
+
+    /// When Garmin is the only source for a night, derive NOOP's transparent recovery proxy from
+    /// Garmin's overnight HRV and resting HR. The baseline is Garmin-only and prior-night-only; this
+    /// never replaces an imported WHOOP/NOOP score because `coalesceDay` keeps the existing value.
+    /// Garmin's `avgHrv` is its overnight HRV (RMSSD), so this does not use Apple Watch/HealthKit data.
+    nonisolated static func paceForgeGarminRecoveryRows(_ rows: [DailyMetric]) -> [DailyMetric] {
+        let ordered = rows.sorted { $0.day < $1.day }
+        var scored: [DailyMetric] = []
+        for (index, day) in ordered.enumerated() {
+            guard day.recovery == nil, let hrv = day.avgHrv else {
+                scored.append(day)
+                continue
+            }
+            let prior = ordered[..<index]
+            let hrvBaseline = Baselines.foldHistory(prior.map(\.avgHrv), cfg: Baselines.hrvCfg)
+            guard hrvBaseline.usable else {
+                scored.append(day)
+                continue
+            }
+            let rhrBaseline = Baselines.foldHistory(prior.map { $0.restingHr.map(Double.init) },
+                                                    cfg: Baselines.restingHRCfg)
+            let respBaseline = Baselines.foldHistory(prior.map(\.respRateBpm), cfg: Baselines.respCfg)
+            let restQuality = AnalyticsEngine.Rest.composite(daily: day).map { $0 / 100.0 } ?? day.efficiency
+            let recovery = RecoveryScorer.recovery(
+                hrv: hrv,
+                rhr: Double(day.restingHr ?? Int(rhrBaseline.baseline.rounded())),
+                resp: day.respRateBpm,
+                hrvBaseline: RecoveryScorer.DriverBaseline(hrvBaseline),
+                rhrBaseline: rhrBaseline.usable ? RecoveryScorer.DriverBaseline(rhrBaseline) : nil,
+                respBaseline: respBaseline.usable ? RecoveryScorer.DriverBaseline(respBaseline) : nil,
+                sleepPerf: restQuality,
+                skinTempDev: day.skinTempDevC,
+                hrvBaselineUsable: hrvBaseline.usable)
+            scored.append(day.with(recovery: recovery, skinTempDevC: day.skinTempDevC,
+                                   skinTempC: day.skinTempC))
+        }
+        return scored
     }
 
     nonisolated static func mergeActivityFileSteps(into base: [DailyMetric],
@@ -1147,9 +1257,10 @@ final class Repository: ObservableObject {
     /// > Apple); ordered by day, then source priority, so a stable list reaches the UI.
     /// `nonisolated` (FIX 3) so `refresh()`'s detached merge task can call it off the main actor.
     nonisolated private static func sourceRows(imported: [DailyMetric], computed: [DailyMetric],
-                                   apple: [DailyMetric]) -> [SourcedDailyMetric] {
+                                   paceForgeGarmin: [DailyMetric], apple: [DailyMetric]) -> [SourcedDailyMetric] {
         (imported.map { SourcedDailyMetric(metric: $0, source: .whoopImport) }
             + computed.map { SourcedDailyMetric(metric: $0, source: .noopComputed) }
+            + paceForgeGarmin.map { SourcedDailyMetric(metric: $0, source: .paceForgeGarmin) }
             + apple.map { SourcedDailyMetric(metric: $0, source: .appleHealth) })
             .sorted { lhs, rhs in
                 if lhs.metric.day == rhs.metric.day {
@@ -1863,6 +1974,12 @@ final class Repository: ObservableObject {
         let now = Date()
         let from = fullHistory ? "0000-01-01" : Self.dayString(now.addingTimeInterval(-Double(days) * 86_400))
         let to = fullHistory ? "9999-12-31" : Self.dayString(now.addingTimeInterval(86_400))
+        if source == "paceforge-garmin" {
+            let rows = (try? await store.dailyMetrics(deviceId: source, from: from, to: to)) ?? []
+            return rows.compactMap { row in
+                Self.dailyColumn(key: key, day: row).map { (day: row.day, value: $0) }
+            }
+        }
         let pts: [MetricPoint]
         if source == canonicalDeviceId {
             pts = await unionMetricSeries(store: store, key: key, from: from, to: to)
@@ -2264,10 +2381,10 @@ final class Repository: ObservableObject {
 
     // MARK: - Cross-source resolver (PR#196)
 
-    /// Product-facing daily series for a metric across every COMPATIBLE source, freshest-wins. Use this
-    /// on surfaces where the user expects the best available signal (Compare/Insights/Stress/Explore/
-    /// Today); use `series(key:source:)` where a single source must be honoured verbatim. Precedence is
-    /// explicit per `sourceCandidates`: imported WHOOP > NOOP-computed > declared-compatible Apple Health.
+    /// Product-facing daily series for a metric across every compatible source, freshest-wins per day.
+    /// Use this on surfaces where the user expects the best available signal; use `series(key:source:)`
+    /// where a single source must be honoured verbatim. Source order is explicit per `sourceCandidates`:
+    /// the preferred source wins, with compatible Apple Health, Garmin, or Hume values filling gaps.
     /// #833/v7.7.2: `fullHistory` forces the full recordable epoch ("0000-01-01" ... "9999-12-31")
     /// regardless of `days`; false (the default) honours `days` exactly as before, so existing callers are
     /// byte-identical.
@@ -2367,10 +2484,8 @@ final class Repository: ObservableObject {
     /// The candidate (source, key) pairs to try for `key`, in precedence order, given the user's
     /// `preferredSource`. The strap's real id is `actualWhoopSource` (`deviceId`), so the computed
     /// sibling is `actualWhoopSource + "-noop"`.
-    ///  • strap-preferred → [imported strap, computed strap, compatible Apple] (Apple only for vitals
-    ///    that have a declared 1:1 mapping);
-    ///  • Apple-preferred → [Apple] (+ computed strap ONLY for steps/active_kcal, which the strap
-    ///    estimates and Apple may not carry);
+    ///  • strap-preferred → [imported strap, computed strap, compatible Garmin, compatible Apple];
+    ///  • Apple-preferred → [Apple, Health Connect, compatible Hume, computed strap for estimates];
     ///  • any other source → itself only (nutrition/mood are single-source by design).
     static func sourceCandidates(forKey key: String, preferredSource: String,
                                  actualWhoopSource: String) -> [MetricSourceCandidate] {
@@ -2389,14 +2504,17 @@ final class Repository: ObservableObject {
             // canonical import, so after a device re-add (active != canonical) the new strap's computed
             // estimates shadowed richer imported my-whoop history (Swift twin of the ryanbr/noop#240
             // precedence fix). `uniqued` collapses these to one pair per source on a single-device
-            // install (active == canonical), so that path is byte-identical. Apple is the final
-            // cross-source fallback.
+            // install (active == canonical), so that path is byte-identical. Compatible Garmin then
+            // Apple signals fill missing days while preserving provider attribution.
             var candidates = [
                 MetricSourceCandidate(source: actualWhoopSource, key: key),
                 MetricSourceCandidate(source: whoopSource, key: key),
                 MetricSourceCandidate(source: computedSource, key: key),
                 MetricSourceCandidate(source: whoopSource + "-noop", key: key),
             ]
+            if let garminKey = paceForgeGarminCompatibleKey(forWhoopKey: key) {
+                candidates.append(MetricSourceCandidate(source: "paceforge-garmin", key: garminKey))
+            }
             if let appleKey = appleCompatibleKey(forWhoopKey: key) {
                 candidates.append(MetricSourceCandidate(source: appleHealthSource, key: appleKey))
             }
@@ -2409,6 +2527,9 @@ final class Repository: ObservableObject {
             // byte-identical to Android's, where it makes a Health-Connect-only weight history resolve in
             // Compare (#443). A real Apple export still wins per day; HC fills the rest.
             candidates.append(MetricSourceCandidate(source: healthConnectSource, key: key))
+            if humeMetricKeys.contains(key) {
+                candidates.append(MetricSourceCandidate(source: "paceforge-hume", key: key))
+            }
             if noopComputedCanFillAppleMetric(key) {
                 candidates.append(MetricSourceCandidate(source: computedSource, key: key))
             }
@@ -2416,6 +2537,25 @@ final class Repository: ObservableObject {
         }
         return [MetricSourceCandidate(source: preferredSource, key: key)]
     }
+
+    /// Garmin daily metrics synced through PaceForge can fill matching WHOOP metrics on days WHOOP has
+    /// no value. Their provider identity remains available to the detail view and source comparisons.
+    private static func paceForgeGarminCompatibleKey(forWhoopKey key: String) -> String? {
+        switch key {
+        case "steps", "rhr", "hrv", "spo2", "resp_rate",
+             "sleep_total_min", "sleep_deep_min", "sleep_rem_min", "sleep_light_min": return key
+        case "resting_hr": return "rhr"
+        default: return nil
+        }
+    }
+
+    private static let humeMetricKeys: Set<String> = [
+        "weight", "body_fat", "lean_mass", "bmi", "fat_mass", "skeletal_muscle",
+        "total_body_water", "visceral_fat", "bmr", "subcutaneous_fat", "fat_free_mass",
+        "muscle_mass", "bone_mass", "mineral_mass", "organ_mass", "total_body_water_pct",
+        "extracellular_water", "intracellular_water", "body_cell_mass", "metabolic_age",
+        "whole_body_impedance", "android_gynoid_ratio",
+    ]
 
     /// The Apple-Health series key that carries the SAME physiological quantity as a WHOOP key , used
     /// only for the declared-compatible vitals; nil means "no Apple equivalent, don't fall back to it".
@@ -2628,6 +2768,13 @@ final class Repository: ObservableObject {
                 }
             } else {
                 keys.formUnion((try? await store.metricKeys(deviceId: source)) ?? [])
+                if source == "paceforge-garmin" {
+                    let rows = (try? await store.dailyMetrics(deviceId: source,
+                                                               from: "0000-01-01", to: "9999-12-31")) ?? []
+                    if rows.contains(where: { Self.dailyColumn(key: "steps", day: $0) != nil }) {
+                        keys.insert("steps")
+                    }
+                }
             }
             keysBySource[source] = keys
         }
@@ -2852,10 +2999,8 @@ final class Repository: ObservableObject {
         // `reduceWorkoutHr` helper this comment used to describe. Rows are read only for a strain fill.
         let readChunk = 8
 
-        // Phase 1 , resolve eligibility + spend the `cap` budget in ORIGINAL row order, exactly as the old
-        // sequential loop did. Only these indices get a trace read; everything else passes through verbatim.
+        // Phase 1 , resolve eligibility before spending the bounded read budget.
         // (Strap-native is recomputed in Phase 3 from the same `classify`, so it isn't carried here.)
-        var budget = cap
         var eligibleIndices: [Int] = []
         for (i, row) in rows.enumerated() {
             let cls = WorkoutSource.classify(row.source)
@@ -2864,12 +3009,19 @@ final class Repository: ObservableObject {
             // already present, so a session that ended with an HR but no strain (sparse live HR at save)
             // still gets its Effort backfilled once the strap trace covers the window. Needs the injected
             // profile; without it the strain fill is skipped and eligibility is unchanged from before.
-            let needsStrainFill = strapNative && row.strain == nil && strainProfile != nil
-            guard row.endTs > row.startTs, budget > 0,
+            let needsStrainFill = (strapNative || cls == .paceforge) && row.strain == nil && strainProfile != nil
+            guard row.endTs > row.startTs,
                   strapNative || row.avgHr == nil || needsStrainFill else { continue }
-            budget -= 1
             eligibleIndices.append(i)
         }
+        // Spend the bounded read budget on rows that can actually produce a missing effort first.
+        // Apple Health workouts have no imported HR stream here and previously could consume all 300 slots.
+        eligibleIndices.sort {
+            let lhs = WorkoutSource.classify(rows[$0].source) == .paceforge && rows[$0].strain == nil
+            let rhs = WorkoutSource.classify(rows[$1].source) == .paceforge && rows[$1].strain == nil
+            return lhs == rhs ? rows[$0].startTs > rows[$1].startTs : lhs
+        }
+        eligibleIndices = Array(eligibleIndices.prefix(cap))
 
         // Phase 2 , read each eligible window with BOUNDED concurrency (chunks of `readChunk`) and reduce it
         // OFF the main actor, then return only PLAIN Ints (index, avg, peak) from the child tasks. Keeping the
@@ -2891,7 +3043,8 @@ final class Repository: ObservableObject {
                     // own. Resolve this on the main actor (WorkoutSource.classify) and capture the plain Bool,
                     // so the child task crosses only Sendable scalars.
                     let cls = WorkoutSource.classify(rows[idx].source)
-                    let wantStrain = (cls == .manual || cls == .detected) && rows[idx].strain == nil
+                    let wantStrain = (cls == .manual || cls == .detected || cls == .paceforge)
+                        && rows[idx].strain == nil
                     // #510: read HR under the workout's OWN recording strap, not a single active id. A detected
                     // row's `source` IS its computed strap id ("<base>-noop"), so a bout auto-detected on a 2nd
                     // WHOOP reads "<base>" instead of the active strap's empty window. Resolved on the main actor;
@@ -2923,7 +3076,7 @@ final class Repository: ObservableObject {
                                                                       from: startTs, to: endTs,
                                                                       limit: 8000)) ?? []
                             strain = StrainScorer.strain(samples, maxHR: p.hrMax,
-                                                method: PuffinExperiment.effortMethod, sex: p.sex)
+                                                method: PuffinExperiment.effortMethod.workoutRecipe, sex: p.sex)
                         } else {
                             strain = nil
                         }
@@ -2977,6 +3130,14 @@ final class Repository: ObservableObject {
     /// install collapses to one in both branches — so every existing number is unchanged.
     nonisolated static func workoutHrDeviceIds(source: String, activeStrapId: String,
                                                importedIds: [String]) -> [String] {
+        // Imported activity streams stay source-pure. Mixing nearby WHOOP samples into a Garmin or
+        // activity-file workout would attribute another device's readings to this activity and
+        // corrupt its chart, zones, Effort and recovery.
+        switch WorkoutSource.classify(source) {
+        case .paceforge: return ["paceforge-garmin"]
+        case .activityFile: return [ActivityFileImporter.sourceId]
+        default: break
+        }
         guard WorkoutSource.classify(source) == .detected else { return importedIds }
         return [source.hasSuffix("-noop") ? String(source.dropLast(5)) : source]
     }
@@ -2990,7 +3151,7 @@ final class Repository: ObservableObject {
 
     /// The persisted legacy detected spans ("startTs:endTs"). Read straight off UserDefaults so the read
     /// filter, mutators and confirmation-candidate selector share one source of truth.
-    private var dismissedDetectedSpans: [String] {
+    var dismissedDetectedSpans: [String] {
         get { UserDefaults.standard.stringArray(forKey: WorkoutSource.dismissedDefaultsKey) ?? [] }
         set { UserDefaults.standard.set(newValue, forKey: WorkoutSource.dismissedDefaultsKey) }
     }
@@ -3140,7 +3301,7 @@ final class Repository: ObservableObject {
             switch WorkoutSource.classify(r.source) {
             case .detected: await dismissDetected(r)
             case .manual:   await deleteWorkout(r)
-            case .whoop, .apple, .lifting, .activityFile:
+            case .whoop, .apple, .paceforge, .lifting, .activityFile:
                 // Defensive: canMerge already excludes imported rows; never rewrite imported history.
                 continue
             }
@@ -3165,7 +3326,7 @@ final class Repository: ObservableObject {
             switch WorkoutSource.classify(r.source) {
             case .detected: await dismissDetected(r)
             case .manual:   await deleteWorkout(r)
-            case .whoop, .apple, .lifting, .activityFile: continue
+            case .whoop, .apple, .paceforge, .lifting, .activityFile: continue
             }
         }
     }
@@ -3180,7 +3341,7 @@ final class Repository: ObservableObject {
     /// Dismissed AUTO-DETECT spans ("startSec:endSec"). The key remains distinct for backup compatibility;
     /// candidate selection also honors the legacy `dismissedDetected` intervals during the transition.
     private static let autoDetectDismissedKey = "workouts.autoDetectDismissed"
-    private var autoDetectDismissedSpans: [String] {
+    var autoDetectDismissedSpans: [String] {
         get { UserDefaults.standard.stringArray(forKey: Self.autoDetectDismissedKey) ?? [] }
         set { UserDefaults.standard.set(newValue, forKey: Self.autoDetectDismissedKey) }
     }
@@ -3304,12 +3465,15 @@ final class Repository: ObservableObject {
     /// didn't classify). Built through the same `WorkoutSource.buildManualRow` the manual sheet uses, so
     /// it persists exactly like a hand-entered session under the strap source. After saving, the screen
     /// re-queries (the new saved span now excludes this window from re-suggestion).
+    ///
+    /// `sport` is "Workout" unless the user (or the walk guess) named a type, so an unclassified window never
+    /// claims a sport nobody chose.
     @discardableResult
-    func saveDetectedWorkout(_ w: DetectedWorkout) async -> Bool {
+    func saveDetectedWorkout(_ w: DetectedWorkout, sport: String = "Workout") async -> Bool {
         let durationMin = max(1, w.durationMin)
         let start = Date(timeIntervalSince1970: TimeInterval(w.startSec))
         guard let row = WorkoutSource.buildManualRow(start: start, durationMin: durationMin,
-                                                     sport: "Workout", avgHr: w.avgBpm,
+                                                     sport: sport, avgHr: w.avgBpm,
                                                      energyKcal: nil) else { return false }
         await saveManualWorkout(row)
         return true
@@ -3373,6 +3537,18 @@ final class Repository: ObservableObject {
         return minutes.contains(where: { $0 > 0 }) ? minutes : nil
     }
 
+    /// Zone MINUTES for a window from the worn strap's own heart rate, for the Weekly goals' hard effort. A Garmin treadmill
+    /// session can read well under the strap (2026-11-04: Garmin max 146, strap mean 159 and max 179), and the strap is on the
+    /// wrist all day, so it is used when it recorded at least 80% of the seconds. nil otherwise, and the caller falls back.
+    /// Only for PaceForge (Garmin) rows: a strap-detected or file-imported row must keep reading its own device.
+    func strapZoneMinutes(from: Int, to: Int, zoneSet: HRZoneSet, source: String) async -> [Double]? {
+        guard to > from, WorkoutSource.classify(source) == .paceforge else { return nil }
+        let samples = await hrSamples(deviceIds: [deviceId], from: from, to: to, limit: max(20_000, to - from + 1))
+        guard Double(samples.count) >= 0.8 * Double(to - from) else { return nil }
+        let minutes = HRZones.timeInZone(samples, zoneSet: zoneSet).seconds.map { $0 / 60.0 }
+        return minutes.contains(where: { $0 > 0 }) ? minutes : nil
+    }
+
     /// HRR for one workout (#516), derived from the final five minutes of recorded effort plus the five
     /// post-workout minutes. This is a narrow read (at most ~10 minutes), not a whole-workout scan, and the
     /// pure engine owns every eligibility/coverage guard. Missing post-workout HR therefore returns nil
@@ -3381,15 +3557,45 @@ final class Repository: ObservableObject {
     /// extends PAST the bout, but the strap that recorded it is still the one on the wrist a few
     /// minutes later — so a detected bout reads its own strap here too rather than the day union.
     func workoutHeartRateRecovery(from: Int, to: Int, maxHR: Double,
+                                  maxHRSource: HeartRateRecovery.MaxHRSource? = nil,
                                   source: String = "") async -> HeartRateRecovery.Result? {
-        guard to > from, maxHR > 0 else { return nil }
+        if case .measured(let result) = await workoutHeartRateRecoveryOutcome(
+            from: from, to: to, maxHR: maxHR, maxHRSource: maxHRSource, source: source) {
+            return result
+        }
+        return nil
+    }
+
+    /// `workoutHeartRateRecovery` with the reason attached when there is no figure, for the detail card.
+    func workoutHeartRateRecoveryOutcome(from: Int, to: Int, maxHR: Double,
+                                         maxHRSource: HeartRateRecovery.MaxHRSource? = nil,
+                                         source: String = "") async -> HeartRateRecovery.Outcome {
+        guard maxHR > 0 else { return .unavailable(.missingMaxHR) }
+        guard to > from else { return .unavailable(.invalidWorkout) }
         let readFrom = max(from, to - HeartRateRecovery.eligibilityLookbackSeconds)
-        let readTo = to + 5 * 60 + HeartRateRecovery.measurementToleranceSeconds
+        // The Garmin branch accepts readings within 30 seconds of each recovery point. The store
+        // query must cover that same upper edge or it silently drops a valid late five-minute sample.
+        let isPaceForge = WorkoutSource.classify(source) == .paceforge
+        let measurementTolerance = isPaceForge ? 30 : HeartRateRecovery.measurementToleranceSeconds
+        // PaceForge workouts also list the next Garmin day-series readings (about +2, +4, +6 min).
+        let readTo = to + 5 * 60 + measurementTolerance + (isPaceForge ? 2 * 60 : 0)
         let ids = Self.workoutHrDeviceIds(source: source, activeStrapId: deviceId,
                                           importedIds: importedReadIds)
         let samples = await hrSamples(deviceIds: ids, from: readFrom, to: readTo, limit: 2_000)
-        return HeartRateRecovery.calculate(samples: samples, workoutStart: from, workoutEnd: to,
-                                           maxHR: maxHR)
+        // Garmin's post-workout stream is sampled sparsely. Keep the same sustained-intensity and
+        // cessation checks, but accept one nearest measurement within 30 seconds for each recovery point.
+        // A watch that records every 5 to 30 s never has two readings within the strap's 10 s of each other,
+        // so the strap's continuity gap would make every Garmin workout "not hard enough".
+        return HeartRateRecovery.evaluate(samples: samples, workoutStart: from, workoutEnd: to,
+                                          maxHR: maxHR, maxHRSource: maxHRSource,
+                                          minimumSamplesPerReading: isPaceForge ? 1 : HeartRateRecovery.minimumSamplesPerReading,
+                                          measurementToleranceSeconds: measurementTolerance,
+                                          minimumCessationSamples: isPaceForge ? 1 : HeartRateRecovery.minimumSamplesPerReading,
+                                          maximumContinuousGapSeconds: isPaceForge ? 30 : HeartRateRecovery.maximumContinuousGapSeconds,
+                                          // Garmin's per-second recording ends at the stop; the rows after it are the
+                                          // all-day series (one reading every 2 minutes), which cannot give a 1 or 2
+                                          // minute drop. They come back as .garminReadings, listed as Garmin shows them.
+                                          requiredPostStopSeconds: isPaceForge ? 120 : 0)
     }
 
     /// Apple Health daily aggregates (steps/energy/vo2/hr).

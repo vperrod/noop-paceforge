@@ -105,7 +105,9 @@ public enum StrandMotion {
     static let syncIndicatorLabelIn = Animation.easeOut(duration: 0.26)
     static let syncIndicatorLabelOut = Animation.easeInOut(duration: 0.26)
 
-    static let syncIndicatorFrameInterval = 1.0 / 60.0
+    /// 20 Hz, not 60: the spinner body runs on the main thread, and a Today header that was also re-measuring starved it
+    /// (simulator profile of a sync). A 36 pt ring turning at 1.25 s a revolution reads the same at 20 Hz.
+    static let syncIndicatorFrameInterval = 1.0 / 20.0
     static let syncIndicatorSpinPeriod = 1.25
 
     /// Fixed sweep of the spinner arc, in turns.

@@ -80,9 +80,34 @@ public struct WatchScoreSnapshot: Codable, Equatable, Sendable {
     /// `WidgetSnapshot.suiteName` — this package builds standalone (`swift test`) with no host bundle,
     /// so the fallback below is the canonical upstream group and only applies there.
     public static let appGroupId: String = {
-        Bundle.main.object(forInfoDictionaryKey: "AppGroupIdentifier") as? String
-            ?? "group.com.noopapp.noop"
+        resolveAppGroupId(configured: Bundle.main.object(forInfoDictionaryKey: "AppGroupIdentifier") as? String,
+                          bundleIdentifier: Bundle.main.bundleIdentifier) {
+            FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: $0) != nil
+        }
     }()
+
+    /// Same rule as `WidgetSnapshot.suiteName` (this package cannot see it): the sideloader entitles every
+    /// bundle for `group.<signed main bundle id>` only, so when the configured group has no container, try
+    /// the group named after this bundle and the ones above it (the watch app and its complication drop
+    /// their own suffix). Nothing configured means a bare host, which keeps the canonical fallback.
+    public static func appGroupCandidates(configured: String?, bundleIdentifier: String?) -> [String] {
+        guard let configured, !configured.isEmpty else { return ["group.com.noopapp.noop"] }
+        var candidates = [configured]
+        guard let bundleIdentifier else { return candidates }
+        let parts = bundleIdentifier.split(separator: ".").map(String.init)
+        for dropped in 0...2 where parts.count - dropped >= 3 {
+            let candidate = "group." + parts.dropLast(dropped).joined(separator: ".")
+            if !candidates.contains(candidate) { candidates.append(candidate) }
+        }
+        return candidates
+    }
+
+    public static func resolveAppGroupId(configured: String?, bundleIdentifier: String?,
+                                         hasContainer: (String) -> Bool) -> String {
+        let candidates = appGroupCandidates(configured: configured, bundleIdentifier: bundleIdentifier)
+        if candidates.count == 1 { return candidates[0] }
+        return candidates.first(where: hasContainer) ?? candidates[0]
+    }
     /// The UserDefaults key the latest snapshot is stored under in the shared app group.
     public static let storageKey = "latestWatchSnapshot"
 

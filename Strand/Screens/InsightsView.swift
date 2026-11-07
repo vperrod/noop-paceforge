@@ -198,6 +198,10 @@ struct InsightsView: View {
     @State private var dayNumeric: [String: Double] = [:]
     /// -1 = tomorrow (log ahead), 0 = today, 1 = yesterday (late logging).
     @State private var journalDayOffset = 0
+    #if os(iOS)
+    /// Bumped when the journal question editor closes, so the look's journal flow is made again with the edited questions.
+    @State private var journalFlowEpoch = 0
+    #endif
     /// #860 item 4: today's local calendar-day key, captured on appear and refreshed on foreground. The
     /// journal day chips ("Today"/"Yesterday"/"Tomorrow") are relative to the CURRENT date, but the
     /// answers (`dayAnswers`) and the resolved day key are derived from `Date()` only inside `load()`,
@@ -208,53 +212,79 @@ struct InsightsView: View {
     /// prior answers move to their real date. Local CALENDAR day (matches the journal's `localDayKey`).
     @State private var currentDayKey = Repository.localDayKey(Date())
 
-    var body: some View {
-        ScreenScaffold(title: "Insights", subtitle: "Interrogate what affects what.",
-                       // PERF (scroll): lazy column, byte-identical layout (LazyVStack == eager VStack
-                       // alignment/spacing/header). The content is one inner eager VStack, so any nested
-                       // staggered reveals are unchanged; this only defers building that stack on scroll-in.
-                       lazy: true,
-                       // Liquid finish: the same full-bleed day-of-sky backdrop Today + the other liquid
-                       // tabs carry, so Insights sits in one atmosphere ("the options change, not the page").
-                       // Static + non-interactive; the cards below sit on the opaque canvas and stay legible.
-                       topBackground: liquidScaffoldSky()) {
-            if !loaded {
-                ComingSoon(what: "Reading your journal and outcomes…")
-            } else {
-                VStack(alignment: .leading, spacing: NoopMetrics.sectionSpacing) {
-                    // v5: a single row into the "What moves you" hub, the lag-aware ranked-effect feed
-                    // + alcohol/caffeine dose-response. Reachable as its own destination too; this is the
-                    // honest in-Insights entry point.
-                    whatMovesYouLink
-                    // Native logging, always reachable: the account-free way into Insights.
-                    JournalLogCard(importedQuestions: importedQuestions,
-                                   answers: dayAnswers,
-                                   numericAnswers: dayNumeric,
-                                   dayOffset: $journalDayOffset,
-                                   onChanged: { Task { await load() } })
-                    // Mind, daily mood check-in + mood↔body correlations.
-                    // Self-contained (owns its own load/state); sits with the
-                    // journal card so the two daily-logging surfaces read as one
-                    // "log today" block above the derived insights.
-                    MindSection()
-                    // Caffeine window (#526), log an intake + a rough on-device "still active" hint.
-                    // Self-contained (owns its own UserDefaults-backed store); sits in the same
-                    // "log today" block. Opt-in: shows nothing until the user logs an intake.
-                    CaffeineLogCard()
-                    experimentSection
-                    if behaviours.isEmpty {
-                        // No journal yet, explain, without dead-ending on a paid export.
-                        NoopCard {
-                            Text("Log behaviours above. After a few days of answers, NOOP ranks how each one moves your charge, HRV and rest. Importing a WHOOP export (which includes its journal) backfills history instantly.")
-                                .font(StrandFont.subhead)
-                                .foregroundStyle(StrandPalette.textSecondary)
-                                .fixedSize(horizontal: false, vertical: true)
-                        }
-                    } else {
-                        behaviourSection
+    /// True when the unified Insights screen hosts this one as a section: no scaffold, no title, no "what moves you" link
+    /// (the sections are the way across). The loads and the day-rollover handling are unchanged.
+    var embedded = false
+
+    // Explicit, because the stored properties below are private and that would make the memberwise initializer private too.
+    init(embedded: Bool = false) { self.embedded = embedded }
+
+    @ViewBuilder private var screenContent: some View {
+        if !loaded {
+            ComingSoon(what: "Reading your journal and outcomes…")
+        } else {
+            VStack(alignment: .leading, spacing: NoopMetrics.sectionSpacing) {
+                // v5: a single row into the "What moves you" hub, the lag-aware ranked-effect feed
+                // + alcohol/caffeine dose-response. Reachable as its own destination too; this is the
+                // honest in-Insights entry point.
+                if !embedded { whatMovesYouLink }
+                // Native logging, always reachable: the account-free way into Insights.
+                #if os(iOS)
+                // The look's journal flow (week strip, grouped questions, SAVE JOURNAL); the previous card sits under its pencil.
+                LookJournalFlow(importedQuestions: importedQuestions,
+                                dayOffset: $journalDayOffset,
+                                onChanged: { Task { await load() } },
+                                onEditorClosed: { journalFlowEpoch += 1 })
+                    .id(journalFlowEpoch)
+                #else
+                JournalLogCard(importedQuestions: importedQuestions,
+                               answers: dayAnswers,
+                               numericAnswers: dayNumeric,
+                               dayOffset: $journalDayOffset,
+                               onChanged: { Task { await load() } })
+                #endif
+                // Mind, daily mood check-in + mood↔body correlations.
+                // Self-contained (owns its own load/state); sits with the
+                // journal card so the two daily-logging surfaces read as one
+                // "log today" block above the derived insights.
+                MindSection()
+                // Caffeine window (#526), log an intake + a rough on-device "still active" hint.
+                // Self-contained (owns its own UserDefaults-backed store); sits in the same
+                // "log today" block. Opt-in: shows nothing until the user logs an intake.
+                CaffeineLogCard()
+                experimentSection
+                if behaviours.isEmpty {
+                    // No journal yet, explain, without dead-ending on a paid export.
+                    NoopCard {
+                        Text("Log behaviours above. After a few days of answers, NOOP ranks how each one moves your charge, HRV and rest. Importing a WHOOP export (which includes its journal) backfills history instantly.")
+                            .font(StrandFont.subhead)
+                            .foregroundStyle(StrandPalette.textSecondary)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
-                    activityCostSection
-                    relationshipsSection
+                } else {
+                    behaviourSection
+                }
+                activityCostSection
+                relationshipsSection
+            }
+        }
+    }
+
+    var body: some View {
+        Group {
+            if embedded {
+                LazyVStack(alignment: .leading, spacing: 20) { screenContent }
+            } else {
+                ScreenScaffold(title: "Insights", subtitle: "Interrogate what affects what.",
+                               // PERF (scroll): lazy column, byte-identical layout (LazyVStack == eager VStack
+                               // alignment/spacing/header). The content is one inner eager VStack, so any nested
+                               // staggered reveals are unchanged; this only defers building that stack on scroll-in.
+                               lazy: true,
+                               // Liquid finish: the same full-bleed day-of-sky backdrop Today + the other liquid
+                               // tabs carry, so Insights sits in one atmosphere ("the options change, not the page").
+                               // Static + non-interactive; the cards below sit on the opaque canvas and stay legible.
+                               topBackground: liquidScaffoldSky()) {
+                    screenContent
                 }
             }
         }

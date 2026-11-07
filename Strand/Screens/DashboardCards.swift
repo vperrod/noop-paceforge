@@ -145,8 +145,14 @@ enum DashboardCard: String, CaseIterable, Identifiable {
         .stress, .fitnessAge, .vitality, .hrv, .restingHr,
     ]
 
-    /// Canonical order used to list the disabled remainder in the editor.
-    static let canonicalOrder: [DashboardCard] = allCases
+    /// Canonical order used to list the disabled remainder in the editor. The iPhone has no Coach card: Coach is the centre button there.
+    static let canonicalOrder: [DashboardCard] = {
+        #if os(iOS)
+        return allCases.filter { $0 != .coach }
+        #else
+        return allCases
+        #endif
+    }()
 }
 
 /// Display-only persistence for the "Your cards" dashboard selection. Holds an ORDERED list of the enabled
@@ -199,6 +205,10 @@ enum DashboardCardPrefs {
                 result.append(c)
             }
         }
+        // The iPhone dropped the Coach card (a saved list that still names it just loses it).
+        #if os(iOS)
+        result.removeAll { $0 == .coach }
+        #endif
         // An all-unknown / empty decode shouldn't blank the dashboard, fall back to the default set.
         return result.isEmpty ? DashboardCard.defaultSelection : result
     }

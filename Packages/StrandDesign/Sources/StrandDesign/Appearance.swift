@@ -226,7 +226,7 @@ public enum ThemePreset: String, CaseIterable, Identifiable, Sendable {
 }
 
 /// The user's appearance preference for the whole app. Persisted via
-/// `@AppStorage(AppearanceMode.storageKey)`. `.system` follows the OS (the default);
+/// `@AppStorage(AppearanceMode.storageKey)`. `.system` follows the OS (the default off iPhone; iPhone defaults to `.dark`);
 /// `.light` / `.dark` force a scheme regardless of the system setting.
 ///
 /// Applied once at each app root via `.preferredColorScheme(mode.colorScheme)`. Because every
@@ -241,6 +241,16 @@ public enum AppearanceMode: String, CaseIterable, Identifiable, Sendable {
 
     /// The @AppStorage key shared by the app roots and the Settings picker.
     public static let storageKey = "theme.appearance"
+
+    /// What a fresh install uses (and what an unknown stored value resolves to): dark on iPhone, where the
+    /// look is dark-first and light is a choice made in Settings; follow-the-system on the other platforms.
+    public static var platformDefault: AppearanceMode {
+        #if os(iOS)
+        return .dark
+        #else
+        return .system
+        #endif
+    }
 
     /// Human label for the Settings control.
     ///
@@ -279,19 +289,28 @@ public enum AppearanceMode: String, CaseIterable, Identifiable, Sendable {
 
     /// Resolve a stored raw value (tolerant of an unknown/missing value → `.system`).
     public static func resolve(_ raw: String) -> AppearanceMode {
-        AppearanceMode(rawValue: raw) ?? .system
+        AppearanceMode(rawValue: raw) ?? platformDefault
     }
 }
 
-/// The day-cycle scene backdrop behind the Today screen (sunrise / day / dusk / night). Default ON —
+/// The day-cycle scene backdrop behind the Today screen (sunrise / day / dusk / night). Default ON (off on iPhone, see `defaultEnabled`) —
 /// the scene is the v7 atmosphere. Some people find it distracting and want a plain dark canvas (#698),
 /// so this gates whether Today passes a `SceneScreenBackground` into its scaffold. When OFF, Today drops
 /// the scene and falls back to the opaque `surfaceBase`; the cards already sit on an opaque canvas, so
 /// they stay perfectly readable. Read in `TodayView` via `@AppStorage(SceneBackgroundPrefs.enabledKey)`
 /// and toggled from Settings → Appearance. Mirror in Kotlin via `NoopPrefs.showDayCycleBackground`.
 public enum SceneBackgroundPrefs {
-    /// The @AppStorage key shared by TodayView and the Settings toggle. Default value is `true`.
+    /// The @AppStorage key shared by TodayView and the Settings toggle.
     public static let enabledKey = "noop.showDayCycleBackground"
+    /// Default for `enabledKey`: on everywhere except iPhone, where the dark look draws a plain gradient and
+    /// the scene is something the user switches on in Settings.
+    public static var defaultEnabled: Bool {
+        #if os(iOS)
+        return false
+        #else
+        return true
+        #endif
+    }
 }
 
 /// Card-surface opacity as a PERCENT (0 = fully see-through, 100 = solid; default 100). `FrostedCardSurface`

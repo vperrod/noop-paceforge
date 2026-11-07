@@ -534,6 +534,54 @@ extension WhoopStore {
         }
     }
 
+    /// Merge partial Apple Health daily totals during a streaming import. Nil
+    /// fields mean "not encountered yet" and must leave prior values intact.
+    /// The completed import uses `upsertDailyMetrics` to write full aggregates.
+    @discardableResult
+    public func mergeDailyMetricsCheckpoint(_ days: [DailyMetric], deviceId: String) async throws -> Int {
+        try syncWrite { db in
+            var n = 0
+            for d in days {
+                try db.execute(sql: """
+                    INSERT INTO dailyMetric
+                        (deviceId, day, totalSleepMin, efficiency, deepMin, remMin, lightMin,
+                         disturbances, restingHr, avgHrv, recovery, strain, exerciseCount,
+                         spo2Pct, skinTempDevC, respRateBpm, steps, activeKcalEst,
+                         spo2Red, spo2Ir, avgSdnn, skinTempC, sleepHrOnly)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ON CONFLICT(deviceId, day) DO UPDATE SET
+                        totalSleepMin = COALESCE(excluded.totalSleepMin, dailyMetric.totalSleepMin),
+                        efficiency = COALESCE(excluded.efficiency, dailyMetric.efficiency),
+                        deepMin = COALESCE(excluded.deepMin, dailyMetric.deepMin),
+                        remMin = COALESCE(excluded.remMin, dailyMetric.remMin),
+                        lightMin = COALESCE(excluded.lightMin, dailyMetric.lightMin),
+                        disturbances = COALESCE(excluded.disturbances, dailyMetric.disturbances),
+                        restingHr = COALESCE(excluded.restingHr, dailyMetric.restingHr),
+                        avgHrv = COALESCE(excluded.avgHrv, dailyMetric.avgHrv),
+                        recovery = COALESCE(excluded.recovery, dailyMetric.recovery),
+                        strain = COALESCE(excluded.strain, dailyMetric.strain),
+                        exerciseCount = COALESCE(excluded.exerciseCount, dailyMetric.exerciseCount),
+                        spo2Pct = COALESCE(excluded.spo2Pct, dailyMetric.spo2Pct),
+                        skinTempDevC = COALESCE(excluded.skinTempDevC, dailyMetric.skinTempDevC),
+                        respRateBpm = COALESCE(excluded.respRateBpm, dailyMetric.respRateBpm),
+                        steps = COALESCE(excluded.steps, dailyMetric.steps),
+                        activeKcalEst = COALESCE(excluded.activeKcalEst, dailyMetric.activeKcalEst),
+                        spo2Red = COALESCE(excluded.spo2Red, dailyMetric.spo2Red),
+                        spo2Ir = COALESCE(excluded.spo2Ir, dailyMetric.spo2Ir),
+                        avgSdnn = COALESCE(excluded.avgSdnn, dailyMetric.avgSdnn),
+                        skinTempC = COALESCE(excluded.skinTempC, dailyMetric.skinTempC),
+                        sleepHrOnly = COALESCE(excluded.sleepHrOnly, dailyMetric.sleepHrOnly)
+                    """, arguments: [deviceId, d.day, d.totalSleepMin, d.efficiency, d.deepMin,
+                                     d.remMin, d.lightMin, d.disturbances, d.restingHr, d.avgHrv,
+                                     d.recovery, d.strain, d.exerciseCount, d.spo2Pct,
+                                     d.skinTempDevC, d.respRateBpm, d.steps, d.activeKcalEst,
+                                     d.spo2Red, d.spo2Ir, d.avgSdnn, d.skinTempC, d.sleepHrOnly])
+                n += db.changesCount
+            }
+            return n
+        }
+    }
+
     /// Transaction-sharing primitive used by computed-score persistence. Keeping the SQL here ensures
     /// ordinary cache writes and score+provenance writes cannot drift.
     static func upsertDailyMetrics(_ days: [DailyMetric], deviceId: String, in db: Database) throws -> Int {

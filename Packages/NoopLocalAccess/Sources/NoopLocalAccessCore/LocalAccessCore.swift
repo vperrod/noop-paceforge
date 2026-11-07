@@ -400,6 +400,9 @@ public final class NoopDataAccess {
         let (fromDay, toDay) = dayRange(days: days)
         let daily = try mergedDaily(from: fromDay, to: toDay)
         let apple = try store.appleDaily(deviceId: "apple-health", from: fromDay, to: toDay)
+        let paceforgeGarmin = try store.dailyMetrics(deviceId: "paceforge-garmin", from: fromDay, to: toDay)
+        let paceforgeHume = try store.metricSeries(deviceId: "paceforge-hume", key: "weight",
+                                                    from: fromDay, to: toDay)
         let latestHR = try store.latestHRSampleTs(deviceId: deviceId)
 
         let logical = logicalDayKey(Date())
@@ -413,6 +416,11 @@ public final class NoopDataAccess {
             "today": displayed.map { dailyJSON($0.row, source: $0.source) } ?? .null,
             "recentDays": .array(daily.suffix(days).map { dailyJSON($0.row, source: $0.source) }),
             "appleDaily": .array(apple.map(appleDailyJSON)),
+            "paceforgeGarminDaily": .array(paceforgeGarmin.map { dailyJSON($0, source: "paceforge-garmin") }),
+            "paceforgeHumeWeight": .array(paceforgeHume.map { point in
+                .object(["day": .string(point.day), "key": .string(point.key), "value": .double(point.value),
+                         "source": .string("paceforge-hume")])
+            }),
         ])
     }
 
@@ -545,7 +553,7 @@ public final class NoopDataAccess {
                 "body_fat", "lean_mass", "bmi", "stress", "mood", "calories_in",
                 "protein_g", "carbs_g", "fat_g",
             ].map { .string($0) }),
-            "resolutionRule": .string("my-whoop resolves imported my-whoop first, then my-whoop-noop computed rows, then compatible Apple Health fill-ins for rhr/hrv/spo2/resp_rate."),
+            "resolutionRule": .string("my-whoop resolves imported my-whoop first, then my-whoop-noop computed rows, then compatible Apple Health fill-ins for rhr/hrv/spo2/resp_rate. Query paceforge-garmin and paceforge-hume explicitly to keep those records separately attributed."),
         ])
     }
 
@@ -554,6 +562,8 @@ public final class NoopDataAccess {
             "whoopImported": .string("my-whoop"),
             "noopComputed": .string("my-whoop-noop"),
             "appleHealth": .string("apple-health"),
+            "paceforgeGarmin": .string("paceforge-garmin"),
+            "paceforgeHume": .string("paceforge-hume"),
             "nutrition": .string("nutrition-csv"),
             "mood": .string("noop-mood"),
             "journal": .string("noop-journal"),

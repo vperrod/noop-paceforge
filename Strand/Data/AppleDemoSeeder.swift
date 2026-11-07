@@ -1,5 +1,6 @@
 #if DEBUG
 import Foundation
+import WhoopProtocol
 import WhoopStore
 
 // MARK: - DEBUG-only demo seed (Apple parity with Android's DemoSeeder)
@@ -18,7 +19,17 @@ enum AppleDemoSeeder {
 
     static let whoop = "my-whoop"
     static let apple = "apple-health"
-    private static let DAYS = 120
+    /// 120 days, or `--demo-seed-days N` (30...1500): the perf tests seed a phone-sized history.
+    private static var DAYS: Int { min(1500, max(30, intArgument("--demo-seed-days") ?? 120)) }
+    /// `--demo-seed-raw-hr-days N` (0...30): also bank N days of 1 Hz strap heart rate, so the launch scoring pass and
+    /// the day screens run on the raw volume a phone worn day and night holds.
+    private static var rawHRDays: Int { min(30, max(0, intArgument("--demo-seed-raw-hr-days") ?? 0)) }
+
+    private static func intArgument(_ flag: String) -> Int? {
+        let arguments = CommandLine.arguments
+        guard let i = arguments.firstIndex(of: flag), i + 1 < arguments.count else { return nil }
+        return Int(arguments[i + 1])
+    }
     /// Effort rescale factor: the old 0–21 strain scale → the new 0–100 Effort scale.
     private static let STRAIN_SCALE = 100.0 / 21.0
 
@@ -30,6 +41,15 @@ enum AppleDemoSeeder {
     /// True when the process was launched asking for the demo seed (Xcode scheme arg or `simctl
     /// launch … --demo-seed`).
     static var requested: Bool { CommandLine.arguments.contains("--demo-seed") }
+
+    /// UI-test fixture for the steps source label: with `--demo-seed --demo-garmin-steps`, Apple Health steps stop
+    /// `garminOnlyDays` days ago and a `paceforge-garmin` row carries the steps for those days, so Today's steps
+    /// tile must show the Garmin count labelled "Garmin". The strap rows never carry steps.
+    static var garminStepsRequested: Bool { CommandLine.arguments.contains("--demo-garmin-steps") }
+    static let garminDeviceId = "paceforge-garmin"
+    static let garminOnlyDays = 14
+    /// Steps the fixture gives the newest day, so a test can assert the exact figure.
+    static let garminFixtureTodaySteps = 9_119
 
     /// Seed only if requested AND the store is empty. Safe to call on every launch.
     static func seedIfRequested(into store: WhoopStore) async {
@@ -70,6 +90,7 @@ enum AppleDemoSeeder {
         var sleeps: [CachedSleepSession] = []
         var series: [MetricPoint] = []
         var appleRows: [AppleDaily] = []
+        var garminRows: [DailyMetric] = []
         var workouts: [WorkoutRow] = []
         var journal: [JournalEntry] = []
 
@@ -157,8 +178,17 @@ enum AppleDemoSeeder {
 
             // --- Apple Health daily aggregate ---
             let steps = Int(gauss(&rng, 8500.0, 2600.0).clamped(1200.0, 19000.0))
+            let garminOnly = garminStepsRequested && i >= DAYS - garminOnlyDays
+            if garminOnly {
+                // Garmin counted these days; Apple Health stopped (below), as in a real phone-sync gap.
+                garminRows.append(DailyMetric(
+                    day: day, totalSleepMin: nil, efficiency: nil, deepMin: nil, remMin: nil, lightMin: nil,
+                    disturbances: nil, restingHr: nil, avgHrv: nil, recovery: nil, strain: nil,
+                    exerciseCount: nil, spo2Pct: nil, skinTempDevC: nil, respRateBpm: nil,
+                    steps: garminFixtureTodaySteps - (DAYS - 1 - i) * 100))
+            }
             appleRows.append(AppleDaily(
-                day: day, steps: steps,
+                day: day, steps: garminOnly ? nil : steps,
                 activeKcal: round1((Double(steps) * 0.045 + Double(nWorkouts) * 220).clamped(120.0, 1400.0)),
                 basalKcal: round1(gauss(&rng, 1650.0, 40.0)),
                 vo2max: round1((46 + fitness * 0.3 + gauss(&rng, 0.0, 0.5)).clamped(38.0, 56.0)),
@@ -226,9 +256,39 @@ enum AppleDemoSeeder {
         _ = try await store.upsertSleepSessions(sleeps, deviceId: whoop)
         _ = try await store.upsertMetricSeries(series, deviceId: whoop)
         _ = try await store.upsertAppleDaily(appleRows, deviceId: apple)
+        if !garminRows.isEmpty { _ = try await store.upsertDailyMetrics(garminRows, deviceId: garminDeviceId) }
         if !workouts.isEmpty { _ = try await store.upsertWorkouts(workouts, deviceId: whoop) }
         if !journal.isEmpty { _ = try await store.upsertJournal(journal, deviceId: whoop) }
-        NSLog("AppleDemoSeeder: seeded \(daily.count) days, \(workouts.count) workouts.")
+        if rawHRDays > 0 { try await seedRawHeartRate(into: store, days: rawHRDays) }
+        NSLog("AppleDemoSeeder: seeded \(daily.count) days, \(workouts.count) workouts, \(rawHRDays) days of 1 Hz HR.")
+    }
+
+    /// One reading a second for the last `days` days up to now: a night near 52 bpm, a day near 72 with a walk an hour
+    /// and an hour's run at 150 around 18:00. Deterministic, inserted a day at a time.
+    private static func seedRawHeartRate(into store: WhoopStore, days: Int) async throws {
+        var rng = SplitMix64(seed: 0xBEA7)
+        let cal = Calendar.current
+        let now = Int(Date().timeIntervalSince1970)
+        let today = cal.startOfDay(for: Date())
+        for back in stride(from: days - 1, through: 0, by: -1) {
+            guard let day = cal.date(byAdding: .day, value: -back, to: today) else { continue }
+            let start = Int(day.timeIntervalSince1970)
+            let end = min(start + 86_400, now)
+            guard end > start else { continue }
+            var hr: [HRSample] = []
+            hr.reserveCapacity(end - start)
+            for ts in start..<end {
+                let hour = Double(ts - start) / 3600
+                let base: Double
+                switch hour {
+                case ..<7: base = 52
+                case 18..<19: base = 150
+                default: base = (Int(hour) % 3 == 0 && hour.truncatingRemainder(dividingBy: 1) < 0.25) ? 98 : 72
+                }
+                hr.append(HRSample(ts: ts, bpm: Int(base + gauss(&rng, 0, 3).clamped(-9, 9))))
+            }
+            _ = try await store.insert(Streams(hr: hr), deviceId: whoop)
+        }
     }
 
     // MARK: - helpers

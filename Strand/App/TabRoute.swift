@@ -18,6 +18,10 @@ import SwiftUI
 enum TabRoute: Hashable {
     /// The whole-day, full-resolution HR timeline (Liquid Today's live-HR card tap, #979).
     case fullDayChart
+    /// My Day: one day's events and 24 h strip (the Today entry card, the `noop://myday` link).
+    case myDay
+    /// Sleep Planner: tonight's need, a goal and a bedtime (the Today and Sleep entry cards).
+    case sleepPlanner
     /// One metric's detail page by `MetricCatalog` key — the same tap-through Today's cards and
     /// Trends' small-multiples share. Each card opens ITS metric (2026-07-02: not the shared
     /// Health screen).
@@ -33,8 +37,21 @@ enum TabRoute: Hashable {
     case stress
     case sleep
     case health
+    /// The Phase 4 screens (PaceForge's highlights, healthspan, journal-impact and monthly-report documents), reached from the
+    /// Reports section of Insights and the streak chip. iPhone only; elsewhere they fall back to the screen they sit beside.
+    case highlights
+    case healthspan
+    case journalImpact
+    case monthlyReport
+    /// The expert reports (daily, weekly, monthly), opened on the kind named by the `PFReportKind` raw value. iPhone only; elsewhere
+    /// it falls back to the screen it sits beside.
+    case reports(String)
     case hydration
     case coupled
+    /// The Lift Log, from the Day tab's Activity chip (iPhone only; macOS falls back to Workouts).
+    case liftLog
+    /// Compare, from the Insights tab's Trends chip (New navigation, beta; iPhone only).
+    case compare
 }
 
 extension View {
@@ -45,6 +62,8 @@ extension View {
         navigationDestination(for: TabRoute.self) { route in
             switch route {
             case .fullDayChart: FullDayChartView()
+            case .myDay: MyDayView()
+            case .sleepPlanner: SleepPlannerView()
             case .metric(let key):
                 // Every caller passes a catalog key, so the fallback is theoretical; Health is the
                 // catch-all vitals surface. (Pre-#198 Trends fell back to the Explorer instead —
@@ -69,8 +88,45 @@ extension View {
             case .stress: StressView()
             case .sleep: SleepView()
             case .health: HealthView()
+            case .highlights:
+                #if os(iOS)
+                PFHighlightsScreen()
+                #else
+                InsightsView()
+                #endif
+            case .healthspan:
+                #if os(iOS)
+                PFHealthspanScreen()
+                #else
+                HealthView()
+                #endif
+            case .journalImpact:
+                #if os(iOS)
+                PFJournalImpactScreen()
+                #else
+                InsightsView()
+                #endif
+            case .monthlyReport:
+                #if os(iOS)
+                PFMonthlyReportScreen()
+                #else
+                InsightsView()
+                #endif
+            case .reports(let kind):
+                #if os(iOS)
+                PFReportsScreen(kind: PFReportKind(rawValue: kind) ?? .daily)
+                #else
+                InsightsView()
+                #endif
             case .hydration: HydrationView()
             case .coupled: CoupledView()
+            case .liftLog:
+                #if os(iOS)
+                LiftLogView()
+                #else
+                WorkoutsView()
+                #endif
+            case .compare: CompareView()
             }
         }
     }

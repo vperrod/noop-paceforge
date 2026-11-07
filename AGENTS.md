@@ -301,3 +301,9 @@ The workflow has no push trigger; a direct non-release commit to `main` needs an
 
 When in doubt, open an issue to coordinate first, and prefer the smallest change that's correct and
 covered by a test that runs without a strap.
+
+## Standing rules for Victor's private fork (2026-10-25)
+
+- Never edit anything under `android/`. Victor wants no Android work or build; the Swift/Kotlin parity contract is suspended for his fork until he says otherwise.
+- CI budget per task: one compile run (`publish=false`), then one publish run. Never loop a failing run; read the log first.
+- A requested review covers 100% of the diff, with a table of every changed file and its verdict.

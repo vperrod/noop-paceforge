@@ -4,7 +4,12 @@ import StrandDesign
 extension TodaySection {
     var customizationIcon: String {
         switch self {
+        case .todaysCall: return "scope"
+        case .dayInReview: return "moon.stars"
         case .hero: return "gauge.with.dots.needle.67percent"
+        case .myDay: return "clock"
+        case .myPlan: return "checklist"
+        case .myDashboard: return "list.bullet.rectangle"
         case .liveSession: return "figure.run.circle"
         case .synthesis: return "sparkles"
         case .keyMetrics: return "square.grid.2x2"
@@ -20,7 +25,12 @@ extension TodaySection {
 
     var customizationTint: Color {
         switch self {
+        case .todaysCall: return StrandPalette.effortColor
+        case .dayInReview: return StrandPalette.restColor
         case .hero: return StrandPalette.chargeColor
+        case .myDay: return StrandPalette.metricCyan
+        case .myPlan: return StrandPalette.effortColor
+        case .myDashboard: return StrandPalette.metricCyan
         case .liveSession: return StrandPalette.metricCyan
         case .synthesis: return StrandPalette.accent
         case .keyMetrics: return StrandPalette.metricPurple

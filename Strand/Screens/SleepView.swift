@@ -133,7 +133,14 @@ struct SleepView: View {
     // #sleep-layout: the arrangeable analytical-card order + explicit hidden set, byte-identical to the
     // Android SleepLayoutPrefs keys. Reordered via the Arrange sheet; display-only, no metric changes.
     @AppStorage(SleepLayoutPrefs.orderKey) private var sleepSectionOrderRaw = ""
+    #if os(iOS)
+    // Stages vs typical starts hidden: the stage rows in Stages and Last night's sleep already show each stage's share and
+    // duration, and Last night's sleep carries the typical range. A layout the wearer saved is drawn as saved, and Customize
+    // lists the card under hidden cards. Last night's sleep is iOS-only, so other platforms keep every card.
+    @AppStorage(SleepLayoutPrefs.hiddenKey) private var sleepHiddenSectionsRaw = SleepSection.stagesVsTypical.rawValue
+    #else
     @AppStorage(SleepLayoutPrefs.hiddenKey) private var sleepHiddenSectionsRaw = ""
+    #endif
     @State private var showSleepCustomize = false
 
     /// The analytical cards to render, in saved order minus the hidden set.
@@ -178,11 +185,30 @@ struct SleepView: View {
                         // Bleed past ScreenScaffold's 16/24 gutters so the hero column is edge-to-edge
                         // in the upper band; the night scene itself is the fixed topBackground.
                         // Customize sits at the end of the hero (not floating in a blank band).
+                        #if os(iOS)
+                        // A Group so the hero and the planner card are one child of this builder (the column is at its ten-child limit).
+                        Group {
+                            restHero(resolved)
+                                .padding(.horizontal, -16)
+                                .padding(.top, -24)
+                                .staggeredAppear(index: 0)
+                            // Tonight's sleep (the bedtime plan) leads the cards on the iPhone; it used to sit on Today.
+                            SleepPlannerEntryCard()
+                        }
+                        #else
                         restHero(resolved)
                             .padding(.horizontal, -16)
                             .padding(.top, -24)
                             .staggeredAppear(index: 0)
+                        #endif
+                        #if os(iOS)
+                        PFPageNote(key: "sleep")
+                        LookLastNightSleepCard(model: resolved)
+                        LookRepoTrends(specs: LookRepoTrends.sleepSpecs, initialKey: "sleep_total_min",
+                                       identifier: "look-sleep-trends")
+                        #endif
                         alarmsEntry
+                        SleepPlannerWithRegularity()
                         // #sleep-layout: the analytical cards render in the user's saved order minus the
                         // hidden set, below the pinned Rest hero. Reordered via the Arrange sheet.
                         ForEach(Array(sleepVisibleSections.enumerated()), id: \.element) { idx, section in
@@ -191,7 +217,13 @@ struct SleepView: View {
                     }
                 } else {
                     emptyState
+                    #if os(iOS)
+                    SleepPlannerEntryCard()
                     alarmsEntry
+                    #else
+                    alarmsEntry
+                    SleepPlannerEntryCard()
+                    #endif
                 }
             }
             // LiquidScoreGauge owns its own count-up animation (same as Home heroes).
@@ -1919,7 +1951,7 @@ struct SleepView: View {
     /// `offsetSec` so the timing test reads the user's clock via the SAME `offsetSec` math the engine
     /// uses (`SleepStageTotals.localSecOfDay`), instead of `Calendar.current.component(.hour:)` which was
     /// the duplicated, DST-fragile gate the audit flagged. (#547)
-    static var tzOffsetSec: Int { TimeZone.current.secondsFromGMT() }
+    nonisolated static var tzOffsetSec: Int { TimeZone.current.secondsFromGMT() }
 
     /// The day's single WINNING main block — the durable-edit anchor (`editTarget`) and the one block whose
     /// learned-timing score won. Scores by learned timing on each block's EFFECTIVE onset (what the user
@@ -1945,7 +1977,7 @@ struct SleepView: View {
     /// un-bridged single-block pick and rendered the bridged siblings as phantom naps (#555). A night with
     /// no bridgeable gap collapses to the single block `mainNightSession` picks, so the common case is byte-
     /// identical. Returns ascending by effective onset. (#561 / #555)
-    static func mainNightGroup(_ sessions: [CachedSleepSession],
+    nonisolated static func mainNightGroup(_ sessions: [CachedSleepSession],
                                habitualMidsleepSec: Int? = nil) -> [CachedSleepSession] {
         guard let idx = SleepStageTotals.mainNightGroupIndices(
             sessions.map { SleepStageTotals.NightBlock(start: $0.effectiveStartTs, end: $0.endTs) },
@@ -2356,7 +2388,7 @@ private struct SleepPerformanceNightScene: View {
     /// #1319: honour the Settings "Day-cycle background" toggle on the Sleep tab too. The bundled
     /// moonlit-lake scene used to draw unconditionally here, so an iOS user who turned the toggle off
     /// still saw it on Sleep — while Home/Today (and the Android Sleep screen) already went plain.
-    @AppStorage(SceneBackgroundPrefs.enabledKey) private var showDayCycleBackground = true
+    @AppStorage(SceneBackgroundPrefs.enabledKey) private var showDayCycleBackground = SceneBackgroundPrefs.defaultEnabled
 
     var body: some View {
         if showDayCycleBackground { nightScene } else { StrandPalette.surfaceBase }
@@ -2825,7 +2857,7 @@ private struct AddNapSeed: Identifiable {
 /// A small sheet to hand-correct a night's bed (onset) and wake (end) instants. Seeds both pickers with
 /// the current values, including each calendar date. Hands the chosen unix-second (bed, wake) back via
 /// `onSave`. Pure presentation + a single async save — persistence lives in the repo.
-private struct SleepTimeEditor: View {
+struct SleepTimeEditor: View {
     let onSave: (Int, Int) async -> Void
     /// Optional destructive delete (#68). Non-nil for an existing main-sleep / nap edit (the editor then
     /// shows a "Delete this sleep" button gated behind a confirmation); nil for the "Add a nap" sheet,

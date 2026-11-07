@@ -38,7 +38,7 @@ struct StrandiOSApp: App {
     @StateObject private var liftSession: LiftSessionController
     @Environment(\.scenePhase) private var scenePhase
     /// Appearance preference (System/Light/Dark). Default follows the OS; the Settings picker writes it.
-    @AppStorage(AppearanceMode.storageKey) private var appearanceRaw = AppearanceMode.system.rawValue
+    @AppStorage(AppearanceMode.storageKey) private var appearanceRaw = AppearanceMode.platformDefault.rawValue
     /// Chart data-colour style (Titanium / Classic throwback). Re-colours gauges + charts.
     @AppStorage(ChartStyle.storageKey) private var chartStyleRaw = ChartStyle.titanium.rawValue
     /// Chrome accent colour (mint / WHOOP blue / custom). Chrome only — never the data colour worlds.
@@ -52,10 +52,24 @@ struct StrandiOSApp: App {
     @AppStorage(UnitPrefs.systemKey) private var unitSystemRaw = UnitSystem.metric.rawValue
 
     init() {
+        // Breadcrumbs, the main-thread watchdog and the "did the last run finish" marker, before anything else runs, so a
+        // stall or kill during launch is on record too (NoopDiagnostics).
+        NoopDiag.start()
+        // The New PaceForge refresh (beta) switch is read here, once per launch.
+        PFBeta.captureAtLaunch()
+        // Clear the retired Day-tab preference so it cannot hide the first-level Sleep tab.
+        UnifiedDay.captureAtLaunch()
+        // The unified navigation switch is read here, once per launch.
+        UnifiedNav.captureAtLaunch()
+        #if DEBUG
+        NoopPerfAutopilot.startIfRequested()
+        #endif
         // #1008: pin the pre-change Overnight-only default for existing installs before
         // anything reads it. Idempotent; a no-op on fresh installs and after the first launch.
         PuffinExperiment.migrateContinuousHrvOvernightDefault()
         #if DEBUG
+        // UI tests that start from what a phone running build 464 had saved (PFSavedStateSeed). Before any screen reads a preference.
+        PFSavedStateSeed.apply()
         // DEBUG-only promo-screenshot harness: when launched with `--demo-hour <Int>`, pin Today to that
         // hour's day-cycle scene + a per-hour stat frame. No-op (active stays nil) when the arg is absent.
         // MUST live here, not in StrandApp.swift — that is the macOS @main and is excluded from the iOS
@@ -84,6 +98,16 @@ struct StrandiOSApp: App {
         let router = NavRouter()
         _router = StateObject(wrappedValue: router)
         NotificationPresenter.shared.onCoachBriefTapped = { [weak router] in router?.openCoach() }
+        NotificationPresenter.shared.onPaceForgeBriefTapped = { [weak router] in
+            Task { @MainActor in router?.openCoach() }
+        }
+        NotificationPresenter.shared.onPaceForgeAlertTapped = { userInfo in
+            Task { @MainActor in PFAlertLink.open(userInfo: userInfo) }
+        }
+        PaceForgeBackground.register()
+        PFMyDay.install()
+        // A summary written before the privacy choice existed gets its body flag now, not at the next fetch.
+        PFSummaryWriter.applyPrivacy()
         let model = AppModel()
         _model = StateObject(wrappedValue: model)
         CoachBriefScheduler.register(generateBrief: { [weak coach = model.coach] in
@@ -96,6 +120,8 @@ struct StrandiOSApp: App {
         // The strap-sync Live Activity (Lock Screen + Dynamic Island). Same placement, same reason — and
         // it must also run in a process the Sync Strap shortcut launched with no scene.
         SyncLiveActivityController.shared.attach(to: model.live)
+        // Diagnostics: how often the BLE objects publish (the `ble.publish_count` rate breadcrumb).
+        NoopDiag.countPublishes(of: model.live, model.ble)
         // iOS's own daily report of NOOP's CPU, memory, disk writes, hangs and exits, and its crash/hang reports,
         // one strap-log line each. Registering is the whole cost; iOS gathers and delivers them (MetricKitLog).
         MetricKitLog.shared.attach(to: model.live)
@@ -263,6 +289,11 @@ struct StrandiOSApp: App {
                 // what is worth pushing, and the banner's clocks tick on their own. A strap step is pushed
                 // at once, with its light-up alert, below.
                 .onReceive(liftSession.changesSettled) { _ in pushLiftActivity() }
+                // Settings > Hide numbers: the widgets follow the two switches at once, not at the next fetch.
+                .onReceive(NotificationCenter.default.publisher(for: HideScoresPrefs.changedNotification)) { _ in
+                    WidgetSnapshot.applyHideNumbers()
+                    PFSummaryWriter.applyPrivacy()
+                }
                 // A strap double-tap lights the Lock Screen on the step it took.
                 .onReceive(liftSession.strapStepTaken) { _ in pushLiftActivity(alert: true) }
                 // #911/#759: republish the Home/Lock-Screen widget whenever the dashboard caches actually
@@ -328,6 +359,10 @@ struct StrandiOSApp: App {
                 .onOpenURL { url in
                     if url.host == "import-health" {
                         model.handleHealthImportURL(url)
+                    } else if url.host == "paceforge" {
+                        PFDeepLink.open(url: url)
+                    } else if url.host == "myday" {
+                        MyDayDeepLink.open()
                     }
                 }
                 .alert("Import Apple Health data?", isPresented: healthImportAlertPresented) {
@@ -354,11 +389,36 @@ struct StrandiOSApp: App {
         // safe no-op until the user opts in.
         .onChange(of: scenePhase, initial: true) { _, phase in
             if phase == .active {
+                NoopDiag.sceneActive()
+                // A report owed by the previous run (it did not finish), a stall over 3 s or a new MetricKit diagnostic, once, after the
+                // launch work has settled; at most every ten minutes (NoopDiagUpload).
+                Task(priority: .utility) {
+                    try? await Task.sleep(nanoseconds: 20_000_000_000)
+                    await NoopDiagUpload.sendIfOwed()
+                }
                 // Retry any batches that were interrupted while iOS suspended the app.
                 Task(priority: .utility) {
+                    // This push sends what a held-back strap-sync push would, so drop that timer.
+                    await model.cancelDeferredStrapSyncPush()
                     await SelfHostedPushClient.pushIfEnabled(repo: model.repo)
                 }
                 CoachBriefScheduler.activateIfEnabled { await model.coach.generateBrief() }
+                PFDeepLink.openIfControlRequested()
+                PaceForgeBackground.schedule()
+                // PaceForge writes that got no answer earlier are sent again with their first key (the server applies each key once).
+                if PFAPI.isConfigured {
+                    Task {
+                        if await PFJobRetry.sendAll() > 0, UnifiedNav.isOn { await PFUnified.model.refresh() }
+                    }
+                }
+                // PaceForge's Needs you list and cards must not wait for a pull or a restart. The model shares one load in flight, so
+                // this and the screens' own refreshes make one request; it only runs when the last good load is over a minute old.
+                if UnifiedNav.isOn, PFAPI.isConfigured {
+                    Task {
+                        await PFUnified.model.refreshIfOlderThan(60)
+                        await PFScoresStore.shared.refreshIfStale()
+                    }
+                }
                 model.drainPendingIntents(router: router)
                 // iOS starts a Lift Log banner only for an app on screen, so a banner lost while NOOP was in
                 // the background comes back now, whether or not the strap is sending anything.
@@ -373,7 +433,7 @@ struct StrandiOSApp: App {
                 // #267: pull a reasonably fresh sync on open rather than waiting for the 900s periodic
                 // timer or an incidental reconnect. Floored at 90s and never clock/empty-streak-suppressed
                 // (BackfillPolicy.shouldRun's .foreground case), so this is a safe no-op on rapid re-opens.
-                model.ble.requestSync(.foreground)
+                model.ble.syncOnForeground()
                 // #1538: settle a re-score an earlier background attempt could not finish, rather than
                 // waiting on the 15-minute idle tick now that there is a foreground with no suspension
                 // deadline. A no-op unless one is genuinely outstanding.
@@ -386,7 +446,7 @@ struct StrandiOSApp: App {
                 // serialises itself, so overlapping with the sync this foreground also kicks off is safe.
                 Task { await model.runDeferredRescoreIfOwed() }
                 Task {
-                    health.refreshAuthIfPreviouslyGranted()
+                    await health.refreshAuthIfPreviouslyGranted()
                     HealthWritebackBackgroundScheduler.updateSchedule(
                         isAuthorized: health.auth == .authorized)
                     await HealthSyncRefreshCoordinator.run(
@@ -403,6 +463,7 @@ struct StrandiOSApp: App {
                     await watch.pushLatest(from: model)
                 }
             } else if phase == .background {
+                NoopDiag.sceneBackground()
                 // Re-submit on every transition because iOS may discard an old best-effort request.
                 HealthWritebackBackgroundScheduler.updateSchedule(
                     isAuthorized: health.auth == .authorized)
@@ -521,6 +582,10 @@ private struct iOSRootView: View {
         }
         .animation(.easeInOut(duration: 0.35), value: onboarded)
         .animation(.easeInOut(duration: 0.35), value: acceptedTerms)
+        #if DEBUG
+        // `-NoopPerf`: the per-screen stall, CPU and memory numbers for the perf UI tests (NoopPerfProbe).
+        .overlay(alignment: .topLeading) { if NoopDiag.isPerfMode { NoopPerfProbe() } }
+        #endif
         .sheet(isPresented: $showWhatsNew, onDismiss: { automaticLaunchSheetResolved = true }) {
             WhatsNewView(onClose: {
                 lastSeenChangelog = AppChangelog.currentVersion
@@ -584,19 +649,37 @@ enum DemoScreens {
         let args = CommandLine.arguments
         guard let i = args.firstIndex(of: "--demo-screen"), i + 1 < args.count else { return nil }
         switch args[i + 1].lowercased() {
-        case "today":    return AnyView(TodayView())
-        // The DEFAULT iOS Today (`noop.liquidTodayEnabled` ships true), so it needs its own entry — plain
-        // "today" renders the CLASSIC screen, which is exactly the screen whose behaviour Liquid was found
-        // to have diverged from. Without this, the default Today was the one screen the harness could not
-        // capture.
-        case "liquidtoday": return AnyView(LiquidTodayView())
+        // The iPhone has one Today (the classic layout is gone from iOS), so both names render it.
+        case "today", "liquidtoday": return AnyView(LiquidTodayView())
+        // Every component of the dark look with made-up numbers, one section each (LookComponentsUITests).
+        case "looklab":  return AnyView(LookGalleryScreen())
+        // The Charge / Effort / Rest detail screens and the sleep planner in the look (LookScreensUITests).
+        case "lookcharge": return MetricCatalog.metric(key: "recovery", source: "my-whoop").map { AnyView(MetricDetailView(metric: $0)) }
+        case "lookeffort": return MetricCatalog.metric(key: "strain", source: "my-whoop").map { AnyView(MetricDetailView(metric: $0)) }
+        case "lookrest":   return MetricCatalog.metric(key: "sleep_performance", source: "my-whoop").map { AnyView(MetricDetailView(metric: $0)) }
+        case "lookhrv":    return MetricCatalog.metric(key: "hrv", source: "my-whoop").map { AnyView(MetricDetailView(metric: $0)) }
+        case "lookplanner": return AnyView(SleepPlannerView())
+        // The Phase 4 screens (Phase4UITests): PaceForge's highlights, healthspan, journal-impact and monthly-report documents
+        // (from the synthetic fixture), the Stress monitor and the dashboard editor.
+        case "highlights": return AnyView(PFHighlightsScreen())
+        case "healthspan": return AnyView(PFHealthspanScreen())
+        case "journalimpact": return AnyView(PFJournalImpactScreen())
+        case "monthlyreport": return AnyView(PFMonthlyReportScreen())
+        // The Stress monitor is the top of the one Stress screen.
+        case "stressmonitor": return AnyView(StressView())
+        case "dashboardeditor": return AnyView(LookDashboardEditor(initial: MyDashboardPrefs.defaultIDs, onSave: { _ in }, onCancel: {}))
         case "trends":   return AnyView(TrendsView())
         case "sleep":    return AnyView(SleepView())
         case "live":     return AnyView(LiveView())
         case "stress":   return AnyView(StressView())
         case "workouts": return AnyView(WorkoutsView())
         case "health":   return AnyView(HealthView())
-        case "insights": return AnyView(InsightsView())
+        // The one Insights screen, on its sections: journal (the default), what moves you, Intelligence, reports.
+        case "insights": return AnyView(InsightsHomeView())
+        case "insightsmoves": return AnyView(InsightsHomeView(initial: .moves))
+        case "insightsintelligence": return AnyView(InsightsHomeView(initial: .intelligence))
+        case "insightsreports": return AnyView(InsightsHomeView(initial: .reports))
+        case "data":     return AnyView(DataHubView())
         case "explore":  return AnyView(MetricExplorerView())
         case "compare":  return AnyView(CompareView())
         case "settings": return AnyView(SettingsView())

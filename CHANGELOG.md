@@ -17,6 +17,259 @@ approximate; downloads are on the [Releases](https://github.com/NoopApp/noop/rel
 
 ---
 
+## 12.0.12 build 510 (PaceForge iPhone build): the sync journal no longer doubles the database
+
+- **Smaller database.** Rows already sent to the Mini PC are dropped from the sync journal (each lane by its own cursor), and the freed space is returned to iOS once a day with a VACUUM when the phone has room. The journal copied every sample as JSON and was never emptied (6 GB on 2026-11-07).
+
+## 12.0.12 build 509 (PaceForge iPhone build): Weekly goals count workouts, hard effort reads the strap's heart rate
+
+- Active days now count days with a workout of 20 minutes or more, not steps.
+- Hard effort (minutes in zones 4 and 5) now uses the strap's own heart rate when it recorded the session, then falls back to the Garmin series. On 2026-11-04 the Garmin watch read a 12 km/h treadmill run at max 146 while the strap read mean 159 and max 179, so the ring showed 8 minutes for a week the strap put near 50.
+
+## 12.0.12 build 508 (PaceForge iPhone build): the day's results reach the server first
+
+- The phone now sends the small daily tables (daily metrics, sleep, workouts, journal) ahead of the per-second samples. After an outage last night's HRV, resting heart rate and sleep reach PaceForge in minutes, not behind a million sample rows.
+
+## 12.0.12 build 507 (PaceForge iPhone build): data reaches the server again, Weekly goals line, Daily report on Today (replaces 506, never installed)
+
+- Each Weekly goals ring has a line under it: last night's sleep, today's steps, last night's bedtime against your usual (e.g. "Bed 25 min later"), or your best hard day. A ring at 0 now shows why.
+- The phone sends its data to the server in batches under 512 KB (a too-big batch was stuck for two days).
+- A "Daily report" row on Today (under Today's call) opens the daily report. It was only in the Coach.
+
+## 12.0.12 build 505 (PaceForge iPhone build): pull down on Today updates everything
+
+- **Pull down on Today always does the full update.** It syncs the strap (reconnecting it first if it is not ready), refreshes PaceForge, reloads the screen and sends your data to the server at once. Before, it did nothing at all unless the strap was ready, and it never sent to the server by itself. Not verified on a real iPhone.
+
+## 12.0.12 build 504 (PaceForge iPhone build): Key Metrics back on Today
+
+- **Key Metrics are back on Today, My Dashboard is off it.** The tiles you tap to see a metric's detail replace the My Dashboard rows. Recovery Vitals, Your Cards and Start session stay off Today. A saved Today arrangement picks the change up by itself. Not verified on a real iPhone.
+
+## 12.0.12 build 502 (PaceForge iPhone build): My Day tab, a plainer Today
+
+- **Not verified on a real iPhone.** The bottom bar is smaller and scrolls sideways: Today, My Day, Plan, Athlete, Sleep, Insights, Workouts and More, with the Coach button beside it. The item you open scrolls into view. The Sleep and Insights rows left More, since the bar has them now.
+- **My Day is a tab.** The day's 24-hour graph and its events open from the bar instead of from a card on Today. The "My Day" header, its activities card and its Add and Start buttons are gone from Today.
+- **Tonight's sleep is on the Sleep screen.** The bedtime card leads the Sleep screen (tap the Rest ring on Today, or Sleep in the bar) and is no longer on Today.
+- **Plan tab, two folded cards.** My Plan is one line (the days left and percent done) that opens on tap, and Easy mode is one compact row that opens on tap. VIEW MY PLAN is gone from the Plan tab: it only re-selected the tab you were on, so it did nothing there. It stays on Today, where it opens Plan.
+- **Today lost five blocks.** Key Metrics (My Dashboard is the one list of figures), Recovery Vitals, Your Cards, the Start session row, and the "Good morning / afternoon / evening" line. The readiness words and the Synthesis card stay. A saved Today arrangement drops the removed blocks by itself; the Effort target and Weekly goals cards, which sat in the old My Day block, are still on Today.
+
+## 12.0.12 build 501 (PaceForge iPhone build): Athlete profile from your Garmin watch
+
+- **Not verified on a real iPhone.** The new cards read three documents PaceForge already serves to the phone (`profile.json`, `analytics.json`, `benchmarks.json`); against an older server, or one that has none of them, each card is simply absent.
+- **Lactate threshold.** The Athlete tab has a tile for your Garmin lactate threshold: pace, with the heart rate under it and the day it was measured. If the watch holds none, the tile is still PaceForge's critical speed, labelled that way. There is no arrow on it: no history of the figure is kept.
+- **Race predictions.** A card with Garmin's 5K, 10K, half marathon and marathon forecast and the day it was made. Tap it for PaceForge's own forecast beside it, with its confidence for each distance. The two are never averaged, and no change over time is shown because only the latest forecast of each is held.
+- **Heart-rate zones.** Garmin's five zones, with a page for the lactate threshold heart rate, the maximum the watch is set to, the highest heart rate it saw (kept apart, because the two differ) and resting heart rate. The Max HR in the profile header now reads the Garmin zone setting when you have set none in NOOP, and says where it came from.
+- **Endurance score, training status, records.** Two tiles with Garmin's endurance score and training status, each with its date and no arrow, and a Personal records card with Garmin's records and the benchmarks you filed (wall balls, 500 m row and ski), each saying where it came from.
+- **VO2max and threshold page.** Opening the VO2max, VO2max from runs or threshold tile lists Garmin's figure, the one PaceForge works out from your runs, the threshold pace and heart rate and the critical speed, each with its own source and date.
+- **Live alerts on Today fold to one line.** A live alert (stress, heart rate at rest, Body Battery) reads as its title and the current reading on one line; Details opens the explanation, your normal, the source and what it does to the plan.
+- **Not in this build.** The wrist-against-strap heart-rate agreement flag: PaceForge writes it to no document the phone can read.
+
+## 12.0.12 build 500 (PaceForge iPhone build): Today shortened, Athlete tab, Plan
+
+- **Not verified on a real iPhone.** The tab bar is now Today, Plan, Athlete, Insights and More, with the Coach button at the end. Sleep is no longer a tab: tap the Rest ring on Today, or the Sleep row in More. Training became Plan and opens on Plan, with Calendar its second chip.
+- **Athlete tab.** Your profile header (age, height, weight, max and resting heart rate, FTP, threshold), metric tiles with their change over four weeks and a small trend line (VO2max, VO2max from runs, threshold pace, FTP, resting heart rate, HRV, weight, body fat, fitness and form), your best recent running times, HYROX projection, and three groups: strengths, weaknesses and areas to work on, each row opening a short collapsed reason. A tile opens its history and where its norms are. A missing figure shows a dash, and nothing here asks you to enter anything.
+- **Today is shorter.** Rings, Health and Stress, then the heart-rate chart come first. The page note, the readout and Today's call are each one collapsed row; the Needs you item is a row that opens a sheet. The longer text (Expert reading, Day in review, the call's narrative, the verdict lines) moved to the Coach.
+
+## 12.0.12 build 486 (PaceForge iPhone build): morning brief from PaceForge, Needs you on Today
+
+- **Not verified on a real iPhone.** The morning brief notification now carries PaceForge's brief (written on the server, no AI key on the phone), so "Coach brief unavailable" no longer appears when PaceForge is connected. It is woken by your data, not the clock: from 04:00 it goes out once PaceForge has your night's sleep and HRV, and the time in Coach settings is the latest it waits (then it goes out saying what is missing). iOS decides when the background check really runs; opening the app also tries.
+- **Needs you leads Today.** Anything PaceForge is waiting on you for (treadmill pace, a proposal, effort, feel) shows at the very top of Today, above the rings, and leaves as soon as you answer it. Nothing shows when nothing is open.
+
+## 12.0.12 build 498 (PaceForge iPhone build): band-report numbers
+
+- **Not verified on a real iPhone.** The PaceForge cards below read documents the PaceForge server's band-parity build serves; against an older server each one is simply absent. The strap cards use NOOP's own numbers.
+- **Sleep regularity.** The Sleep tab shows how steadily you slept at the same times over your last 14 nights (the Sleep Regularity Index, 100% would be the same every day), with "steadier / about as steady / less steady than usual" once there are earlier fortnights to compare with. It needs five nights; it feeds no score.
+- **Stress while still.** The Stress screen has a new "While you were still" card: the same 0-3 stress line read only from five-minute windows when your wrist was still (not walking, not within half an hour of a workout), and your still time. "Restorative minutes", the still minutes with your heart rate at or below your usual calm level, appear after five earlier days. The existing Stress score and timeline are unchanged.
+- **Charge in two parts.** The Charge detail shows body signals (HRV, resting heart rate, breathing, skin temperature) and sleep each on a -10 to +10 line where 0 is your usual (for sleep, a good night). Charge itself is unchanged.
+- **Verdict lines.** The Charge, Effort and Rest detail screens open with one plain line (for example "Ready: well recovered, a hard day is fine"), the biggest driver in a sentence, and for Charge "Calibrating, 9 of 14 nights" while its baseline is still building.
+- **PaceForge under Today's rings.** Recovery read two ways (body signals and sleep) and a plain line each for Recovery, Sleep and Strain, as PaceForge words them from Garmin data. Hidden under Hide numbers; a watch worn by day only keeps the Strain line.
+- **Insights > Deep dives.** The weekly target-load range (this week and next, with whether the plan lands in it), Garmin's Load Focus as three bars against Garmin's ranges, and muscular load (sets per muscle group against your own usual, and sets per week).
+- **Health.** The WHOOP strap's overnight HRV status (7-night average against your usual range) sits under the Health monitor (nothing shows until PaceForge has read the strap). The Health monitor also shows a "Health watch" level (all inside your range, keep an eye on it, take it easy) with each vital that moved said in words. Healthspan lists which of its nine inputs have data, the three that move the estimate most, and what to do about a missing one.
+- **PaceForge sleep.** Under the planner on the Sleep tab: four plain tiles for the latest night (hours asleep, time asleep in bed, deep and REM share, bedtime steadiness), each against your own usual band, Garmin's deep, REM and light shares with its caveat that a wrist is a weak judge of stages, and when in the night the WHOOP strap's heart rate settled. Each part names its source and none is merged with NOOP's own sleep numbers. Hidden for a watch worn by day only.
+- **Weekly stress load.** On Insights > Deep dives: the last weeks' hours a day above your own high-stress level and restful minutes a day, from Garmin's all-day stress, against your usual day, with whether the newest week is rising, steady or falling.
+- **Active hours.** One line and a gloss on Insights and at the bottom of the Daily movement card: in how many different hours of the day you took at least 250 steps, against your usual. Context only; steps never feed Effort, Strain or readiness.
+- **Not in this build.** The wrist-against-strap heart-rate agreement flag on a session: PaceForge serves that page to its web login only, not to the phone's token.
+
+## 12.0.12 build 497 (PaceForge iPhone build): PaceForge actions from the app
+
+- **Not verified on a real iPhone.** These actions need the PaceForge server's new app door (`POST /app/job`) and "NOOP sync" switched on in PaceForge's Settings; without it each one says why it did not go through.
+- **Workout photo.** A finished session's results sheet has "Add workout photo": pick a photo from your library, NOOP shrinks it and sends it, and PaceForge reads it and attaches the reading to the session, unchecked. Nothing to confirm; it is only a rough idea for the assessment. If the reading model is busy, PaceForge tries again on its own and the sheet says so.
+- **How hard it felt, any time.** A session with no rating shows a row of 1 to 10; one tap saves it.
+- **Adjust today.** Under My Plan on Today, while a session is planned for today: Tired, Sick, or 30, 45 or 60 minutes. One tap asks PaceForge to change today's session, and the card shows what it did.
+- **Sync Garmin now.** In More › PaceForge sync, a button that asks PaceForge to pull your newest data from Garmin. It is separate from "Sync now", which syncs the NOOP database.
+- **Thumbs under Coach replies.** Thumbs up or down under each reply in the Coach chat; the row then reads "Noted".
+- **Tell the coach.** On the Coach screen, under the chat: type an order (move my long run to Sunday, I'm sick, waist 92). The coach applies it, the reply appears, and anything it filed for you to look at is listed. The chat stays for questions.
+- **Niggles.** A Niggles row under My Plan on Today opens a sheet: pick the area and how bad (1 to 5) and log it, or mark an open one resolved. Nothing asks you daily.
+- **Plan edits.** A planned session's detail has Move (a date), Skip, and for an optional draft Accept or Drop. Skip and Drop ask first.
+- **Easy mode.** In Training › Plan: start easy mode (Lighter, Reduce or Rest-ish, 3 to 14 days), accept the proposal it files, and end a running one. Starting only files a proposal; nothing changes until you accept it.
+- **Events and HYROX simulations.** In Training › Events: add an event (name, date, type, an optional place) or cancel one. Under Race simulations: log a simulation from its run and station times.
+
+## 12.0.12 build 496 (PaceForge iPhone build): Alerts bell and history
+
+- **Not verified on a real iPhone.**
+- **Bell on Today.** A bell in the top bar of Today, beside the strap battery, opens the Alerts screen. A small red number on it counts the alerts you have not seen yet (nothing at 0, "9+" above 9). It only shows while PaceForge is set up on the phone.
+- **Alerts screen.** Unread alerts come first with a dot, then the history as Today, Yesterday and Earlier. Each line shows the title, one line of text, how long ago, what kind it is (input needed, load spike, sleep debt and so on) and where it stands (still open, dismissed, done, answered). Tapping a line marks it read and opens what a tap on its notification opens: the Needs you card, or the session's results. "Mark all read" is at the top left.
+- **What is in it.** The alerts PaceForge's server still keeps (about two weeks) and the Needs you items this phone announced with a notification; an announced item that has left the Needs you card shows as answered. The Telegram messages are not here: the app cannot see them. Which lines you have seen is kept on the phone. Everything that exists the first time you open this build counts as read, so there is no pile of unread on day one.
+
+## 12.0.12 build 495 (PaceForge iPhone build): alert taps, refresh, day-only wearers, corrected heart rate
+
+- **Not verified on a real iPhone.**
+- **Alert and Needs you taps.** Tapping a PaceForge alert notification now opens NOOP Today scrolled to the Needs you card, or the activity's results when the alert is about one session (a load spike, a heart-rate recovery flag). A notification posted by an older build still opens the Coach.
+- **Needs you notifications.** The background refresh now posts one notification for each new effort rating, treadmill pace, plan proposal or question PaceForge is waiting on, once per item, never for an answered one, under the same PaceForge alerts switch. Tapping it opens the Needs you card. The first run after installing only records what is already open. The morning feel check-in is not announced here.
+- **Pull to refresh.** Pulling Today down now also refreshes PaceForge (Needs you, the cards and the PaceForge rings), alongside the strap sync and the reload.
+- **Refresh on return.** When NOOP comes back to the foreground and the last PaceForge load is over a minute old it refreshes, so a new Needs you item no longer waits for a pull or a restart.
+- **Day-only wearers.** When the server says the watch is worn by day only, Today drops PaceForge's Recovery and Sleep rings (Strain stays), the Tonight sleep line of Day in review and the line about the two scores differing. A missing answer keeps everything as before.
+- **Corrected heart rate.** When PaceForge corrected an activity's wrist heart rate, the summary labels the average and maximum "(corrected)" and shows what the watch recorded in a line under them. NOOP's own records are not touched.
+
+## 12.0.12 build 494 (PaceForge iPhone build): week in numbers, sources and glossary, daily freshness, critical questions
+
+- **Not verified on a real iPhone.**
+- **Weekly report.** Under "The week, session by session" a new "The week in numbers" card lists every session (day, name, type, minutes, km, pace, average heart rate, plan status, a hard badge), each day with the night that ended that morning, the totals by type, hard against easy and the change on the week before. They are the server's own figures; the phone works nothing out.
+- **Source chips and Glossary.** A claim tag in a report text such as health C09 and partial now shows as a small chip in words (Confirmed, Partly supported, Our estimate); tap it for the one-line "how sure are we" and tap again to close it. Every report ends with a "How sure are we?" list of the sources it cites and a Glossary of the terms it used.
+- **Daily freshness.** The daily report and the Expert reading card on Today say in one line whether the reading is Fresh (written today after the morning Garmin data), Older than today or Failed, then when it was written and how long ago, which scheduled or manual run wrote it, when the Garmin data it read was synced, and the day's runs.
+- **Critical questions.** When PaceForge needs one missing fact it asks it in the Needs you card on Today: the question, why it matters, one tap per answer and Dismiss. Nothing is sent to Telegram.
+- **Accounts without reports.** If the server says an account has no reports, the Coach reports row and the Expert reading card are hidden. A missing answer keeps them.
+
+## 12.0.12 build 493 (PaceForge iPhone build): widgets find their data, Reports, Expert reading on Today
+
+- **Not verified on a real iPhone.** The widgets showed "Open NOOP to refresh" and dashes because the app and the widgets looked for their shared storage under a name the sideloader never created: it creates and signs for `group.<the signed app id>` (the id with your team suffix) and does not list it in the app. NOOP now tries the configured name, then the name built from its own id (an extension drops its own ending), and uses the first one the phone actually grants. The watch app and complications use the same rule. Open NOOP once after installing so the widgets get fresh data.
+- **Reports.** The Coach tab has a Coach reports row that opens the daily, weekly and monthly reports PaceForge writes: a Daily, Weekly, Monthly switch, the latest report first with the older ones under History, the headline in its own card, the other stages in order, the proposed changes (read only: Accept and Dismiss stay in the Needs you card on Today), the domain experts folded away and a short note of what was not checked. Claim tags such as health C16 and partial show as one small line under the paragraph they belong to. A report from an earlier day, or from a run that failed, says so at the top.
+- **Expert reading on Today.** One card under Today's call with the daily report's three head-coach stages (readiness, preparedness, decisions), dated, and labelled when it is not today's. Its button opens Reports on Daily.
+
+## 12.0.12 build 492 (PaceForge iPhone build): Needs you on Today only, readable proposals, fewer repeats
+
+- **Not verified on a real iPhone.** A proposal in the Needs you card now shows its full text, with Accept and Dismiss on a row below it. The card lives only on Today: the Coach tab no longer shows it.
+- **The morning briefing warning only appears when it matters.** The orange "iOS background refresh issue" line on Coach shows only while today's brief has not arrived; once the brief is ready it is hidden there and stays in Brief settings.
+- **Less repeating.** The Sleep tab starts without the Stages vs typical card (the stage shares and durations are in Stages and Last night's sleep; Customize brings it back, and a layout you saved is unchanged). Charge, Effort and Rest no longer repeat the last seven days as bars above the trend chart (the chart's W view and the readings show the same days). Insights shows the fitness, fatigue and form chart once.
+
+## 12.0.12 build 491 (PaceForge iPhone build): dismiss alerts, the paragraph on each screen and more
+
+- **Not verified on a real iPhone.** Each live alert in the Alerts card on Today has a small x: "Hide until it changes" hides that alert until its wording changes, "Snooze until tomorrow" hides it for the rest of the day. The paragraph at the top of each screen, Today's call, the evening Day in review and the race-week card on the Calendar have the same x. A "Hidden cards" row appears on Today as soon as anything is hidden; it lists every hidden alert, paragraph and card and brings each one back.
+- Left as they were on purpose: the health warning banner when it is raised, the "needs you" questions, the stale-data and not-available notes, and the workout in progress.
+
+## 12.0.12 build 490 (PaceForge iPhone build): a paragraph on each screen, live alerts with their numbers, fewer repeats
+
+- **Not verified on a real iPhone.** Each main screen now opens with one short paragraph from PaceForge about all the metrics on it: Today, Coach, Training, Sleep, Insights, Charge, Effort, Health Monitor, Stress and Body. It starts with "Careful" or "Alert" when PaceForge thinks it matters, says when it was written, and is not shown at all when it is empty or more than two days old. Hide numbers applies to it.
+- **Live alerts show their numbers.** A live alert (stress that stays high, heart rate high at rest, Body Battery low at midday or draining fast) now lists the current reading, your own normal, the source and what it does to your plan, in the same Alerts card as the others. When it clears it leaves the list. On Today, open live alerts show in an Alerts card under Needs you; the older alert kinds stay on the PaceForge Today screen.
+- **Less repeating on Today and Body.** With the default layout Today no longer repeats Charge, Effort and Rest as Key Metrics tiles under the six rings, and Your Cards no longer repeats HRV, Resting HR and Stress (Key Metrics and the stress tile show them); a layout you saved yourself is unchanged. Body lists a goal only once when the Progress card already tracks it, and metabolic age is shown once, with its decimal, in Overview.
+
+## 12.0.12 build 489 (PaceForge iPhone build): metric sheets say what a number means for you
+
+- **Not verified on a real iPhone.** The ⓘ sheet of a PaceForge metric now starts with "For you" (the latest value against your own usual range, and the signal that moves with it in your last 90 days, labelled as an association) and "What PaceForge does with it". Both lines are written by PaceForge; the phone only shows them, and a metric without them looks as before.
+
+## 12.0.12 build 488 (PaceForge iPhone build): readiness gates restored, Android edits reverted
+
+- **Not verified on a real iPhone.** Readiness is again voted on by training load and monotony: a load spike (acute:chronic above 1.5) flags bad, can make the verdict Strained or Run down, and cannot read Primed. The recovery and illness texts that tell you what to do are back to their earlier wording. This restores the Swift ReadinessEngine and IllnessSignalEngine to their build 486 behaviour.
+- The 11 Android files Codex edited in build 487 are back to their build 486 state (no Android build was made or is wanted).
+- The Coach unification, brief status and the rest of build 487 stay.
+
+## 12.0.12 build 487 (PaceForge iPhone build): one Coach, direct Sleep and Training, clearer brief status
+
+- **One Coach across NOOP and PaceForge.** The Coach entry point opens the shared Coach surface for daily reads, workout analysis, planning and reviews. Workout commentary is shown before the supporting metrics, and dated NOOP and PaceForge evidence stays source-labelled.
+- **Sleep and Workouts stay easy to find.** The unified navigation defaults to direct Sleep and Training destinations, with Training opening on Workouts and one Coach entry point.
+- **Morning brief failures explain themselves.** Coach shows whether it is waiting for data or needs an action, the latest attempt and success, and a privacy-safe diagnostics summary. iOS still decides when background refresh runs; Check now remains available.
+- **Load ratio stays context.** ACWR no longer blocks a GO training call or changes the calendar by itself; direct planned-volume limits remain in place.
+- **Not verified on a real iPhone.** This source has not yet been installed or exercised on-device.
+
+## 12.0.12 build 485 (PaceForge iPhone build): no plan card on Today
+
+- **Not verified on a real iPhone.** Today no longer draws the "My Plan" card (this week's plan progress). The Calendar tab already shows the week, so the card was a duplicate. The day picker on the Today title (swipe or calendar to move between days) is unchanged. The saved Today layout keeps the My Plan entry for Android compatibility; it just draws nothing.
+
+## 12.0.12 build 484 (PaceForge iPhone build): one row of six rings on Today
+
+- **Not verified on a real iPhone.** Build 483 added a third set of rings; this build replaces them. Today now has ONE row of six rings at the top: NOOP Rest, Charge, Effort (from the WHOOP strap) and PaceForge Recovery, Sleep, Strain (from Garmin data), with a divider between the groups and the line "NOOP and PaceForge are two different calculations, never merged" plus "About these scores". The separate PaceForge card and the three rings inside Today's call are gone (the call keeps its text and an "Effort target" line). NOOP rings keep their navigation; PaceForge rings open "Why they differ". Empty rings show a dash with the reason; Hide numbers applies to all six. Diagnostics record `today.rings6 noop=<n> pf=<n>`. Everything else is as in 483 (all beta switches off by default). Build 464 remains the last known good; 479 had the clean day.
+
+## 12.0.12 build 483 (PaceForge iPhone build): PaceForge ring group on Today
+
+- **Not verified on a real iPhone.** Today now shows PaceForge's own three rings under the NOOP hero rings, as the web Overview does: a card headed "PaceForge, calculated from Garmin data" with Recovery, Sleep (PaceForge score, hours and share of need, with the Garmin sleep score as a chip) and Strain (target range), the line "NOOP and PaceForge are two different calculations, never merged", and links "About these scores" and "Why they differ". The numbers come from the saved fitness and readiness-explained documents, parsed off the main thread (the heavy snapshot builder is not used); with no PaceForge data the card says why and shows no numbers; Hide numbers is honoured. Diagnostics record `today.pfrings`. Everything else is as in 482 (all beta switches off by default). Build 464 remains the last known good; 479 had the clean day.
+
+## 12.0.12 build 482 (PaceForge iPhone build): Today rings reload, Calendar loses the duplicate day row
+
+- **Not verified on a real iPhone.** Today's call card (the NOOP Charge, PaceForge readiness and Effort target rings) loads its data from the PaceForge daily-intel store; its own refresh trigger never ran while the card was empty, and an empty load blocked retries for 120 s. Today now triggers the store refresh itself on appear, an empty load is retried, and diagnostics record `today.rings noop=<bool> pf=<bool>`. In the new navigation (beta) the Calendar chip no longer shows a week strip above the month grid; the month grid carries the status dots and today's ring, the day panel and the analysis status. Everything else is as in 481 (all beta switches off by default). Build 464 remains the last known good; 479 had the clean day.
+
+## 12.0.12 build 481 (PaceForge iPhone build): opt-in new navigation (beta), default off
+
+- **Not verified on a real iPhone.** Stages 3 and 4 of the Unified App Design. With the default settings this build behaves like 480. New opt-in switch: Settings > Tools > "New navigation (beta)", default off, restart to apply; turning it on also turns on the Day tab. When on, the tab bar is Today, Calendar, Day, Insights, More, and the Coach button opens one Coach screen (Coach and NOOP chat chips). Calendar has chips Calendar (week strip, month grid, analysis status per activity), Plan, Season, Events, HYROX; Insights has chips Overview, Trends, Reports, Journal, Deep dives; More gains Body (PaceForge Body and Lab Book) and drops the rows that moved. Old links (widgets, notifications, Home Screen actions) redirect to the new places. Every chip is its own small view, only the selected chip is mounted, and diagnostics record `nav.tab`, `nav.chip` and each chip's mount time. Expect rough edges: Insights Overview stacks three screens and may be slow, and nothing here has run on a device. Build 464 remains the last known good; 479 is the build with the clean day so far.
+
+## 12.0.12 build 480 (PaceForge iPhone build): opt-in Day tab (beta), default off
+
+- **Not verified on a real iPhone.** Stage 2 of the Unified App Design. With the default settings this build behaves like 479 (tab 2 is still Sleep). New opt-in switch: Settings > Tools > "New Day tab (beta)", default off, restart to apply. When on, tab 2 becomes **Day** with chips My Day, Sleep, Recovery, Activity and Health. Each chip mounts the existing screen unchanged, one at a time. Sleep and Recovery start with a "three readings" card that puts the PaceForge, Garmin and NOOP values side by side with source chips (never averaged), as on the web. Known rough edges to expect: the Sleep night-sky backdrop is dropped inside the chip, the cards show data only after the PaceForge tab has refreshed today, and Day pull-to-refresh refreshes only the repository. Diagnostics record `day.chip` changes and each chip's mount time. Build 464 remains the last known good; 479 is the build with the clean day so far.
+
+## 12.0.12 build 479 (PaceForge iPhone build): 477 plus the three duplicate cards removed, new refresh as an opt-in beta
+
+- **Not verified on a real iPhone.** Build 478 crashed when the PaceForge tab opened: a stack overflow inside `PFBuilder.core`, the large function that builds the PaceForge snapshot, when the new refresh coordinator ran it on a Swift-concurrency thread (crash stack symbolicated from the phone's report). This build goes back to the 477 refresh path as the default, so behaviour matches 477 except that Today's call, Day in review and My plan no longer appear a second time on the PaceForge Today segment (they stay on NOOP Today). The new coordinator (manifest-first fetch, incremental snapshot) is kept as an opt-in beta, off by default: Settings > Tools > "New PaceForge refresh (beta)", restart to apply. In the beta every snapshot build runs on a thread with a 16 MB stack, the builder is split into small functions, the summary publishes on the main actor, documents are parsed one at a time, and any error falls back to the 477 path. Build 464 remains the last known good; 477 is the last build confirmed not to freeze.
+
+## 12.0.12 build 477 (PaceForge iPhone build): Today header loop fixed, honest sync label
+
+- **Not verified on a real iPhone.** A CI simulator profile reproduced the freeze that starts when the strap sync starts (52 s of main-thread block vs 0 s without the sync; 99% inside SwiftUI graph update, a third of it ScrollView re-measure, with the Today header views being rebuilt). Cause (strong, not proven on a device): the top bar chose between two layouts with `ViewThatFits` while the sync capsule animated its width, so the choice flip-flopped, rebuilding the battery button and sync capsule each time and re-measuring the whole Today scroll view. The top bar is now one fixed layout, the battery button sits in a constant-size slot, the capsule widens without resizing the header (it can overlap the day pill for about 2 s during a sync), and the sync indicator no longer resets itself on layout churn. I put roughly 70% on this fixing the freeze. Build 464 remains the last known good.
+- **Sync label:** the sheet and the Today row now say "Connected, live" while heart-rate samples are arriving, otherwise "Latest strap data <ago>", and show "Last full history sync <time>" only when that is older than 15 minutes. Before, "Synced 44 minutes ago" contradicted data that was arriving live.
+
+## 12.0.12 build 476 (PaceForge iPhone build): strap sync lifecycle, instant diagnostics upload
+
+- **Not verified on a real iPhone.** The sync indicator could say "syncing" for 50 minutes: a launch re-armed a manual sync every time (the last-sync stamp was read before it was loaded, and a WHOOP 4.0 usually ends on the idle timeout, which never recorded completion), and nothing bounded the chain of sync sessions. A whole sync is now one tracked unit: it records the completion time, ends exactly once with a `sync.finished` reason, aborts after 12 minutes without a chunk or 45 minutes in total, never re-arms within 5 minutes of a finished or attempted sync, and triggers exactly one refresh and one push. The Sync now sheet shows "Syncing n chunks - mm:ss", "Synced <time>" or "Sync failed: <reason>" and has a Stop button.
+- **Diagnostics now upload from a background thread at process start** (and at +20 s and +60 s), so a freeze within seconds of launch no longer blocks the report.
+- **The Today freeze that starts when the strap sync starts is not fixed by this build**; it is being profiled. Build 464 remains the last known good.
+
+## 12.0.12 build 475 (PaceForge iPhone build): Today freeze, staged mount and calmer status values
+
+- **Not verified on a real iPhone.** The first real-device freeze stacks (build 474) showed two 16 s main-thread stalls on Today with no frame of ours on the stack: SwiftUI's own graph and layout engine was busy the whole time, starting when the first data refresh (367 days) landed while Today was on screen. This build mounts Today in stages (one step per 80 ms: header and hero, monitor tiles, My Day, then each section), makes the strap status tiles read a once-per-second snapshot instead of the live state, and records how often Today redraws and how often the strap state changes, plus which stage a stall started in, so the next report names the slow section. I put roughly 50% on this fixing the freeze. Build 464 remains the last known good.
+
+## 12.0.12 build 474 (PaceForge iPhone build): freeze diagnostics, nothing else changed
+
+- **This build changes no behaviour.** Build 473 still froze after opening the PaceForge tab. The earlier reports hid the stuck function, so this build captures the main thread's full stack (as image+offset, symbolicated offline) at 1.5 s, 4 s and 8 s into any stall of 1.5 s or more, writes it to disk immediately, and uploads it on the next launch (at most every 10 minutes after an unclean exit or a stall of 3 s or more). It also records the visible screen and the strap link and sync steps, including why Sync now fails. Build 464 remains the last known good.
+
+## 12.0.12 build 473 (PaceForge iPhone build): freeze fixes, idle redraw fixes, strap Sync now
+
+- **Not verified on a real iPhone.** Build 472 opened the PaceForge tab but froze after about a minute (watchdog kill with the main thread inside Swift generic type resolution) and the app burned CPU while idle. This build makes the shared containers (ScreenScaffold, cards, settings rows) non-generic over their content, stops the always-on animations (liquid thread, tube, vessel, sky, body-age blob) when the app is not active, and stops the PaceForge tab re-rendering on every store publish. I put roughly 55% on the freeze fix and 45% on the idle-CPU fix. Build 464 remains the last known good.
+- **Strap sync:** the app now starts a sync when it becomes active if the last one is older than 5 minutes, and tapping the sync indicator on Today (or the sync button in the PaceForge header) opens a Sync now sheet with last-synced time, progress and clear errors (strap not found, Bluetooth off or denied). It cannot sync if the strap is out of range or not bonded.
+
+## 12.0.12 build 472 (PaceForge iPhone build): fix for the PaceForge tab crash
+
+- **Not verified on a real iPhone.** Build 471 crashed when the PaceForge tab opened (a stack overflow, plus a watchdog kill after more than 10 seconds on the main
+  thread). The cause was read from symbolicated real-device crash reports: the tab built one very large nested SwiftUI view type that the runtime then resolved
+  recursively. This build splits those screens into small views and type-erases the segment and card switches. Nothing on screen changed in content, order or
+  style. I put roughly 70% on this fixing it. Build 464 remains the last known good.
+
+## 12.0.12 build 471 (PaceForge iPhone build): performance work after the first real-device freeze report
+
+- **Not verified on a real iPhone.** Builds 465-470 froze on Today for some people; this build is performance work from the first on-device report, and it was
+  profiled only on the iOS 26.5 simulator. Build 464 remains the last known good. The on-device diagnostics (Settings) will show whether the freeze is gone.
+- Today now writes what it loaded in two steps instead of about twenty, so the dashboard is drawn far fewer times per load. The cards below the fold on Today
+  and Trends are built when they scroll near. Nothing on screen changed in content, order or style.
+- Apple Health authorisation is read off the main thread at app activation, the shared-container paths are looked up once, My Day builds its PaceForge snapshot
+  once at a time, and Trends keeps its history cards until the data changes. The refresh runs once at a time.
+- Detected walks of 15 minutes or more are saved by themselves (from the unreleased work after 470).
+
+## 12.0.12 build 470 (PaceForge iPhone build): Needs you on Today
+
+- **Answer from the app, not Telegram.** When PaceForge is waiting on you, Today opens with a Needs you card: a treadmill run (km/h or min/km, incline,
+  Save, Same as last treadmill run, Don't know), a plan or pace proposal (Accept / Dismiss on one line), an effort rating 1-10 and today's feel 1-5.
+  The card is not there when nothing is waiting. An answer leaves the card at once and comes back with the reason if PaceForge did not take it.
+- Nothing else on Today moved. The list is read and the replies are decoded off the main thread.
+
+## 12.0.12 build 469 (PaceForge iPhone build): freeze fixes and on-device diagnostics
+
+- **Fewer freezes.** The heavy work behind Today and My Day (PaceForge activity spans, the shared PaceForge stores) now runs off the main thread, and the
+  stores publish only when their document changed. Measured on a test device: Today's main-thread blocking went from about 16 s to 2-3 s, and the worst
+  single stall from about 8 s to 1.7 s. This is better, not fixed: the strict performance budget still fails and is not loosened.
+- **Diagnostics from the phone.** Settings > Tools > Send diagnostics now builds a report (stalls with the main thread's stack, per-screen body counts,
+  the last crash report), keeps it on the phone and posts it to PaceForge, then shows what the server answered.
+- The stall watchdog now watches the main run loop instead of pinging it, so it no longer adds work to the thread it measures.
+
+## 12.0.12 build 468 (PaceForge iPhone build): fewer screens, same content
+
+- **Two taps to anything.** More lists 11 rows (it was 33), all visible at rest: Insights, Explore, Compare, Lift Log, Health, Stress, Lab Book,
+  Rhythm, Alarms, Data and Settings. Live, Workouts, Breathe and Intervals are in the quick-action sheet; Test Centre, Automations, Siri & Shortcuts
+  and Power saving are under Settings > Tools.
+- **One Insights screen.** Journal, What moves you, Intelligence and Reports (Highlights, Healthspan, Monthly report, Journal impact) are sections of
+  it. The PaceForge tab's Insights segment is the same screen with PaceForge's Training section first. The streak chip on Today still opens Highlights.
+- **One Stress screen, one Health screen, one Data screen.** The Stress monitor and PaceForge's Health monitor are the top of Stress and Health; the eight data
+  rows (Data Sources, Apple Health, Mi Band, Fused, Backup & Sync, PaceForge sync, Shortcuts Export, Limitations) are sections of Data.
+- **Charge, Effort and Rest** open one detail: the Effort breakdown is its foot, and the Rest card's sleep link switches to the Sleep tab.
+- **One Today.** The classic layout and the Today Coach card are gone on iPhone; the centre button is NOOP Coach (PaceForge's Coach is its own segment).
+- **Daily movement** card on PaceForge Today (steps against your usual range, Garmin intensity minutes, last 7 days) once PaceForge publishes it.
+- The streak chip no longer disappears when the top bar is full; it sits on its own line.
+- Nothing was removed from the scores: NOOP's and PaceForge's numbers stay side by side and labelled, never merged.
+
 ## 12.0.0: Today your way, heart rate any app can read, and Italian (all platforms)
 
 A major release about choice and about honesty. Today can be drawn two different ways, a WHOOP 4.0 can

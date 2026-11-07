@@ -1,0 +1,417 @@
+import SwiftUI
+import StrandDesign
+
+// The newer PaceForge cards on Today and in session results: open alerts, the three readiness reads and
+// heart-rate recovery. Each one is drawn only when its file is present, so an older server shows nothing new.
+
+// MARK: Alerts
+
+/// Open alerts with a severity stripe. The app is read-only: an alert's actions are shown as labels and
+/// answered in Telegram.
+struct PFAlertsCard: View {
+    let alerts: [PFAlert]
+    /// Set where each alert can be put away on its own (NOOP Today): its day and the server's dismissed.json. Nil leaves the rows as they were.
+    var snapshot: PFSnapshot?
+
+    var body: some View {
+        PFCard(title: "Alerts", icon: "exclamationmark.triangle.fill", trailing: {
+            PFChip(text: "\(alerts.count) open", color: alerts.contains { $0.severity == "act" } ? PFColor.critical : PFColor.warning)
+        }) {
+            VStack(alignment: .leading, spacing: 12) {
+                ForEach(alerts) { alert in
+                    PFAlertRow(alert: alert, snapshot: snapshot)
+                }
+                if alerts.contains(where: { !$0.actions.isEmpty }) {
+                    Text("Answer in Telegram. This app only shows the alert.")
+                        .font(StrandFont.caption)
+                        .foregroundStyle(StrandPalette.textTertiary)
+                }
+            }
+        }
+        .containerIdentifier("pf-alerts-card")
+    }
+}
+
+/// NOOP Today's live alerts: the open `live_*` alerts in the Alerts card, and nothing else. The daily alert kinds stay on the
+/// PaceForge Today screen. Each alert has the "Not today" menu (key `alert:<kind>`); the Hidden cards row under the card
+/// brings hidden alerts, page notes and cards back. Draws nothing when no alert is open and nothing is hidden.
+struct PFTodayLiveAlertsHost: View {
+    @ObservedObject private var model = PFUnified.model
+    @ObservedObject private var dismissals = PFDismissStore.shared
+
+    var body: some View {
+        Group {
+            if let snapshot = model.snapshot {
+                let open = snapshot.alerts.filter { alert in
+                    alert.isLive && !PFDismissLogic.isHidden(key: PFDismissKey.alertKey(alert), text: PFDismissKey.alertText(alert),
+                                                             today: snapshot.todayISO, local: dismissals.local, server: snapshot.dismissed)
+                }
+                if !open.isEmpty { PFAlertsCard(alerts: open, snapshot: snapshot) }
+                PFHiddenCardsRow(snapshot: snapshot)
+            }
+        }
+        .task { await model.refreshIfStale() }
+    }
+}
+
+private struct PFAlertRow: View {
+    let alert: PFAlert
+    let snapshot: PFSnapshot?
+    /// A live alert reads as one line (title and reading) until "Details" opens its facts, the way the page note does. An alert without
+    /// live facts has nothing to fold away and is always drawn whole.
+    @State private var isOpen = false
+
+    private var color: Color {
+        switch alert.severity {
+        case "act": return PFColor.critical
+        case "watch": return PFColor.warning
+        default: return PFColor.sky
+        }
+    }
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 4) {
+            if let live = alert.live, !isOpen {
+                collapsed(live)
+            } else {
+                content
+            }
+            if let snapshot {
+                PFDismissMenu(key: PFDismissKey.alertKey(alert), title: alert.title, text: PFDismissKey.alertText(alert),
+                              todayISO: snapshot.todayISO)
+            }
+        }
+    }
+
+    /// The severity stripe, then the title and the current reading on one line, "Details" and a chevron on the right. The whole row opens.
+    private func collapsed(_ live: PFLiveAlertFacts) -> some View {
+        Button {
+            withAnimation(.easeOut(duration: 0.2)) { isOpen = true }
+        } label: {
+            HStack(spacing: 10) {
+                RoundedRectangle(cornerRadius: 2, style: .continuous)
+                    .fill(color)
+                    .frame(width: 4, height: 20)
+                summary(live)
+                    .lineLimit(1)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                Text("Details")
+                    .font(StrandFont.caption.weight(.semibold))
+                    .foregroundStyle(StrandPalette.accent)
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(StrandPalette.textTertiary)
+            }
+            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityHint(Text("Shows the details of this alert"))
+        .accessibilityIdentifier("pf-alert-details-\(alert.id)")
+    }
+
+    private func summary(_ live: PFLiveAlertFacts) -> Text {
+        let title = Text(verbatim: alert.title)
+            .font(StrandFont.subhead.weight(.semibold))
+            .foregroundStyle(StrandPalette.textPrimary)
+        let reading = Text(verbatim: " \u{00B7} " + live.reading)
+            .font(StrandFont.subhead)
+            .foregroundStyle(StrandPalette.textSecondary)
+        return title + reading
+    }
+
+    private var content: some View {
+        HStack(alignment: .top, spacing: 10) {
+            RoundedRectangle(cornerRadius: 2, style: .continuous)
+                .fill(color)
+                .frame(width: 4)
+            VStack(alignment: .leading, spacing: 6) {
+                Text(alert.title)
+                    .font(StrandFont.subhead.weight(.semibold))
+                    .foregroundStyle(StrandPalette.textPrimary)
+                    .fixedSize(horizontal: false, vertical: true)
+                if let body = alert.body {
+                    Text(body)
+                        .font(StrandFont.subhead)
+                        .foregroundStyle(StrandPalette.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                if let live = alert.live { liveFacts(live) }
+                if !alert.actions.isEmpty {
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 84), spacing: 6, alignment: .leading)],
+                              alignment: .leading, spacing: 6) {
+                        ForEach(alert.actions) { action in
+                            PFChip(text: action.label, color: StrandPalette.textTertiary)
+                        }
+                    }
+                }
+                if alert.live != nil { hideDetails }
+            }
+            Spacer(minLength: 0)
+        }
+        // The "Hide details" button must stay a control of its own, so a live alert's rows are not merged into one element.
+        .accessibilityElement(children: alert.live == nil ? .combine : .contain)
+    }
+
+    private var hideDetails: some View {
+        Button {
+            withAnimation(.easeOut(duration: 0.2)) { isOpen = false }
+        } label: {
+            HStack(spacing: 4) {
+                Text("Hide details")
+                    .font(StrandFont.caption.weight(.semibold))
+                    .foregroundStyle(StrandPalette.accent)
+                Image(systemName: "chevron.up")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(StrandPalette.textTertiary)
+            }
+            .frame(minHeight: 44, alignment: .leading)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("pf-alert-hide-\(alert.id)")
+    }
+
+    /// A live alert's reading, his own normal, the source and what it does to the plan, each on its own line.
+    private func liveFacts(_ live: PFLiveAlertFacts) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            liveLine("Current reading", live.reading)
+            if let normal = live.hisNormal { liveLine("Your normal", normal) }
+            if let source = live.source { liveLine("Source", source) }
+            if let effect = live.planEffect { liveLine("Plan effect", effect) }
+        }
+    }
+
+    private func liveLine(_ label: LocalizedStringKey, _ value: String) -> some View {
+        VStack(alignment: .leading, spacing: 1) {
+            Text(label).strandOverline()
+            Text(verbatim: value)
+                .font(StrandFont.caption)
+                .foregroundStyle(StrandPalette.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+}
+
+// MARK: Readiness
+
+/// PaceForge's, Garmin's and NOOP's readiness side by side. They measure different things, so there is
+/// deliberately no combined number.
+struct PFReadinessCard: View {
+    let readiness: PFReadiness
+
+    var body: some View {
+        PFCard("Why my readiness is this", icon: "gauge.with.dots.needle.67percent",
+               info: PFExplainerID.readinessSources) {
+            VStack(alignment: .leading, spacing: 14) {
+                if let answers = readiness.answers { PFAnswersView(answers: answers) }
+                HStack(alignment: .top, spacing: 10) {
+                    ForEach(readiness.sources) { PFReadinessColumn(source: $0) }
+                }
+                if let agreement = readiness.agreement {
+                    HStack(spacing: 8) {
+                        PFChip(text: Self.agreementText(agreement), color: Self.agreementColor(agreement))
+                        Text("Three separate reads, never averaged.")
+                            .font(StrandFont.caption)
+                            .foregroundStyle(StrandPalette.textTertiary)
+                    }
+                }
+                if let note = readiness.coachNote { PFParagraph(note) }
+            }
+        }
+        .containerIdentifier("pf-readiness-card")
+    }
+
+    private static func agreementText(_ value: String) -> String {
+        switch value {
+        case "agree": return "All three agree"
+        case "mixed": return "Mixed"
+        case "disagree": return "They disagree"
+        default: return PFFormat.capitalized(value)
+        }
+    }
+
+    private static func agreementColor(_ value: String) -> Color {
+        switch value {
+        case "agree": return PFColor.positive
+        case "disagree": return PFColor.critical
+        default: return PFColor.warning
+        }
+    }
+}
+
+private struct PFReadinessColumn: View {
+    let source: PFReadinessSource
+    private let hiding = PFHiding()
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 5) {
+            HStack(spacing: 0) {
+                Text(source.source).strandOverline()
+                if source.source != "PaceForge" { PFInfoButton(id: PFExplainerID.forReadinessSource(source.source)) }
+            }
+            Text(hiding.shown(source.score.map { String(Safe.int($0)) } ?? "\u{2013}", .scores))
+                .font(StrandFont.rounded(28))
+                .foregroundStyle(StrandPalette.textPrimary)
+            if let band = source.band {
+                PFChip(text: PFFormat.capitalized(band), color: PFColor.sky)
+            }
+            PFTrustNote(trust: source.trust)
+            ForEach(Array(lines.enumerated()), id: \.offset) { _, line in
+                Text(line)
+                    .font(StrandFont.caption)
+                    .foregroundStyle(StrandPalette.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityElement(children: .combine)
+    }
+
+    /// The few facts each source brings: its drivers, factors, or the NOOP inputs.
+    private var lines: [String] {
+        var out: [String] = source.drivers.prefix(3).map { $0 }
+        out += source.factors.prefix(4).map { factor in
+            [factor.name, factor.value].compactMap { $0 }.joined(separator: " ")
+                + (factor.status.map { " (\($0))" } ?? "")
+        }
+        if let hours = source.recoveryTimeH { out.append("Recovery time \(PFFormat.trimmed(hours)) h") }
+        if let hrv = source.hrv { out.append("HRV \(PFFormat.trimmed(hrv)) ms") }
+        if let rhr = source.rhr { out.append("Resting HR \(PFFormat.trimmed(rhr))") }
+        if let sleep = source.sleepPerformance { out.append("Sleep \(PFFormat.trimmed(sleep))%") }
+        return out
+    }
+}
+
+// MARK: Heart-rate recovery
+
+/// First-minute heart-rate recovery for a completed session. The population context band is a neutral
+/// caption; only the athlete's own band (scored kinds with a baseline) gets a coloured pill.
+struct PFHRR1Card: View {
+    let hrr: PFHRR1
+    /// Garmin's own recovery HR for the session, when the watch recorded it.
+    var garmin: PFHRRGarmin?
+    /// A session from the activities feed carries `hrr_garmin` when the watch recorded it, so its absence earns the tip.
+    var tipsGarminWait = false
+
+    var body: some View {
+        PFCard(title: "Heart rate recovery", icon: "heart.text.square", info: garmin == nil ? PFExplainerID.forHRR1(kind: hrr.kind) : PFExplainerID.hrrGarmin, trailing: {
+            if let band = hrr.personalBand { PFChip(text: PFFormat.capitalized(band), color: Self.color(band)) }
+        }) {
+            VStack(alignment: .leading, spacing: 10) {
+                if let garmin { garminBlock(garmin) }
+                if showsDrop, let bpm = hrr.bpm {
+                    HStack(alignment: .firstTextBaseline, spacing: 6) {
+                        Text("\(bpm)")
+                            .font(StrandFont.rounded(34))
+                            .foregroundStyle(StrandPalette.textPrimary)
+                        Text("bpm in the first minute")
+                            .font(StrandFont.caption)
+                            .foregroundStyle(StrandPalette.textTertiary)
+                    }
+                }
+                if garmin == nil {
+                    PFParagraph(explainer)
+                    if tipsGarminWait {
+                        Text(verbatim: PFHRRGarmin.tip)
+                            .font(StrandFont.footnote)
+                            .foregroundStyle(StrandPalette.textTertiary)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .accessibilityIdentifier("pf-hrr-garmin-tip")
+                    }
+                }
+                if garmin == nil, hrr.kind == PFHRR1.garmin2min {
+                    VStack(alignment: .leading, spacing: 4) {
+                        ForEach(hrr.readings, id: \.offsetSeconds) { reading in
+                            Text(Self.readingLine(reading))
+                                .font(StrandFont.footnote)
+                                .foregroundStyle(StrandPalette.textSecondary)
+                        }
+                    }
+                }
+                HStack(alignment: .top, spacing: 18) {
+                    if let stop = hrr.stopBpm { PFFigure(value: "\(stop)", unit: "bpm", label: "At the stop") }
+                    if let peak = hrr.peakBpm { PFFigure(value: "\(peak)", unit: "bpm", label: "Peak") }
+                    if hrr.isScored, let two = hrr.bpm120 { PFFigure(value: "\(two)", unit: "bpm", label: "By 2 min") }
+                    if hrr.isScored, let base = hrr.baselineBpm { PFFigure(value: PFFormat.trimmed(base), unit: "bpm", label: "Your usual") }
+                    if hrr.isScored, hrr.baselineBpm != nil, let delta = hrr.delta {
+                        PFFigure(value: (delta > 0 ? "+" : "") + PFFormat.oneDecimal(delta), unit: "bpm", label: "Versus usual")
+                    }
+                }
+                if let context = contextCaption {
+                    HStack(alignment: .top, spacing: 4) {
+                        Text(context)
+                            .font(StrandFont.footnote)
+                            .foregroundStyle(StrandPalette.textTertiary)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .accessibilityIdentifier("pf-hrr1-context")
+                        PFInfoButton(id: PFExplainerID.hrrContextBand)
+                    }
+                }
+            }
+        }
+        .containerIdentifier("pf-hrr1")
+    }
+
+    private func garminBlock(_ garmin: PFHRRGarmin) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(verbatim: garmin.headline)
+                .font(StrandFont.headline)
+                .foregroundStyle(StrandPalette.textPrimary)
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityIdentifier("pf-hrr-garmin")
+            if let detail = garmin.detail {
+                Text(verbatim: detail)
+                    .font(StrandFont.footnote)
+                    .foregroundStyle(StrandPalette.textSecondary)
+                    .accessibilityIdentifier("pf-hrr-garmin-detail")
+            }
+        }
+    }
+
+    /// The big first-minute number is for real stops only; a cool-down gets the explanation line instead.
+    private var showsDrop: Bool { hrr.isScored && !hrr.isNotScoredCoolDown }
+
+    private var explainer: String {
+        if hrr.isNotScoredCoolDown { return PFHRR1.notScoredLine }
+        switch hrr.kind {
+        case PFHRR1.interval:
+            return "Interval rebound \u{2014} compared with your own intervals." + (hrr.isEstimated ? " Estimated." : "")
+        case PFHRR1.garmin2min:
+            return hrr.label ?? PFHRR1.garminLabel
+        case PFHRR1.noPostStopData:
+            return hrr.reason ?? PFHRR1.noPostStopLine
+        case PFHRR1.notMeasurable:
+            return "Not enough readings after the end."
+        default:
+            return "How far your heart rate fell in the first minute after you stopped."
+        }
+    }
+
+    static func readingLine(_ reading: PFHRR1.Reading) -> String {
+        let clock = String(format: "+%d:%02d", reading.offsetSeconds / 60, reading.offsetSeconds % 60)
+        let change = reading.drop.map { $0 >= 0 ? " (\($0) below the stop)" : " (\(-$0) above the stop)" } ?? ""
+        return "\(clock) after the stop: \(reading.bpm) bpm" + change
+    }
+
+    /// Population context for a one-minute drop after stopping; never a grade, so it is never coloured.
+    private var contextCaption: String? {
+        guard hrr.kind == PFHRR1.post, let band = hrr.contextBand else { return nil }
+        switch band {
+        case "flag": return "For context: a drop of 12 bpm or less in the first minute is below the usual range."
+        case "low": return "For context: a drop of 13 to 18 bpm in the first minute is on the low side of the usual range."
+        case "typical": return "For context: a drop of 19 to 30 bpm in the first minute is typical."
+        case "strong": return "For context: a drop above 30 bpm in the first minute is strong."
+        default: return nil
+        }
+    }
+
+    static func color(_ band: String) -> Color {
+        switch band {
+        case "good": return PFColor.positive
+        case "watch": return PFColor.warning
+        case "flag": return PFColor.critical
+        default: return PFColor.sky
+        }
+    }
+}

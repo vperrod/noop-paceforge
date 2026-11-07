@@ -1,4 +1,5 @@
 import Foundation
+import GRDB
 #if canImport(FoundationXML)
 // corelibs Foundation moved the event-driven XML parser into its own module; Darwin keeps it in
 // Foundation. Conditional so one import serves both, with no #if at the use sites.
@@ -30,9 +31,17 @@ public struct AppleHealthImporter {
     /// peak memory bounded (issue #355). The per-day `sampleDailies` are always
     /// produced regardless of this flag.
     public let retainRawSamples: Bool
+    private let progress: (@Sendable (Int) -> Void)?
+    private let phase: (@Sendable (String) -> Void)?
+    private let checkpoint: (@Sendable (Int, [AppleDailyAggregate]) -> Void)?
 
-    public init(retainRawSamples: Bool = true) {
+    public init(retainRawSamples: Bool = true, progress: (@Sendable (Int) -> Void)? = nil,
+                phase: (@Sendable (String) -> Void)? = nil,
+                checkpoint: (@Sendable (Int, [AppleDailyAggregate]) -> Void)? = nil) {
         self.retainRawSamples = retainRawSamples
+        self.progress = progress
+        self.phase = phase
+        self.checkpoint = checkpoint
     }
 
     /// Health types Strand cares about (prefix already stripped).
@@ -69,6 +78,7 @@ public struct AppleHealthImporter {
         }
 
         if isDir.boolValue {
+            phase?("Finding Apple Health export…")
             guard let xmlURL = findExportXML(inFolder: url) else {
                 throw ImportError.missingEntry("export.xml")
             }
@@ -77,9 +87,11 @@ public struct AppleHealthImporter {
 
         let ext = url.pathExtension.lowercased()
         if ext == "xml" {
+            phase?("Reading Apple Health records…")
             return try importXML(at: url)
         }
         if ext == "zip" {
+            phase?("Unpacking Apple Health export…")
             return try importZip(at: url)
         }
         // Unknown extension: try zip first, then raw XML.
@@ -100,7 +112,8 @@ public struct AppleHealthImporter {
         // whole multi-year import. The sanitizer is itself an InputStream, so streaming/memory bounds
         // are preserved — nothing is buffered to RAM or disk.
         let sanitizer = SanitizingInputStream(source: raw)
-        return try runParser(XMLParser(stream: sanitizer), sanitizer: sanitizer)
+        let prolog = AppleHealthPrologInputStream(source: sanitizer)
+        return try runParser(XMLParser(stream: prolog), sanitizer: sanitizer)
     }
 
     /// Parse a `Data` blob of XML (used for the zip-streaming path and tests).
@@ -108,12 +121,14 @@ public struct AppleHealthImporter {
         // Route the in-memory path through the same sanitizing stream so tests and the (rare) data
         // path get identical tolerance to illegal bytes / broken UTF-8 as the disk path.
         let sanitizer = SanitizingInputStream(source: InputStream(data: data))
-        return try runParser(XMLParser(stream: sanitizer), sanitizer: sanitizer)
+        let prolog = AppleHealthPrologInputStream(source: sanitizer)
+        return try runParser(XMLParser(stream: prolog), sanitizer: sanitizer)
     }
 
     // MARK: - Zip handling
 
     private func importZip(at zipURL: URL) throws -> AppleHealthImportResult {
+        phase?("Unpacking Apple Health export…")
         let archive: Archive
         do {
             archive = try Archive(url: zipURL, accessMode: .read)
@@ -152,12 +167,17 @@ public struct AppleHealthImporter {
         defer { try? FileManager.default.removeItem(at: tmp) }
 
         var written = 0
+        var lastReportedBytes = 0
         let cap = 8 << 30   // 8 GB decompressed ceiling (real exports are < 2 GB) — zip-bomb guard
         do {
             _ = try archive.extract(entry, bufferSize: 1 << 20) { chunk in
                 written += chunk.count
                 if written > cap { throw ImportError.xmlParseFailed("export.xml too large") }
                 try handle.write(contentsOf: chunk)
+                if written - lastReportedBytes >= (128 << 20) {
+                    lastReportedBytes = written
+                    phase?("Unpacking Apple Health export… (\(written / (1 << 20)) MB)")
+                }
             }
         } catch {
             try? handle.close()
@@ -174,10 +194,13 @@ public struct AppleHealthImporter {
         _ parser: XMLParser,
         sanitizer: SanitizingInputStream? = nil
     ) throws -> AppleHealthImportResult {
-        let delegate = HealthXMLDelegate(retainRawSamples: retainRawSamples)
+        phase?("Reading Apple Health records…")
+        let delegate = HealthXMLDelegate(retainRawSamples: retainRawSamples, progress: progress,
+                                         checkpoint: checkpoint)
         parser.delegate = delegate
         parser.shouldProcessNamespaces = false
         let ok = parser.parse()
+        try delegate.finishStaging()
 
         // How many illegal-byte runs the sanitizer scrubbed before the parser ran. Always surfaced.
         let scrubbedRuns = sanitizer?.scrubbedRunCount ?? 0
@@ -246,11 +269,8 @@ final class HealthXMLDelegate: NSObject, XMLParserDelegate {
     /// bounded memory budget (issue #355). `true` keeps the raw array for
     /// callers/tests that need it.
     let retainRawSamples: Bool
-
-    init(retainRawSamples: Bool = true) {
-        self.retainRawSamples = retainRawSamples
-        super.init()
-    }
+    private let progress: (@Sendable (Int) -> Void)?
+    private let checkpoint: (@Sendable (Int, [AppleDailyAggregate]) -> Void)?
 
     // Outputs
     private(set) var samples: [HealthSample] = []
@@ -276,6 +296,9 @@ final class HealthXMLDelegate: NSObject, XMLParserDelegate {
     /// Count of distinct (post-dedupe) samples folded in — the `samples.count`
     /// equivalent for the summary's recordCount when raw samples were dropped.
     private var sampleCount = 0
+    private var lastProgressCount = 0
+    private var lastCheckpointCount = 0
+    private let checkpointInterval = 100_000
 
     // Element nesting stack (just the element names).
     private var stack: [String] = []
@@ -288,13 +311,89 @@ final class HealthXMLDelegate: NSObject, XMLParserDelegate {
     // never appear inside a Correlation, so a single slot (not a stack) is sufficient.
     private var pendingWorkout: HealthWorkout?
 
-    // Dedupe set over HealthSample dedupeKeys — stored as the key's 64-bit HASH, not the full String
-    // (#183). A large Apple Health export has tens of millions of unique samples; retaining a ~50-100 B
-    // String each was ~1-2 GB of RAM, enough to push an import into sustained memory pressure and hang.
-    // A 64-bit hash is 8 B/entry (~10x less); a collision across even 20M samples is ~1e-5, and a rare
-    // one just drops a look-alike duplicate — the same effect dedup intends. Within one import run the
-    // hash is stable, so identical keys always dedupe.
+    // Raw-sample callers keep the in-memory dedupe set. The app's aggregate-only path stages hashes in
+    // a temporary SQLite index so memory does not grow with the size of the export.
     private var seenSampleKeys: Set<Int> = []
+    private var pendingSamples: [(HealthSample, Int)] = []
+    private var stagingDB: DatabaseQueue?
+    private var stagingURL: URL?
+    private(set) var stagingError: Error?
+    private let stagingBatchSize = 2_000
+
+    init(retainRawSamples: Bool = true, progress: (@Sendable (Int) -> Void)? = nil,
+         checkpoint: (@Sendable (Int, [AppleDailyAggregate]) -> Void)? = nil) {
+        self.retainRawSamples = retainRawSamples
+        self.progress = progress
+        self.checkpoint = checkpoint
+        super.init()
+        guard !retainRawSamples else { return }
+        do {
+            let scratch = FileManager.default.temporaryDirectory
+                .appendingPathComponent((Bundle.main.bundleIdentifier ?? "com.noopapp.noop") + ".scratch",
+                                        isDirectory: true)
+            try FileManager.default.createDirectory(at: scratch, withIntermediateDirectories: true)
+            let url = scratch.appendingPathComponent("apple-health-dedupe-\(UUID().uuidString).sqlite")
+            let db = try DatabaseQueue(path: url.path)
+            try db.write { connection in
+                try connection.execute(sql: "CREATE TABLE seen_sample (hash INTEGER PRIMARY KEY)")
+            }
+            stagingURL = url
+            stagingDB = db
+        } catch {
+            stagingError = error
+        }
+    }
+
+    deinit {
+        stagingDB = nil
+        guard let stagingURL else { return }
+        for suffix in ["", "-wal", "-shm"] {
+            try? FileManager.default.removeItem(atPath: stagingURL.path + suffix)
+        }
+    }
+
+    /// Persist a bounded batch of sample hashes and fold only newly inserted samples.
+    func finishStaging() throws {
+        if let stagingError { throw stagingError }
+        try flushStagedSamples()
+        stagingDB = nil
+        guard let stagingURL else { return }
+        for suffix in ["", "-wal", "-shm"] {
+            try? FileManager.default.removeItem(atPath: stagingURL.path + suffix)
+        }
+        self.stagingURL = nil
+    }
+
+    private func flushStagedSamples() throws {
+        guard !pendingSamples.isEmpty else { return }
+        guard let stagingDB else {
+            throw ImportError.xmlParseFailed("Apple Health deduplication staging is unavailable")
+        }
+        let batch = pendingSamples
+        pendingSamples.removeAll(keepingCapacity: true)
+        try stagingDB.write { db in
+            // Batch inserts instead of preparing/executing one statement per
+            // sample. Apple Watch exports can contain millions of records; a
+            // few hundred bind values keeps below SQLite's variable limit while
+            // reducing dedupe statement overhead by orders of magnitude.
+            let statementBatchSize = 500
+            for lower in stride(from: 0, to: batch.count, by: statementBatchSize) {
+                let upper = min(lower + statementBatchSize, batch.count)
+                var seenInBatch = Set<Int>()
+                let uniqueBatch = batch[lower..<upper].filter { seenInBatch.insert($0.1).inserted }
+                guard !uniqueBatch.isEmpty else { continue }
+
+                let values = Array(repeating: "(?)", count: uniqueBatch.count).joined(separator: ",")
+                let sql = "INSERT OR IGNORE INTO seen_sample (hash) VALUES \(values) RETURNING hash"
+                let insertedRows = try Row.fetchAll(db, sql: sql,
+                                                    arguments: StatementArguments(uniqueBatch.map { $0.1 }))
+                let insertedHashes = Set(insertedRows.compactMap { $0["hash"] as Int? })
+                for (sample, hash) in uniqueBatch where insertedHashes.contains(hash) {
+                    fold(sample)
+                }
+            }
+        }
+    }
 
     /// 64-bit FNV-1a over `s`'s UTF-16 code units — byte-identical to the Android `hash64` (both iterate
     /// UTF-16 units with the same offset basis + prime, wrapping at 64 bits), so the two platforms produce
@@ -325,6 +424,10 @@ final class HealthXMLDelegate: NSObject, XMLParserDelegate {
         qualifiedName qName: String?,
         attributes attributeDict: [String: String]
     ) {
+        if stagingError != nil {
+            parser.abortParsing()
+            return
+        }
         let parentIsCorrelation = (stack.last == "Correlation")
         stack.append(elementName)
 
@@ -481,24 +584,34 @@ final class HealthXMLDelegate: NSObject, XMLParserDelegate {
             tzOffsetMin: tzOffsetMin,
             sourceName: sourceName
         )
-        // Dedupe on type+start+end+source+value (correctness-critical). Retain only the key's 64-bit
-        // hash, not the String, so the set stays ~10x smaller on a huge export (#183). Uses the SAME
-        // FNV-1a as Android (NOT Swift's per-run-randomized hashValue) so both platforms dedupe identically.
-        if seenSampleKeys.insert(Self.hash64(sample.dedupeKey)).inserted {
-            // Always fold into the bounded per-day accumulator.
-            dailyAcc.add(sample)
-            anyRecordSeen = true
-            sampleCount += 1
-            // Track the date span incrementally so makeResult never needs the
-            // (possibly empty) raw `samples` array. Matches the prior summary,
-            // which spanned sample/workout/sleep `start` dates.
-            if earliestDate == nil || start < earliestDate! { earliestDate = start }
-            if latestDate == nil || start > latestDate! { latestDate = start }
-            // Only retain the raw struct when the caller asked for it.
-            if retainRawSamples {
-                samples.append(sample)
+        let hash = Self.hash64(sample.dedupeKey)
+        if retainRawSamples {
+            guard seenSampleKeys.insert(hash).inserted else { return }
+            fold(sample)
+        } else {
+            pendingSamples.append((sample, hash))
+            if pendingSamples.count >= stagingBatchSize {
+                do { try flushStagedSamples() }
+                catch { stagingError = error }
             }
         }
+    }
+
+    private func fold(_ sample: HealthSample) {
+        dailyAcc.add(sample)
+        anyRecordSeen = true
+        sampleCount += 1
+        if sampleCount - lastProgressCount >= 10_000 {
+            lastProgressCount = sampleCount
+            progress?(sampleCount)
+        }
+        if sampleCount - lastCheckpointCount >= checkpointInterval {
+            lastCheckpointCount = sampleCount
+            checkpoint?(sampleCount, dailyAcc.finish())
+        }
+        if earliestDate == nil || sample.start < earliestDate! { earliestDate = sample.start }
+        if latestDate == nil || sample.start > latestDate! { latestDate = sample.start }
+        if retainRawSamples { samples.append(sample) }
     }
 
     // MARK: Workout handling
@@ -726,6 +839,147 @@ final class HealthDateParser {
 ///
 /// `scrubbedRunCount` tracks how many *contiguous runs* of dropped/replaced bytes were scrubbed, so
 /// the import summary can report "N spans skipped" honestly rather than hiding the damage.
+/// Apple Health's internal DTD only declares element/attribute shapes; records
+/// do not use its entities. Remove it from the small XML prolog before parsing.
+final class AppleHealthPrologInputStream: InputStream {
+    private let source: InputStream
+    private var preparedBytes: [UInt8] = []
+    private var preparedOffset = 0
+    private var prepared = false
+    private var sourceError: Error?
+
+    init(source: InputStream) {
+        self.source = source
+        super.init(data: Data())
+    }
+
+    override func open() { source.open() }
+    override func close() { source.close() }
+    override var streamError: Error? { sourceError ?? source.streamError }
+    override var streamStatus: Stream.Status {
+        preparedOffset < preparedBytes.count ? .open : source.streamStatus
+    }
+    override var hasBytesAvailable: Bool {
+        preparedOffset < preparedBytes.count || source.hasBytesAvailable
+    }
+
+    override func read(_ buffer: UnsafeMutablePointer<UInt8>, maxLength len: Int) -> Int {
+        guard len > 0 else { return 0 }
+        if !prepared { prepareProlog() }
+        if preparedOffset < preparedBytes.count {
+            let count = min(len, preparedBytes.count - preparedOffset)
+            preparedBytes.withUnsafeBufferPointer { bytes in
+                buffer.update(from: bytes.baseAddress! + preparedOffset, count: count)
+            }
+            preparedOffset += count
+            if preparedOffset == preparedBytes.count {
+                preparedBytes.removeAll(keepingCapacity: false)
+                preparedOffset = 0
+            }
+            return count
+        }
+        if sourceError != nil { return -1 }
+        return source.read(buffer, maxLength: len)
+    }
+
+    override func getBuffer(
+        _ buffer: UnsafeMutablePointer<UnsafeMutablePointer<UInt8>?>,
+        length len: UnsafeMutablePointer<Int>
+    ) -> Bool { false }
+
+    private func prepareProlog() {
+        prepared = true
+        var bytes: [UInt8] = []
+        let maxPrologBytes = 1 << 20
+        while Self.rootOpeningEnd(in: bytes) == nil && bytes.count < maxPrologBytes {
+            var chunk = [UInt8](repeating: 0, count: 1 << 16)
+            let count = chunk.withUnsafeMutableBufferPointer { ptr in
+                source.read(ptr.baseAddress!, maxLength: ptr.count)
+            }
+            if count < 0 {
+                sourceError = source.streamError ?? NSError(domain: "AppleHealthPrologInputStream", code: -1)
+                break
+            }
+            if count == 0 { break }
+            bytes.append(contentsOf: chunk[0..<count])
+        }
+        if let range = Self.doctypeRange(in: bytes) { bytes.removeSubrange(range) }
+        preparedBytes = bytes
+    }
+
+    private static func rootOpeningEnd(in bytes: [UInt8]) -> Int? {
+        let root = Array("<HealthData".utf8)
+        guard let start = index(of: root, in: bytes) else { return nil }
+        var quote: UInt8?
+        for offset in start..<bytes.count {
+            let byte = bytes[offset]
+            if let activeQuote = quote {
+                if byte == activeQuote { quote = nil }
+            } else if byte == 0x22 || byte == 0x27 {
+                quote = byte
+            } else if byte == 0x3E {
+                return offset + 1
+            }
+        }
+        return nil
+    }
+
+    private static func doctypeRange(in bytes: [UInt8]) -> Range<Int>? {
+        let marker = Array("<!DOCTYPE".utf8)
+        guard let start = index(of: marker, in: bytes) else { return nil }
+        let commentStart = Array("<!--".utf8)
+        let commentEnd = Array("-->".utf8)
+        var offset = start + marker.count
+        var bracketDepth = 0
+        var quote: UInt8?
+        var inComment = false
+        while offset < bytes.count {
+            if inComment {
+                if matches(commentEnd, in: bytes, at: offset) {
+                    inComment = false
+                    offset += commentEnd.count
+                } else {
+                    offset += 1
+                }
+                continue
+            }
+            if matches(commentStart, in: bytes, at: offset) {
+                inComment = true
+                offset += commentStart.count
+                continue
+            }
+            let byte = bytes[offset]
+            if let activeQuote = quote {
+                if byte == activeQuote { quote = nil }
+            } else if byte == 0x22 || byte == 0x27 {
+                quote = byte
+            } else if byte == 0x5B {
+                bracketDepth += 1
+            } else if byte == 0x5D {
+                bracketDepth = max(0, bracketDepth - 1)
+            } else if byte == 0x3E && bracketDepth == 0 {
+                return start..<(offset + 1)
+            }
+            offset += 1
+        }
+        return nil
+    }
+
+    private static func index(of needle: [UInt8], in bytes: [UInt8]) -> Int? {
+        guard needle.count <= bytes.count else { return nil }
+        for start in 0...(bytes.count - needle.count) where matches(needle, in: bytes, at: start) {
+            return start
+        }
+        return nil
+    }
+
+    private static func matches(_ needle: [UInt8], in bytes: [UInt8], at start: Int) -> Bool {
+        guard start >= 0, start + needle.count <= bytes.count else { return false }
+        for offset in needle.indices where bytes[start + offset] != needle[offset] { return false }
+        return true
+    }
+}
+
 final class SanitizingInputStream: InputStream {
 
     private let source: InputStream

@@ -18,6 +18,9 @@ struct LiftSessionExerciseSheet: View {
     @State private var exercise = ""
     @State private var primary: LiftMuscle?
     @State private var secondaries: Set<LiftMuscle> = []
+    /// The equipment tag kept beside the exercise name, and the muscle-group / equipment filters on the list.
+    @State private var equipment: LiftEquipment?
+    @State private var filter = LiftExerciseFilter()
     /// The user's own exercise names, most recently used first.
     @State private var vocabulary: [LiftExerciseRow] = []
     /// Set when the vocabulary is full, so the refusal is explained rather than silent.
@@ -38,6 +41,7 @@ struct LiftSessionExerciseSheet: View {
             VStack(alignment: .leading, spacing: NoopMetrics.sectionGap) {
                 exerciseSection
                 LiftMusclePicker(primary: $primary, secondaries: $secondaries)
+                LiftEquipmentPicker(equipment: $equipment)
                 Text("It joins this session with one set, its weight and reps at 0 until you type what you lift. Finishing asks whether the program keeps it.")
                     .font(StrandFont.footnote)
                     .foregroundStyle(StrandPalette.textTertiary)
@@ -61,6 +65,7 @@ struct LiftSessionExerciseSheet: View {
                   let known = vocabulary.first(where: { $0.name == trimmedExercise }) else { return }
             primary = known.primaryMuscle
             secondaries = Set(known.secondaryMuscles)
+            equipment = LiftEquipmentStore.equipment(for: known.name)
         }
         .alert("You've saved the most exercises NOOP remembers",
                isPresented: Binding(get: { vocabularyFullLimit != nil },
@@ -72,7 +77,7 @@ struct LiftSessionExerciseSheet: View {
     }
 
     private var exerciseSection: some View {
-        let suggestions = LiftExerciseVocabulary.suggestions(vocabulary, matching: exercise, limit: 8)
+        let suggestions = LiftExerciseVocabulary.suggestions(vocabulary, matching: exercise, limit: 8, filter: filter)
         return VStack(alignment: .leading, spacing: NoopMetrics.gap) {
             SectionHeader("Exercise", overline: "Movement")
             NoopCard {
@@ -82,14 +87,24 @@ struct LiftSessionExerciseSheet: View {
                         .font(StrandFont.body)
                         .foregroundStyle(StrandPalette.textPrimary)
                         .focused($focused, equals: .exercise)
+                    if !vocabulary.isEmpty { LiftExerciseFilterBar(filter: $filter) }
                     if !suggestions.isEmpty {
                         VStack(alignment: .leading, spacing: 8) {
                             Text("Used before").strandOverline()
                             ForEach(suggestions, id: \.id) { row in
-                                Button { adopt(row) } label: { LiftExerciseSuggestionLabel(row: row) }
-                                    .buttonStyle(.plain)
+                                Button {
+                                    adopt(row)
+                                } label: {
+                                    LiftExerciseSuggestionLabel(row: row, equipment: LiftEquipmentStore.equipment(for: row.name))
+                                }
+                                .buttonStyle(.plain)
                             }
                         }
+                    } else if filter.isActive {
+                        Text(verbatim: "No exercise you have used matches. Clear a filter, or type a new name.")
+                            .font(StrandFont.footnote)
+                            .foregroundStyle(StrandPalette.textTertiary)
+                            .accessibilityIdentifier("lift-filter-empty")
                     }
                 }
             }
@@ -116,6 +131,7 @@ struct LiftSessionExerciseSheet: View {
         exercise = row.name
         primary = row.primaryMuscle
         secondaries = Set(row.secondaryMuscles)
+        equipment = LiftEquipmentStore.equipment(for: row.name)
         focused = nil
     }
 
@@ -145,6 +161,7 @@ struct LiftSessionExerciseSheet: View {
                 // so a name the vocabulary could not take this once costs nothing that is logged.
             }
         }
+        LiftEquipmentStore.set(equipment, for: name)
         onAdd(name, primary, ordered)
         dismiss()
     }

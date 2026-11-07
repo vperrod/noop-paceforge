@@ -443,10 +443,30 @@ public struct SegmentedPillControl<T: Hashable>: View {
             track(equalWidth: true)
         } else if adaptsToAvailableWidth {
             if dynamicTypeSize > .large {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    track(equalWidth: false)
-                        .fixedSize(horizontal: true, vertical: false)
+                // Large text: the options do not fit side by side and nothing scrolls sideways, so the
+                // control becomes a menu showing the current choice.
+                Menu {
+                    ForEach(Array(items.enumerated()), id: \.offset) { _, item in
+                        Button(label(item)) {
+                            guard selection != item else { return }
+                            StrandHaptic.selection.play()
+                            selection = item
+                        }
+                        .disabled(!isEnabled(item))
+                    }
+                } label: {
+                    HStack(spacing: 8) {
+                        Text(label(selection))
+                        Image(systemName: "chevron.down").font(.system(size: 11, weight: .semibold))
+                    }
+                    .font(StrandFont.captionNumber)
+                    .foregroundStyle(StrandPalette.textPrimary)
+                    .padding(.horizontal, 14)
+                    .frame(minHeight: 32)
+                    .background(Capsule(style: .continuous).fill(NoopVisualStyle.inset))
+                    .overlay(Capsule(style: .continuous).strokeBorder(NoopVisualStyle.border, lineWidth: 0.8))
                 }
+                .accessibilityLabel(Text(label(selection)))
             } else {
                 ViewThatFits(in: .horizontal) {
                     track(equalWidth: false)

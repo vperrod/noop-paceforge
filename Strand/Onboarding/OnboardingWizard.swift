@@ -1075,9 +1075,9 @@ private struct DoneStep: View {
 /// app live (the shared `@AppStorage(AppearanceMode.storageKey)` drives `preferredColorScheme`), so
 /// the wizard itself IS the preview.
 private struct AppearanceStep: View {
-    @AppStorage(AppearanceMode.storageKey) private var appearanceRaw = AppearanceMode.system.rawValue
+    @AppStorage(AppearanceMode.storageKey) private var appearanceRaw = AppearanceMode.platformDefault.rawValue
     private var binding: Binding<AppearanceMode> {
-        Binding(get: { AppearanceMode(rawValue: appearanceRaw) ?? .system },
+        Binding(get: { AppearanceMode(rawValue: appearanceRaw) ?? AppearanceMode.platformDefault },
                 set: { appearanceRaw = $0.rawValue })
     }
     var body: some View {

@@ -29,15 +29,12 @@ extension AppModel {
             // The one-shot routine sends the confirmed pattern + RUN_ALARM sequence, acked, so a
             // busy just-foregrounded BLE link can't silently drop it.
             case .buzz:       buzzStrapOnce()
-            // K9: "Ask Coach" via Siri — send the queued question to the Coach engine and navigate
-            // to the Coach tab so the user sees the response. The question is consumed from a
-            // dedicated key (one at a time).
+            // K9: "Ask Coach" via Siri — hand the queued question to the shared Coach surface. It
+            // sends through PaceForge so the reply uses the same NOOP + PaceForge context as web.
             case .askCoach:
                 if let question = PendingIntents.consumeCoachQuestion() {
+                    coach.pendingPrompt = question
                     router?.openCoach()
-                    Task { @MainActor in
-                        await coach.send(question)
-                    }
                 }
             }
         }

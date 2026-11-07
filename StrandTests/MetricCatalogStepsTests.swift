@@ -2,35 +2,37 @@ import XCTest
 @testable import Strand
 
 final class MetricCatalogStepsTests: XCTestCase {
-    func testTodayStepsUsesMeasuredWhoopSeriesWhenAvailable() {
-        let metric = MetricCatalog.todayStepsMetric(hasMeasuredSteps: true)
+    func testTodayStepsUsesStrapSeriesForAStrapCount() {
+        let metric = MetricCatalog.todayStepsMetric(source: .noopComputed, hasStrapCount: true)
 
         XCTAssertEqual(metric?.key, "steps")
         XCTAssertEqual(metric?.source, "my-whoop")
     }
 
-    func testTodayStepsUsesWhoopFourEstimateWhenMeasuredSeriesIsUnavailable() {
-        let metric = MetricCatalog.todayStepsMetric(hasMeasuredSteps: false)
+    func testTodayStepsUsesWhoopFourEstimateWhenThereIsNoStrapCount() {
+        let metric = MetricCatalog.todayStepsMetric(source: .noopComputed, hasStrapCount: false)
 
         XCTAssertEqual(metric?.key, "steps_est")
         XCTAssertEqual(metric?.source, "my-whoop")
     }
 
-    /// #377 parity: with no measured strap count but an imported Apple Health count for the day, Today
-    /// shows and taps through to the imported value — NOT the motion estimate.
-    func testTodayStepsPrefersImportedAppleHealthOverEstimate() {
-        let metric = MetricCatalog.todayStepsMetric(hasMeasuredSteps: false, hasImportedSteps: true)
+    func testTodayStepsWithNothingToShowOpensTheEstimate() {
+        XCTAssertEqual(MetricCatalog.todayStepsMetric(source: nil)?.key, "steps_est")
+    }
+
+    /// #377 parity: when Apple Health supplied the day's count, Today taps through to the imported series.
+    func testTodayStepsTapsThroughToAppleHealthWhenAppleSuppliedTheCount() {
+        let metric = MetricCatalog.todayStepsMetric(source: .appleHealth, hasStrapCount: true)
 
         XCTAssertEqual(metric?.key, "steps")
         XCTAssertEqual(metric?.source, "apple-health")
     }
 
-    /// A measured strap count always wins, even when an import also exists (real ?: imported ?: estimate).
-    func testMeasuredStepsWinOverImported() {
-        let metric = MetricCatalog.todayStepsMetric(hasMeasuredSteps: true, hasImportedSteps: true)
+    /// A day whose count came from the Garmin mirror opens the Garmin series, not the (empty) strap one.
+    func testTodayStepsTapsThroughToGarminWhenGarminSuppliedTheCount() {
+        let metric = MetricCatalog.todayStepsMetric(source: .paceforgeGarmin, hasStrapCount: true)
 
-        XCTAssertEqual(metric?.key, "steps")
-        XCTAssertEqual(metric?.source, "my-whoop")
+        XCTAssertEqual(metric?.id, "paceforge-garmin:steps")
     }
 
     func testAppleHealthStepsRemainsAnIndependentCatalogMetric() {

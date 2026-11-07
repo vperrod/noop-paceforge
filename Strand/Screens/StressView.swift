@@ -49,6 +49,9 @@ struct StressView: View {
     /// from the day's banked HR + R-R via the SAME 0–3 proxy the daily score uses. Nil
     /// until the async read completes; `.empty` when the day has no usable intraday HR.
     @State private var daytime: DaytimeStress.Result?
+    /// ADDITIVE: the same proxy read only from still five-minute windows, with the restorative minutes. Nil until the read
+    /// completes and whenever there is too little stillness today to read. Touches none of the numbers above.
+    @State private var stillStress: StillStress.Result?
     /// Whether TODAY's intraday timeline is scored against the PERSONAL cross-day daytime baseline
     /// (`.baselineRelative`, once enough worn history exists) instead of the day's own calm hours
     /// (`.dayRelative`). Drives only the explanatory copy — the 0–3 scale + bands are identical either way.
@@ -82,6 +85,11 @@ struct StressView: View {
                        // fixed, full-bleed time-of-day sky behind the scroll content (does not scroll), so the
                        // Stress screen sits in the same liquid atmosphere as every other tab.
                        topBackground: liquidScaffoldSky()) {
+            #if os(iOS)
+            // The monitor (latest reading, the day line, average / peak / time in high) leads the one Stress screen.
+            PFPageNote(key: "stress")
+            LookStressMonitorSection()
+            #endif
             if let model {
                 content(model)
             } else if !loaded {
@@ -118,6 +126,7 @@ struct StressView: View {
         // next to an empty timeline (the readouts are only recomputed past this guard).
         guard hr.count >= DaytimeStress.minHourHRSamples else {
             daytime = .empty
+            stillStress = nil
             stressIndex = nil
             freqHRV = nil
             return
@@ -182,6 +191,20 @@ struct StressView: View {
         }
         stressIndex = advanced.index
         freqHRV = advanced.freq
+
+        // ADDITIVE: the still-only read and restorative minutes (StillStress). Workouts of the last two days keep a
+        // workout's own heart rate, and the half hour after it, out of the still windows.
+        let workouts = await repo.workoutRows(days: 2).map { StillStress.Interval(start: $0.startTs, end: $0.endTs) }
+        let dayKey = Repository.localDayKey(Date())
+        let calmHistory = StillStressHistory.read()
+        let recentCalm = StillStress.recentCalm(calmHistory, before: dayKey)
+        let still = await runUnescalated(priority: .userInitiated) {
+            StillStress.analyze(hr: hr, gravity: gravity, workouts: workouts, tzOffsetSeconds: tz, recentCalmHR: recentCalm)
+        }
+        stillStress = still
+        if let still, still.stillMinutes >= StillStress.minMinutesToRecord {
+            StillStressHistory.write(StillStress.recordingCalm(calmHistory, day: dayKey, calmHR: still.calmHR))
+        }
     }
 
     /// Recompute the cached `StressModel` only when (repo.days, storedSeries)
@@ -230,6 +253,12 @@ struct StressView: View {
             } else if let daytime, !daytime.scored.isEmpty {
                 daytimeSection(daytime)
                     .staggeredAppear(index: 2)
+            }
+
+            // 3b. The same proxy from still moments only, with restorative minutes (additive, StillStress).
+            if let stillStress {
+                StillStressCard(result: stillStress)
+                    .staggeredAppear(index: 3)
             }
 
             // 4. Trend over the chosen window.
@@ -310,6 +339,7 @@ struct StressView: View {
                     // keeps reading `hours`: the totals bar's shares still have to sum to the day.
                     // Only the line and its ruler follow the finer read.
                     DaytimeLoadLine(hours: day.timeline)
+                    StressContextBands(hours: day.timeline)
 
                     // Hour ruler under the line (first / midday / last covered hour).
                     if let lo = day.timeline.first?.hour, let hi = day.timeline.last?.hour {
@@ -409,8 +439,9 @@ struct StressView: View {
     private func heroCard(_ model: StressModel) -> some View {
         NoopCard(tint: StressRamp.calm) {
             VStack(alignment: .leading, spacing: NoopMetrics.cardInnerSpacing) {
-                HStack {
+                HStack(spacing: 0) {
                     Text("Stress monitor").strandOverline()
+                    MetricInfoButton(topic: .stress)
                     Spacer()
                     StatePill("\(model.band.title)", tone: model.band.tone, showsDot: true)
                 }
@@ -979,27 +1010,27 @@ enum StressMath {
         switch band {
         case .high:
             if rhrUp && hrvDn {
-                return String(localized: "Resting HR is elevated and HRV is below your baseline, both classic signs of high activation. Prioritise rest, hydration and an easy day.")
+                return String(localized: "Resting HR is above your baseline and HRV is below it today. That pattern can accompany hard training, poor sleep, illness or other stress, but these readings cannot identify the cause. Check how you feel and what your plan calls for.")
             } else if hrvDn {
-                return String(localized: "HRV has dropped well below your baseline, pointing to elevated stress or fatigue. Ease off and give your body time to recover.")
+                return String(localized: "HRV is below your baseline today. It can vary with training, sleep and other factors, so use it with your other signals and how you feel rather than as a stand-alone fatigue verdict.")
             } else if rhrUp {
-                return String(localized: "Resting heart rate is running high versus your norm. Your body is under load today. Keep effort light.")
+                return String(localized: "Resting HR is above your usual range today. This can happen for several reasons and does not identify the cause. Check your other recovery signals and how you feel before changing the session.")
             }
-            return String(localized: "Your autonomic markers are skewed toward stress today. Treat it as a recovery-focused day.")
+            return String(localized: "These autonomic markers are outside your usual pattern today. They are context for your plan and perceived effort, not a diagnosis or a training decision on their own.")
         case .medium:
             if rhrUp || hrvDn {
                 return rhrUp
-                    ? String(localized: "Slightly off baseline (resting HR is a touch high), so you're moderately activated. Nothing alarming; just don't overreach.")
-                    : String(localized: "Slightly off baseline (HRV is a little low), so you're moderately activated. Nothing alarming; just don't overreach.")
+                    ? String(localized: "Resting HR is a little above your baseline. Check the trend alongside sleep, training and how you feel.")
+                    : String(localized: "HRV is a little below your baseline. Check the trend alongside sleep, training and how you feel.")
             }
-            return String(localized: "You're sitting around your typical autonomic baseline: moderate stress, a normal, balanced day.")
+            return String(localized: "These autonomic readings are near your typical range. That is useful context, but it does not guarantee readiness for a hard session.")
         case .low:
             if rhrDn && hrvUp {
-                return String(localized: "Resting heart rate is low and HRV is up. Your nervous system looks well-recovered and calm. A great day to push if you want to.")
+                return String(localized: "Resting HR is below and HRV above your baseline today. Those are favourable directions for these signals, but they do not guarantee full recovery; follow your plan and how you feel.")
             } else if hrvUp {
-                return String(localized: "HRV is above baseline, a sign of a relaxed, well-recovered nervous system. Stress is low.")
+                return String(localized: "HRV is above your baseline today. One reading cannot establish recovery by itself; consider the wider trend, your plan and how you feel.")
             }
-            return String(localized: "Resting heart rate and HRV are sitting at or below baseline: low physiological stress. You're in a calm, recovered state.")
+            return String(localized: "These readings fall in NOOP's lower-stress range today. Treat the score as a summary of these signals, not proof that you are fully recovered.")
         }
     }
 }

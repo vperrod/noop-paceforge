@@ -77,6 +77,7 @@ public enum MetricArbitrationPolicy {
             case .noopComputed:  return 1   // derived on-device from raw strap streams
             case .appleHealth:   return 2   // phone aggregate
             case .healthConnect: return 2
+            case .paceforgeGarmin: return 2 // mirrored watch aggregate
             case .nutritionCsv:  return 3
             case .localCache:    return 3
             }
@@ -89,6 +90,7 @@ public enum MetricArbitrationPolicy {
             case .noopComputed:  return 1
             case .appleHealth:   return 2
             case .healthConnect: return 2
+            case .paceforgeGarmin: return 2
             case .nutritionCsv:  return 3
             case .localCache:    return 3
             }
@@ -99,6 +101,7 @@ public enum MetricArbitrationPolicy {
             case .xiaomiBand:    return 0   // wrist pedometer — counts directly
             case .appleHealth:   return 0   // phone pedometer — counts directly
             case .healthConnect: return 0
+            case .paceforgeGarmin: return 1 // Garmin counts steps itself; mirrored, so just behind the phone
             case .whoopImport:   return 3   // strap step estimate is a last resort
             case .noopComputed:  return 3   // NOOP step estimate from motion
             case .nutritionCsv:  return 3
@@ -113,6 +116,7 @@ public enum MetricArbitrationPolicy {
             case .xiaomiBand:    return 1   // a band with its own staging, below WHOOP's
             case .appleHealth:   return 2   // phone sleep buckets
             case .healthConnect: return 2
+            case .paceforgeGarmin: return 2
             case .nutritionCsv:  return 3
             case .localCache:    return 3
             }
@@ -125,6 +129,7 @@ public enum MetricArbitrationPolicy {
             case .whoopImport:   return 3
             case .noopComputed:  return 3
             case .xiaomiBand:    return 3
+            case .paceforgeGarmin: return 3
             case .nutritionCsv:  return 3
             case .localCache:    return 3
             }
@@ -137,6 +142,7 @@ public enum MetricArbitrationPolicy {
             case .noopComputed:  return 1
             case .appleHealth:   return 2
             case .healthConnect: return 2
+            case .paceforgeGarmin: return 2
             case .nutritionCsv:  return 0   // its own single-source metric
             case .localCache:    return 3
             }
@@ -156,6 +162,7 @@ public enum MetricArbitrationPolicy {
         case .xiaomiBand:    return 4
         case .nutritionCsv:  return 5
         case .localCache:    return 6
+        case .paceforgeGarmin: return 7
         }
     }
 
@@ -165,7 +172,7 @@ public enum MetricArbitrationPolicy {
     public static func reason(metric: MetricKind, source: FusionSource) -> String {
         let t = tier(metric: metric, source: source)
         switch (metric, source) {
-        case (.steps, .xiaomiBand), (.steps, .appleHealth), (.steps, .healthConnect):
+        case (.steps, .xiaomiBand), (.steps, .appleHealth), (.steps, .healthConnect), (.steps, .paceforgeGarmin):
             return "counts directly"
         case (.steps, .whoopImport), (.steps, .noopComputed):
             return "step estimate"
