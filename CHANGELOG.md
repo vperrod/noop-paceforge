@@ -17,6 +17,10 @@ approximate; downloads are on the [Releases](https://github.com/NoopApp/noop/rel
 
 ---
 
+## 12.0.12 build 510 (PaceForge iPhone build): the sync journal no longer doubles the database
+
+- **Smaller database.** Rows already sent to the Mini PC are dropped from the sync journal (each lane by its own cursor), and the freed space is returned to iOS once a day with a VACUUM when the phone has room. The journal copied every sample as JSON and was never emptied (6 GB on 2026-11-07).
+
 ## 12.0.12 build 509 (PaceForge iPhone build): Weekly goals count workouts, hard effort reads the strap's heart rate
 
 - Active days now count days with a workout of 20 minutes or more, not steps.
