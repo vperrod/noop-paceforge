@@ -204,7 +204,7 @@ final class PaceForgeAlertHistoryTests: XCTestCase {
     func testMarkingKeepsTheNewest300() {
         let seen = (0..<299).map { "s\($0)" }
         let marked = PFAlertHistory.marking(seen, read: ["x", "y", "z"])
-        XCTAssertEqual([marked.count, marked.first ?? "", marked.last ?? ""], [300, "s2", "z"])
+        XCTAssertEqual([marked.count, marked.first ?? "", marked.last ?? ""] as [AnyHashable], [300, "s2", "z"] as [AnyHashable])
     }
 
     func testMarkingAllReadsEveryLine() {
@@ -267,7 +267,7 @@ final class PaceForgeAlertHistoryTests: XCTestCase {
     func testRecordingKeepsTheNewest100() {
         let first = PFAlertHistory.recording([], adding: (0..<99).map { item("n\($0)") }, at: Date(timeIntervalSince1970: 1))
         let list = PFAlertHistory.recording(first, adding: [item("x"), item("y")], at: Date(timeIntervalSince1970: 2))
-        XCTAssertEqual([list.count, list.first?.id ?? "", list.last?.id ?? ""], [100, "n1", "y"])
+        XCTAssertEqual([list.count, list.first?.id ?? "", list.last?.id ?? ""] as [AnyHashable], [100, "n1", "y"] as [AnyHashable])
     }
 
     func testTheRecordSurvivesBeingStoredAndRead() {
