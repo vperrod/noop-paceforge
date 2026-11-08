@@ -35,6 +35,7 @@ struct CoachUnifiedView: View {
             PFPageNote(key: "coach", alwaysOpen: true)
             CoachPaceForgeChip(part: .brief)
             CoachTextCards()
+            PFCoachLogCard()
             CoachPaceForgeChip(part: .reviews)
             briefStatusCard
         }
@@ -45,6 +46,7 @@ struct CoachUnifiedView: View {
             await reports.refreshLatestIfStale()
             await PFDailyIntelStore.shared.refreshIfStale()
             await PFScoresStore.shared.refreshIfStale()
+            await PFCoachLogStore.shared.refreshIfStale()
         }
         .sheet(isPresented: $showBriefSettings) {
             CoachSettingsView(sharedBrainMode: true)

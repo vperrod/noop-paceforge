@@ -17,6 +17,10 @@ approximate; downloads are on the [Releases](https://github.com/NoopApp/noop/rel
 
 ---
 
+## 12.0.12 build 511 (PaceForge iPhone build): Coach log on the Coach screen
+
+- **Coach log.** The Coach screen lists what the coach said and did (daily brief, check-ins, week review, proposals, your answers, chat, analysis, alerts, changes, failures), grouped by day, last 3 days with a Show 14 days button; tap a row to read it in full.
+
 ## 12.0.12 build 510 (PaceForge iPhone build): the sync journal no longer doubles the database
 
 - **Smaller database.** Rows already sent to the Mini PC are dropped from the sync journal (each lane by its own cursor), and the freed space is returned to iOS once a day with a VACUUM when the phone has room. The journal copied every sample as JSON and was never emptied (6 GB on 2026-11-07).
