@@ -435,7 +435,7 @@ struct LiquidTodayView: View {
                     // children; each draws nothing when it has nothing to show. PaceForge's one paragraph about the day's metrics is a
                     // one-line row further down (the Today's call section).
                     if selectedDayOffset == 0 {
-                        PFTodayNeedsYouHost(onOpen: { showNeedsYouSheet = true })
+                        PFTodayNeedsYouHost(onOpen: { showNeedsYouSheet = true }, onReadWhy: { router.openCoach() })
                         PFTodayLiveAlertsHost()
                     }
                     if order.contains(.hero) { heroCard }
@@ -648,7 +648,10 @@ struct LiquidTodayView: View {
         }
         #if os(iOS)
         .sheet(isPresented: $showNeedsYouSheet) {
-            PFNeedsYouSheet()
+            PFNeedsYouSheet(onReadWhy: {
+                showNeedsYouSheet = false
+                router.openCoach()
+            })
         }
         #endif
         .sheet(isPresented: $showSettings) {

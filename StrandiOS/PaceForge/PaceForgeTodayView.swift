@@ -18,6 +18,7 @@ struct PFTodayView: View {
 
     // MARK: Order
 
+    @EnvironmentObject private var router: NavRouter
     @ObservedObject private var layoutStore = PFTodayLayoutStore.shared
     @ObservedObject private var dismissStore = PFDismissStore.shared
     @State private var isArranging = false
@@ -85,7 +86,10 @@ struct PFTodayView: View {
         let _ = NoopDiag.body("PFTodayView")
         VStack(alignment: .leading, spacing: 16) {
             // Fixed above the arrangeable cards; absent while nothing is waiting on him.
-            if !snapshot.needsYou.isEmpty { PFNeedsYouCard(items: snapshot.needsYou) }
+            // Proposals are read and decided on the Coach screen, so they are one row here.
+            let needs = PFWeekPlan.split(snapshot.needsYou)
+            if !needs.others.isEmpty { PFNeedsYouCard(items: needs.others) }
+            if !needs.proposals.isEmpty { PFProposalsRow(count: needs.proposals.count, onOpen: { router.openCoach() }) }
             PFTodayCustomiseHeader(isArranging: $isArranging, hasLocalOrder: layoutStore.local != nil) {
                 layoutStore.reset()
             }

@@ -83,6 +83,9 @@ struct ScreenScaffold: View {
     /// See `EnvironmentValues.screenScaffoldEmbedded`.
     @Environment(\.screenScaffoldEmbedded) private var isEmbedded
 
+    /// A screen asking this scaffold to scroll to one of its views by id (the Coach's "Ask the coach about this").
+    @Environment(\.scaffoldScrollRequest) private var scrollRequest
+
     var body: some View {
         if isEmbedded {
             column
@@ -149,6 +152,10 @@ struct ScreenScaffold: View {
         // driver, and gating here keeps the two-param onChange off macOS 13. Inert until the signal moves.
         .onChange(of: scrollToTopSignal) { _, _ in
             withAnimation(.easeOut(duration: 0.35)) { proxy.scrollTo(screenScaffoldTopAnchorID, anchor: .top) }
+        }
+        .onChange(of: scrollRequest) { _, request in
+            guard !request.id.isEmpty else { return }
+            withAnimation(.easeOut(duration: 0.35)) { proxy.scrollTo(request.id, anchor: .top) }
         }
         #endif
         }
@@ -307,7 +314,22 @@ private struct ScrollToTopSignalKey: EnvironmentKey {
     static let defaultValue: Int = 0
 }
 
+/// A request to scroll the screen to the view with this id; a new `serial` asks again for the same id.
+struct ScaffoldScrollRequest: Equatable {
+    var id = ""
+    var serial = 0
+}
+
+private struct ScaffoldScrollRequestKey: EnvironmentKey {
+    static let defaultValue = ScaffoldScrollRequest()
+}
+
 extension EnvironmentValues {
+    var scaffoldScrollRequest: ScaffoldScrollRequest {
+        get { self[ScaffoldScrollRequestKey.self] }
+        set { self[ScaffoldScrollRequestKey.self] = newValue }
+    }
+
     var scrollToTopSignal: Int {
         get { self[ScrollToTopSignalKey.self] }
         set { self[ScrollToTopSignalKey.self] = newValue }

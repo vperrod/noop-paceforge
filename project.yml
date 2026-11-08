@@ -21,7 +21,7 @@ settings:
     # iOS build number (CFBundleVersion). GLOBAL so the iOS app AND its widget extension inherit the
     # SAME value — they must match or iOS warns "extension version must match parent app" (#416).
     # macOS sets its own CFBundleVersion on the Strand target and is unaffected by this.
-    CURRENT_PROJECT_VERSION: "511"
+    CURRENT_PROJECT_VERSION: "512"
     SWIFT_VERSION: "5.0"
     # Emit localizable strings so Xcode auto-extracts every LocalizedStringKey into the
     # String Catalog on build (the English (US) base entries).
@@ -215,6 +215,8 @@ targets:
       - StrandiOS/PaceForge/PaceForgeReports.swift
       # Coach log: api/coach-log parsing, the kind labels and the day grouping.
       - StrandiOS/PaceForge/PaceForgeCoachLog.swift
+      # The Coach week card: weekly.json, pending-changes.json with each proposal's reason and its changes in plain words, the race plans, the markdown blocks.
+      - StrandiOS/PaceForge/PaceForgeWeekPlan.swift
       # Bike rides: ride-metrics.json, the stream file, 600-point downsampling and the ride formats.
       - StrandiOS/PaceForge/PaceForgeRide.swift
       # Hiding a card: the FNV-1a hash, hide-until-it-changes / snooze rules and the storage helpers.

@@ -2,16 +2,23 @@ import SwiftUI
 import StrandDesign
 
 /// NOOP Today's Needs you: one 44 pt row (the count and the first item's title) while PaceForge is waiting on an answer (treadmill
-/// pace, a proposal, effort, feel); it leaves as soon as the answer is taken and draws nothing when nothing is open. A tap runs
-/// `onOpen`, which opens `PFNeedsYouSheet` with the whole card. Shares the PaceForge tab's model, so an answer given here or there clears both.
+/// pace, effort, feel, a question); it leaves as soon as the answer is taken and draws nothing when nothing is open. A tap runs
+/// `onOpen`, which opens `PFNeedsYouSheet` with the whole card. Plan proposals are not listed here: one row, "Your coach wants to
+/// change N things in your plan", runs `onReadWhy` (the Coach screen, where each one has its reasons and Accept / Reject).
+/// Shares the PaceForge tab's model, so an answer given here or there clears both.
 struct PFTodayNeedsYouHost: View {
     let onOpen: () -> Void
+    let onReadWhy: () -> Void
     @ObservedObject private var model = PFUnified.model
 
     var body: some View {
+        let parts = PFWeekPlan.split(model.snapshot?.needsYou ?? [])
         Group {
-            if let items = model.snapshot?.needsYou, !items.isEmpty {
-                PFNeedsYouRow(items: items, onOpen: onOpen)
+            if !parts.others.isEmpty {
+                PFNeedsYouRow(items: parts.others, onOpen: onOpen)
+            }
+            if !parts.proposals.isEmpty {
+                PFProposalsRow(count: parts.proposals.count, onOpen: onReadWhy)
             }
         }
         .task { await model.refreshIfStale() }
@@ -64,6 +71,8 @@ private struct PFNeedsYouRow: View {
 /// The sheet behind the Needs you row: the whole card, answers and the plain error line included. It closes itself once the last item
 /// is answered. Opened from the row, and from a tapped Needs you notification.
 struct PFNeedsYouSheet: View {
+    /// Closes the sheet and opens the Coach screen, where the proposals are.
+    let onReadWhy: () -> Void
     @ObservedObject private var model = PFUnified.model
     @Environment(\.dismiss) private var dismiss
 
@@ -73,10 +82,15 @@ struct PFNeedsYouSheet: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
-                    if let items = model.snapshot?.needsYou, !items.isEmpty {
-                        PFNeedsYouCard(items: items)
+                    let parts = PFWeekPlan.split(model.snapshot?.needsYou ?? [])
+                    if !parts.others.isEmpty {
+                        PFNeedsYouCard(items: parts.others)
                             .environmentObject(model)
-                    } else {
+                    }
+                    if !parts.proposals.isEmpty {
+                        PFProposalsRow(count: parts.proposals.count, onOpen: onReadWhy)
+                    }
+                    if parts.others.isEmpty && parts.proposals.isEmpty {
                         Text("Nothing is waiting on you.")
                             .font(StrandFont.subhead)
                             .foregroundStyle(StrandPalette.textSecondary)

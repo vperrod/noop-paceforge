@@ -11,13 +11,17 @@ struct CoachUnifiedView: View {
     @EnvironmentObject private var coach: AICoachEngine
     @ObservedObject private var reports = PFReportsStore.shared
     @State private var showBriefSettings = false
+    @State private var scrollRequest = ScaffoldScrollRequest()
     @AppStorage("coachBrief.state") private var briefState = ""
     @AppStorage("coachBrief.lastFailureReason") private var briefFailureReason = ""
     @AppStorage("coachBrief.backgroundIssue") private var briefBackgroundIssue = ""
 
     var body: some View {
         ScreenScaffold(title: "Coach", subtitle: "One coach for your training, recovery, sleep and progress.",
-                       onRefresh: { await PFUnified.model.refresh() }, lazy: true, topBackground: liquidScaffoldSky(), trailing: {
+                       onRefresh: {
+            await PFUnified.model.refresh()
+            await PFWeekPlanStore.shared.refresh()
+        }, lazy: true, topBackground: liquidScaffoldSky(), trailing: {
             Button {
                 showBriefSettings = true
             } label: {
@@ -31,6 +35,9 @@ struct CoachUnifiedView: View {
             // sit behind the rows on Today, the Expert reading with the reports row, Day in review, the reviews and the conversation,
             // then the status of the morning briefing. The cards in the middle read their own stores, so they are siblings of the two
             // snapshot hosts around them and stay reachable while the PaceForge snapshot is loading or has failed.
+            // The week report leads: what the coach wants to change and why, then the race plans of the next two weeks.
+            PFWeekPlanCard(onAsk: askCoach)
+            PFRacePackCards()
             PFPageNote(key: "today", alwaysOpen: true)
             PFPageNote(key: "coach", alwaysOpen: true)
             CoachPaceForgeChip(part: .brief)
@@ -40,6 +47,7 @@ struct CoachUnifiedView: View {
             briefStatusCard
         }
         .containerIdentifier("coach-host")
+        .environment(\.scaffoldScrollRequest, scrollRequest)
         // The stores behind the cards below draw nothing until they have a file, and an empty view never runs its own task.
         .task {
             await reports.loadCapabilities()
@@ -47,11 +55,18 @@ struct CoachUnifiedView: View {
             await PFDailyIntelStore.shared.refreshIfStale()
             await PFScoresStore.shared.refreshIfStale()
             await PFCoachLogStore.shared.refreshIfStale()
+            await PFWeekPlanStore.shared.refreshIfStale()
         }
         .sheet(isPresented: $showBriefSettings) {
             CoachSettingsView(sharedBrainMode: true)
                 .environmentObject(coach)
         }
+    }
+
+    /// Puts the question in the chat box and scrolls down to it; the athlete reads it and presses send.
+    private func askCoach(_ prompt: String) {
+        PFChatPrefill.shared.text = prompt
+        scrollRequest = ScaffoldScrollRequest(id: PFChatPrefill.scrollID, serial: scrollRequest.serial + 1)
     }
 
     private var briefStatusCard: some View {

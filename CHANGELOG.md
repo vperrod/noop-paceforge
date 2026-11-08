@@ -17,6 +17,12 @@ approximate; downloads are on the [Releases](https://github.com/NoopApp/noop/rel
 
 ---
 
+## 12.0.12 build 512 (PaceForge iPhone build): the coach explains the week and each proposed change
+
+- **Week report and next week's plan** leads the Coach screen, open: the period, the headline, then "The coach wants to change N things" with every proposal's day, title, the coach's reasoning and its changes in plain words, each with Accept, Reject and Ask the coach about this (it fills the chat box with your question and scrolls to it). The full week report follows, tables scrolling sideways instead of overflowing. This replaces the collapsed "Read the full week" card.
+- **Race plans.** An event in the next 14 days with a race plan shows a "Race plan" card under the week card, collapsed to its first section.
+- **Today.** Proposals are no longer listed as one-liners with Accept / Dismiss in Needs you: one row, "Your coach wants to change N things in your plan, Read why", opens the Coach. Treadmill paces, effort, feel and questions stay in Needs you.
+
 ## 12.0.12 build 511 (PaceForge iPhone build): Coach log on the Coach screen
 
 - **Coach log.** The Coach screen lists what the coach said and did (daily brief, check-ins, week review, proposals, your answers, chat, analysis, alerts, changes, failures), grouped by day, last 3 days with a Show 14 days button; tap a row to read it in full.

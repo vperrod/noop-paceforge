@@ -14,6 +14,7 @@ struct PFCoachView: View {
     var part: PFCoachPart = .all
     @EnvironmentObject private var model: PFModel
     @EnvironmentObject private var noopCoach: AICoachEngine
+    @ObservedObject private var prefill = PFChatPrefill.shared
     @State private var draft = ""
     @State private var sending = false
     @State private var chatStatus: String?
@@ -28,7 +29,8 @@ struct PFCoachView: View {
                 todayReadCard(brief: coach.brief, take: coach.take)
             }
             if part != .brief {
-                if let review = coach.weeklyReview { weeklyReviewCard(review) }
+                // The Coach screen has its own week card (PFWeekPlanCard); this one stays on the PaceForge tab, which draws everything.
+                if part == .all, let review = coach.weeklyReview { weeklyReviewCard(review) }
                 if let monthlyRead { monthlyReviewCard(monthlyRead) }
                 if !pendingWorkoutReviews.isEmpty { pendingWorkoutReviewsCard }
                 if !recentWorkoutReads.isEmpty { workoutReadsCard }
@@ -39,6 +41,12 @@ struct PFCoachView: View {
         .task(id: snapshot.todayISO) {
             guard part != .brief else { return }
             await loadMonthlyRead()
+        }
+        .task(id: prefill.text) {
+            // "Ask the coach about this" fills the box and leaves the sending to the athlete. Only the half that draws the chat takes it.
+            guard part != .brief, let text = prefill.text, !text.isEmpty else { return }
+            prefill.text = nil
+            draft = text
         }
         .task(id: noopCoach.pendingPrompt) {
             // The chat lives in the reviews half; the briefing half must not also send the pending prompt.
@@ -468,6 +476,7 @@ struct PFCoachView: View {
                 }
             }
         }
+        .id(PFChatPrefill.scrollID)
     }
 
     @MainActor private func sendMessage(_ suppliedMessage: String? = nil, sessionID: String? = nil) async {
