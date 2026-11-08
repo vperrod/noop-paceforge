@@ -233,11 +233,21 @@ final class PaceForgeAthleteProfileTests: XCTestCase {
         XCTAssertEqual([tile?.valueText, tile?.datedText], ["52.4", "as of 29 Jan"])
     }
 
-    func testTheVo2maxAndThresholdPagesShowTheGarminAndTheRunFiguresApart() {
+    func testTheVo2maxAndThresholdPagesShowOnlyGarminFigures() {
         var snap = snapshot(with: profile())
-        snap.athleteFitness = PFAthleteFitness(effectiveVo2Current: 55.1)
+        snap.athleteFitness = PFAthleteFitness()
         let rows = PFAthleteBuild.make(snap).tile("vo2max")?.rows.map { $0.label }
-        XCTAssertEqual(rows, ["VO2max, Garmin estimate", "VO2max, from your runs", "Lactate threshold pace", "Lactate threshold heart rate"])
+        XCTAssertEqual(rows, ["VO2max, Garmin", "Lactate threshold pace", "Lactate threshold heart rate"])
+    }
+
+    func testThereIsNoVo2maxTileFromTheRuns() {
+        var snap = snapshot(with: profile())
+        snap.athleteFitness = PFAthleteFitness()
+        XCTAssertNil(PFAthleteBuild.make(snap).tile("vo2max_runs"))
+    }
+
+    func testTheVo2maxTileIsLabelledGarmin() {
+        XCTAssertEqual(PFAthleteBuild.make(snapshot(with: profile())).tile("vo2max")?.source, "Garmin")
     }
 
     func testTheThresholdTileOpensTheSameFigures() {

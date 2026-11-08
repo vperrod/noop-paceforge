@@ -132,7 +132,7 @@ enum PFCoachNumbers {
 enum PFStatusTone: Int, Equatable {
     case unknown, good, caution, bad
 
-    /// A status word as the colour it should draw in. The server's vocabulary is open, so an unknown word stays neutral.
+    /// A status or band word as the colour it should draw in. The server's vocabulary is open, so an unknown word stays neutral.
     static func of(_ status: String?) -> PFStatusTone {
         guard let s = status?.lowercased(), !s.isEmpty else { return .unknown }
         let tokens = Set(s.split { !$0.isLetter }.map(String.init))
@@ -147,6 +147,7 @@ enum PFStatusTone: Int, Equatable {
     }
 }
 
+/// One reading of one device. A reading the device did not have (`available` false) has no value and says why in `reason`.
 struct PFDeviceMetric: Equatable, Identifiable {
     let id: String
     let name: String
@@ -154,32 +155,58 @@ struct PFDeviceMetric: Equatable, Identifiable {
     let unit: String?
     let status: String?
     let baseline: String?
+    var reason: String? = nil
+    /// Deep and REM sleep: shown, never fed to the decision.
+    var isNotUsedForDecisions = false
 
     var tone: PFStatusTone { PFStatusTone.of(status) }
-
-    /// Deep and REM sleep are shown but never feed the decision.
-    var isNotUsedForDecisions: Bool {
-        let tokens = id.lowercased().split { !$0.isLetter && !$0.isNumber }.map(String.init)
-        return tokens.contains("deep") || tokens.contains("rem")
-    }
 
     static let notUsedNote = "not used for decisions"
 }
 
-struct PFDeviceBlock: Equatable {
-    var metrics: [PFDeviceMetric] = []
-    var load: [PFDeviceMetric] = []
-    var method: String?
-    var status: String?
+/// The device's own score (Garmin training readiness, WHOOP recovery) with the band the server put it in. Never combined across devices.
+struct PFDeviceScore: Equatable {
+    let label: String
+    let value: String
+    let band: String?
 
-    var isEmpty: Bool { metrics.isEmpty && load.isEmpty && status == nil }
+    var tone: PFStatusTone { PFStatusTone.of(band) }
+}
 
-    /// The device's own status word when it sent one, else the worst tone among the metrics that feed the decision.
-    var tone: PFStatusTone {
-        let own = PFStatusTone.of(status)
-        if own != .unknown { return own }
-        return metrics.filter { !$0.isNotUsedForDecisions }.map(\.tone).max { $0.rawValue < $1.rawValue } ?? .unknown
+struct PFDeviceLoad: Equatable {
+    let measure: String
+    let thisWeek: String?
+    let lastWeek: String?
+    let changePct: String?
+    let ramp: Bool
+
+    /// "Garmin training load (7-day): 699 this week, 723 last week (-3.3%)".
+    var line: String {
+        var parts: [String] = []
+        if let thisWeek { parts.append(thisWeek + " this week") }
+        if let lastWeek { parts.append(lastWeek + " last week") }
+        var text = measure + (parts.isEmpty ? "" : ": " + parts.joined(separator: ", "))
+        if let changePct { text += " (" + (changePct.hasPrefix("-") ? "" : "+") + changePct + "%)" }
+        return text
     }
+}
+
+struct PFDeviceBlock: Equatable {
+    var label: String?
+    var available = true
+    /// The server's own call on whether last night was poor for this device; nil when it did not say.
+    var poor: Bool?
+    var poorFlags: [String] = []
+    /// Poor on several recent nights.
+    var trend = false
+    var score: PFDeviceScore?
+    var metrics: [PFDeviceMetric] = []
+    var shownOnly: [PFDeviceMetric] = []
+    var illnessPossible = false
+    var method: String?
+    var load: PFDeviceLoad?
+
+    var isEmpty: Bool { metrics.isEmpty && shownOnly.isEmpty && score == nil && poor == nil && load == nil }
 }
 
 struct PFReadinessCall: Equatable {
@@ -189,31 +216,30 @@ struct PFReadinessCall: Equatable {
     let question: String?
     let confidence: String?
     let raceGuard: String?
+    /// What to look at yourself ("resting HR", "respiration").
+    let check: [String]
 
-    /// The call as one plain sentence; the first reason rides along when the server gave one.
+    /// The call as one plain sentence.
     var sentence: String {
         let key = (action ?? "").lowercased().replacingOccurrences(of: " ", with: "_")
-        var base: String
         switch key {
         case "go", "proceed", "keep", "as_planned", "train", "hold", "maintain", "green":
-            base = "Train as planned today"
+            return "Train as planned today."
         case "ease", "easy", "reduce", "scale", "scale_down", "back_off", "soften", "downgrade", "yellow":
-            base = "Ease today's session"
+            return "Ease today's session."
         case "rest", "skip", "off", "recover", "stop", "red":
-            base = "Rest today"
+            return "Rest today."
+        case "none", "no_change", "unchanged":
+            return "No change to your plan today."
         case "":
-            base = "No call for today yet"
+            return "No call for today yet."
         default:
-            base = "The coach's call today: " + PFFormat.words(key)
+            return "The coach's call today: " + PFFormat.words(key) + "."
         }
-        if let reason = reasons.first {
-            let trimmed = reason.trimmingCharacters(in: CharacterSet(charactersIn: ". "))
-            if !trimmed.isEmpty { base += ": " + trimmed }
-        }
-        return base + "."
     }
 
     var ruleLine: String? { rule.map { "Rule: " + PFFormat.words($0) } }
+    var checkLine: String? { check.isEmpty ? nil : "Check: " + check.joined(separator: ", ") }
 }
 
 enum PFDeviceAgreement: Equatable { case agree, split }
@@ -223,10 +249,12 @@ struct PFDeviceReadiness: Equatable {
     var garmin: PFDeviceBlock?
     var whoop: PFDeviceBlock?
     var decision: PFReadinessCall?
+    /// The note under the load figures ("No ramp on either device ...").
+    var loadNote: String?
 
-    /// Whether the two devices read the same colour. There is no combined number: this is a mark, nil when either has no reading.
+    /// Agree when both devices are poor or both are not; split when only one is. No combined number: nil when either did not say.
     var agreement: PFDeviceAgreement? {
-        guard let g = garmin?.tone, let w = whoop?.tone, g != .unknown, w != .unknown else { return nil }
+        guard let g = garmin?.poor, let w = whoop?.poor else { return nil }
         return g == w ? .agree : .split
     }
 }
@@ -236,11 +264,9 @@ enum PFDeviceReadinessParse {
     static func readiness(_ data: Data?) -> PFDeviceReadiness? {
         let root = PFJ(data: data)
         guard !root.dict.isEmpty else { return nil }
-        let rootMethod = root["method"].text
-        var out = PFDeviceReadiness(date: root["date"].text,
-                              garmin: device(root["devices"]["garmin"], load: root["load"]["garmin"], rootMethod: rootMethod),
-                              whoop: device(root["devices"]["whoop"], load: root["load"]["whoop"], rootMethod: rootMethod),
-                              decision: decision(root["decision"]))
+        var out = PFDeviceReadiness(date: root["date"].text, garmin: device(root["devices"]["garmin"], load: root["load"]["garmin"]),
+                                    whoop: device(root["devices"]["whoop"], load: root["load"]["whoop"]),
+                                    decision: decision(root["decision"]), loadNote: root["load"]["note"].text)
         if out.garmin?.isEmpty == true { out.garmin = nil }
         if out.whoop?.isEmpty == true { out.whoop = nil }
         return out.garmin == nil && out.whoop == nil && out.decision == nil ? nil : out
@@ -250,56 +276,60 @@ enum PFDeviceReadinessParse {
         let action = j["action"].text, rule = j["rule"].text
         guard action != nil || rule != nil else { return nil }
         let guardText: String? = j["race_guard"].text ?? (j["race_guard"].bool == true ? "On" : nil)
-        return PFReadinessCall(action: action, rule: rule, reasons: j["reasons"].strings.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty },
-                                   question: j["question"].text, confidence: scalarText(j["confidence"]), raceGuard: guardText)
+        return PFReadinessCall(action: action, rule: rule, reasons: cleaned(j["reasons"]), question: j["question"].text,
+                               confidence: scalarText(j["confidence"]), raceGuard: guardText, check: cleaned(j["check"]))
     }
 
-    private static func device(_ j: PFJ, load: PFJ, rootMethod: String?) -> PFDeviceBlock? {
+    private static func cleaned(_ j: PFJ) -> [String] {
+        j.strings.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
+    }
+
+    /// The order the readings are drawn in; a reading the server adds later follows, alphabetically.
+    private static let order = ["hrv", "rhr", "sleep_min", "resp", "skin_temp"]
+
+    private static func device(_ j: PFJ, load: PFJ) -> PFDeviceBlock? {
         guard j.exists || load.exists else { return nil }
-        return PFDeviceBlock(metrics: metrics(j), load: metrics(load), method: j["method"].text ?? load["method"].text ?? rootMethod,
-                                 status: j["status"].text)
-    }
-
-    /// Keys of a device block that describe the block, not a metric.
-    private static let reserved: Set<String> = ["method", "status", "date", "source", "name", "note", "notes", "available", "updated_at",
-                                                "as_of", "load", "metrics"]
-    private static let order = ["recovery", "readiness", "hrv", "rhr", "resting", "sleep", "strain", "load", "respiratory", "temp", "spo2"]
-
-    /// Per-metric entries from a block that is either a list of metric objects, a map of name to metric (or bare value), or either of
-    /// those under `metrics`. Whatever entries exist are returned; one that has neither a value nor a status is skipped.
-    static func metrics(_ block: PFJ) -> [PFDeviceMetric] {
-        let inner = block["metrics"]
-        let container = inner.exists ? inner : block
-        if container.raw is [Any] {
-            return container.array.enumerated().compactMap { index, entry -> PFDeviceMetric? in
-                let name = entry["name"].text ?? entry["metric"].text ?? entry["key"].text
-                return metric(id: name ?? "metric-\(index)", name: name, entry)
-            }
+        var out = PFDeviceBlock()
+        out.label = j["label"].text
+        out.available = j["available"].bool ?? true
+        out.poor = j["poor"].bool
+        out.poorFlags = cleaned(j["poor_flags"])
+        out.trend = j["trend"].bool ?? false
+        out.method = j["hrv_method"].text
+        out.illnessPossible = j["illness"]["possible"].bool ?? false
+        let score = j["score"]
+        if score["available"].bool != false, let value = scalarText(score["value"]) {
+            out.score = PFDeviceScore(label: PFFormat.capitalized(score["label"].text ?? "score"), value: value, band: score["band"].text)
         }
-        let useReserved = !inner.exists
-        return container.dict.compactMap { key, entry -> PFDeviceMetric? in
-            if useReserved && reserved.contains(key) { return nil }
-            return metric(id: key, name: entry["name"].text, entry)
-        }.sorted { a, b in
-            let (ra, rb) = (rank(a.id), rank(b.id))
+        out.metrics = j["metrics"].dict.compactMap { key, entry -> PFDeviceMetric? in metric(id: key, entry) }.sorted { a, b in
+            let (ra, rb) = (order.firstIndex(of: a.id) ?? order.count, order.firstIndex(of: b.id) ?? order.count)
             return ra != rb ? ra < rb : a.id < b.id
         }
+        out.shownOnly = ["deep", "rem"].compactMap { key -> PFDeviceMetric? in
+            let entry = j["shown_only"][key]
+            guard let value = scalarText(entry["value"]) else { return nil }
+            return PFDeviceMetric(id: key, name: displayName(key) + " sleep", value: value, unit: entry["unit"].text, status: nil, baseline: nil,
+                                  isNotUsedForDecisions: true)
+        }
+        out.load = load["available"].bool == false ? nil : loadLine(load)
+        return out
     }
 
-    private static func rank(_ key: String) -> Int {
-        let k = key.lowercased()
-        return order.firstIndex { k.contains($0) } ?? order.count
+    private static func loadLine(_ j: PFJ) -> PFDeviceLoad? {
+        guard let measure = j["measure"].text else { return nil }
+        return PFDeviceLoad(measure: measure, thisWeek: scalarText(j["this_week"]), lastWeek: scalarText(j["last_week"]),
+                            changePct: scalarText(j["change_pct"]), ramp: j["ramp"].bool ?? false)
     }
 
-    private static func metric(id: String, name: String?, _ entry: PFJ) -> PFDeviceMetric? {
-        let isObject = !entry.dict.isEmpty
-        let value = isObject ? (scalarText(entry["value"]) ?? entry["value_text"].text) : scalarText(entry)
-        let status = isObject ? entry["status"].text : nil
-        guard value != nil || status != nil else { return nil }
-        let baseline = isObject ? (scalarText(entry["baseline"]) ?? scalarText(entry["baseline"]["value"]) ?? scalarText(entry["baseline"]["mean"])
-                                    ?? scalarText(entry["baseline"]["median"])) : nil
-        return PFDeviceMetric(id: id, name: displayName(name ?? id), value: value,
-                                 unit: isObject ? entry["unit"].text : nil, status: status, baseline: baseline)
+    private static func metric(id: String, _ entry: PFJ) -> PFDeviceMetric? {
+        guard !entry.dict.isEmpty else { return nil }
+        let name = displayName(entry["label"].text ?? id)
+        guard entry["available"].bool != false else {
+            return PFDeviceMetric(id: id, name: name, value: nil, unit: nil, status: nil, baseline: nil, reason: entry["reason"].text ?? "no reading")
+        }
+        guard let value = scalarText(entry["value"]) else { return nil }
+        return PFDeviceMetric(id: id, name: name, value: value, unit: entry["unit"].text, status: entry["status"].text,
+                              baseline: scalarText(entry["baseline"]))
     }
 
     /// "deep_sleep" reads "Deep sleep"; the usual abbreviations keep their capitals.
@@ -402,7 +432,7 @@ enum PFSeasonParse {
             out.declaredCurrent = block(current)
         }
         out.weekRules = root["week_rules"].array.compactMap { rule in
-            rule.text ?? rule["text"].text ?? rule["rule"].text ?? rule["name"].text
+            rule.text ?? rule["why"].text ?? rule["text"].text ?? rule["rule"].text ?? rule["name"].text
         }
         return out.races.isEmpty && out.blocks.isEmpty ? nil : out
     }
@@ -412,10 +442,11 @@ enum PFSeasonParse {
         return PFSeasonBlock(start: start, end: j["end"].text ?? start, kind: j["kind"].text ?? "block", aim: j["aim"].text, race: j["race"].text)
     }
 
-    /// Races and blocks still to come, earliest first (a block that ended before today and a race already run are left out).
+    /// Races and blocks still to come, earliest first. A block that ended before today and a race already run are left out, and so is a
+    /// race-day block: its race has its own row.
     static func timeline(_ plan: PFSeasonPlan, today: String) -> [PFSeasonItem] {
         let current = plan.current(today: today)
-        let blocks = plan.blocks.filter { String($0.end.prefix(10)) >= today }.map { PFSeasonItem.block($0, isCurrent: $0 == current) }
+        let blocks = plan.blocks.filter { String($0.end.prefix(10)) >= today && $0.kind.lowercased() != "race" }.map { PFSeasonItem.block($0, isCurrent: $0 == current) }
         let races = plan.races.filter { String($0.date.prefix(10)) >= today }.map { PFSeasonItem.race($0) }
         return (blocks + races).enumerated().sorted { a, b in
             a.element.sortDate != b.element.sortDate ? a.element.sortDate < b.element.sortDate : a.offset < b.offset

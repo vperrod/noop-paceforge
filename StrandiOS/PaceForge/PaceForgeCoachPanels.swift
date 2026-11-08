@@ -121,6 +121,10 @@ struct PFDualReadinessPanel: View {
                         column("Garmin", readiness.garmin)
                         column("WHOOP", readiness.whoop)
                     }
+                    if let note = readiness.loadNote {
+                        Text(note).font(StrandFont.caption).foregroundStyle(StrandPalette.textTertiary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
                     if let decision = readiness.decision { decisionBlock(decision, agreement: readiness.agreement) }
                     else if let agreement = readiness.agreement { agreementMark(agreement) }
                 }
@@ -133,16 +137,29 @@ struct PFDualReadinessPanel: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 6) {
                 Text(title).font(StrandFont.caption.weight(.semibold)).foregroundStyle(StrandPalette.textPrimary)
-                if let status = device?.status { PFChip(text: status, color: Self.color(PFStatusTone.of(status))) }
+                if let poor = device?.poor { PFChip(text: poor ? "poor" : "not poor", color: poor ? PFColor.warning : PFColor.positive) }
             }
             if let device {
+                if let score = device.score { scoreRow(score) }
+                ForEach(device.poorFlags, id: \.self) { flag in
+                    Text(hiding.text(flag)).font(StrandFont.caption).foregroundStyle(PFColor.warning)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                if device.trend {
+                    Text("Poor on several recent nights").font(StrandFont.caption).foregroundStyle(PFColor.warning)
+                }
+                if device.illnessPossible {
+                    Text("Signs of illness possible").font(StrandFont.caption).foregroundStyle(PFColor.critical)
+                }
                 ForEach(device.metrics) { metricRow($0) }
-                if !device.load.isEmpty {
-                    Text("Load").font(StrandFont.caption.weight(.semibold)).foregroundStyle(StrandPalette.textTertiary)
-                    ForEach(device.load) { metricRow($0) }
+                ForEach(device.shownOnly) { metricRow($0) }
+                if let load = device.load {
+                    Text(hiding.text(load.line)).font(StrandFont.caption)
+                        .foregroundStyle(load.ramp ? PFColor.warning : StrandPalette.textTertiary)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
                 if let method = device.method {
-                    Text("Method: " + method).font(StrandFont.caption).foregroundStyle(StrandPalette.textTertiary)
+                    Text("HRV: " + method).font(StrandFont.caption).foregroundStyle(StrandPalette.textTertiary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             } else {
@@ -154,9 +171,23 @@ struct PFDualReadinessPanel: View {
         .accessibilityIdentifier("readiness-" + title.lowercased())
     }
 
+    private func scoreRow(_ score: PFDeviceScore) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(score.label).font(StrandFont.caption).foregroundStyle(StrandPalette.textTertiary)
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Text(hiding.text(score.value)).font(LookFont.numeral(22)).foregroundStyle(NoopLook.textPrimary)
+                if let band = score.band { Text(band).font(StrandFont.caption.weight(.semibold)).foregroundStyle(Self.color(score.tone)) }
+            }
+        }
+        .accessibilityElement(children: .combine)
+    }
+
     private func metricRow(_ metric: PFDeviceMetric) -> some View {
         VStack(alignment: .leading, spacing: 1) {
             Text(metric.name).font(StrandFont.caption).foregroundStyle(StrandPalette.textTertiary)
+            if let reason = metric.reason {
+                Text(reason).font(StrandFont.caption).foregroundStyle(StrandPalette.textTertiary)
+            }
             HStack(alignment: .firstTextBaseline, spacing: 4) {
                 if let value = metric.value {
                     Text(hiding.text(value))
@@ -186,6 +217,14 @@ struct PFDualReadinessPanel: View {
                 .fixedSize(horizontal: false, vertical: true)
             if let rule = decision.ruleLine {
                 Text(rule).font(StrandFont.caption).foregroundStyle(StrandPalette.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            ForEach(decision.reasons, id: \.self) { reason in
+                Text(hiding.text(reason)).font(StrandFont.caption).foregroundStyle(StrandPalette.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            if let check = decision.checkLine {
+                Text(check).font(StrandFont.caption).foregroundStyle(StrandPalette.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
             if let agreement { agreementMark(agreement) }
@@ -235,6 +274,10 @@ struct PFDualReadinessHost: View {
 
 struct PFSeasonPlanCard: View {
     @ObservedObject private var store = PFCoachPanelsStore.shared
+    @State private var showsAll = false
+
+    /// The first rows of the timeline; the season runs for months, so the rest sits behind "Show all".
+    private static let firstRows = 8
 
     var body: some View {
         if let plan = store.season {
@@ -242,7 +285,14 @@ struct PFSeasonPlanCard: View {
             PFCard("Season plan", icon: "calendar.day.timeline.left") {
                 VStack(alignment: .leading, spacing: 12) {
                     if let current = plan.current(today: today) { currentBlock(current) }
-                    ForEach(PFSeasonParse.timeline(plan, today: today)) { item in row(item) }
+                    let timeline = PFSeasonParse.timeline(plan, today: today)
+                    ForEach(showsAll ? timeline : Array(timeline.prefix(Self.firstRows))) { item in row(item) }
+                    if !showsAll, timeline.count > Self.firstRows {
+                        Button("Show all \(timeline.count)") { showsAll = true }
+                            .font(StrandFont.caption.weight(.semibold))
+                            .foregroundStyle(StrandPalette.accent)
+                            .buttonStyle(.plain)
+                    }
                     if !plan.weekRules.isEmpty {
                         Text("Week rules")
                             .font(StrandFont.caption.weight(.semibold))
@@ -317,10 +367,10 @@ struct PFSeasonPlanCard: View {
     private static func color(_ kind: String) -> Color {
         switch kind.lowercased() {
         case "base": return PFColor.sky
-        case "build": return PFColor.warning
+        case "build", "sharpen": return PFColor.warning
         case "peak", "race": return PFColor.critical
         case "taper": return PFColor.violet
-        case "recovery", "rest", "transition": return PFColor.positive
+        case "recovery", "recover", "rest", "transition": return PFColor.positive
         default: return StrandPalette.textTertiary
         }
     }

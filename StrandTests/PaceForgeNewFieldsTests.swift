@@ -38,23 +38,6 @@ final class PaceForgeNewFieldsTests: XCTestCase {
         XCTAssertNil(PFEffortRank.parse(json(#"{"n": 31}"#)))
     }
 
-    func testVo2DetailReadsCompareMonthlyAndEfficiency() {
-        let j = json(#"""
-        {"available": true, "current": 51.2,
-         "compare": {"garmin_latest": 52.0, "garmin_date": "2030-01-10", "garmin_age_days": 4, "gap": -0.8,
-                     "monthly": [{"month": "2029-12", "garmin": 51.5, "paceforge": 50.9}, {"month": "2030-01", "garmin": 52.0, "paceforge": 51.2}]},
-         "efficiency": {"hr": 140, "through": "2030-01-14", "now": 11.4, "prev": null}}
-        """#)
-        let d = PFVo2Detail.parse(j)
-        XCTAssertEqual(d?.compare?.monthly.map(\.month), ["2029-12", "2030-01"])
-        XCTAssertEqual(d?.efficiency?.now, 11.4)
-        XCTAssertNil(d?.efficiency?.prev)
-    }
-
-    func testVo2DetailOldDocumentIsNil() {
-        XCTAssertNil(PFVo2Detail.parse(json(#"{"available": true, "current": 51.2, "compare": null}"#)))
-    }
-
     func testZoneSetsReadFloorsAndSkipOlderShape() {
         let sets = PFZoneSet.parseAll(json(#"[{"sport": "RUNNING", "floors": [94, 112, 131, 150, 168], "max": 187, "lt": 165, "resting": 50}, {"sport": "DEFAULT", "max": 190}]"#))
         XCTAssertEqual(sets.map(\.floors), [[94, 112, 131, 150, 168], []])

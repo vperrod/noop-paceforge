@@ -58,10 +58,6 @@ struct PFAthleteMetric: Identifiable, Equatable {
     var secondary: String?
     /// Figures from the same family as this one, shown on the detail page with their own dates and sources.
     var rows: [PFAthleteDetailRow] = []
-    /// Garmin's VO2max readings beside PaceForge's estimate and the running efficiency; set on the VO2max tiles only, when the document has them.
-    var vo2Detail: PFVo2Detail?
-    /// PaceForge's current VO2max estimate from the runs, the figure `vo2Detail` is compared against.
-    var vo2Estimate: Double?
 
     init(id: String, label: String, unit: String, value: Double?, valueText: String, source: String, what: String) {
         self.id = id
@@ -74,15 +70,6 @@ struct PFAthleteMetric: Identifiable, Equatable {
     }
 
     var hasSeries: Bool { series.count >= 2 }
-
-    /// One plain line on which side of Garmin's reading the estimate sits; nil without a gap, or under half a point, where they agree.
-    var vo2Meaning: String? {
-        guard let gap = vo2Detail?.compare?.gap, gap.isFinite else { return nil }
-        let size = PFFormat.oneDecimal(abs(gap))
-        if abs(gap) < 0.5 { return "PaceForge's estimate from your runs sits within half a point of Garmin's latest reading, so the two agree." }
-        if gap > 0 { return "Your runs put PaceForge's estimate \(size) above Garmin's latest reading, so the watch may be lagging behind your running." }
-        return "Your runs put PaceForge's estimate \(size) below Garmin's latest reading, so recent runs have not yet shown the level the watch reports."
-    }
 
     /// "since 1 Feb" for a step figure, "as of 1 Feb" otherwise; nil without a date.
     var datedText: String? {
@@ -194,11 +181,6 @@ struct PFAthleteLimiter: Equatable {
 }
 
 struct PFAthleteFitness: Equatable {
-    /// The effective VO2max per run, smoothed (the `ewma` of each point), oldest first.
-    var effectiveVo2: [PFAthletePoint] = []
-    var effectiveVo2Current: Double?
-    /// `running.effective_vo2max.compare` and `.efficiency`; nil when the document has neither.
-    var vo2Detail: PFVo2Detail?
     var ftpHistory: [PFAthletePoint] = []
     /// `bike.ftp`: the FTP on file. `autoFtp` is only the estimate from rides.
     var ftp: Double?
@@ -214,14 +196,6 @@ enum PFAthleteParse {
     static func fitness(_ f: PFJ) -> PFAthleteFitness? {
         guard f.exists else { return nil }
         var out = PFAthleteFitness()
-
-        let effective = f["running"]["effective_vo2max"]
-        if effective["available"].bool != false {
-            out.effectiveVo2 = points(effective["series"], valueKey: "ewma", fallbackKey: "value")
-            out.effectiveVo2Current = effective["current"].double
-        }
-
-        out.vo2Detail = PFVo2Detail.parse(f["running"]["effective_vo2max"])
 
         let bike = f["bike"]
         out.ftpHistory = points(bike["ftp_history"], valueKey: "ftp", fallbackKey: nil)
@@ -326,7 +300,6 @@ enum PFAthleteBuild {
 
         let candidates: [PFAthleteMetric?] = [
             vo2maxTile(standing, profile),
-            vo2RunsTile(fit, today: today),
             thresholdTile(profile, fit),
             ftpTile(fit, today: today),
             restingHrTile(standing, fit),
@@ -343,10 +316,8 @@ enum PFAthleteBuild {
         out.tiles = candidates.compactMap { $0 }
         // The one detail page for VO2max and the threshold: whichever of the three tiles is opened shows the same figures.
         let family = vo2AndThresholdRows(profile, fit)
-        for index in out.tiles.indices where ["vo2max", "vo2max_runs", "lt_pace"].contains(out.tiles[index].id) {
+        for index in out.tiles.indices where ["vo2max", "lt_pace"].contains(out.tiles[index].id) {
             out.tiles[index].rows = family
-            out.tiles[index].vo2Detail = fit?.vo2Detail
-            out.tiles[index].vo2Estimate = fit?.effectiveVo2Current ?? fit?.effectiveVo2.last?.value
         }
 
         out.runTimes = runTimes(standing, fit)
@@ -429,30 +400,19 @@ enum PFAthleteBuild {
     private static func vo2maxTile(_ standing: PFStanding?, _ profile: PFAthleteProfile?) -> PFAthleteMetric? {
         if let metric = standingMetric(standing, ["vo2max", "vo2"]), let value = metric.value {
             var tile = PFAthleteMetric(id: "vo2max", label: "VO2max", unit: metric.unit ?? "ml/kg/min", value: value,
-                                       valueText: PFFormat.trimmed(value), source: "PaceForge \u{00B7} Garmin estimate", what: Copy.vo2max)
+                                       valueText: PFFormat.trimmed(value), source: "Garmin", what: Copy.vo2max)
             tile.decimals = 1
             tile.standingId = metric.id
+            tile.asOf = profile?.date
             tile.change = PFAthleteMath.change(from: metric.trend)
             return tile
         }
         // No Standing document (or no rating for it): the Garmin profile's own figure, with its date and no change.
         guard let value = profile?.vo2Max else { return nil }
         var tile = PFAthleteMetric(id: "vo2max", label: "VO2max", unit: "ml/kg/min", value: value, valueText: PFFormat.trimmed(value),
-                                   source: "PaceForge \u{00B7} Garmin estimate", what: Copy.vo2max)
+                                   source: "Garmin", what: Copy.vo2max)
         tile.decimals = 1
         tile.asOf = profile?.date
-        return tile
-    }
-
-    private static func vo2RunsTile(_ fit: PFAthleteFitness?, today: String?) -> PFAthleteMetric? {
-        guard let fit, let value = fit.effectiveVo2Current ?? fit.effectiveVo2.last?.value else { return nil }
-        var tile = PFAthleteMetric(id: "vo2max_runs", label: "VO2max from runs", unit: "ml/kg/min", value: value,
-                                   valueText: PFFormat.oneDecimal(value), source: "PaceForge \u{00B7} from your runs", what: Copy.vo2Runs)
-        tile.decimals = 1
-        tile.asOf = fit.effectiveVo2.last?.date
-        tile.series = fit.effectiveVo2
-        tile.anchorDate = today
-        tile.change = PFAthleteMath.change(series: fit.effectiveVo2, today: today, higherIsBetter: true)
         return tile
     }
 
@@ -498,12 +458,8 @@ enum PFAthleteBuild {
         }
         var rows: [PFAthleteDetailRow] = []
         if let vo2 = profile?.vo2Max {
-            rows.append(PFAthleteDetailRow(label: "VO2max, Garmin estimate", text: PFFormat.oneDecimal(vo2) + " ml/kg/min",
+            rows.append(PFAthleteDetailRow(label: "VO2max, Garmin", text: PFFormat.oneDecimal(vo2) + " ml/kg/min",
                                            note: note("Garmin watch", "as of", profile?.date, needsDate: true)))
-        }
-        if let runs = fit?.effectiveVo2Current ?? fit?.effectiveVo2.last?.value {
-            rows.append(PFAthleteDetailRow(label: "VO2max, from your runs", text: PFFormat.oneDecimal(runs) + " ml/kg/min",
-                                           note: note("PaceForge", "as of", fit?.effectiveVo2.last?.date)))
         }
         if let pace = profile?.ltPaceSecPerKm {
             rows.append(PFAthleteDetailRow(label: "Lactate threshold pace", text: PFFormat.pace(pace) + " /km",
@@ -714,7 +670,6 @@ enum PFAthleteBuild {
     /// "What it is" for each tile detail: plain, short, and no claim beyond what the number is.
     private enum Copy {
         static let vo2max = "Garmin's wrist estimate of the most oxygen your body can use in a minute, per kilogram of body weight. A higher number is a bigger aerobic engine. It moves slowly, over weeks."
-        static let vo2Runs = "PaceForge's own estimate from your ordinary runs: the pace you hold at the heart rate it costs, set to Garmin's level. Its direction over weeks is the useful part."
         static let thresholdPace = "Critical speed: the fastest pace you can hold through a long effort, fitted from your best efforts over several distances. A lower time per kilometre is faster."
         static let lactateThreshold = "Garmin's measure of the pace (and the heart rate) at which lactate starts to build faster than your body clears it, the edge between hard-but-steady and unsustainable. A lower time per kilometre is faster. It changes only when the watch measures it, so read the date."
         static let endurance = "Garmin's endurance score: one number for how much endurance your recent training has built, on Garmin's own scale. It moves slowly. PaceForge holds only today's value, so there is no change to show."

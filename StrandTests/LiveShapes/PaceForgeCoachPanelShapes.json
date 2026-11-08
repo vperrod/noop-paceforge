@@ -1,0 +1,986 @@
+{
+ "_synthetic": "Synthetic fixture: the shapes, nulls, empty lists, booleans and key sets of the live PaceForge coach-panel documents (athlete-numbers, readiness-decision, season-plan) with every value replaced. Dates are shifted to 2030-03-13. No real athlete data.",
+ "docs": {
+  "api/athlete-numbers": {
+   "garmin": {
+    "vo2max": {
+     "value": 50.38,
+     "date": null,
+     "source": "Garmin"
+    },
+    "lt": {
+     "pace_s_per_km": 244.45,
+     "hr": 153.52,
+     "date": "2030-02-21",
+     "source": "Garmin"
+    },
+    "predictions": {
+     "k5": 1150.48,
+     "k10": 2498.05,
+     "half": 5487.07,
+     "marathon": 12378.37,
+     "date": "2030-03-13",
+     "source": "Garmin"
+    },
+    "training_status": {
+     "value": "Productive",
+     "date": "2030-03-13",
+     "source": "Garmin"
+    }
+   },
+   "max_hr": {
+    "value": 194,
+    "source": "your setting"
+   },
+   "paces": [
+    {
+     "name": "Synthetic name 1",
+     "low_s": 279.07,
+     "high_s": 306.97,
+     "source": "Synthetic explanation"
+    },
+    {
+     "name": "Synthetic name 2",
+     "low_s": 258.42,
+     "high_s": 272.37,
+     "source": "Synthetic explanation"
+    },
+    {
+     "name": "Synthetic name 3",
+     "low_s": 239.55,
+     "high_s": 246.24,
+     "source": "Synthetic explanation"
+    },
+    {
+     "name": "Synthetic name 4",
+     "low_s": 226.34,
+     "high_s": 235.64,
+     "source": "Synthetic explanation"
+    },
+    {
+     "name": "Synthetic name 5",
+     "low_s": 218.43,
+     "high_s": 227.73,
+     "source": "Synthetic explanation"
+    },
+    {
+     "name": "Synthetic name 6",
+     "low_s": 199.83,
+     "high_s": 209.13,
+     "source": "Synthetic explanation"
+    },
+    {
+     "name": "Synthetic name 7",
+     "low_s": 223.27,
+     "high_s": 237.22,
+     "source": "Synthetic explanation"
+    }
+   ]
+  },
+  "api/readiness-decision": {
+   "date": "2030-03-13",
+   "devices": {
+    "garmin": {
+     "device": "garmin",
+     "label": "Garmin",
+     "day": "2030-03-13",
+     "available": true,
+     "poor": true,
+     "poor_flags": [
+      "Synthetic text"
+     ],
+     "trend": true,
+     "recent": [
+      {
+       "day": "2030-03-13",
+       "poor": true
+      },
+      {
+       "day": "2030-03-12",
+       "poor": false
+      },
+      {
+       "day": "2030-03-11",
+       "poor": true
+      }
+     ],
+     "baseline_nights": 46,
+     "metrics": {
+      "hrv": {
+       "key": "hrv",
+       "label": "Overnight HRV",
+       "unit": "ms",
+       "bad": "low",
+       "available": true,
+       "value": 27.04,
+       "nights": 46,
+       "baseline": 34.36,
+       "sd": 0.23,
+       "z": -1.21,
+       "status": "low",
+       "flagged": true,
+       "baseline_includes": [],
+       "mean7": 33.57,
+       "z7": -0.06,
+       "status7": "normal"
+      },
+      "rhr": {
+       "key": "rhr",
+       "label": "Resting HR",
+       "unit": "bpm",
+       "bad": "high",
+       "available": true,
+       "value": 48.43,
+       "nights": 46,
+       "baseline": 47.7,
+       "sd": 2.21,
+       "z": 0.4,
+       "status": "normal",
+       "flagged": false,
+       "baseline_includes": [],
+       "mean7": 48.03,
+       "z7": 0.22,
+       "status7": "normal"
+      },
+      "sleep_min": {
+       "key": "sleep_min",
+       "label": "Time asleep",
+       "unit": "min",
+       "bad": "low",
+       "available": true,
+       "value": 334.87,
+       "nights": 46,
+       "baseline": 376.2,
+       "sd": 51.69,
+       "z": -0.67,
+       "status": "normal",
+       "flagged": false,
+       "baseline_includes": [],
+       "mean7": 378.15,
+       "z7": 0.11,
+       "status7": "normal"
+      },
+      "skin_temp": {
+       "key": "skin_temp",
+       "label": "Skin temperature (vs normal)",
+       "unit": "C",
+       "bad": "high",
+       "available": true,
+       "value": 0.63,
+       "nights": 46,
+       "baseline": 0.13,
+       "sd": 0.33,
+       "z": 1.84,
+       "status": "high",
+       "flagged": true,
+       "baseline_includes": [],
+       "mean7": 0.17,
+       "z7": 0.24,
+       "status7": "normal"
+      },
+      "resp": {
+       "key": "resp",
+       "label": "Respiration",
+       "unit": "rpm",
+       "bad": "high",
+       "available": true,
+       "value": 14.95,
+       "nights": 46,
+       "baseline": 14.4,
+       "sd": 1.04,
+       "z": 0.59,
+       "status": "normal",
+       "flagged": false,
+       "baseline_includes": [],
+       "mean7": 14.55,
+       "z7": 0.21,
+       "status7": "normal"
+      }
+     },
+     "score": {
+      "label": "training readiness",
+      "available": true,
+      "value": 39,
+      "band": "yellow",
+      "edges": [
+       29,
+       66
+      ],
+      "edges_basis": "Synthetic text",
+      "scores": 392
+     },
+     "illness": {
+      "evaluable": true,
+      "possible": false,
+      "missing": [],
+      "skin_resp_above_range": false,
+      "hrv_down": true
+     },
+     "shown_only": {
+      "deep": {
+       "value": 71,
+       "note": "Synthetic note",
+       "unit": "min"
+      },
+      "rem": {
+       "value": 45,
+       "note": "Synthetic note",
+       "unit": "min"
+      }
+     },
+     "hrv_method": "Synthetic HRV method"
+    },
+    "whoop": {
+     "device": "whoop",
+     "label": "WHOOP",
+     "day": "2030-03-13",
+     "available": true,
+     "poor": false,
+     "poor_flags": [],
+     "trend": false,
+     "recent": [
+      {
+       "day": "2030-03-13",
+       "poor": false
+      },
+      {
+       "day": "2030-03-12",
+       "poor": false
+      },
+      {
+       "day": "2030-03-11",
+       "poor": true
+      }
+     ],
+     "baseline_nights": 35,
+     "metrics": {
+      "hrv": {
+       "key": "hrv",
+       "label": "Overnight HRV",
+       "unit": "ms",
+       "bad": "low",
+       "available": true,
+       "value": 44.15,
+       "nights": 35,
+       "baseline": 45.96,
+       "sd": 0.25,
+       "z": -0.13,
+       "status": "normal",
+       "flagged": false,
+       "baseline_includes": [
+        "Synthetic text"
+       ],
+       "mean7": 46.02,
+       "z7": 0.08,
+       "status7": "normal",
+       "direction7": "flat"
+      },
+      "rhr": {
+       "key": "rhr",
+       "label": "Resting HR",
+       "unit": "bpm",
+       "bad": "high",
+       "available": true,
+       "value": 52.15,
+       "nights": 35,
+       "baseline": 47.8,
+       "sd": 2.71,
+       "z": 1.6,
+       "status": "high",
+       "flagged": true,
+       "baseline_includes": [
+        "Synthetic text"
+       ],
+       "mean7": 48.56,
+       "z7": 0.34,
+       "status7": "normal",
+       "direction7": "flat"
+      },
+      "sleep_min": {
+       "key": "sleep_min",
+       "label": "Time asleep",
+       "unit": "min",
+       "bad": "low",
+       "available": true,
+       "value": 341.1,
+       "nights": 35,
+       "baseline": 383.1,
+       "sd": 54.71,
+       "z": -0.65,
+       "status": "normal",
+       "flagged": false,
+       "baseline_includes": [
+        "Synthetic text"
+       ],
+       "mean7": 378.27,
+       "z7": -0.01,
+       "status7": "normal",
+       "direction7": "down"
+      },
+      "skin_temp": {
+       "key": "skin_temp",
+       "label": "Skin temperature (vs normal)",
+       "unit": "C",
+       "bad": "high",
+       "available": false,
+       "reason": "Synthetic text"
+      },
+      "resp": {
+       "key": "resp",
+       "label": "Respiration",
+       "unit": "rpm",
+       "bad": "high",
+       "available": true,
+       "value": 14.02,
+       "nights": 35,
+       "baseline": 13.48,
+       "sd": 0.7,
+       "z": 0.86,
+       "status": "normal",
+       "flagged": false,
+       "baseline_includes": [
+        "Synthetic text"
+       ],
+       "mean7": 13.48,
+       "z7": 0.06,
+       "status7": "normal",
+       "direction7": "flat"
+      }
+     },
+     "score": {
+      "label": "recovery",
+      "available": true,
+      "value": 34,
+      "band": "yellow",
+      "edges": [
+       26,
+       69
+      ],
+      "edges_basis": "Synthetic text",
+      "scores": 37
+     },
+     "illness": {
+      "evaluable": false,
+      "possible": false,
+      "missing": [
+       "Synthetic text"
+      ]
+     },
+     "shown_only": {
+      "deep": {
+       "value": 49,
+       "note": "Synthetic note",
+       "unit": "min"
+      },
+      "rem": {
+       "value": 95,
+       "note": "Synthetic note",
+       "unit": "min"
+      }
+     },
+     "hrv_method": "Synthetic HRV method"
+    }
+   },
+   "decision": {
+    "action": "none",
+    "rule": "one_device_poor",
+    "reasons": [
+     "Synthetic explanation",
+     "Synthetic explanation"
+    ],
+    "question": null,
+    "confidence": "estimate",
+    "race_guard": null,
+    "check": [
+     "Synthetic text",
+     "Synthetic text",
+     "Synthetic text"
+    ]
+   },
+   "load": {
+    "garmin": {
+     "device": "garmin",
+     "label": "Garmin",
+     "measure": "Synthetic text",
+     "unit": "load",
+     "available": true,
+     "this_week": 650.14,
+     "last_week": 672.46,
+     "change_pct": -3.0,
+     "pairs": 385,
+     "limit_pct": 10.58,
+     "ramp": false
+    },
+    "whoop": {
+     "device": "whoop",
+     "label": "WHOOP",
+     "measure": "Synthetic text",
+     "unit": "strain",
+     "available": true,
+     "this_week": 58.75,
+     "last_week": 57.45,
+     "change_pct": 2.12,
+     "pairs": 27,
+     "limit_pct": 5.74,
+     "ramp": false
+    },
+    "ramp_on": [],
+    "note": "Synthetic note"
+   },
+   "hr_traces": [
+    {
+     "date": "2030-03-12",
+     "activity_id": 24993812604,
+     "name": "Synthetic name 8",
+     "garmin": {
+      "reliable": true,
+      "reasons": [],
+      "max_bpm": 166.54,
+      "missing_pct": 0
+     },
+     "whoop": {
+      "reliable": true,
+      "reasons": [],
+      "max_bpm": 182,
+      "missing_pct": 0
+     }
+    },
+    {
+     "date": "2030-03-11",
+     "activity_id": 24984794477,
+     "name": "Synthetic name 9",
+     "garmin": {
+      "reliable": true,
+      "reasons": [],
+      "max_bpm": 87.49,
+      "missing_pct": 0
+     },
+     "whoop": {
+      "reliable": true,
+      "reasons": [],
+      "max_bpm": 134,
+      "missing_pct": 0
+     }
+    },
+    {
+     "date": "2030-03-10",
+     "activity_id": 24974871154,
+     "name": "Synthetic name 8",
+     "garmin": {
+      "reliable": true,
+      "reasons": [],
+      "max_bpm": 149.8,
+      "missing_pct": 16
+     },
+     "whoop": {
+      "reliable": true,
+      "reasons": [],
+      "max_bpm": 159,
+      "missing_pct": 0
+     }
+    },
+    {
+     "date": "2030-03-09",
+     "activity_id": 24968180368,
+     "name": "Synthetic name 10",
+     "garmin": {
+      "reliable": true,
+      "reasons": [],
+      "max_bpm": 150.73,
+      "missing_pct": 14
+     },
+     "whoop": {
+      "reliable": true,
+      "reasons": [],
+      "max_bpm": 185,
+      "missing_pct": 0
+     }
+    },
+    {
+     "date": "2030-03-09",
+     "activity_id": 24960875336,
+     "name": "Synthetic name 11",
+     "garmin": {
+      "reliable": true,
+      "reasons": [],
+      "max_bpm": 135.85,
+      "missing_pct": 20
+     },
+     "whoop": {
+      "reliable": true,
+      "reasons": [],
+      "max_bpm": 186,
+      "missing_pct": 0
+     }
+    },
+    {
+     "date": "2030-03-08",
+     "activity_id": 24947731209,
+     "name": "Synthetic name 12",
+     "garmin": {
+      "reliable": true,
+      "reasons": [],
+      "max_bpm": 153.52,
+      "missing_pct": 0
+     },
+     "whoop": {
+      "reliable": true,
+      "reasons": [],
+      "max_bpm": 178,
+      "missing_pct": 0
+     }
+    },
+    {
+     "date": "2030-03-07",
+     "activity_id": 24936763704,
+     "name": "Synthetic name 13",
+     "garmin": {
+      "reliable": true,
+      "reasons": [],
+      "max_bpm": 124.69,
+      "missing_pct": 0
+     },
+     "whoop": {
+      "reliable": true,
+      "reasons": [],
+      "max_bpm": 174,
+      "missing_pct": 0
+     }
+    },
+    {
+     "date": "2030-03-06",
+     "activity_id": 24927183579,
+     "name": "Synthetic name 14",
+     "garmin": {
+      "reliable": true,
+      "reasons": [],
+      "max_bpm": 164.68,
+      "missing_pct": 0
+     },
+     "whoop": {
+      "reliable": false,
+      "reasons": [
+       "Synthetic explanation"
+      ],
+      "max_bpm": 212,
+      "missing_pct": 0
+     }
+    },
+    {
+     "date": "2030-03-05",
+     "activity_id": 24913127517,
+     "name": "Synthetic name 8",
+     "garmin": {
+      "reliable": true,
+      "reasons": [],
+      "max_bpm": 159.1,
+      "missing_pct": 16
+     },
+     "whoop": {
+      "reliable": true,
+      "reasons": [],
+      "max_bpm": 183,
+      "missing_pct": 0
+     }
+    },
+    {
+     "date": "2030-03-04",
+     "activity_id": 24904395402,
+     "name": "Synthetic name 9",
+     "garmin": {
+      "reliable": true,
+      "reasons": [],
+      "max_bpm": 94.0,
+      "missing_pct": 0
+     },
+     "whoop": {
+      "reliable": true,
+      "reasons": [],
+      "max_bpm": 104,
+      "missing_pct": 0
+     }
+    },
+    {
+     "date": "2030-03-04",
+     "activity_id": 24903934415,
+     "name": "Synthetic name 15",
+     "garmin": {
+      "reliable": true,
+      "reasons": [],
+      "max_bpm": 136.78,
+      "missing_pct": 22
+     },
+     "whoop": {
+      "reliable": true,
+      "reasons": [],
+      "max_bpm": 182,
+      "missing_pct": 0
+     }
+    },
+    {
+     "date": "2030-03-03",
+     "activity_id": 24890055941,
+     "name": "Synthetic name 8",
+     "garmin": {
+      "reliable": true,
+      "reasons": [],
+      "max_bpm": 157.24,
+      "missing_pct": 16
+     },
+     "whoop": {
+      "reliable": true,
+      "reasons": [],
+      "max_bpm": 179,
+      "missing_pct": 0
+     }
+    },
+    {
+     "date": "2030-03-02",
+     "activity_id": 24885976161,
+     "name": "Synthetic name 10",
+     "garmin": {
+      "reliable": true,
+      "reasons": [],
+      "max_bpm": 154.45,
+      "missing_pct": 16
+     },
+     "whoop": {
+      "reliable": true,
+      "reasons": [],
+      "max_bpm": 193,
+      "missing_pct": 0
+     }
+    },
+    {
+     "date": "2030-03-02",
+     "activity_id": 24883208622,
+     "name": "Synthetic name 16",
+     "garmin": {
+      "reliable": true,
+      "reasons": [],
+      "max_bpm": 135.85,
+      "missing_pct": 21
+     },
+     "whoop": {
+      "reliable": true,
+      "reasons": [],
+      "max_bpm": 183,
+      "missing_pct": 0
+     }
+    },
+    {
+     "date": "2030-03-01",
+     "activity_id": 24869792494,
+     "name": "Synthetic name 17",
+     "garmin": {
+      "reliable": true,
+      "reasons": [],
+      "max_bpm": 147.01,
+      "missing_pct": 0
+     },
+     "whoop": {
+      "reliable": true,
+      "reasons": [],
+      "max_bpm": 179,
+      "missing_pct": 0
+     }
+    },
+    {
+     "date": "2030-03-01",
+     "activity_id": 24865698664,
+     "name": "Synthetic name 12",
+     "garmin": {
+      "reliable": true,
+      "reasons": [],
+      "max_bpm": 147.94,
+      "missing_pct": 0
+     },
+     "whoop": {
+      "reliable": true,
+      "reasons": [],
+      "max_bpm": 186,
+      "missing_pct": 0
+     }
+    },
+    {
+     "date": "2030-02-28",
+     "activity_id": 24855473372,
+     "name": "Synthetic name 9",
+     "garmin": {
+      "reliable": true,
+      "reasons": [],
+      "max_bpm": 85.63,
+      "missing_pct": 29
+     },
+     "whoop": {
+      "reliable": true,
+      "reasons": [],
+      "max_bpm": 120,
+      "missing_pct": 0
+     }
+    },
+    {
+     "date": "2030-02-28",
+     "activity_id": 24855187852,
+     "name": "Synthetic name 18",
+     "garmin": {
+      "reliable": true,
+      "reasons": [],
+      "max_bpm": 162.82,
+      "missing_pct": 15
+     },
+     "whoop": {
+      "reliable": true,
+      "reasons": [],
+      "max_bpm": 183,
+      "missing_pct": 0
+     }
+    }
+   ]
+  },
+  "api/season-plan": {
+   "races": [
+    {
+     "date": "2030-03-16",
+     "name": "Synthetic name 19",
+     "priority": "A",
+     "assumed": false
+    },
+    {
+     "date": "2030-03-19",
+     "name": "Synthetic name 20",
+     "priority": "B",
+     "assumed": false
+    },
+    {
+     "date": "2030-04-20",
+     "name": "Synthetic name 21",
+     "priority": "B",
+     "assumed": true
+    },
+    {
+     "date": "2030-06-25",
+     "name": "Synthetic name 22",
+     "priority": "B",
+     "assumed": true
+    },
+    {
+     "date": "2030-07-29",
+     "name": "Synthetic name 23",
+     "priority": "B",
+     "assumed": true
+    },
+    {
+     "date": "2030-10-02",
+     "name": "Synthetic name 24",
+     "priority": "A",
+     "assumed": true
+    }
+   ],
+   "blocks": [
+    {
+     "start": "2030-01-27",
+     "end": "2030-03-05",
+     "kind": "build",
+     "aim": "Synthetic aim 1",
+     "race": "Synthetic race 1"
+    },
+    {
+     "start": "2030-03-06",
+     "end": "2030-03-08",
+     "kind": "sharpen",
+     "aim": "Synthetic aim 1",
+     "race": "Synthetic race 1"
+    },
+    {
+     "start": "2030-03-09",
+     "end": "2030-03-15",
+     "kind": "taper",
+     "aim": "Synthetic aim 1",
+     "race": "Synthetic race 1"
+    },
+    {
+     "start": "2030-03-16",
+     "end": "2030-03-16",
+     "kind": "race",
+     "aim": "Synthetic aim 1",
+     "race": "Synthetic race 1"
+    },
+    {
+     "start": "2030-03-17",
+     "end": "2030-03-26",
+     "kind": "recover",
+     "aim": "Synthetic aim 1",
+     "race": "Synthetic race 1"
+    },
+    {
+     "start": "2030-03-19",
+     "end": "2030-03-19",
+     "kind": "race",
+     "aim": "Synthetic aim 1",
+     "race": "Synthetic race 2"
+    },
+    {
+     "start": "2030-03-20",
+     "end": "2030-03-29",
+     "kind": "recover",
+     "aim": "Synthetic aim 1",
+     "race": "Synthetic race 2"
+    },
+    {
+     "start": "2030-03-30",
+     "end": "2030-04-12",
+     "kind": "build",
+     "aim": "Synthetic aim 1",
+     "race": "Synthetic race 3"
+    },
+    {
+     "start": "2030-04-13",
+     "end": "2030-04-19",
+     "kind": "taper",
+     "aim": "Synthetic aim 1",
+     "race": "Synthetic race 3"
+    },
+    {
+     "start": "2030-04-20",
+     "end": "2030-04-20",
+     "kind": "race",
+     "aim": "Synthetic aim 1",
+     "race": "Synthetic race 3"
+    },
+    {
+     "start": "2030-04-21",
+     "end": "2030-04-30",
+     "kind": "recover",
+     "aim": "Synthetic aim 1",
+     "race": "Synthetic race 3"
+    },
+    {
+     "start": "2030-05-01",
+     "end": "2030-06-17",
+     "kind": "build",
+     "aim": "Synthetic aim 1",
+     "race": "Synthetic race 4"
+    },
+    {
+     "start": "2030-06-18",
+     "end": "2030-06-24",
+     "kind": "taper",
+     "aim": "Synthetic aim 1",
+     "race": "Synthetic race 4"
+    },
+    {
+     "start": "2030-06-25",
+     "end": "2030-06-25",
+     "kind": "race",
+     "aim": "Synthetic aim 1",
+     "race": "Synthetic race 4"
+    },
+    {
+     "start": "2030-06-26",
+     "end": "2030-07-05",
+     "kind": "recover",
+     "aim": "Synthetic aim 1",
+     "race": "Synthetic race 4"
+    },
+    {
+     "start": "2030-07-06",
+     "end": "2030-07-21",
+     "kind": "build",
+     "aim": "Synthetic aim 1",
+     "race": "Synthetic race 5"
+    },
+    {
+     "start": "2030-07-22",
+     "end": "2030-07-28",
+     "kind": "taper",
+     "aim": "Synthetic aim 1",
+     "race": "Synthetic race 5"
+    },
+    {
+     "start": "2030-07-29",
+     "end": "2030-07-29",
+     "kind": "race",
+     "aim": "Synthetic aim 1",
+     "race": "Synthetic race 5"
+    },
+    {
+     "start": "2030-07-30",
+     "end": "2030-08-08",
+     "kind": "recover",
+     "aim": "Synthetic aim 1",
+     "race": "Synthetic race 5"
+    },
+    {
+     "start": "2030-08-09",
+     "end": "2030-09-17",
+     "kind": "build",
+     "aim": "Synthetic aim 2",
+     "race": "Synthetic race 6"
+    },
+    {
+     "start": "2030-09-18",
+     "end": "2030-09-24",
+     "kind": "sharpen",
+     "aim": "Synthetic aim 2",
+     "race": "Synthetic race 6"
+    },
+    {
+     "start": "2030-09-25",
+     "end": "2030-10-01",
+     "kind": "taper",
+     "aim": "Synthetic aim 2",
+     "race": "Synthetic race 6"
+    },
+    {
+     "start": "2030-10-02",
+     "end": "2030-10-02",
+     "kind": "race",
+     "aim": "Synthetic aim 2",
+     "race": "Synthetic race 6"
+    },
+    {
+     "start": "2030-10-03",
+     "end": "2030-10-12",
+     "kind": "recover",
+     "aim": "Synthetic aim 2",
+     "race": "Synthetic race 6"
+    }
+   ],
+   "current_block": {
+    "start": "2030-03-09",
+    "end": "2030-03-15",
+    "kind": "taper",
+    "aim": "Synthetic aim 1",
+    "race": "Synthetic race 1",
+    "days_to_race": 3
+   },
+   "week_rules": [
+    {
+     "rule": "taper_cut",
+     "kind": "drop",
+     "day": "2030-03-13",
+     "why": "Synthetic explanation"
+    },
+    {
+     "rule": "hard_near_race",
+     "kind": "kept",
+     "day": "2030-03-13",
+     "why": "Synthetic explanation"
+    },
+    {
+     "rule": "hard_days_cap",
+     "kind": "kept",
+     "day": "2030-03-07",
+     "why": "Synthetic explanation"
+    },
+    {
+     "rule": "taper_cut",
+     "kind": "kept",
+     "day": "2030-03-13",
+     "why": "Synthetic explanation"
+    }
+   ]
+  }
+ }
+}

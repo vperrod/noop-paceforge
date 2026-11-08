@@ -131,107 +131,162 @@ final class PaceForgeCoachNumbersTests: XCTestCase {
 
     // MARK: readiness-decision
 
-    private let readinessJSON = Data("""
-    {"date": "2026-11-09",
-     "devices": {
-       "garmin": {"method": "HRV status", "metrics": {"hrv": {"value": 54, "unit": "ms", "status": "normal", "baseline": 58},
-                                                      "rhr": {"value": 49, "unit": "bpm", "status": "high"},
-                                                      "deep_sleep": {"value": 62, "unit": "min", "status": "ok"}}},
-       "whoop": {"recovery": {"value": 71, "unit": "%", "status": "green", "baseline": {"mean": 64}},
-                 "rem_sleep": {"value": 80, "unit": "min"}, "method": "strap HRV", "status": "green"}},
-     "decision": {"action": "ease", "rule": "hrv_low_two_days", "reasons": ["HRV is below your baseline."], "question": null,
-                  "confidence": "medium", "race_guard": false},
-     "load": {"garmin": {"acute": {"value": 410, "status": "ok"}}, "whoop": {}}, "hr_traces": []}
-    """.utf8)
-
-    private var readiness: PFDeviceReadiness? { PFDeviceReadinessParse.readiness(readinessJSON) }
-
-    func testGarminMetricsAreInReadingOrder() {
-        XCTAssertEqual(readiness?.garmin?.metrics.map(\.id), ["hrv", "rhr", "deep_sleep"])
+    /// The three live documents' shapes with every value replaced (see the file's `_synthetic` note), dates shifted to 2030-03-13.
+    private func shape(_ path: String, file: StaticString = #filePath) throws -> Data {
+        let url = URL(fileURLWithPath: "\(file)").deletingLastPathComponent().appendingPathComponent("LiveShapes/PaceForgeCoachPanelShapes.json")
+        let root = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: url)) as? [String: Any])
+        let docs = try XCTUnwrap(root["docs"] as? [String: Any])
+        return try JSONSerialization.data(withJSONObject: try XCTUnwrap(docs[path]))
     }
 
-    func testMetricCarriesValueUnitStatusAndBaseline() {
-        XCTAssertEqual(readiness?.garmin?.metrics.first,
-                       PFDeviceMetric(id: "hrv", name: "HRV", value: "54", unit: "ms", status: "normal", baseline: "58"))
+    private func liveReadiness() throws -> PFDeviceReadiness {
+        try XCTUnwrap(PFDeviceReadinessParse.readiness(try shape("api/readiness-decision")))
     }
 
-    func testBaselineReadsFromAnObject() {
-        XCTAssertEqual(readiness?.whoop?.metrics.first?.baseline, "64")
+    func testLiveShapeGarminMetricsAreInReadingOrder() throws {
+        XCTAssertEqual(try liveReadiness().garmin?.metrics.map(\.id), ["hrv", "rhr", "sleep_min", "resp", "skin_temp"])
     }
 
-    func testWhoopBlockKeepsItsMetricsApartFromItsOwnFields() {
-        XCTAssertEqual(readiness?.whoop?.metrics.map(\.id), ["recovery", "rem_sleep"])
+    func testLiveShapeMetricCarriesLabelUnitStatusAndBaseline() throws {
+        let hrv = try XCTUnwrap(try liveReadiness().garmin?.metrics.first)
+        XCTAssertEqual([hrv.name, hrv.unit, hrv.status], ["Overnight HRV", "ms", "low"])
+        XCTAssertNotNil(hrv.baseline)
     }
 
-    func testMethodIsTakenFromTheDeviceBlock() {
-        XCTAssertEqual(readiness?.garmin?.method, "HRV status")
+    func testLiveShapeUnavailableMetricHasNoValueAndSaysWhy() throws {
+        let skin = try XCTUnwrap(try liveReadiness().whoop?.metrics.last)
+        XCTAssertEqual([skin.id, skin.value, skin.reason], ["skin_temp", nil, "Synthetic text"])
     }
 
-    func testLoadMetricsAreKeptPerDevice() {
-        XCTAssertEqual(readiness?.garmin?.load.first?.value, "410")
+    func testLiveShapeEachDeviceHasItsOwnScore() throws {
+        let r = try liveReadiness()
+        XCTAssertEqual([r.garmin?.score?.label, r.whoop?.score?.label], ["Training readiness", "Recovery"])
     }
 
-    func testDeviceStatusIsTakenWhenSent() {
-        XCTAssertEqual(readiness?.whoop?.status, "green")
+    func testLiveShapeScoreCarriesItsBand() throws {
+        XCTAssertEqual(try liveReadiness().garmin?.score?.band, "yellow")
     }
 
-    func testDeepSleepIsNotUsedForDecisions() {
-        XCTAssertEqual(readiness?.garmin?.metrics.last?.isNotUsedForDecisions, true)
+    func testLiveShapeDeepAndRemAreShownAndNotUsedForDecisions() throws {
+        let shown = try XCTUnwrap(try liveReadiness().garmin?.shownOnly)
+        XCTAssertEqual(shown.map { [$0.name, String($0.isNotUsedForDecisions)] }, [["Deep sleep", "true"], ["REM sleep", "true"]])
     }
 
-    func testRemSleepIsNotUsedForDecisions() {
-        XCTAssertEqual(readiness?.whoop?.metrics.last?.isNotUsedForDecisions, true)
+    func testLiveShapeDecisionMetricsAreNotMarkedAsNotUsed() throws {
+        XCTAssertEqual(try liveReadiness().garmin?.metrics.contains { $0.isNotUsedForDecisions }, false)
     }
 
-    func testHrvIsUsedForDecisions() {
-        XCTAssertEqual(readiness?.garmin?.metrics.first?.isNotUsedForDecisions, false)
-    }
-
-    func testWordContainingRemIsNotTakenForRemSleep() {
-        XCTAssertFalse(PFDeviceMetric(id: "remaining_days", name: "Remaining", value: "3", unit: nil, status: nil, baseline: nil).isNotUsedForDecisions)
-    }
-
-    func testNoteWordingForSleepStages() {
+    func testLiveShapeNoteWording() {
         XCTAssertEqual(PFDeviceMetric.notUsedNote, "not used for decisions")
     }
 
-    func testDeviceWithoutItsOwnStatusTakesTheWorstDecisionMetric() {
-        XCTAssertEqual(readiness?.garmin?.tone, .caution)
+    func testLiveShapeHrvMethodIsTaken() throws {
+        XCTAssertEqual(try liveReadiness().whoop?.method, "Synthetic HRV method")
     }
 
-    func testDeepSleepDoesNotMoveTheDeviceTone() {
-        let json = Data(#"{"devices": {"garmin": {"hrv": {"value": 54, "status": "ok"}, "deep_sleep": {"value": 20, "status": "poor"}}}}"#.utf8)
-        XCTAssertEqual(PFDeviceReadinessParse.readiness(json)?.garmin?.tone, .good)
+    func testLiveShapePoorFlagsAreRead() throws {
+        let r = try liveReadiness()
+        XCTAssertEqual([r.garmin?.poor, r.whoop?.poor], [true, false])
     }
 
-    func testDevicesOnDifferentColoursSplit() {
-        XCTAssertEqual(readiness?.agreement, .split)
+    func testLiveShapePoorFlagTextsAreKept() throws {
+        XCTAssertEqual(try liveReadiness().garmin?.poorFlags.count, 1)
     }
 
-    func testDevicesOnTheSameColourAgree() {
-        let json = Data(#"{"devices": {"garmin": {"status": "ok"}, "whoop": {"status": "green"}}}"#.utf8)
+    func testLiveShapeTrendIsReadPerDevice() throws {
+        let r = try liveReadiness()
+        XCTAssertEqual([r.garmin?.trend, r.whoop?.trend], [true, false])
+    }
+
+    func testLiveShapeOneDevicePoorIsASplit() throws {
+        XCTAssertEqual(try liveReadiness().agreement, .split)
+    }
+
+    func testLiveShapeLoadIsReadPerDevice() throws {
+        let r = try liveReadiness()
+        XCTAssertEqual([r.garmin?.load?.line.hasPrefix("Synthetic text: "), r.whoop?.load?.line.hasPrefix("Synthetic text: ")], [true, true])
+    }
+
+    func testLiveShapeLoadNoteIsKept() throws {
+        XCTAssertEqual(try liveReadiness().loadNote, "Synthetic note")
+    }
+
+    func testLiveShapeDecisionIsOnePlainSentence() throws {
+        XCTAssertEqual(try liveReadiness().decision?.sentence, "No change to your plan today.")
+    }
+
+    func testLiveShapeDecisionRuleReadsInWords() throws {
+        XCTAssertEqual(try liveReadiness().decision?.ruleLine, "Rule: one device poor")
+    }
+
+    func testLiveShapeDecisionKeepsItsReasonsAndChecks() throws {
+        let call = try XCTUnwrap(try liveReadiness().decision)
+        XCTAssertEqual([call.reasons.count, call.check.count], [2, 3])
+    }
+
+    func testLiveShapeNullRaceGuardIsNotShown() throws {
+        XCTAssertNil(try liveReadiness().decision?.raceGuard)
+    }
+
+    func testBothDevicesPoorAgree() {
+        let json = Data(#"{"devices": {"garmin": {"poor": true}, "whoop": {"poor": true}}}"#.utf8)
         XCTAssertEqual(PFDeviceReadinessParse.readiness(json)?.agreement, .agree)
     }
 
+    func testNeitherDevicePoorAgree() {
+        let json = Data(#"{"devices": {"garmin": {"poor": false}, "whoop": {"poor": false}}}"#.utf8)
+        XCTAssertEqual(PFDeviceReadinessParse.readiness(json)?.agreement, .agree)
+    }
+
+    func testOnlyWhoopPoorSplits() {
+        let json = Data(#"{"devices": {"garmin": {"poor": false}, "whoop": {"poor": true}}}"#.utf8)
+        XCTAssertEqual(PFDeviceReadinessParse.readiness(json)?.agreement, .split)
+    }
+
     func testOneDeviceAloneHasNoAgreementMark() {
-        let json = Data(#"{"devices": {"garmin": {"status": "ok"}}}"#.utf8)
+        let json = Data(#"{"devices": {"garmin": {"poor": true}}}"#.utf8)
         XCTAssertNil(PFDeviceReadinessParse.readiness(json)?.agreement)
     }
 
-    func testDecisionIsOnePlainSentenceWithItsReason() {
-        XCTAssertEqual(readiness?.decision?.sentence, "Ease today's session: HRV is below your baseline.")
+    func testDeviceThatDoesNotSayPoorHasNoAgreementMark() {
+        let json = Data(#"{"devices": {"garmin": {"poor": true}, "whoop": {"label": "WHOOP", "score": {"value": 40}}}}"#.utf8)
+        XCTAssertNil(PFDeviceReadinessParse.readiness(json)?.agreement)
     }
 
-    func testDecisionRuleReadsInWords() {
-        XCTAssertEqual(readiness?.decision?.ruleLine, "Rule: hrv low two days")
+    func testMetricWithoutAValueIsSkippedWhenAvailable() {
+        let json = Data(#"{"devices": {"garmin": {"metrics": {"hrv": {"available": true, "unit": "ms"}, "rhr": {"available": true, "value": 49}}}}}"#.utf8)
+        XCTAssertEqual(PFDeviceReadinessParse.readiness(json)?.garmin?.metrics.map(\.id), ["rhr"])
     }
 
-    func testDecisionKeepsItsConfidence() {
-        XCTAssertEqual(readiness?.decision?.confidence, "medium")
+    func testMetricValueReadsWithoutTrailingZero() {
+        let json = Data(#"{"devices": {"garmin": {"metrics": {"rhr": {"available": true, "value": 52.0, "unit": "bpm", "baseline": 51.21}}}}}"#.utf8)
+        let rhr = PFDeviceReadinessParse.readiness(json)?.garmin?.metrics.first
+        XCTAssertEqual([rhr?.value, rhr?.baseline], ["52", "51.2"])
     }
 
-    func testFalseRaceGuardIsNotShown() {
-        XCTAssertNil(readiness?.decision?.raceGuard)
+    func testUnavailableScoreIsLeftOut() {
+        let json = Data(#"{"devices": {"garmin": {"poor": false, "score": {"available": false, "value": 40}}}}"#.utf8)
+        XCTAssertNil(PFDeviceReadinessParse.readiness(json)?.garmin?.score)
+    }
+
+    func testIllnessIsOnlyFlaggedWhenPossible() {
+        let json = Data(#"{"devices": {"garmin": {"poor": false, "illness": {"evaluable": true, "possible": true}}}}"#.utf8)
+        XCTAssertEqual(PFDeviceReadinessParse.readiness(json)?.garmin?.illnessPossible, true)
+    }
+
+    func testLoadLineWithAGrowingWeekHasAPlusSign() {
+        let load = PFDeviceLoad(measure: "Strain", thisWeek: "63", lastWeek: "61", changePct: "2.2", ramp: false)
+        XCTAssertEqual(load.line, "Strain: 63 this week, 61 last week (+2.2%)")
+    }
+
+    func testLoadLineWithAFallingWeekKeepsItsMinus() {
+        let load = PFDeviceLoad(measure: "Load", thisWeek: "699", lastWeek: "723", changePct: "-3.3", ramp: false)
+        XCTAssertEqual(load.line, "Load: 699 this week, 723 last week (-3.3%)")
+    }
+
+    func testDecisionIsOnePlainSentence() {
+        let json = Data(#"{"decision": {"action": "ease", "rule": "hrv_low_two_days", "reasons": ["HRV is low."]}}"#.utf8)
+        XCTAssertEqual(PFDeviceReadinessParse.readiness(json)?.decision?.sentence, "Ease today's session.")
     }
 
     func testTrueRaceGuardReadsOn() {
@@ -259,34 +314,14 @@ final class PaceForgeCoachNumbersTests: XCTestCase {
         XCTAssertEqual(PFDeviceReadinessParse.readiness(json)?.decision?.sentence, "No call for today yet.")
     }
 
-    func testListFormMetricsAreRead() {
-        let json = Data(#"{"devices": {"whoop": {"metrics": [{"name": "recovery", "value": 70, "status": "green"}, {"value": 1}]}}}"#.utf8)
-        XCTAssertEqual(PFDeviceReadinessParse.readiness(json)?.whoop?.metrics.map(\.id), ["recovery", "metric-1"])
-    }
-
-    func testBareValueIsAMetricWithoutAStatus() {
-        let json = Data(#"{"devices": {"garmin": {"hrv": 54, "status": "ok"}}}"#.utf8)
-        XCTAssertEqual(PFDeviceReadinessParse.readiness(json)?.garmin?.metrics.first?.value, "54")
-    }
-
-    func testEntryWithNeitherValueNorStatusIsSkipped() {
-        let json = Data(#"{"devices": {"garmin": {"hrv": {"unit": "ms"}, "rhr": {"value": 49}}}}"#.utf8)
-        XCTAssertEqual(PFDeviceReadinessParse.readiness(json)?.garmin?.metrics.map(\.id), ["rhr"])
-    }
-
-    func testMissingWhoopLeavesGarminAndNoAgreement() {
-        let json = Data(#"{"devices": {"garmin": {"metrics": {"hrv": {"value": 54}}}}}"#.utf8)
+    func testMissingWhoopLeavesGarmin() {
+        let json = Data(#"{"devices": {"garmin": {"poor": false}}}"#.utf8)
         XCTAssertNil(PFDeviceReadinessParse.readiness(json)?.whoop)
     }
 
     func testMissingDecisionIsNil() {
-        let json = Data(#"{"devices": {"garmin": {"metrics": {"hrv": {"value": 54}}}}}"#.utf8)
+        let json = Data(#"{"devices": {"garmin": {"poor": false}}}"#.utf8)
         XCTAssertNil(PFDeviceReadinessParse.readiness(json)?.decision)
-    }
-
-    func testMethodFallsBackToTheDocumentLevel() {
-        let json = Data(#"{"method": "two devices", "devices": {"garmin": {"hrv": {"value": 54}}}}"#.utf8)
-        XCTAssertEqual(PFDeviceReadinessParse.readiness(json)?.garmin?.method, "two devices")
     }
 
     func testEmptyReadinessIsNil() {
@@ -298,8 +333,41 @@ final class PaceForgeCoachNumbersTests: XCTestCase {
     }
 
     func testStatusWordsMapToTones() {
-        XCTAssertEqual(["normal", "high", "very low", "red", "broken", ""].map { PFStatusTone.of($0) },
-                       [.good, .caution, .bad, .bad, .unknown, .unknown])
+        XCTAssertEqual(["normal", "high", "very low", "red", "yellow", "broken", ""].map { PFStatusTone.of($0) },
+                       [.good, .caution, .bad, .bad, .caution, .unknown, .unknown])
+    }
+
+    // MARK: live shapes: numbers and season
+
+    func testLiveShapeNumbersRowsAreInReadingOrder() throws {
+        let n = try XCTUnwrap(PFCoachNumbers.athleteNumbers(try shape("api/athlete-numbers")))
+        XCTAssertEqual(n.rows.map(\.id), ["vo2max", "lt-pace", "lt-hr", "status", "pred-k5", "pred-k10", "pred-half", "pred-marathon", "max-hr"])
+    }
+
+    func testLiveShapeVo2maxWithNoDateIsJustLabelledGarmin() throws {
+        let n = try XCTUnwrap(PFCoachNumbers.athleteNumbers(try shape("api/athlete-numbers")))
+        XCTAssertEqual(n.rows.first?.caption, "Garmin")
+    }
+
+    func testLiveShapeThresholdCarriesItsDate() throws {
+        let n = try XCTUnwrap(PFCoachNumbers.athleteNumbers(try shape("api/athlete-numbers")))
+        XCTAssertEqual(n.rows.first { $0.id == "lt-pace" }?.caption, "Garmin \u{00B7} 21 Feb")
+    }
+
+    func testLiveShapeMaxHeartRateIsYourSetting() throws {
+        let n = try XCTUnwrap(PFCoachNumbers.athleteNumbers(try shape("api/athlete-numbers")))
+        XCTAssertEqual(n.rows.last?.caption, "your setting")
+    }
+
+    func testLiveShapeEveryPaceBandHasARangeAndASource() throws {
+        let n = try XCTUnwrap(PFCoachNumbers.athleteNumbers(try shape("api/athlete-numbers")))
+        XCTAssertEqual(n.paces.map { $0.range != nil && $0.caption == "Source: Synthetic explanation" }, Array(repeating: true, count: 7))
+    }
+
+    func testLiveShapeNumbersNeverMentionVdotOrEffectiveVo2max() throws {
+        let n = try XCTUnwrap(PFCoachNumbers.athleteNumbers(try shape("api/athlete-numbers")))
+        let text = (n.rows.map { $0.label + $0.caption } + n.paces.map { $0.label + $0.caption }).joined(separator: " ").lowercased()
+        XCTAssertFalse(text.contains("vdot") || text.contains("effective"))
     }
 
     // MARK: season-plan
@@ -415,5 +483,41 @@ final class PaceForgeCoachNumbersTests: XCTestCase {
 
     func testGarbageSeasonIsNil() {
         XCTAssertNil(PFSeasonParse.plan(Data("nope".utf8)))
+    }
+
+    private func liveSeason() throws -> PFSeasonPlan {
+        try XCTUnwrap(PFSeasonParse.plan(try shape("api/season-plan")))
+    }
+
+    func testLiveShapeSeasonKeepsEveryRaceAndBlock() throws {
+        let plan = try liveSeason()
+        XCTAssertEqual([plan.races.count, plan.blocks.count], [6, 26])
+    }
+
+    func testLiveShapeCurrentBlockIsTheOneTheServerSent() throws {
+        let current = try liveSeason().current(today: "2030-03-13")
+        XCTAssertEqual([current?.kind, current?.aim], ["taper", "Synthetic aim 1"])
+    }
+
+    func testLiveShapeAssumedPrioritiesAreFlagged() throws {
+        XCTAssertEqual(try liveSeason().races.map(\.assumed), [false, false, true, true, true, true])
+    }
+
+    func testLiveShapeWeekRulesReadTheWhy() throws {
+        let rules = try liveSeason().weekRules
+        XCTAssertEqual([rules.count, rules.filter { $0 == "Synthetic explanation" }.count], [4, 4])
+    }
+
+    func testLiveShapeTimelineLeadsWithTheCurrentBlock() throws {
+        let timeline = PFSeasonParse.timeline(try liveSeason(), today: "2030-03-13")
+        XCTAssertEqual(timeline.first, .block(try XCTUnwrap(try liveSeason().current(today: "2030-03-13")), isCurrent: true))
+    }
+
+    func testLiveShapeTimelineHasNoRaceDayBlocks() throws {
+        let kinds = PFSeasonParse.timeline(try liveSeason(), today: "2030-03-13").compactMap { item -> String? in
+            if case .block(let block, _) = item { return block.kind }
+            return nil
+        }
+        XCTAssertFalse(kinds.contains("race"))
     }
 }

@@ -699,61 +699,6 @@ struct PFEffortRank: Equatable, Sendable {
     }
 }
 
-/// `running.effective_vo2max.compare` of `fitness.json`: Garmin's own VO2max readings beside PaceForge's estimate.
-struct PFVo2Compare: Equatable, Sendable {
-    var garminLatest: Double?
-    var garminDate: String?
-    /// Days from that reading to the last run in the estimate.
-    var garminAgeDays: Int?
-    /// PaceForge's current estimate minus Garmin's latest reading; nil when there is no estimate.
-    var gap: Double?
-    /// Up to 12 months both sides have, oldest first.
-    var monthly: [PFVo2Month] = []
-
-    static func parse(_ j: PFJ) -> PFVo2Compare? {
-        guard j.exists, let latest = j["garmin_latest"].double else { return nil }
-        return PFVo2Compare(garminLatest: latest, garminDate: j["garmin_date"].text, garminAgeDays: j["garmin_age_days"].int, gap: j["gap"].double,
-                            monthly: j["monthly"].array.compactMap { m in
-                                guard let month = m["month"].text else { return nil }
-                                return PFVo2Month(month: month, garmin: m["garmin"].double, paceforge: m["paceforge"].double)
-                            })
-    }
-}
-
-/// One month of `compare.monthly`: the mean of Garmin's readings and of PaceForge's smoothed estimate, `month` being `yyyy-MM`.
-struct PFVo2Month: Equatable, Sendable {
-    var month: String
-    var garmin: Double?
-    var paceforge: Double?
-}
-
-/// `running.effective_vo2max.efficiency` of `fitness.json`: the speed the athlete runs at a fixed heart rate, the last 6 weeks against the 6 before.
-struct PFVo2Efficiency: Equatable, Sendable {
-    /// The fixed heart rate in bpm (140 on the server).
-    var hr: Double?
-    /// Speed in km/h at `hr` over the 6 weeks to `through`, and over the 6 weeks before that; either is nil without enough runs.
-    var now: Double?
-    var prev: Double?
-    var through: String?
-
-    static func parse(_ j: PFJ) -> PFVo2Efficiency? {
-        guard j.exists, j["now"].double != nil else { return nil }
-        return PFVo2Efficiency(hr: j["hr"].double, now: j["now"].double, prev: j["prev"].double, through: j["through"].text)
-    }
-}
-
-/// `compare` and `efficiency` together, parsed from `fitness.json` `running.effective_vo2max`. nil when the block is unavailable or holds neither.
-struct PFVo2Detail: Equatable, Sendable {
-    var compare: PFVo2Compare?
-    var efficiency: PFVo2Efficiency?
-
-    static func parse(_ effectiveVo2max: PFJ) -> PFVo2Detail? {
-        guard effectiveVo2max["available"].bool != false else { return nil }
-        let out = PFVo2Detail(compare: PFVo2Compare.parse(effectiveVo2max["compare"]), efficiency: PFVo2Efficiency.parse(effectiveVo2max["efficiency"]))
-        return out.compare != nil || out.efficiency != nil ? out : nil
-    }
-}
-
 /// One entry of `hr_zone_sets` in `profile.json`: a sport's heart-rate zone set as Garmin holds it.
 struct PFZoneSet: Equatable, Sendable {
     /// Garmin's sport key, upper case (`RUNNING`, `DEFAULT`, `CYCLING` ...).

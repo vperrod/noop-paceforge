@@ -141,14 +141,6 @@ final class PaceForgeAthleteTests: XCTestCase {
 
     // MARK: fitness.json extras
 
-    func testTheEffectiveVo2maxSeriesReadsTheSmoothedValueOldestFirst() {
-        let doc = json("""
-        {"running": {"effective_vo2max": {"available": true, "current": 51.2, "series": [
-          {"date": "2030-01-10", "value": 50.0, "ewma": 50.5}, {"date": "2030-01-02", "value": 49.0, "ewma": 50.0}]}}}
-        """)
-        XCTAssertEqual(PFAthleteParse.fitness(doc)?.effectiveVo2, points([("2030-01-02", 50.0), ("2030-01-10", 50.5)]))
-    }
-
     func testTheFtpHistoryAndTheAutomaticEstimateAreRead() {
         let doc = json("""
         {"bike": {"auto_ftp": 240, "ftp_history": [{"date": "2030-01-01", "ftp": 230, "source": "manual"}]}}

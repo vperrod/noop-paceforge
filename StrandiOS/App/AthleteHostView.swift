@@ -619,7 +619,6 @@ private struct AthleteMetricSheet: View {
                     PFRevealBar()
                     headerCard
                     if !tile.rows.isEmpty { relatedCard }
-                    if let detail = tile.vo2Detail { vo2Card(detail) }
                     if tile.hasSeries && !isHidden { historyCard }
                     if standingMetric != nil { standingCard }
                     PFCard("What it is", icon: "questionmark.circle") {
@@ -688,7 +687,7 @@ private struct AthleteMetricSheet: View {
         .accessibilityIdentifier("athlete-metric-header")
     }
 
-    /// The figures of the same family (Garmin's VO2max beside the one from the runs, the threshold's pace and heart rate), each with its own
+    /// The figures of the same family (Garmin's VO2max, the threshold's pace and heart rate), each with its own
     /// source and date.
     private var relatedCard: some View {
         PFCard("Related figures", icon: "list.bullet") {
@@ -697,70 +696,6 @@ private struct AthleteMetricSheet: View {
             }
         }
         .accessibilityIdentifier("athlete-metric-rows")
-    }
-
-    /// PaceForge's estimate against Garmin's latest reading, the recent months both have, and the speed held at a fixed heart rate.
-    private func vo2Card(_ detail: PFVo2Detail) -> some View {
-        PFCard("Against Garmin", icon: "arrow.left.arrow.right") {
-            VStack(alignment: .leading, spacing: 12) {
-                if let compare = detail.compare, let latest = compare.garminLatest {
-                    AthleteFigureRow(label: "Garmin, latest", value: PFFormat.oneDecimal(latest) + " ml/kg/min", note: garminNote(compare))
-                    if let estimate = tile.vo2Estimate {
-                        AthleteFigureRow(label: "PaceForge, from your runs", value: PFFormat.oneDecimal(estimate) + " ml/kg/min",
-                                         note: compare.gap.map { PFNumber.signed($0, decimals: 1) + " against Garmin" })
-                    }
-                    let months = Array(compare.monthly.suffix(6))
-                    if !months.isEmpty { monthTable(months) }
-                }
-                if let line = efficiencyLine(detail.efficiency) {
-                    Text(line).font(StrandFont.caption).foregroundStyle(StrandPalette.textSecondary)
-                }
-                if let meaning = tile.vo2Meaning { PFParagraph(meaning) }
-            }
-        }
-        .accessibilityIdentifier("athlete-metric-vo2-compare")
-    }
-
-    private func garminNote(_ compare: PFVo2Compare) -> String {
-        var text = "Garmin watch"
-        if let date = compare.garminDate { text += ", " + PFFormat.shortDate(date) }
-        if let age = compare.garminAgeDays, age > 0 { text += ", \(age) days before your last run" }
-        return text
-    }
-
-    private func monthTable(_ months: [PFVo2Month]) -> some View {
-        func cell(_ value: Double?) -> String { value.map { PFFormat.oneDecimal($0) } ?? "\u{2014}" }
-        return VStack(alignment: .leading, spacing: 4) {
-            HStack {
-                Text("Month").frame(maxWidth: .infinity, alignment: .leading)
-                Text("Garmin").frame(width: 64, alignment: .trailing)
-                Text("PaceForge").frame(width: 80, alignment: .trailing)
-            }
-            .font(StrandFont.caption)
-            .foregroundStyle(StrandPalette.textTertiary)
-            ForEach(months, id: \.month) { month in
-                HStack {
-                    Text(month.month).frame(maxWidth: .infinity, alignment: .leading)
-                    Text(cell(month.garmin)).frame(width: 64, alignment: .trailing)
-                    Text(cell(month.paceforge)).frame(width: 80, alignment: .trailing)
-                }
-                .font(StrandFont.subhead)
-                .foregroundStyle(StrandPalette.textPrimary)
-            }
-        }
-        .accessibilityIdentifier("athlete-metric-vo2-months")
-    }
-
-    /// Speed at the fixed heart rate over the last 6 weeks against the 6 before; nil when the document has no efficiency block.
-    private func efficiencyLine(_ efficiency: PFVo2Efficiency?) -> String? {
-        guard let efficiency, let now = efficiency.now else { return nil }
-        let at = efficiency.hr.map { "at " + PFFormat.trimmed($0) + " bpm" } ?? "at a fixed heart rate"
-        var text = "Running efficiency: \(at) you run " + PFFormat.oneDecimal(now) + " km/h over the last 6 weeks"
-        if let through = efficiency.through { text += " to " + PFFormat.shortDate(through) }
-        if let prev = efficiency.prev {
-            text += ", against " + PFFormat.oneDecimal(prev) + " km/h in the 6 before (" + PFNumber.signed(now - prev, decimals: 1) + ")"
-        }
-        return text + "."
     }
 
     private var historyCard: some View {

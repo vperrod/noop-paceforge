@@ -3,7 +3,7 @@
 # The app reads live data; the only allowed bundled JSON is the synthetic fixtures: the UI-test fixture, and the
 # unit-test "real shapes" file (the live documents' structure with every value replaced, see its _synthetic note).
 set -u
-fixtures="NOOPiOSUITests/PaceForgeFixture.json StrandTests/LiveShapes/PaceForgeRealShapes.json"
+fixtures="NOOPiOSUITests/PaceForgeFixture.json StrandTests/LiveShapes/PaceForgeRealShapes.json StrandTests/LiveShapes/PaceForgeCoachPanelShapes.json"
 bad=0
 while IFS= read -r f; do
   case "$f" in
