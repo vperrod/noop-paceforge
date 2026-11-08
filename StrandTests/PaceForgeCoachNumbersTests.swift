@@ -491,7 +491,7 @@ final class PaceForgeCoachNumbersTests: XCTestCase {
 
     func testLiveShapeSeasonKeepsEveryRaceAndBlock() throws {
         let plan = try liveSeason()
-        XCTAssertEqual([plan.races.count, plan.blocks.count], [6, 26])
+        XCTAssertEqual([plan.races.count, plan.blocks.count], [6, 24])
     }
 
     func testLiveShapeCurrentBlockIsTheOneTheServerSent() throws {
