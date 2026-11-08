@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 import StrandDesign
 
 // The Coach screen's week card (`PFWeekPlanCard`) and its race plans (`PFRacePackCards`): what the coach wrote for the week, why it wants
@@ -32,6 +33,11 @@ final class PFWeekPlanStore: ObservableObject {
     /// Why a decision was not saved, by proposal id.
     @Published private(set) var notes: [String: String] = [:]
     @Published private(set) var deciding: Set<String> = []
+    /// The chart PNGs of the report by name, fetched with the same token as the documents; a name missing here has not loaded
+    /// (yet) or the server did not serve it.
+    @Published private(set) var chartImages: [String: UIImage] = [:]
+    @Published private(set) var chartsLoading = false
+    private var chartsLoadedAt: String?
 
     private var lastFetch: Date?
     private var inFlight: Task<Void, Never>?
@@ -89,6 +95,24 @@ final class PFWeekPlanStore: ObservableObject {
             lastFetch = Date()
             phase = .loaded
         }
+        await loadCharts()
+    }
+
+    /// The charts are redrawn by the server with each report (`charts_at`), so they are fetched again only when that changes
+    /// or one is still missing.
+    private func loadCharts() async {
+        guard let weekly, !weekly.charts.isEmpty else { return }
+        let stamp = weekly.chartsAt ?? ""
+        let missing = weekly.charts.filter { chartImages[$0] == nil }
+        guard stamp != chartsLoadedAt || !missing.isEmpty else { return }
+        chartsLoading = true
+        defer { chartsLoading = false }
+        var fresh: [String: UIImage] = stamp == chartsLoadedAt ? chartImages : [:]
+        for key in weekly.charts {
+            if let data = try? await PFAPI.fetch(PFWeekPlan.chartPath(key)), let image = UIImage(data: data) { fresh[key] = image }
+        }
+        chartImages = fresh
+        if fresh.count == weekly.charts.count { chartsLoadedAt = stamp }
     }
 
     private func loadRacePacks(_ events: [PFEventRow]) async -> [PFRacePack] {
@@ -151,9 +175,11 @@ struct PFWeekPlanCard: View {
 
     @ObservedObject private var store = PFWeekPlanStore.shared
 
+    private var isDesigned: Bool { store.weekly?.sections.isEmpty == false }
+
     var body: some View {
         if PFAPI.isConfigured {
-            PFCard(title: "Week report and next week's plan", icon: "calendar", trailing: {
+            PFCard(title: isDesigned ? "Your week, and the plan for next week" : "Week report and next week's plan", icon: "calendar", trailing: {
                 Text(store.weekly?.periodLabel ?? "")
                     .font(StrandFont.caption)
                     .foregroundStyle(StrandPalette.textTertiary)
@@ -186,9 +212,33 @@ struct PFWeekPlanCard: View {
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
-            if !store.proposals.isEmpty { proposalsSection }
-            if let weekly = store.weekly, !weekly.contentMD.isEmpty {
-                PFWeekMarkdown(text: weekly.contentMD)
+            if let weekly = store.weekly, !weekly.sections.isEmpty {
+                sectionsView(weekly)
+            } else {
+                // A server without the report sections (before build 513's server): the whole report as one text.
+                if !store.proposals.isEmpty { proposalsSection }
+                if let weekly = store.weekly, !weekly.contentMD.isEmpty {
+                    PFWeekMarkdown(text: weekly.contentMD)
+                }
+            }
+        }
+    }
+
+    @ViewBuilder private func sectionsView(_ weekly: PFWeekReport) -> some View {
+        // Proposals belong inside the plan section; with no plan section they would vanish, so they lead the card instead.
+        if !store.proposals.isEmpty && !weekly.sections.contains(where: { $0.kind == .plan }) { proposalsSection }
+        ForEach(weekly.sections) { section in
+            PFDisclosure(title: section.title, intro: section.intro, startsOpen: section.open, nested: false, id: section.id) {
+                switch section.kind {
+                case .summary:
+                    PFSummaryBody(weekly: weekly)
+                case .plan:
+                    PFPlanBody(section: section, proposals: store.proposals, onAsk: onAsk)
+                case .charts:
+                    PFChartsBody(keys: weekly.charts)
+                case .md:
+                    PFWeekMarkdown(text: section.md)
+                }
             }
         }
     }
@@ -206,9 +256,208 @@ struct PFWeekPlanCard: View {
     }
 }
 
+// MARK: Report sections
+
+/// A heading that opens and closes its content: the title, the one-line intro under it and a chevron. `nested` is the smaller
+/// day-level version inside a section.
+private struct PFDisclosure<Content: View>: View {
+    let title: String
+    let intro: String?
+    let nested: Bool
+    let id: String
+    @ViewBuilder let content: () -> Content
+    @State private var isOpen: Bool
+
+    init(title: String, intro: String? = nil, startsOpen: Bool, nested: Bool, id: String,
+         @ViewBuilder content: @escaping () -> Content) {
+        self.title = title
+        self.intro = intro.flatMap { $0.isEmpty ? nil : $0 }
+        self.nested = nested
+        self.id = id
+        self.content = content
+        _isOpen = State(initialValue: startsOpen)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Button { isOpen.toggle() } label: {
+                HStack(alignment: .top, spacing: 8) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(title)
+                            .font(nested ? StrandFont.subhead.weight(.semibold) : StrandFont.headline)
+                            .foregroundStyle(StrandPalette.textPrimary)
+                            .multilineTextAlignment(.leading)
+                            .fixedSize(horizontal: false, vertical: true)
+                        if let intro {
+                            Text(intro)
+                                .font(StrandFont.caption)
+                                .foregroundStyle(StrandPalette.textSecondary)
+                                .multilineTextAlignment(.leading)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+                    Spacer(minLength: 4)
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(StrandPalette.textTertiary)
+                        .rotationEffect(.degrees(isOpen ? 90 : 0))
+                        .padding(.top, 4)
+                        .accessibilityHidden(true)
+                }
+                .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityValue(Text(isOpen ? "Expanded" : "Collapsed"))
+            .accessibilityIdentifier("coach-week-section-\(id)")
+            if isOpen { content() }
+        }
+        .padding(nested ? 10 : 12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(nested ? StrandPalette.surfaceRaised : StrandPalette.surfaceInset))
+    }
+}
+
+/// The key numbers as tiles, what held the week back, and the one thing not to do.
+private struct PFSummaryBody: View {
+    let weekly: PFWeekReport
+
+    private let columns = [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)]
+
+    var body: some View {
+        let tiles = weekly.summary.map(PFWeekPlan.summaryTiles) ?? []
+        let notToDo = weekly.sections.first { $0.id == "review" }.flatMap { PFWeekPlan.oneThingNotToDo($0.md) }
+        VStack(alignment: .leading, spacing: 14) {
+            if !tiles.isEmpty {
+                LazyVGrid(columns: columns, spacing: 10) {
+                    ForEach(Array(tiles.enumerated()), id: \.offset) { _, tile in tileView(tile) }
+                }
+            }
+            if !weekly.limiters.isEmpty {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("What held you back")
+                        .font(StrandFont.subhead.weight(.semibold))
+                        .foregroundStyle(StrandPalette.textPrimary)
+                    ForEach(Array(weekly.limiters.enumerated()), id: \.offset) { _, limiter in
+                        HStack(alignment: .firstTextBaseline, spacing: 6) {
+                            Text("\u{2022}")
+                            Text(limiter).fixedSize(horizontal: false, vertical: true)
+                        }
+                        .font(StrandFont.subhead)
+                        .foregroundStyle(StrandPalette.textSecondary)
+                    }
+                }
+            }
+            if let notToDo {
+                VStack(alignment: .leading, spacing: 6) {
+                    Label("One thing not to do", systemImage: "exclamationmark.triangle")
+                        .font(StrandFont.subhead.weight(.semibold))
+                        .foregroundStyle(PFColor.warning)
+                    PFMarkdown(text: notToDo)
+                }
+                .padding(12)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(PFColor.warning.opacity(0.14)))
+                .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(PFColor.warning.opacity(0.5), lineWidth: 1))
+                .accessibilityIdentifier("coach-week-not-to-do")
+            }
+        }
+    }
+
+    private func tileView(_ tile: PFSummaryTile) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(tile.label)
+                .font(StrandFont.caption)
+                .foregroundStyle(StrandPalette.textSecondary)
+            Text(tile.value)
+                .font(StrandFont.rounded(24))
+                .foregroundStyle(StrandPalette.textPrimary)
+                .minimumScaleFactor(0.7)
+                .lineLimit(1)
+            Text(tile.note ?? " ")
+                .font(StrandFont.caption)
+                .foregroundStyle(StrandPalette.textTertiary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+        }
+        .padding(10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(StrandPalette.surfaceRaised))
+        .accessibilityElement(children: .combine)
+    }
+}
+
+/// Next week day by day, with each pending proposal inside the day it changes and the rest at the end.
+private struct PFPlanBody: View {
+    let section: PFWeekSection
+    let proposals: [PFPendingProposal]
+    let onAsk: (String) -> Void
+
+    var body: some View {
+        let plan = PFWeekPlan.planDays(section.md)
+        let placed = PFWeekPlan.assign(proposals, to: plan.days)
+        VStack(alignment: .leading, spacing: 10) {
+            if !plan.preamble.isEmpty { PFWeekMarkdown(text: plan.preamble) }
+            ForEach(Array(plan.days.enumerated()), id: \.offset) { index, day in
+                PFDisclosure(title: day.title, startsOpen: true, nested: true, id: "\(section.id)-day-\(index)") {
+                    VStack(alignment: .leading, spacing: 10) {
+                        if !day.body.isEmpty { PFWeekMarkdown(text: day.body) }
+                        ForEach(placed.byDay[index]) { proposal in
+                            PFProposalView(proposal: proposal, onAsk: onAsk, showsDay: false)
+                        }
+                    }
+                }
+            }
+            if !placed.unmatched.isEmpty {
+                Text("Other changes the coach proposes")
+                    .font(StrandFont.subhead.weight(.semibold))
+                    .foregroundStyle(StrandPalette.textPrimary)
+                    .accessibilityIdentifier("coach-week-proposals")
+                ForEach(placed.unmatched) { proposal in
+                    PFProposalView(proposal: proposal, onAsk: onAsk)
+                }
+            }
+        }
+    }
+}
+
+/// The report's charts: each PNG with its caption.
+private struct PFChartsBody: View {
+    let keys: [String]
+    @ObservedObject private var store = PFWeekPlanStore.shared
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            ForEach(keys, id: \.self) { key in
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(PFWeekPlan.chartCaption(key))
+                        .font(StrandFont.subhead.weight(.semibold))
+                        .foregroundStyle(StrandPalette.textPrimary)
+                    if let image = store.chartImages[key] {
+                        Image(uiImage: image)
+                            .resizable()
+                            .scaledToFit()
+                            .frame(maxWidth: .infinity)
+                            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                            .accessibilityLabel(Text(PFWeekPlan.chartCaption(key)))
+                    } else if store.chartsLoading {
+                        ProgressView().frame(maxWidth: .infinity, minHeight: 80)
+                    } else {
+                        Text("This chart is not available right now.")
+                            .font(StrandFont.caption)
+                            .foregroundStyle(StrandPalette.textTertiary)
+                    }
+                }
+            }
+        }
+    }
+}
+
 private struct PFProposalView: View {
     let proposal: PFPendingProposal
     let onAsk: (String) -> Void
+    /// False inside a plan day, which already says the day.
+    var showsDay = true
 
     @ObservedObject private var store = PFWeekPlanStore.shared
 
@@ -216,7 +465,7 @@ private struct PFProposalView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            if let day = proposal.dayLabel {
+            if showsDay, let day = proposal.dayLabel {
                 Text(day)
                     .font(StrandFont.caption.weight(.semibold))
                     .foregroundStyle(StrandPalette.textTertiary)

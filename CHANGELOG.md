@@ -17,6 +17,10 @@ approximate; downloads are on the [Releases](https://github.com/NoopApp/noop/rel
 
 ---
 
+## 12.0.12 build 513 (PaceForge iPhone build): the week report is a designed report, not one long text
+
+- **The Coach week card follows the server's sections.** A header (period, "Your week, and the plan for next week", the headline), then each section as a collapsible block with its one-line intro, open where the coach marks it open: the week in short (tiles for sessions, training time, running km, strap recovery, red nights, sleep and HRV, then what held you back and a highlighted "One thing not to do"), next week day by day (each day opens and closes; the coach's proposals with Accept, Reject and Ask sit inside the day they change, the rest under "Other changes the coach proposes"), the fitness, fatigue and form and eight-week progression charts, and the remaining sections with tables that scroll sideways. A server without sections shows the whole report as before.
+
 ## 12.0.12 build 512 (PaceForge iPhone build): the coach explains the week and each proposed change
 
 - **Week report and next week's plan** leads the Coach screen, open: the period, the headline, then "The coach wants to change N things" with every proposal's day, title, the coach's reasoning and its changes in plain words, each with Accept, Reject and Ask the coach about this (it fills the chat box with your question and scrolls to it). The full week report follows, tables scrolling sideways instead of overflowing. This replaces the collapsed "Read the full week" card.
