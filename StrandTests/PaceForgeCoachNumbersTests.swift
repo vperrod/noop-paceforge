@@ -332,9 +332,27 @@ final class PaceForgeCoachNumbersTests: XCTestCase {
         XCTAssertNil(PFDeviceReadinessParse.readiness(Data("[1, 2]".utf8)))
     }
 
-    func testStatusWordsMapToTones() {
-        XCTAssertEqual(["normal", "high", "very low", "red", "yellow", "broken", ""].map { PFStatusTone.of($0) },
-                       [.good, .caution, .bad, .bad, .caution, .unknown, .unknown])
+    func testScoreBandsMapToTones() {
+        XCTAssertEqual(["green", "yellow", "red", "amber", nil].map { PFStatusTone.ofBand($0) }, [.good, .caution, .bad, .caution, .unknown])
+    }
+
+    func testStatusWordsAreNotBands() {
+        XCTAssertEqual(["high", "low", "above", "normal"].map { PFStatusTone.ofBand($0) }, [.unknown, .unknown, .unknown, .unknown])
+    }
+
+    func testLiveShapeMetricColourFollowsTheServersFlag() throws {
+        let metrics = try XCTUnwrap(try liveReadiness().garmin?.metrics)
+        XCTAssertEqual(metrics.prefix(2).map(\.tone), [.caution, .good])
+    }
+
+    func testHighStatusWithoutAFlagIsNeitherGoodNorBad() {
+        let json = Data(#"{"devices": {"garmin": {"metrics": {"rhr": {"available": true, "value": 52, "status": "high"}}}}}"#.utf8)
+        XCTAssertEqual(PFDeviceReadinessParse.readiness(json)?.garmin?.metrics.first?.tone, .unknown)
+    }
+
+    func testFlaggedMetricIsACaution() {
+        let json = Data(#"{"devices": {"garmin": {"metrics": {"rhr": {"available": true, "value": 52, "status": "normal", "flagged": true}}}}}"#.utf8)
+        XCTAssertEqual(PFDeviceReadinessParse.readiness(json)?.garmin?.metrics.first?.tone, .caution)
     }
 
     // MARK: live shapes: numbers and season

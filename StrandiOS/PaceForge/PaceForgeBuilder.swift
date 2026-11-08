@@ -181,7 +181,7 @@ enum PFBuilder {
                                today: today)
         )
         snapshot.athleteFitness = PFAthleteParse.fitness(raw.fitness)
-        snapshot.athleteDocs = PFAthleteParse.documents(profile: raw.profile, analytics: raw.analytics, benchmarks: raw.benchmarks)
+        snapshot.athleteDocs = PFAthleteParse.documents(profile: raw.profile, benchmarks: raw.benchmarks)
         snapshot.body = body(raw.body)
         snapshot.bodyProgress = bodyProgress(raw.bodyProgress)
         snapshot.alerts = alerts(raw.alerts)
@@ -343,7 +343,7 @@ enum PFBuilder {
             addStandaloneNOOPActivities(raw.workoutMatches, to: &snapshot.activities)
         }
         if stale(.athleteDocs) {
-            snapshot.athleteDocs = PFAthleteParse.documents(profile: raw.profile, analytics: raw.analytics, benchmarks: raw.benchmarks)
+            snapshot.athleteDocs = PFAthleteParse.documents(profile: raw.profile, benchmarks: raw.benchmarks)
         }
         if stale(.analyses) {
             snapshot.analyses = [:]

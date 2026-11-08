@@ -1,7 +1,7 @@
 import Foundation
 
 // The Athlete tab's second layer: what Garmin's profile holds (profile.json), what PaceForge's engine works out from it
-// (analytics.json) and the benchmarks the athlete has filed (benchmarks.json). Foundation only, like PaceForgeAthlete.swift.
+// and the benchmarks the athlete has filed (benchmarks.json). Foundation only, like PaceForgeAthlete.swift.
 //
 // Three documents the server already serves to the app's bearer and the app did not read until build 501. Each one is optional: a
 // document the server does not have, or a field it does not hold, reads as missing and the tab shows a dash for it.
@@ -51,6 +51,8 @@ struct PFAthleteDetailRow: Identifiable, Equatable {
 struct PFAthleteProfile: Equatable {
     var date: String?
     var vo2Max: Double?
+    /// When Garmin measured it (`vo2_max_date`); nil when the document does not say, and then no date is shown. `date` is the sync day, not this.
+    var vo2MaxDate: String?
     var restingHr: Double?
     /// `max_hr`: the highest peak Garmin saw in recent activities. The server says it is not a setting.
     var maxHrSeen: Double?
@@ -72,25 +74,16 @@ struct PFAthleteProfile: Equatable {
     var personalRecords: [PFAthleteRecord] = []
 }
 
-/// `analytics.json`: PaceForge's own race forecast (VDOT) with the confidence of each distance.
-struct PFAthleteAnalytics: Equatable {
-    var vdot: Double?
-    var predictions: [PFAthletePrediction] = []
-}
-
 /// The three documents together; nil from the parser when none of them exists.
 struct PFAthleteDocs: Equatable {
     var profile: PFAthleteProfile?
-    var analytics: PFAthleteAnalytics?
     var benchmarks: [PFAthleteRecord] = []
 }
 
-/// What the race-predictions card and its page show.
+/// What the race-predictions card and its page show: Garmin's forecast and its date.
 struct PFAthletePredictions: Equatable {
     var garmin: [PFAthletePrediction] = []
     var garminDate: String?
-    var model: [PFAthletePrediction] = []
-    var vdot: Double?
 }
 
 /// What the heart-rate-zones card and its page show.
@@ -108,18 +101,17 @@ struct PFAthleteZones: Equatable {
 // MARK: - Parsing
 
 extension PFAthleteParse {
-    /// The profile, analytics and benchmarks documents as one value; nil when none of the three exists.
-    static func documents(profile: PFJ, analytics: PFJ, benchmarks: PFJ) -> PFAthleteDocs? {
-        guard profile.exists || analytics.exists || benchmarks.exists else { return nil }
-        return PFAthleteDocs(profile: profile.exists ? self.profile(profile) : nil,
-                             analytics: analytics.exists ? self.analytics(analytics) : nil,
-                             benchmarks: self.benchmarks(benchmarks))
+    /// The profile and benchmarks documents as one value; nil when neither exists.
+    static func documents(profile: PFJ, benchmarks: PFJ) -> PFAthleteDocs? {
+        guard profile.exists || benchmarks.exists else { return nil }
+        return PFAthleteDocs(profile: profile.exists ? self.profile(profile) : nil, benchmarks: self.benchmarks(benchmarks))
     }
 
     static func profile(_ p: PFJ) -> PFAthleteProfile {
         var out = PFAthleteProfile()
         out.date = day(p["profile_date"])
         out.vo2Max = positive(p["vo2_max"])
+        out.vo2MaxDate = day(p["vo2_max_date"])
         out.restingHr = positive(p["resting_hr"])
         out.maxHrSeen = positive(p["max_hr"])
         out.ltHr = positive(p["lactate_threshold_hr"])
@@ -159,17 +151,6 @@ extension PFAthleteParse {
             let label = key?.label ?? PFFormat.capitalized(PFFormat.words(distance.lowercased()))
             return PFAthleteRecord(id: "pr-\(key?.id ?? distance)", label: label, text: PFFormat.clock(seconds),
                                    date: day(row["record_date"]), source: "Garmin personal record")
-        }
-        return out
-    }
-
-    static func analytics(_ a: PFJ) -> PFAthleteAnalytics {
-        var out = PFAthleteAnalytics()
-        let race = a["race_predictions"]
-        out.vdot = positive(race["vdot"]) ?? positive(a["snapshot"]["vdot"])
-        out.predictions = race["predictions"].array.compactMap { row in
-            prediction(distance: row["distance"].text, seconds: row["predicted_seconds"].double,
-                       pace: row["pace_sec_per_km"].double, confidence: row["confidence"].text)
         }
         return out
     }

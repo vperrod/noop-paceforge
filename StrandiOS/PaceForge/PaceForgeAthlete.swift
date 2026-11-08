@@ -5,7 +5,7 @@ import Foundation
 //
 // Everything is made from documents the app already fetches: standing.json, fitness.json, body.json, body-progress.json and
 // hyrox_analysis.json, through the snapshot, plus the few fitness.json fields the snapshot did not keep (`PFAthleteFitness`).
-// profile.json, analytics.json and benchmarks.json (build 501) are parsed in PaceForgeAthleteProfile.swift and arrive as `athleteDocs`.
+// profile.json and benchmarks.json (build 501) are parsed in PaceForgeAthleteProfile.swift and arrive as `athleteDocs`.
 // Nothing here asks the athlete for anything: a value that is missing reads as a dash.
 
 // MARK: - Model
@@ -321,7 +321,7 @@ enum PFAthleteBuild {
         }
 
         out.runTimes = runTimes(standing, fit)
-        out.predictions = predictions(profile, docs?.analytics)
+        out.predictions = predictions(profile)
         out.zones = zones(profile)
         out.records = (profile?.personalRecords ?? []) + (docs?.benchmarks ?? [])
         out.hyroxCard = s.insights.hyroxFinish
@@ -403,7 +403,7 @@ enum PFAthleteBuild {
                                        valueText: PFFormat.trimmed(value), source: "Garmin", what: Copy.vo2max)
             tile.decimals = 1
             tile.standingId = metric.id
-            tile.asOf = profile?.date
+            tile.asOf = profile?.vo2MaxDate
             tile.change = PFAthleteMath.change(from: metric.trend)
             return tile
         }
@@ -412,7 +412,7 @@ enum PFAthleteBuild {
         var tile = PFAthleteMetric(id: "vo2max", label: "VO2max", unit: "ml/kg/min", value: value, valueText: PFFormat.trimmed(value),
                                    source: "Garmin", what: Copy.vo2max)
         tile.decimals = 1
-        tile.asOf = profile?.date
+        tile.asOf = profile?.vo2MaxDate
         return tile
     }
 
@@ -459,7 +459,7 @@ enum PFAthleteBuild {
         var rows: [PFAthleteDetailRow] = []
         if let vo2 = profile?.vo2Max {
             rows.append(PFAthleteDetailRow(label: "VO2max, Garmin", text: PFFormat.oneDecimal(vo2) + " ml/kg/min",
-                                           note: note("Garmin watch", "as of", profile?.date, needsDate: true)))
+                                           note: note("Garmin watch", "as of", profile?.vo2MaxDate)))
         }
         if let pace = profile?.ltPaceSecPerKm {
             rows.append(PFAthleteDetailRow(label: "Lactate threshold pace", text: PFFormat.pace(pace) + " /km",
@@ -592,13 +592,11 @@ enum PFAthleteBuild {
         list.sorted { (distanceOrder.firstIndex(of: $0.id) ?? 9) < (distanceOrder.firstIndex(of: $1.id) ?? 9) }
     }
 
-    /// Garmin's forecast and PaceForge's own (VDOT) side by side, never averaged. No history of either is held in a document the app
-    /// reads, so the card names the date of the forecast and draws no change.
-    private static func predictions(_ profile: PFAthleteProfile?, _ analytics: PFAthleteAnalytics?) -> PFAthletePredictions? {
+    /// Garmin's forecast. No history of it is held in a document the app reads, so the card names the date of the forecast and draws no change.
+    private static func predictions(_ profile: PFAthleteProfile?) -> PFAthletePredictions? {
         let garmin = inRaceOrder(profile?.racePredictions ?? [])
-        let model = inRaceOrder(analytics?.predictions ?? [])
-        guard !garmin.isEmpty || !model.isEmpty else { return nil }
-        return PFAthletePredictions(garmin: garmin, garminDate: profile?.racePredictionsDate, model: model, vdot: analytics?.vdot)
+        guard !garmin.isEmpty else { return nil }
+        return PFAthletePredictions(garmin: garmin, garminDate: profile?.racePredictionsDate)
     }
 
     private static func zones(_ profile: PFAthleteProfile?) -> PFAthleteZones? {

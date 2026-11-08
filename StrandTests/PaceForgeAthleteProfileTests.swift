@@ -25,11 +25,11 @@ final class PaceForgeAthleteProfileTests: XCTestCase {
 
     private func profile() -> PFAthleteProfile { PFAthleteParse.profile(json(profileText)) }
 
-    private func snapshot(with profile: PFAthleteProfile?, analytics: PFAthleteAnalytics? = nil,
+    private func snapshot(with profile: PFAthleteProfile?,
                           benchmarks: [PFAthleteRecord] = []) -> PFSnapshot {
         var snap = snapshot()
         snap.todayISO = "2030-01-29"
-        snap.athleteDocs = PFAthleteDocs(profile: profile, analytics: analytics, benchmarks: benchmarks)
+        snap.athleteDocs = PFAthleteDocs(profile: profile, benchmarks: benchmarks)
         return snap
     }
 
@@ -129,21 +129,7 @@ final class PaceForgeAthleteProfileTests: XCTestCase {
         XCTAssertEqual([p.vo2Max, p.enduranceScore].compactMap { $0 }, [])
     }
 
-    // MARK: analytics.json and benchmarks.json
-
-    func testAnalyticsKeepsTheConfidenceOfEachDistance() {
-        let a = PFAthleteParse.analytics(json("""
-        {"race_predictions": {"vdot": 52.0, "predictions": [
-          {"distance": "1km", "predicted_seconds": 190, "pace_sec_per_km": 190, "confidence": "Moderate"},
-          {"distance": "Half Marathon", "predicted_seconds": 5800, "pace_sec_per_km": 275, "confidence": "High"}]}}
-        """))
-        XCTAssertEqual(a.predictions.map { "\($0.label) \($0.confidence ?? "-")" }, ["Half High"])
-    }
-
-    func testTheVdotComesFromTheRacePredictionsBlockFirst() {
-        let a = PFAthleteParse.analytics(json("{\"race_predictions\": {\"vdot\": 52.0}, \"snapshot\": {\"vdot\": 50.0}}"))
-        XCTAssertEqual(a.vdot, 52)
-    }
+    // MARK: benchmarks.json
 
     func testBenchmarksLeaveOutBodyweightAndFtpWhichHaveTilesOfTheirOwn() {
         let rows = PFAthleteParse.benchmarks(json("""
@@ -168,12 +154,12 @@ final class PaceForgeAthleteProfileTests: XCTestCase {
         XCTAssertEqual(rows.first.map { "\($0.source) \($0.date ?? "no date")" }, "entered by you no date")
     }
 
-    func testNoneOfTheThreeDocumentsGivesNothing() {
-        XCTAssertNil(PFAthleteParse.documents(profile: PFJ(nil), analytics: PFJ(nil), benchmarks: PFJ(nil)))
+    func testNeitherDocumentGivesNothing() {
+        XCTAssertNil(PFAthleteParse.documents(profile: PFJ(nil), benchmarks: PFJ(nil)))
     }
 
     func testAProfileAloneIsEnough() {
-        XCTAssertNotNil(PFAthleteParse.documents(profile: json(profileText), analytics: PFJ(nil), benchmarks: PFJ(nil))?.profile)
+        XCTAssertNotNil(PFAthleteParse.documents(profile: json(profileText), benchmarks: PFJ(nil))?.profile)
     }
 
     // MARK: Tiles
@@ -228,9 +214,18 @@ final class PaceForgeAthleteProfileTests: XCTestCase {
         XCTAssertNil(PFAthleteBuild.make(snapshot(with: profile())).tile("training_status")?.value)
     }
 
-    func testWithNoStandingDocumentTheVo2maxTileComesFromTheGarminProfile() {
+    func testWithNoStandingDocumentTheVo2maxTileComesFromTheGarminProfileWithNoDateOfItsOwn() {
         let tile = PFAthleteBuild.make(snapshot(with: profile())).tile("vo2max")
-        XCTAssertEqual([tile?.valueText, tile?.datedText], ["52.4", "as of 29 Jan"])
+        XCTAssertEqual([tile?.valueText, tile?.datedText], ["52.4", nil])
+    }
+
+    func testTheVo2maxTileCarriesGarminsMeasurementDateWhenTheProfileHasOne() {
+        let dated = PFAthleteParse.profile(json(#"{"profile_date": "2030-01-29T07:00:00", "vo2_max": 52.4, "vo2_max_date": "2030-01-20"}"#))
+        XCTAssertEqual(PFAthleteBuild.make(snapshot(with: dated)).tile("vo2max")?.datedText, "as of 20 Jan")
+    }
+
+    func testTheSyncDayIsNeverTakenForTheVo2maxDate() {
+        XCTAssertNil(profile().vo2MaxDate)
     }
 
     func testTheVo2maxAndThresholdPagesShowOnlyGarminFigures() {
@@ -302,13 +297,6 @@ final class PaceForgeAthleteProfileTests: XCTestCase {
 
     func testThePredictionsCarryTheDateOfTheForecast() {
         XCTAssertEqual(PFAthleteBuild.make(snapshot(with: profile())).predictions?.garminDate, "2030-01-29")
-    }
-
-    func testPaceForgesOwnForecastStaysSeparateFromGarmins() {
-        let analytics = PFAthleteAnalytics(vdot: 52, predictions: [
-            PFAthletePrediction(id: "5k", label: "5K", seconds: 1190, paceSecPerKm: 238, confidence: "High")])
-        let predictions = PFAthleteBuild.make(snapshot(with: profile(), analytics: analytics)).predictions
-        XCTAssertEqual([predictions?.garmin.count, predictions?.model.count], [4, 1])
     }
 
     func testThereIsNoPredictionsCardWithoutAForecast() {

@@ -132,18 +132,15 @@ enum PFCoachNumbers {
 enum PFStatusTone: Int, Equatable {
     case unknown, good, caution, bad
 
-    /// A status or band word as the colour it should draw in. The server's vocabulary is open, so an unknown word stays neutral.
-    static func of(_ status: String?) -> PFStatusTone {
-        guard let s = status?.lowercased(), !s.isEmpty else { return .unknown }
-        let tokens = Set(s.split { !$0.isLetter }.map(String.init))
-        func has(_ words: [String]) -> Bool { words.contains { tokens.contains($0) } }
-        if s.contains("very low") || has(["red", "poor", "bad", "critical", "compromised", "depleted", "strained"]) { return .bad }
-        if has(["yellow", "amber", "orange", "caution", "warn", "warning", "fair", "moderate", "low", "high", "elevated", "suppressed",
-                "below", "above", "reduced", "watch"]) { return .caution }
-        if has(["green", "good", "ok", "normal", "optimal", "ready", "recovered", "stable", "balanced", "within", "steady", "strong"]) {
-            return .good
+    /// A score band the server names by colour. Anything else stays neutral: a word like "high" or "low" says nothing about whether the
+    /// reading is bad, which is why a metric's colour comes from the server's `flagged` flag instead.
+    static func ofBand(_ band: String?) -> PFStatusTone {
+        switch band?.lowercased() {
+        case "red"?: return .bad
+        case "yellow"?, "amber"?, "orange"?: return .caution
+        case "green"?: return .good
+        default: return .unknown
         }
-        return .unknown
     }
 }
 
@@ -159,7 +156,17 @@ struct PFDeviceMetric: Equatable, Identifiable {
     /// Deep and REM sleep: shown, never fed to the decision.
     var isNotUsedForDecisions = false
 
-    var tone: PFStatusTone { PFStatusTone.of(status) }
+    /// The server's own flag that this reading is off against the athlete's norm (`flagged`); nil when it did not say.
+    var flagged: Bool? = nil
+
+    /// Colour from the server's flag, never from the status word.
+    var tone: PFStatusTone {
+        switch flagged {
+        case true?: return .caution
+        case false?: return .good
+        case nil: return .unknown
+        }
+    }
 
     static let notUsedNote = "not used for decisions"
 }
@@ -170,7 +177,7 @@ struct PFDeviceScore: Equatable {
     let value: String
     let band: String?
 
-    var tone: PFStatusTone { PFStatusTone.of(band) }
+    var tone: PFStatusTone { PFStatusTone.ofBand(band) }
 }
 
 struct PFDeviceLoad: Equatable {
@@ -329,7 +336,7 @@ enum PFDeviceReadinessParse {
         }
         guard let value = scalarText(entry["value"]) else { return nil }
         return PFDeviceMetric(id: id, name: name, value: value, unit: entry["unit"].text, status: entry["status"].text,
-                              baseline: scalarText(entry["baseline"]))
+                              baseline: scalarText(entry["baseline"]), flagged: entry["flagged"].bool)
     }
 
     /// "deep_sleep" reads "Deep sleep"; the usual abbreviations keep their capitals.

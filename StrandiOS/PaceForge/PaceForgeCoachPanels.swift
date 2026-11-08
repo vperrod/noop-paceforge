@@ -286,7 +286,7 @@ struct PFSeasonPlanCard: View {
                 VStack(alignment: .leading, spacing: 12) {
                     if let current = plan.current(today: today) { currentBlock(current) }
                     let timeline = PFSeasonParse.timeline(plan, today: today)
-                    ForEach(showsAll ? timeline : Array(timeline.prefix(Self.firstRows))) { item in row(item) }
+                    ForEach(Array((showsAll ? timeline : Array(timeline.prefix(Self.firstRows))).enumerated()), id: \.offset) { _, item in row(item) }
                     if !showsAll, timeline.count > Self.firstRows {
                         Button("Show all \(timeline.count)") { showsAll = true }
                             .font(StrandFont.caption.weight(.semibold))

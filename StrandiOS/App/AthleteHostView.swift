@@ -789,12 +789,11 @@ private struct AthletePredictionsCard: View {
     let predictions: PFAthletePredictions
     let onTap: () -> Void
 
-    private var shown: [PFAthletePrediction] { predictions.garmin.isEmpty ? predictions.model : predictions.garmin }
+    private var shown: [PFAthletePrediction] { predictions.garmin }
 
     private var caption: String {
-        if predictions.garmin.isEmpty { return "PaceForge's own forecast, from your runs" }
-        guard let date = predictions.garminDate else { return "Garmin's forecast" }
-        return "Garmin's forecast \u{00B7} as of " + PFFormat.shortDate(date)
+        guard let date = predictions.garminDate else { return "Garmin" }
+        return "Garmin \u{00B7} as of " + PFFormat.shortDate(date)
     }
 
     var body: some View {
@@ -915,20 +914,13 @@ private struct AthletePredictionsSheet: View {
         item.paceSecPerKm.map { PFFormat.pace($0) + " /km" }
     }
 
-    /// Pace and confidence on one line; nil (no caption drawn) when the forecast has neither.
-    private func modelNote(_ item: PFAthletePrediction) -> String? {
-        let parts = [paceNote(item), item.confidence.map { "confidence " + $0.lowercased() }].compactMap { $0 }
-        return parts.isEmpty ? nil : parts.joined(separator: " \u{00B7} ")
-    }
-
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
                     if !predictions.garmin.isEmpty { garminCard }
-                    if !predictions.model.isEmpty { modelCard }
                     PFCard("What it is", icon: "questionmark.circle") {
-                        PFParagraph("An estimate of the finish time your current fitness points to. Garmin's comes from the watch; PaceForge's is its own model, worked out from your runs. They are shown apart and never averaged, and neither is a promise. PaceForge holds only the latest forecast of each, so no change over time is shown.")
+                        PFParagraph("An estimate of the finish time your current fitness points to, as Garmin's watch forecasts it. It is not a promise. Only the latest forecast is held, so no change over time is shown.")
                     }
                 }
                 .padding(.horizontal, 16)
@@ -955,16 +947,6 @@ private struct AthletePredictionsSheet: View {
                 ForEach(predictions.garmin) { item in AthleteFigureRow(label: item.label, value: item.text, note: paceNote(item)) }
                 if let date = predictions.garminDate {
                     Text("As of " + PFFormat.shortDate(date)).font(StrandFont.caption).foregroundStyle(StrandPalette.textTertiary)
-                }
-            }
-        }
-    }
-
-    private var modelCard: some View {
-        PFCard("PaceForge forecast", icon: "function") {
-            VStack(alignment: .leading, spacing: 12) {
-                ForEach(predictions.model) { item in
-                    AthleteFigureRow(label: item.label, value: item.text, note: modelNote(item))
                 }
             }
         }

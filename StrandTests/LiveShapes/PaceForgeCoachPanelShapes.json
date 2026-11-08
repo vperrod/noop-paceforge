@@ -430,7 +430,7 @@
    "hr_traces": [
     {
      "date": "2030-03-12",
-     "activity_id": 24993812604,
+     "activity_id": 1000000001,
      "name": "Synthetic name 8",
      "garmin": {
       "reliable": true,
@@ -447,7 +447,7 @@
     },
     {
      "date": "2030-03-11",
-     "activity_id": 24984794477,
+     "activity_id": 1000000002,
      "name": "Synthetic name 9",
      "garmin": {
       "reliable": true,
@@ -464,7 +464,7 @@
     },
     {
      "date": "2030-03-10",
-     "activity_id": 24974871154,
+     "activity_id": 1000000003,
      "name": "Synthetic name 8",
      "garmin": {
       "reliable": true,
@@ -481,7 +481,7 @@
     },
     {
      "date": "2030-03-09",
-     "activity_id": 24968180368,
+     "activity_id": 1000000004,
      "name": "Synthetic name 10",
      "garmin": {
       "reliable": true,
@@ -498,7 +498,7 @@
     },
     {
      "date": "2030-03-09",
-     "activity_id": 24960875336,
+     "activity_id": 1000000005,
      "name": "Synthetic name 11",
      "garmin": {
       "reliable": true,
@@ -515,7 +515,7 @@
     },
     {
      "date": "2030-03-08",
-     "activity_id": 24947731209,
+     "activity_id": 1000000006,
      "name": "Synthetic name 12",
      "garmin": {
       "reliable": true,
@@ -532,7 +532,7 @@
     },
     {
      "date": "2030-03-07",
-     "activity_id": 24936763704,
+     "activity_id": 1000000007,
      "name": "Synthetic name 13",
      "garmin": {
       "reliable": true,
@@ -549,7 +549,7 @@
     },
     {
      "date": "2030-03-06",
-     "activity_id": 24927183579,
+     "activity_id": 1000000008,
      "name": "Synthetic name 14",
      "garmin": {
       "reliable": true,
@@ -568,7 +568,7 @@
     },
     {
      "date": "2030-03-05",
-     "activity_id": 24913127517,
+     "activity_id": 1000000009,
      "name": "Synthetic name 8",
      "garmin": {
       "reliable": true,
@@ -585,7 +585,7 @@
     },
     {
      "date": "2030-03-04",
-     "activity_id": 24904395402,
+     "activity_id": 1000000010,
      "name": "Synthetic name 9",
      "garmin": {
       "reliable": true,
@@ -602,7 +602,7 @@
     },
     {
      "date": "2030-03-04",
-     "activity_id": 24903934415,
+     "activity_id": 1000000011,
      "name": "Synthetic name 15",
      "garmin": {
       "reliable": true,
@@ -619,7 +619,7 @@
     },
     {
      "date": "2030-03-03",
-     "activity_id": 24890055941,
+     "activity_id": 1000000012,
      "name": "Synthetic name 8",
      "garmin": {
       "reliable": true,
@@ -636,7 +636,7 @@
     },
     {
      "date": "2030-03-02",
-     "activity_id": 24885976161,
+     "activity_id": 1000000013,
      "name": "Synthetic name 10",
      "garmin": {
       "reliable": true,
@@ -653,7 +653,7 @@
     },
     {
      "date": "2030-03-02",
-     "activity_id": 24883208622,
+     "activity_id": 1000000014,
      "name": "Synthetic name 16",
      "garmin": {
       "reliable": true,
@@ -670,7 +670,7 @@
     },
     {
      "date": "2030-03-01",
-     "activity_id": 24869792494,
+     "activity_id": 1000000015,
      "name": "Synthetic name 17",
      "garmin": {
       "reliable": true,
@@ -687,7 +687,7 @@
     },
     {
      "date": "2030-03-01",
-     "activity_id": 24865698664,
+     "activity_id": 1000000016,
      "name": "Synthetic name 12",
      "garmin": {
       "reliable": true,
@@ -704,7 +704,7 @@
     },
     {
      "date": "2030-02-28",
-     "activity_id": 24855473372,
+     "activity_id": 1000000017,
      "name": "Synthetic name 9",
      "garmin": {
       "reliable": true,
@@ -721,7 +721,7 @@
     },
     {
      "date": "2030-02-28",
-     "activity_id": 24855187852,
+     "activity_id": 1000000018,
      "name": "Synthetic name 18",
      "garmin": {
       "reliable": true,
