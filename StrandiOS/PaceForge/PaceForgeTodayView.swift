@@ -90,6 +90,7 @@ struct PFTodayView: View {
             let needs = PFWeekPlan.split(snapshot.needsYou)
             if !needs.others.isEmpty { PFNeedsYouCard(items: needs.others) }
             if !needs.proposals.isEmpty { PFProposalsRow(count: needs.proposals.count, onOpen: { router.openCoach() }) }
+            PFDualReadinessHost()
             PFTodayCustomiseHeader(isArranging: $isArranging, hasLocalOrder: layoutStore.local != nil) {
                 layoutStore.reset()
             }

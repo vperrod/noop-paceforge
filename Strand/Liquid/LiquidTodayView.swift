@@ -439,6 +439,8 @@ struct LiquidTodayView: View {
                         PFTodayLiveAlertsHost()
                     }
                     if order.contains(.hero) { heroCard }
+                    // Garmin and WHOOP side by side with the coach's decision; draws nothing until the server serves it.
+                    if selectedDayOffset == 0 { PFDualReadinessHost() }
                     #endif
                     ForEach(order.prefix(Self.mountedSectionCount(order, stage: mountStage))) { section in
                         switch section {

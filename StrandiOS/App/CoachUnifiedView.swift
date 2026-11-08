@@ -21,6 +21,7 @@ struct CoachUnifiedView: View {
                        onRefresh: {
             await PFUnified.model.refresh()
             await PFWeekPlanStore.shared.refresh()
+            await PFCoachPanelsStore.shared.refresh()
         }, lazy: true, topBackground: liquidScaffoldSky(), trailing: {
             Button {
                 showBriefSettings = true
@@ -38,6 +39,10 @@ struct CoachUnifiedView: View {
             // The week report leads: what the coach wants to change and why, then the race plans of the next two weeks.
             PFWeekPlanCard(onAsk: askCoach)
             PFRacePackCards()
+            // What the server decided from the two devices, the plan for the season and the figures behind both, in that order.
+            PFDualReadinessPanel()
+            PFSeasonPlanCard()
+            PFNumbersCard()
             PFPageNote(key: "today", alwaysOpen: true)
             PFPageNote(key: "coach", alwaysOpen: true)
             CoachPaceForgeChip(part: .brief)
@@ -56,6 +61,7 @@ struct CoachUnifiedView: View {
             await PFScoresStore.shared.refreshIfStale()
             await PFCoachLogStore.shared.refreshIfStale()
             await PFWeekPlanStore.shared.refreshIfStale()
+            await PFCoachPanelsStore.shared.refreshIfStale()
         }
         .sheet(isPresented: $showBriefSettings) {
             CoachSettingsView(sharedBrainMode: true)

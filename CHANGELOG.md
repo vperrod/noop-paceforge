@@ -17,6 +17,12 @@ approximate; downloads are on the [Releases](https://github.com/NoopApp/noop/rel
 
 ---
 
+## 12.0.12 build 514 (PaceForge iPhone build): Your numbers, the two-device readiness panel and the season plan
+
+- **Your numbers (Coach).** Garmin VO2max, lactate threshold pace and heart rate, race predictions and training status, each with its date and the label "Garmin"; max heart rate is labelled "your setting"; each pace band shows its source. The "VDOT" line is gone from the Athlete tab's forecast card.
+- **Readiness panel (Today and Coach).** Garmin and WHOOP side by side, each with its own values, units, baselines and status, then the coach's decision as one plain sentence with its rule and a mark for whether the two devices agree or split. Deep and REM sleep say "not used for decisions". No combined number is shown.
+- **Season plan (Coach).** The races and training blocks still to come in date order, the current block with its aim, the week rules, and "Assumed priority – set it in the app" on a race whose priority the coach guessed. The three panels read `api/athlete-numbers`, `api/readiness-decision` and `api/season-plan`, and draw nothing until the server serves them.
+
 ## 12.0.12 build 513 (PaceForge iPhone build): the week report is a designed report, not one long text
 
 - **The Coach week card follows the server's sections.** A header (period, "Your week, and the plan for next week", the headline), then each section as a collapsible block with its one-line intro, open where the coach marks it open: the week in short (tiles for sessions, training time, running km, strap recovery, red nights, sleep and HRV, then what held you back and a highlighted "One thing not to do"), next week day by day (each day opens and closes; the coach's proposals with Accept, Reject and Ask sit inside the day they change, the rest under "Other changes the coach proposes"), the fitness, fatigue and form and eight-week progression charts, and the remaining sections with tables that scroll sideways. A server without sections shows the whole report as before.

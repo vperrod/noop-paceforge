@@ -1028,9 +1028,6 @@ private struct AthletePredictionsSheet: View {
     private var modelCard: some View {
         PFCard("PaceForge forecast", icon: "function") {
             VStack(alignment: .leading, spacing: 12) {
-                if let vdot = predictions.vdot {
-                    Text("VDOT " + PFFormat.oneDecimal(vdot)).font(StrandFont.caption).foregroundStyle(StrandPalette.textSecondary)
-                }
                 ForEach(predictions.model) { item in
                     AthleteFigureRow(label: item.label, value: item.text, note: modelNote(item))
                 }
