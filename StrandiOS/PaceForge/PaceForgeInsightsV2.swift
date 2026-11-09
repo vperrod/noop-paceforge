@@ -296,6 +296,8 @@ struct PFRaceMetric: Equatable {
     var phases: [PFRacePhase] = []
     var raceWeekStarts: String?
     var finish: PFFinishRange?
+    /// The server sent a predicted HYROX finish; the app drops it and shows his own times on the HYROX screen instead.
+    var hidesFinish = false
     var garminPredictions: [PFGarminPrediction] = []
     var garminPredictionsDate: String?
     var form: [PFFormPoint] = []
@@ -815,7 +817,9 @@ enum PFInsightsV2Parse {
         guard out.available else { out.actions = []; return out }
         switch id {
         case PFInsightID.powerCurve: out.power = power(metric)
-        case PFInsightID.raceCountdown: out.race = race(metric)
+        case PFInsightID.raceCountdown:
+            out.race = race(metric)
+            if let race = out.race, race.hidesFinish { withoutHyroxPrediction(&out, race: race) }
         case PFInsightID.weightGoal: out.weight = weight(metric)
         case PFInsightID.efficiency: out.efficiency = efficiency(metric)
         case PFInsightID.sleep: out.sleep = sleep(metric)
@@ -823,6 +827,20 @@ enum PFInsightsV2Parse {
         default: break
         }
         return out
+    }
+
+    /// The HYROX race's rating, sentence and data note are written from the predicted finish: they give way to the days to go and the
+    /// taper line, which come from the calendar and the load, not from a predicted time.
+    private static func withoutHyroxPrediction(_ item: inout PFInsightItem, race: PFRaceMetric) {
+        item.status = PFInsightStatus()
+        var sentences: [String] = []
+        if let name = race.name, let days = race.daysTo, days >= 0 {
+            let when = days == 0 ? "today" : "in \(days) day" + (days == 1 ? "" : "s")
+            sentences.append("\(name) is \(when).")
+        }
+        if let reason = race.taper?.reason { sentences.append(reason) }
+        item.meaning = sentences.isEmpty ? nil : sentences.joined(separator: " ")
+        item.dataNote = "The projection counts only sessions already on the calendar; sessions added later move the curve."
     }
 
     static func status(_ s: PFJ) -> PFInsightStatus {
@@ -908,6 +926,11 @@ enum PFInsightsV2Parse {
         }
         out.raceWeekStarts = m["race_week_starts"].text
         out.finish = finish(m["finish"])
+        // HYROX has no predicted finish time on the phone: the server still sends one, the app never keeps it.
+        if out.finish?.discipline == "hyrox" {
+            out.finish = nil
+            out.hidesFinish = true
+        }
         out.garminPredictions = m["garmin_predictions"].array.compactMap { p in
             guard let distance = p["distance"].text else { return nil }
             return PFGarminPrediction(distance: distance, display: p["display"].text)

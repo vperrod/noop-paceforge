@@ -124,7 +124,7 @@ final class PFWeekPlanStore: ObservableObject {
             let doc = await PFAPI.fetchDoc("data/race-packs/\(date).md")
             guard let data = doc.data, let text = String(data: data, encoding: .utf8),
                   !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { continue }
-            out.append(PFRacePack(date: date, name: event.name, markdown: text))
+            out.append(PFRacePack(date: date, name: event.name, markdown: text, isHyrox: PFHyroxEventKind.isHyrox(name: event.name, type: event.type)))
         }
         return out
     }
@@ -260,7 +260,7 @@ struct PFWeekPlanCard: View {
 
 /// A heading that opens and closes its content: the title, the one-line intro under it and a chevron. `nested` is the smaller
 /// day-level version inside a section.
-private struct PFDisclosure<Content: View>: View {
+struct PFDisclosure<Content: View>: View {
     let title: String
     let intro: String?
     let nested: Bool
@@ -453,7 +453,7 @@ private struct PFChartsBody: View {
     }
 }
 
-private struct PFProposalView: View {
+struct PFProposalView: View {
     let proposal: PFPendingProposal
     let onAsk: (String) -> Void
     /// False inside a plan day, which already says the day.
@@ -555,6 +555,7 @@ private struct PFRacePackCard: View {
                         .frame(minHeight: 32)
                         .accessibilityIdentifier("coach-race-plan-more-\(pack.date)")
                 }
+                if pack.isHyrox { PFOpenHyroxButton() }
             }
         }
         .accessibilityIdentifier("coach-race-plan-\(pack.date)")
@@ -565,7 +566,7 @@ private struct PFRacePackCard: View {
 
 /// The coach's markdown. Tables sit in a sideways scroll view at a width that fits their columns, so a wide table scrolls instead of
 /// running off the card or squeezing its words one letter wide.
-private struct PFWeekMarkdown: View {
+struct PFWeekMarkdown: View {
     let text: String
 
     var body: some View {

@@ -17,6 +17,12 @@ approximate; downloads are on the [Releases](https://github.com/NoopApp/noop/rel
 
 ---
 
+## 12.0.12 build 515 (PaceForge iPhone build): the HYROX screen, and no predicted finish or top 3 on the phone
+
+- **HYROX screen (Plan > HYROX, and Open HYROX on the Coach race plans, the Athlete tab and the race countdown).** Seven sections that load and fail on their own: Next race (a picker for the upcoming HYROX races, the countdown, laps target / not faster than / steady band, stations Realistic / Stretch / Bad day / swing / usually vs best, where the time is, the Garmin 10K cross-check, and the written pack: goal and plans A and B, warm-up, cues, if it goes wrong), Your plan (the saved plan beside Realistic, read-only: edit it on the web app), Results (every race with finish, runs, stations, Roxzone and the timing-artefact flag; tap a race for its 8 laps and 8 stations), Performance (per-station best, median, last, swing and trend, run-lap consistency, where the time is), Training for HYROX (HYROX strength and compromised-run sessions this week and next, and the race simulations), Advisory (the coach's proposals about the races with Accept, Reject and Ask) and Season (races, priority, taper window). It reads `api/hyrox/race-plan` and `api/hyrox/results`; the existing Coach race-plan cards are unchanged.
+- **Removed from the phone.** The predicted HYROX finish and its range (Insights card, Athlete tile and sheet, race countdown detail and its rating), the "stations furthest from the top 3" lists, and the field-average and top-finisher lines in the race simulations. The Insights HYROX card and the Athlete tile now show your own races and where your time is.
+- **Fix.** A PaceForge page path may carry a query (`?event=<date>`); it was dropped before.
+
 ## 12.0.12 build 514 (PaceForge iPhone build): Your numbers, the two-device readiness panel and the season plan
 
 - **Your numbers (Coach).** Garmin VO2max, lactate threshold pace and heart rate, race predictions and training status, each with its date and the label "Garmin"; max heart rate is labelled "your setting"; each pace band shows its source. The "VDOT" line is gone from the Athlete tab's forecast card.

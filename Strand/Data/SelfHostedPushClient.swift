@@ -164,8 +164,10 @@ enum SelfHostedPushClient {
             break
         }
         if !base.hasSuffix("/") { base += "/" }
-        components.path = base + path
-        components.query = nil
+        // A path may carry a query ("api/hyrox/race-plan?event=2026-11-11"): it rides as the URL's query, never inside the path.
+        let parts = path.split(separator: "?", maxSplits: 1, omittingEmptySubsequences: false)
+        components.path = base + String(parts.first ?? "")
+        components.percentEncodedQuery = parts.count > 1 ? String(parts[1]) : nil
         return components.url ?? endpoint
     }
 

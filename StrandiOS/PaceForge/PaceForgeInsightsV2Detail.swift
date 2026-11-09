@@ -292,7 +292,39 @@ struct PFRaceCountdownDetail: View {
         }
     }
 
-    private var finishCard: some View {
+    /// A HYROX race has no predicted finish here: its pacing, stations and where the time is sit on the HYROX screen.
+    @ViewBuilder private var finishCard: some View {
+        if race.hidesFinish {
+            hyroxCard
+        } else {
+            predictedFinishCard
+        }
+    }
+
+    private var hyroxCard: some View {
+        PFCard("HYROX", icon: "flag.checkered") {
+            VStack(alignment: .leading, spacing: 12) {
+                PFParagraph("PaceForge shows no predicted finish time for HYROX. Your pacing for this race, your stations and where your time is are on the HYROX screen.")
+                PFOpenHyroxButton()
+                garminPredictionsBlock
+            }
+        }
+        .containerIdentifier("pf-race-hyrox-card")
+    }
+
+    @ViewBuilder private var garminPredictionsBlock: some View {
+        if !race.garminPredictions.isEmpty {
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Garmin's predictions" + (race.garminPredictionsDate.map { ", \(PFFormat.shortDate($0))" } ?? ""))
+                    .strandOverline()
+                ForEach(race.garminPredictions) { prediction in
+                    PFInsightRow(label: prediction.label, value: prediction.display ?? "\u{2014}")
+                }
+            }
+        }
+    }
+
+    private var predictedFinishCard: some View {
         PFCard("Predicted finish", icon: "stopwatch") {
             VStack(alignment: .leading, spacing: 12) {
                 if let finish = race.finish {
@@ -325,15 +357,7 @@ struct PFRaceCountdownDetail: View {
                                    text: item.status.reason ?? "No finish time can be predicted for this kind of event.",
                                    identifier: "pf-race-no-finish")
                 }
-                if !race.garminPredictions.isEmpty {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("Garmin's predictions" + (race.garminPredictionsDate.map { ", \(PFFormat.shortDate($0))" } ?? ""))
-                            .strandOverline()
-                        ForEach(race.garminPredictions) { prediction in
-                            PFInsightRow(label: prediction.label, value: prediction.display ?? "\u{2014}")
-                        }
-                    }
-                }
+                garminPredictionsBlock
             }
         }
         .containerIdentifier("pf-race-finish-card")

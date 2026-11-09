@@ -114,6 +114,8 @@ struct PFRacePack: Equatable, Identifiable {
     let date: String
     let name: String
     let markdown: String
+    /// The event is a HYROX race: its plan card then has an Open HYROX button.
+    var isHyrox = false
 
     var id: String { date + "|" + name }
 }

@@ -218,6 +218,14 @@ struct PFHyroxSims: Equatable {
         var id: String { station }
     }
 
+    /// The server explains a goal profile or a pacing note against the field ("the field-average profile scaled to the goal", "the 5 % top
+    /// finishers hold"); the phone shows no field or top-finisher comparison, so such a line is left out.
+    static func withoutFieldComparison(_ text: String?) -> String? {
+        guard let text else { return nil }
+        let lower = text.lowercased()
+        return lower.contains("field") || lower.contains("top finisher") || lower.contains("top 3") || lower.contains("percentile") ? nil : text
+    }
+
     var hasData: Bool
     var count = 0
     /// Garmin sessions that look like a race simulation but could not be split into stations.
@@ -687,7 +695,7 @@ enum PFWave3Parse {
         if goal.exists {
             out.goal = PFHyroxSims.Goal(event: goal["event"].text, date: goal["date"].text,
                                         goalSeconds: goal["goal_seconds"].double, goalDisplay: goal["goal_display"].text,
-                                        basis: goal["basis"].text)
+                                        basis: PFHyroxSims.withoutFieldComparison(goal["basis"].text))
         }
         let fresh = analysis["fresh_run"]
         if fresh.exists {
@@ -711,7 +719,7 @@ enum PFWave3Parse {
             }
             l.maxDevPct = latest["max_dev_pct"].double
             l.withinBand = latest["within_band"].bool
-            l.pacingNote = latest["pacing_note"].text
+            l.pacingNote = PFHyroxSims.withoutFieldComparison(latest["pacing_note"].text)
             out.latest = l
         }
         out.segments = analysis["segments"].array.enumerated().compactMap { index, s in

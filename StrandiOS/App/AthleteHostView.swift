@@ -139,7 +139,7 @@ private struct AthleteScreen: View {
                     }
                 }
                 if athlete.hasHyrox {
-                    Button { sheet = .hyrox } label: { AthleteHyroxTile(card: athlete.hyroxCard, hyrox: athlete.hyrox) }
+                    Button { sheet = .hyrox } label: { AthleteHyroxTile(races: athlete.hyroxRaces, best: athlete.hyroxBest) }
                         .buttonStyle(.plain)
                         .accessibilityIdentifier("athlete-hyrox")
                 }
@@ -234,7 +234,7 @@ private struct AthleteScreen: View {
                 PFStandingPlanSheet(plan: plan)
             }
         case .hyrox:
-            AthleteHyroxSheet(card: athlete.hyroxCard, hyrox: athlete.hyrox)
+            PFHyroxSheet()
         case .predictions:
             if let predictions = athlete.predictions {
                 AthletePredictionsSheet(predictions: predictions)
@@ -447,30 +447,27 @@ private struct AthleteRunTimes: View {
 }
 
 private struct AthleteHyroxTile: View {
-    let card: PFHyroxFinishCard?
-    let hyrox: PFHyrox?
-
-    private var predicted: String { card?.finish.central ?? hyrox?.predicted ?? "\u{2014}" }
+    let races: [PFHyroxRaceRow]
+    let best: String?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack {
-                Text("HYROX projection").lookCaps(10.5, weight: .semibold).foregroundStyle(NoopLook.textTertiary)
+                Text("HYROX").lookCaps(10.5, weight: .semibold).foregroundStyle(NoopLook.textTertiary)
                 Spacer(minLength: 8)
                 Image(systemName: "chevron.right")
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(NoopLook.textTertiary)
             }
-            HStack(alignment: .firstTextBaseline, spacing: 6) {
-                Text(predicted).font(LookFont.numeral(24)).foregroundStyle(NoopLook.textPrimary).lineLimit(1)
-                Text("predicted finish").font(LookFont.text(12, weight: .medium)).foregroundStyle(NoopLook.textTertiary)
-            }
-            if let gap = card?.finish.gapText {
-                Text(gap).font(LookFont.text(11, weight: .medium)).foregroundStyle(NoopLook.textSecondary).lineLimit(1)
-            }
-            if let best = card?.personalBest {
-                Text("Best race \(best)").font(LookFont.text(11, weight: .medium)).foregroundStyle(NoopLook.textTertiary).lineLimit(1)
-            }
+            Text(best.map { "Best race \($0)" } ?? "\(races.count) races on file")
+                .font(LookFont.numeral(20))
+                .foregroundStyle(NoopLook.textPrimary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+            Text("Next race, your plan, results and where your time is")
+                .font(LookFont.text(11, weight: .medium))
+                .foregroundStyle(NoopLook.textTertiary)
+                .lineLimit(2)
         }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -1038,101 +1035,6 @@ private struct AthleteZonesSheet: View {
                 if let maxHr = zones.maxHr { AthleteFigureRow(label: "Maximum, as set", value: bpm(maxHr), note: "Garmin zone setting") }
                 if let seen = zones.maxHrSeen { AthleteFigureRow(label: "Highest seen", value: bpm(seen), note: "Garmin, recent activities") }
                 if let resting = zones.restingHr { AthleteFigureRow(label: "Resting", value: bpm(resting), note: "Garmin watch") }
-            }
-        }
-    }
-}
-
-// MARK: - HYROX detail
-
-private struct AthleteHyroxSheet: View {
-    let card: PFHyroxFinishCard?
-    let hyrox: PFHyrox?
-    @Environment(\.dismiss) private var dismiss
-
-    var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
-                    PFRevealBar()
-                    projectionCard
-                    if let card, !card.races.isEmpty { racesCard(card) }
-                    if let stations = hyrox?.stations, !stations.isEmpty { stationsCard(stations) }
-                }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 12)
-            }
-            .background(StrandPalette.surfaceBase.ignoresSafeArea())
-            .navigationTitle("HYROX projection")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("Done") { dismiss() }
-                        .foregroundStyle(StrandPalette.accent)
-                        .accessibilityIdentifier("athlete-hyrox-done")
-                }
-            }
-        }
-        .presentationDetents([.medium, .large])
-        .containerIdentifier("athlete-hyrox-sheet")
-    }
-
-    private var projectionCard: some View {
-        PFCard("Predicted finish", icon: "target") {
-            VStack(alignment: .leading, spacing: 8) {
-                Text(card?.finish.central ?? hyrox?.predicted ?? "\u{2014}")
-                    .font(LookFont.numeral(44))
-                    .foregroundStyle(NoopLook.textPrimary)
-                if let low = card?.finish.low, let high = card?.finish.high {
-                    Text("Range \(low) to \(high)").font(StrandFont.caption).foregroundStyle(StrandPalette.textSecondary)
-                }
-                if let goal = card?.finish.goal {
-                    PFChip(text: "Goal \(goal)" + (card?.finish.gapText.map { " \u{00B7} \($0)" } ?? ""), color: PFColor.warning)
-                }
-                if let method = card?.finish.method {
-                    PFParagraph(method.prefix(1).uppercased() + method.dropFirst() + ".")
-                } else if let basis = hyrox?.basis {
-                    PFParagraph(basis)
-                }
-            }
-        }
-    }
-
-    private func racesCard(_ card: PFHyroxFinishCard) -> some View {
-        PFCard("Your last races", icon: "flag.checkered") {
-            VStack(alignment: .leading, spacing: 10) {
-                ForEach(card.races.reversed()) { race in
-                    HStack(alignment: .firstTextBaseline, spacing: 8) {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(race.label).font(StrandFont.subhead).foregroundStyle(StrandPalette.textPrimary)
-                            Text(race.date).font(StrandFont.caption).foregroundStyle(StrandPalette.textTertiary)
-                        }
-                        Spacer(minLength: 8)
-                        Text(race.display).font(LookFont.numeral(18)).foregroundStyle(NoopLook.textPrimary)
-                        if race.isPersonalBest { PFChip(text: "Best", color: PFColor.positive) }
-                    }
-                }
-            }
-        }
-    }
-
-    private func stationsCard(_ stations: [PFStation]) -> some View {
-        PFCard("Stations furthest from the top 3", icon: "scope") {
-            VStack(alignment: .leading, spacing: 10) {
-                ForEach(stations) { station in
-                    HStack(alignment: .firstTextBaseline, spacing: 8) {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(station.name).font(StrandFont.subhead).foregroundStyle(StrandPalette.textPrimary)
-                            Text("You \(station.athlete) \u{00B7} top 3 average \(station.top3)")
-                                .font(StrandFont.caption)
-                                .foregroundStyle(StrandPalette.textTertiary)
-                        }
-                        Spacer(minLength: 8)
-                        Text(PFNumber.signed(station.gapSec, decimals: 0) + " s")
-                            .font(LookFont.numeral(16))
-                            .foregroundStyle(NoopLook.textSecondary)
-                    }
-                }
             }
         }
     }

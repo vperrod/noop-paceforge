@@ -5,7 +5,7 @@ import StrandDesign
 // MARK: - Plan: the third tab with the unified navigation
 //
 // Chips at the top and ONE chip mounted below them: Plan (This week, My Plan), Calendar (a month grid with the chosen day's sessions under it, built from the PaceForge snapshot),
-// Workouts (the old Training screen, whole), Season (the weeks ahead and behind), Events (races) and HYROX (the prognosis and race simulations). Each chip
+// Workouts (the old Training screen, whole), Season (the weeks ahead and behind), Events (races) and HYROX (the next race, your plan, results, performance, training, advisory and season). Each chip
 // reuses views that exist in the PaceForge tab today; a day tap shows that day's sessions, which open the same results and session
 // sheets as before. NOOP's and PaceForge's numbers are never merged: this tab is PaceForge's plan and results.
 
@@ -48,7 +48,10 @@ struct CalendarHostView: View {
 
     var body: some View {
         ScreenScaffold(title: "Plan", subtitle: "Your plan, calendar, workouts and races.",
-                       onRefresh: { await PFUnified.model.refresh() }, lazy: true, topBackground: liquidScaffoldSky()) {
+                       onRefresh: {
+            await PFUnified.model.refresh()
+            if chip == .hyrox { await PFHyroxStore.shared.refresh() }
+        }, lazy: true, topBackground: liquidScaffoldSky()) {
             CalendarColumn(selection: selection)
         }
     }
@@ -515,22 +518,13 @@ private struct CalendarEventsChip: View {
     }
 }
 
-/// The HYROX prognosis and the race simulations.
+/// The HYROX screen: the next race, your plan, results, performance, training, advisory and season (race simulations sit in Training).
 private struct CalendarHyroxChip: View {
     let snapshot: PFSnapshot
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            if snapshot.insights.hyrox != nil || snapshot.insights.hyroxFinish != nil {
-                PFInsightsView(snapshot: snapshot).prognosisCard
-            } else {
-                PFCard("No HYROX prognosis yet", icon: "target") {
-                    PFParagraph("The predicted finish and the stations that cost you most show here once PaceForge has enough HYROX work.")
-                }
-            }
-            if let sims = snapshot.simulations { PFSimulationsCard(sims: sims) }
-        }
-        .containerIdentifier("calendar-chip-content-hyrox")
+        PFHyroxScreen(snapshot: snapshot)
+            .containerIdentifier("calendar-chip-content-hyrox")
     }
 }
 #endif

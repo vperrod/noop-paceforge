@@ -352,8 +352,8 @@ struct PFInsights {
     var loadSentence: String?
     var races: [PFRace] = []
     var goalPrognosis: PFGoalPrognosis?
-    var hyrox: PFHyrox?
-    var hyroxFinish: PFHyroxFinishCard?
+    /// His own HYROX races, oldest first, with the fastest marked (`hyrox_analysis.json` progression). No predicted time, no top-3 or field figure.
+    var hyroxRaces: [PFHyroxRaceRow] = []
     /// Garmin's Load Focus (`fitness.load.load_focus_panel`), the weekly target-load range (`projection.week_target`) and muscular load
     /// (`fitness.strength.muscular_load`). Each is nil when the server does not serve it or marks it unavailable.
     var loadFocus: PFLoadFocus?
@@ -372,17 +372,6 @@ struct PFRace: Identifiable {
     var id: String { date + name }
 }
 struct PFGoalPrognosis { var prognosisSec: Double; var goalSec: Double; var verdict: String; var sentence: String? }
-struct PFHyrox {
-    var predicted: String
-    var basis: String?
-    var trend: String?
-    var sentence: String?
-    var stations: [PFStation]?
-}
-struct PFStation: Identifiable {
-    var name: String; var athlete: String; var top3: String; var gapSec: Double
-    var id: String { name }
-}
 
 // MARK: Body
 

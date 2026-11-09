@@ -148,8 +148,8 @@ struct PFAthlete {
     var facts: [PFAthleteFact] = []
     var tiles: [PFAthleteMetric] = []
     var runTimes: [PFAthleteRunTime] = []
-    var hyroxCard: PFHyroxFinishCard?
-    var hyrox: PFHyrox?
+    /// His own HYROX races (oldest first); the tile opens the HYROX screen.
+    var hyroxRaces: [PFHyroxRaceRow] = []
     var predictions: PFAthletePredictions?
     var zones: PFAthleteZones?
     var records: [PFAthleteRecord] = []
@@ -161,7 +161,10 @@ struct PFAthlete {
 
     var hasFindings: Bool { !(strengths.isEmpty && weaknesses.isEmpty && areas.isEmpty) }
 
-    var hasHyrox: Bool { hyroxCard != nil || hyrox != nil }
+    var hasHyrox: Bool { !hyroxRaces.isEmpty }
+
+    /// The fastest of the races listed, as the server printed it.
+    var hyroxBest: String? { hyroxRaces.first { $0.isPersonalBest }?.display }
 
     /// Nothing to draw beyond a header of dashes.
     var isEmpty: Bool {
@@ -324,8 +327,7 @@ enum PFAthleteBuild {
         out.predictions = predictions(profile)
         out.zones = zones(profile)
         out.records = (profile?.personalRecords ?? []) + (docs?.benchmarks ?? [])
-        out.hyroxCard = s.insights.hyroxFinish
-        out.hyrox = s.insights.hyrox
+        out.hyroxRaces = s.insights.hyroxRaces
         out.facts = facts(s, tiles: out.tiles, profile: profile, maxHr: maxHr)
         applyGoal(s, to: &out)
 
@@ -648,17 +650,6 @@ enum PFAthleteBuild {
                                         tag: limiter.area.isEmpty ? nil : PFFormat.capitalized(limiter.area),
                                         ruleWhy: limiter.evidence.isEmpty ? nil : limiter.evidence,
                                         coachWhy: coach?.recommendation, standingId: nil, planId: nil, tileId: nil))
-        }
-        // The HYROX stations furthest from the top three fill the rest, up to three rows.
-        for station in (s.insights.hyrox?.stations ?? []) where out.count < 3 {
-            let gap = PFNumber.signed(station.gapSec, decimals: 0) + " s"
-            var evidence = "You \(station.athlete)"
-            if !station.top3.isEmpty { evidence += " \u{00B7} top 3 average \(station.top3)" }
-            evidence += " \u{00B7} \(gap)"
-            out.append(PFAthleteFinding(id: "station-\(station.name)", group: .area, title: station.name, evidence: evidence,
-                                        band: nil, tag: "HYROX",
-                                        ruleWhy: "One of the HYROX stations furthest from the average of the top three finishers, worked out from your race results.",
-                                        coachWhy: nil, standingId: nil, planId: nil, tileId: nil))
         }
         return out
     }

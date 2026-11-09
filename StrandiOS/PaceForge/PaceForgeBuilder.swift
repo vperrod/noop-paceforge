@@ -176,9 +176,7 @@ enum PFBuilder {
             coach: coach(state: state, fitness: raw.fitness),
             weeks: weeks.list,
             currentWeekIndex: weeks.currentIndex,
-            insights: insights(fitness: raw.fitness, projection: raw.projection, hyrox: raw.hyrox,
-                               raceFinish: insightsV2?.item(PFInsightID.raceCountdown)?.race?.finish,
-                               today: today)
+            insights: insights(fitness: raw.fitness, projection: raw.projection, hyrox: raw.hyrox, today: today)
         )
         snapshot.athleteFitness = PFAthleteParse.fitness(raw.fitness)
         snapshot.athleteDocs = PFAthleteParse.documents(profile: raw.profile, benchmarks: raw.benchmarks)
@@ -387,9 +385,7 @@ enum PFBuilder {
             coach: coach(state: state, fitness: raw.fitness),
             weeks: weeks.list,
             currentWeekIndex: weeks.currentIndex,
-            insights: insights(fitness: raw.fitness, projection: raw.projection, hyrox: raw.hyrox,
-                               raceFinish: insightsV2?.item(PFInsightID.raceCountdown)?.race?.finish,
-                               today: today)
+            insights: insights(fitness: raw.fitness, projection: raw.projection, hyrox: raw.hyrox, today: today)
         )
         applyScoreSeries(&snapshot, raw: raw)
         snapshot.athleteFitness = PFAthleteParse.fitness(raw.fitness)
@@ -863,8 +859,7 @@ enum PFBuilder {
 
     // MARK: Insights
 
-    private static func insights(fitness: PFJ, projection: PFJ, hyrox: PFJ, raceFinish: PFFinishRange?,
-                                 today: String) -> PFInsights {
+    private static func insights(fitness: PFJ, projection: PFJ, hyrox: PFJ, today: String) -> PFInsights {
         let pmc = fitness["load"]["ctl_atl_tsb"]
         var out = PFInsights(ctl: pmc["ctl"].double ?? 0, atl: pmc["atl"].double ?? 0, tsb: pmc["tsb"].double ?? 0)
         out.formBand = pmc["friel_band"].string
@@ -896,23 +891,10 @@ enum PFBuilder {
                                                 verdict: running.verdict,
                                                 sentence: projection["sentences"]["running"].text)
         }
-        out.hyroxFinish = PFHyroxPrognosisParse.card(finish: raceFinish, hyrox: hyrox)
+        out.hyroxRaces = PFHyroxPrognosisParse.races(hyrox)
         out.loadFocus = PFBandParse.loadFocus(load: fitness["load"])
         out.weekTarget = PFBandParse.weekTarget(projection: projection)
         out.muscular = PFBandParse.muscularLoad(strength: fitness["strength"])
-        let prediction = hyrox["prediction"]
-        if let predicted = prediction["predicted_display"].string {
-            let stations: [PFStation] = hyrox["priorities"].array
-                .filter { $0["train_priority"].bool == true }
-                .prefix(4)
-                .compactMap { s in
-                    guard let name = s["display"].string else { return nil }
-                    return PFStation(name: name, athlete: s["athlete_display"].string ?? "",
-                                     top3: s["top3_avg_display"].string ?? "", gapSec: s["gap_seconds"].double ?? 0)
-                }
-            out.hyrox = PFHyrox(predicted: predicted, basis: prediction["basis"].text, trend: prediction["trend"].string,
-                                sentence: projection["sentences"]["hyrox"].text, stations: stations)
-        }
         return out
     }
 
