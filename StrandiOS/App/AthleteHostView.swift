@@ -88,6 +88,7 @@ private struct AthleteScreen: View {
     let standing: PFStanding?
     let avatar: Data?
     @State private var sheet: AthleteSheet?
+    @ObservedObject private var hyroxStore = PFHyroxStore.shared
     @Environment(\.pfOpenStanding) private var openStanding
 
     var body: some View {
@@ -106,6 +107,7 @@ private struct AthleteScreen: View {
             }
         }
         .sheet(item: $sheet) { sheetContent($0) }
+        .task { await hyroxStore.refreshIfStale() }
     }
 
     // MARK: Metrics
@@ -161,7 +163,7 @@ private struct AthleteScreen: View {
     @ViewBuilder private var findings: some View {
         group("Strengths", icon: "arrow.up.right.circle", rows: athlete.strengths)
         group("Weaknesses", icon: "arrow.down.right.circle", rows: athlete.weaknesses)
-        group("Areas to work on", icon: "scope", rows: athlete.areas)
+        group("Areas to work on", icon: "scope", rows: athlete.areas + PFAthleteBuild.hyroxAreas(plan: hyroxStore.plan, results: hyroxStore.results))
     }
 
     @ViewBuilder private func group(_ title: String, icon: String, rows: [PFAthleteFinding]) -> some View {

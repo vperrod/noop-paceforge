@@ -654,6 +654,15 @@ enum PFAthleteBuild {
         return out
     }
 
+    /// The HYROX stations furthest from his own best, as "areas to work on" rows, from the documents the HYROX screen loads.
+    static func hyroxAreas(plan: PFHyroxPlan?, results: PFHyroxResults?) -> [PFAthleteFinding] {
+        PFHyroxAreas.rows(plan: plan, results: results).map { area in
+            PFAthleteFinding(id: "station-\(area.key)", group: .area, title: area.name, evidence: area.line, band: nil, tag: "HYROX",
+                             ruleWhy: "One of the HYROX stations where your own best time is furthest under your usual one, worked out from your race results.",
+                             coachWhy: nil, standingId: nil, planId: nil, tileId: nil)
+        }
+    }
+
     // MARK: Words
 
     /// "What it is" for each tile detail: plain, short, and no claim beyond what the number is.

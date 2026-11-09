@@ -23,6 +23,8 @@ final class PFHyroxStore: ObservableObject {
     @Published private(set) var resultsIsSavedCopy = false
     /// The race picked in the picker (its date); nil follows the next one.
     @Published private(set) var selectedEvent: String?
+    /// The last pick in the picker could not be loaded and has no saved copy: the race on screen is still the one before it.
+    @Published private(set) var pickFailed = false
 
     private var lastFetch: Date?
     private var inFlight: Task<Void, Never>?
@@ -53,6 +55,7 @@ final class PFHyroxStore: ObservableObject {
     func select(_ id: String) async {
         guard id != (plan?.event?.id ?? selectedEvent) else { return }
         selectedEvent = id
+        pickFailed = false
         await loadPlan()
     }
 
@@ -68,7 +71,13 @@ final class PFHyroxStore: ObservableObject {
         guard asked == selectedEvent else { return }
         guard let data = doc.data else {
             if doc.failed {
-                if plan == nil { planPhase = .failed } else { planIsSavedCopy = true }
+                if plan == nil {
+                    planPhase = .failed
+                } else {
+                    let outcome = PFHyroxPlanFailure.outcome(asked: asked, shownEvent: plan?.event?.id)
+                    selectedEvent = outcome.selectedEvent
+                    if outcome.pickFailed { pickFailed = true } else { planIsSavedCopy = true }
+                }
             } else if asked != nil {
                 // The picked race is no longer an upcoming HYROX race on file: back to the next one.
                 selectedEvent = nil
@@ -80,11 +89,20 @@ final class PFHyroxStore: ObservableObject {
             return
         }
         guard let parsed = PFHyroxParse.plan(data) else {
-            if plan == nil { planPhase = .failed }
+            if plan == nil {
+                planPhase = .failed
+            } else {
+                let outcome = PFHyroxPlanFailure.outcome(asked: asked, shownEvent: plan?.event?.id)
+                if outcome.pickFailed {
+                    selectedEvent = outcome.selectedEvent
+                    pickFailed = true
+                }
+            }
             return
         }
         if plan != parsed { plan = parsed }
         planIsSavedCopy = doc.failed
+        pickFailed = false
         planPhase = .loaded
     }
 
@@ -371,7 +389,11 @@ private struct PFHyroxNextRaceCard: View {
                     PFInsufficient(title: "No upcoming HYROX race", text: plan.reason ?? "Add one in Events and it shows up here.",
                                    identifier: "hyrox-no-race")
                 }
-                if store.planIsSavedCopy { PFStaleLabel(text: "Couldn't refresh. Showing the last saved copy.") }
+                if store.pickFailed {
+                    PFStaleLabel(text: PFHyroxPlanFailure.pickMessage(shown: plan.event))
+                } else if store.planIsSavedCopy {
+                    PFStaleLabel(text: "Couldn't refresh. Showing the last saved copy.")
+                }
             }
         } else {
             PFHyroxPlaceholder(phase: store.planPhase, empty: "No upcoming HYROX race on file.") {

@@ -219,11 +219,14 @@ struct PFHyroxSims: Equatable {
     }
 
     /// The server explains a goal profile or a pacing note against the field ("the field-average profile scaled to the goal", "the 5 % top
-    /// finishers hold"); the phone shows no field or top-finisher comparison, so such a line is left out.
+    /// finishers hold"); the phone shows no field or top-finisher comparison, so such a line is left out. Every free-text line of the
+    /// simulation analysis (the note, the goal basis, the fresh-run basis, the pacing note, the logged notes and each suggestion) goes
+    /// through it.
     static func withoutFieldComparison(_ text: String?) -> String? {
         guard let text else { return nil }
         let lower = text.lowercased()
-        return lower.contains("field") || lower.contains("top finisher") || lower.contains("top 3") || lower.contains("percentile") ? nil : text
+        let comparisons = ["field", "top finisher", "top 3", "top-3", "top three", "percentile", "cohort"]
+        return comparisons.contains { lower.contains($0) } ? nil : text
     }
 
     var hasData: Bool
@@ -689,7 +692,7 @@ enum PFWave3Parse {
         out.count = analysis["count"].int ?? simRows.count
         let unmapped = analysis["unmapped"]
         out.unmappedCount = unmapped.raw is [Any] ? unmapped.array.count : (unmapped.int ?? 0)
-        out.note = analysis["note"].text
+        out.note = PFHyroxSims.withoutFieldComparison(analysis["note"].text)
 
         let goal = analysis["goal"]
         if goal.exists {
@@ -700,7 +703,8 @@ enum PFWave3Parse {
         let fresh = analysis["fresh_run"]
         if fresh.exists {
             out.freshRun = PFHyroxSims.FreshRun(paceSec: fresh["pace_sec"].double, display: fresh["display"].text,
-                                                nRuns: fresh["n_runs"].int, basis: fresh["basis"].text)
+                                                nRuns: fresh["n_runs"].int,
+                                                basis: PFHyroxSims.withoutFieldComparison(fresh["basis"].text))
         }
         let latest = analysis["latest"]
         if latest.exists {
@@ -710,7 +714,7 @@ enum PFWave3Parse {
             l.complete = latest["complete"].bool ?? true
             l.totalSeconds = latest["total_seconds"].double
             l.totalDisplay = latest["total_display"].text
-            l.notes = latest["notes"].text
+            l.notes = PFHyroxSims.withoutFieldComparison(latest["notes"].text)
             l.runFadePct = latest["run_fade_pct"].double
             l.compromisedPct = latest["compromised_pct"].double
             l.compromisedRuns = latest["compromised_runs"].array.compactMap { r in
@@ -733,7 +737,8 @@ enum PFWave3Parse {
             guard let station = w["station"].text else { return nil }
             return PFHyroxSims.Weak(station: station, display: w["display"].text, simSeconds: w["sim_seconds"].double,
                                     goalSeconds: w["goal_seconds"].double, overS: w["over_s"].double,
-                                    overPct: w["over_pct"].double, suggestion: w["suggestion"].text)
+                                    overPct: w["over_pct"].double,
+                                    suggestion: PFHyroxSims.withoutFieldComparison(w["suggestion"].text))
         }
 
         // The sims list stands in for what the analysis lacks: the newest simulation's total and splits.
@@ -745,7 +750,7 @@ enum PFWave3Parse {
                 l.complete = newest["complete"].bool ?? true
                 l.totalSeconds = newest["total_seconds"].double
                 l.totalDisplay = newest["total_display"].text
-                l.notes = newest["notes"].text
+                l.notes = PFHyroxSims.withoutFieldComparison(newest["notes"].text)
                 out.latest = l
             }
             if out.segments.isEmpty {

@@ -394,6 +394,71 @@ enum PFHyroxFormat {
     }
 }
 
+// MARK: - Stations to work on
+
+/// One station where his best time is well under his usual one: his own numbers, no comparison with anyone else.
+struct PFHyroxArea: Equatable, Identifiable {
+    let key: String
+    let name: String
+    let bestS: Int
+    let splitS: Int
+    /// "Testville split", "last race split" or "usual time".
+    let splitLabel: String
+
+    var id: String { key }
+    var gapS: Int { splitS - bestS }
+
+    /// "23 s between your best (3:47) and your Testville split (4:10)".
+    var line: String {
+        "\(gapS) s between your best (\(PFHyroxFormat.clock(bestS))) and your \(splitLabel) (\(PFHyroxFormat.clock(splitS)))"
+    }
+}
+
+enum PFHyroxAreas {
+    static let maxRows = 3
+
+    /// The stations with the most seconds between his best and his split at the venue of the race plan (Realistic against Stretch, the plan's
+    /// "where the time is"); with no such station in the plan, between his best and his last race. Widest gap first, at most `maxRows`.
+    static func rows(plan: PFHyroxPlan?, results: PFHyroxResults?) -> [PFHyroxArea] {
+        let fromPlan: [PFHyroxArea] = (plan?.timeToFind ?? []).compactMap { level in
+            guard let best = level.stretchS, let split = level.realisticS, split > best else { return nil }
+            let label = plan?.venue.map { "\($0) split" } ?? "usual time"
+            return PFHyroxArea(key: level.key, name: level.name, bestS: best, splitS: split, splitLabel: label)
+        }
+        if !fromPlan.isEmpty { return Array(fromPlan.sorted { $0.gapS > $1.gapS }.prefix(maxRows)) }
+        let fromResults: [PFHyroxArea] = (results?.stations ?? []).compactMap { series in
+            guard let best = series.bestS, let last = series.lastS, last > best else { return nil }
+            return PFHyroxArea(key: series.key, name: series.name, bestS: best, splitS: last, splitLabel: "last race split")
+        }
+        return Array(fromResults.sorted { $0.gapS > $1.gapS }.prefix(maxRows))
+    }
+}
+
+// MARK: - A plan that could not be loaded
+
+/// What the plan card does when the server could not be asked for a plan and the phone holds no saved copy of that race. A refresh of the
+/// race on screen keeps its in-memory plan and says it is the last saved copy; a race just picked in the picker has no copy at all, so the
+/// pick is undone (the picker and the plan stay on the race that is shown) and the failure is said once, about the pick.
+enum PFHyroxPlanFailure {
+    struct Outcome: Equatable {
+        /// The race the store follows from here on (a date; nil follows the next one).
+        let selectedEvent: String?
+        let pickFailed: Bool
+    }
+
+    /// `asked` is the race the store asked for (nil for the next one); `shownEvent` is the race of the plan on screen.
+    static func outcome(asked: String?, shownEvent: String?) -> Outcome {
+        guard let asked, asked != shownEvent else { return Outcome(selectedEvent: asked, pickFailed: false) }
+        return Outcome(selectedEvent: shownEvent, pickFailed: true)
+    }
+
+    /// "Couldn't load that race just now. Still showing Testville."
+    static func pickMessage(shown: PFHyroxEvent?) -> String {
+        guard let shown else { return "Couldn't load that race just now." }
+        return "Couldn't load that race just now. Still showing \(shown.shortName)."
+    }
+}
+
 // MARK: - Parsing
 
 enum PFHyroxParse {

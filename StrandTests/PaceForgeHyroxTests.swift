@@ -71,6 +71,88 @@ final class PaceForgeHyroxTests: XCTestCase {
         XCTAssertEqual(PFHyroxDoc.racePlanPath(event: nil), "api/hyrox/race-plan")
     }
 
+    // MARK: Stations to work on (his own best against his split)
+
+    private func level(_ key: String, _ name: String, realistic: Int?, stretch: Int?) -> PFHyroxLevel {
+        PFHyroxLevel(key: key, name: name, realisticS: realistic, stretchS: stretch, badS: nil, spreadS: nil, biasS: nil,
+                     saveS: realistic.flatMap { r in stretch.map { r - $0 } }, swing: false)
+    }
+
+    func testTheAreasAreTheStationsWithTheMostSecondsBetweenHisBestAndHisVenueSplit() {
+        XCTAssertEqual(PFHyroxAreas.rows(plan: plan, results: nil).map(\.name), ["Sled Push", "SkiErg"])
+    }
+
+    func testAnAreaReadsAsSecondsBetweenHisBestAndHisVenueSplit() {
+        XCTAssertEqual(PFHyroxAreas.rows(plan: plan, results: nil).first?.line,
+                       "20 s between your best (3:00) and your Testville split (3:20)")
+    }
+
+    func testAtMostThreeAreasAreListedWidestGapFirst() {
+        var many = PFHyroxPlan()
+        many.venue = "Testville"
+        many.stations = [level("a", "A", realistic: 110, stretch: 100), level("b", "B", realistic: 140, stretch: 100),
+                         level("c", "C", realistic: 120, stretch: 100), level("d", "D", realistic: 130, stretch: 100)]
+        XCTAssertEqual(PFHyroxAreas.rows(plan: many, results: nil).map(\.name), ["B", "D", "C"])
+    }
+
+    func testAStationAlreadyAtHisBestIsNotAnArea() {
+        var flat = PFHyroxPlan()
+        flat.stations = [level("a", "A", realistic: 100, stretch: 100), level("b", "B", realistic: nil, stretch: 90)]
+        XCTAssertEqual(PFHyroxAreas.rows(plan: flat, results: nil), [])
+    }
+
+    func testWithoutAVenueTheSplitIsHisUsualTime() {
+        var noVenue = PFHyroxPlan()
+        noVenue.stations = [level("a", "A", realistic: 130, stretch: 100)]
+        XCTAssertEqual(PFHyroxAreas.rows(plan: noVenue, results: nil).first?.line, "30 s between your best (1:40) and your usual time (2:10)")
+    }
+
+    func testWithNoStationInThePlanTheAreasComeFromHisLastRaceAgainstHisBest() {
+        let rows = PFHyroxAreas.rows(plan: PFHyroxPlan(), results: results)
+        XCTAssertEqual(rows.map(\.line), ["20 s between your best (3:00) and your last race split (3:20)",
+                                          "5 s between your best (3:45) and your last race split (3:50)"])
+    }
+
+    func testWithNeitherDocumentThereAreNoAreas() {
+        XCTAssertEqual(PFHyroxAreas.rows(plan: nil, results: nil), [])
+    }
+
+    func testTheAthleteAreasRowsAreHyroxStationsWithHisOwnNumbersOnly() {
+        let rows = PFAthleteBuild.hyroxAreas(plan: plan, results: results)
+        XCTAssertEqual(rows.map { [$0.group.rawValue, $0.tag ?? "", $0.title] }, [["area", "HYROX", "Sled Push"], ["area", "HYROX", "SkiErg"]])
+    }
+
+    func testTheAthleteAreasRowsNeverMentionTheFieldOrTheTopThree() {
+        let text = PFAthleteBuild.hyroxAreas(plan: plan, results: results).flatMap { [$0.evidence, $0.ruleWhy ?? ""] }.joined(separator: " ").lowercased()
+        XCTAssertFalse(["top 3", "top three", "field", "percentile", "cohort", "average of"].contains { text.contains($0) })
+    }
+
+    // MARK: A pick that could not be loaded
+
+    func testAFailedPickWithNoSavedCopyGoesBackToTheRaceOnScreen() {
+        XCTAssertEqual(PFHyroxPlanFailure.outcome(asked: "2030-06-01", shownEvent: "2030-04-20"),
+                       PFHyroxPlanFailure.Outcome(selectedEvent: "2030-04-20", pickFailed: true))
+    }
+
+    func testAFailedRefreshOfTheNextRaceKeepsFollowingTheNextRace() {
+        XCTAssertEqual(PFHyroxPlanFailure.outcome(asked: nil, shownEvent: "2030-04-20"),
+                       PFHyroxPlanFailure.Outcome(selectedEvent: nil, pickFailed: false))
+    }
+
+    func testAFailedRefreshOfTheRaceOnScreenIsTheLastSavedCopyNotAFailedPick() {
+        XCTAssertEqual(PFHyroxPlanFailure.outcome(asked: "2030-04-20", shownEvent: "2030-04-20"),
+                       PFHyroxPlanFailure.Outcome(selectedEvent: "2030-04-20", pickFailed: false))
+    }
+
+    func testAFailedPickWhenNoRaceIsShownGoesBackToTheNextRace() {
+        XCTAssertEqual(PFHyroxPlanFailure.outcome(asked: "2030-06-01", shownEvent: nil),
+                       PFHyroxPlanFailure.Outcome(selectedEvent: nil, pickFailed: true))
+    }
+
+    func testTheFailedPickMessageNamesTheRaceStillShownAndNeverCallsItASavedCopy() {
+        XCTAssertEqual(PFHyroxPlanFailure.pickMessage(shown: plan?.event), "Couldn't load that race just now. Still showing Testville.")
+    }
+
     // MARK: Next race
 
     func testThePickerListsTheUpcomingRacesAndThePlanNamesTheNextOne() {
@@ -553,5 +635,49 @@ final class PaceForgeHyroxTests: XCTestCase {
     func testAGoalBasisFromHisOwnRaceIsKept() {
         XCTAssertEqual(PFHyroxSims.withoutFieldComparison("your Testville race profile scaled to the goal"),
                        "your Testville race profile scaled to the goal")
+    }
+
+    private let simAnalysisWithFieldWording = """
+    {"has_data": true, "count": 1, "note": "Compared with the field, these are starting points",
+     "fresh_run": {"pace_sec": 270.0, "display": "4:30", "n_runs": 5, "basis": "faster than the top 3 finishers on a fresh km"},
+     "latest": {"id": "s1", "date": "2030-03-01", "complete": true, "total_seconds": 4900, "total_display": "1:21:40",
+                "notes": "felt like the 90th percentile of my cohort"},
+     "segments": [],
+     "weakest": [{"station": "Wall Balls", "display": "Wall Balls", "over_s": 20, "suggestion": "Quicker than the top-3 average, so keep it up"},
+                 {"station": "Row", "display": "Row", "over_s": 10, "suggestion": "Row 3 x 1000 m on 2 min rest"}]}
+    """
+
+    private var simsWithFieldWording: PFHyroxSims? { PFWave3Parse.hyroxSims(analysis: json(simAnalysisWithFieldWording), sims: PFJ(nil)) }
+
+    func testASimulationNoteWithFieldWordingIsLeftOut() {
+        XCTAssertNil(simsWithFieldWording?.note)
+    }
+
+    func testAFreshRunBasisWithTopFinisherWordingIsLeftOut() {
+        XCTAssertNil(simsWithFieldWording?.freshRun?.basis)
+    }
+
+    func testASimulationLogNoteWithPercentileOrCohortWordingIsLeftOut() {
+        XCTAssertNil(simsWithFieldWording?.latest?.notes)
+    }
+
+    func testAWeakStationSuggestionWithTopThreeWordingIsLeftOut() {
+        XCTAssertEqual(simsWithFieldWording?.weakest.map(\.suggestion), [nil, "Row 3 x 1000 m on 2 min rest"])
+    }
+
+    func testTheFreshRunBasisOfHisOwnRunsIsKept() {
+        let analysis = #"{"has_data": true, "fresh_run": {"display": "4:30", "basis": "median fastest 1 km lap of 5 runs"}}"#
+        XCTAssertEqual(PFWave3Parse.hyroxSims(analysis: json(analysis), sims: PFJ(nil))?.freshRun?.basis, "median fastest 1 km lap of 5 runs")
+    }
+
+    func testTheStartingPointsNoteIsKept() {
+        let analysis = #"{"has_data": true, "note": "Suggestions are starting points for your own plan; nothing here changes it."}"#
+        XCTAssertEqual(PFWave3Parse.hyroxSims(analysis: json(analysis), sims: PFJ(nil))?.note,
+                       "Suggestions are starting points for your own plan; nothing here changes it.")
+    }
+
+    func testTheNewestLoggedSimulationNoteWithCohortWordingIsLeftOut() {
+        let sims = #"{"sims": [{"id": "s2", "date": "2030-03-02", "total_seconds": 4800, "notes": "cohort pace", "segments": []}]}"#
+        XCTAssertNil(PFWave3Parse.hyroxSims(analysis: PFJ(nil), sims: json(sims))?.latest?.notes)
     }
 }
