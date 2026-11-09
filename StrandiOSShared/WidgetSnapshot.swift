@@ -40,12 +40,36 @@ public struct WidgetSnapshot: Codable, Equatable {
     /// so the widget cannot show yesterday's afternoon under today's date while waiting for the first
     /// scorable hour after midnight.
     public var stressDay: Int?
+    // Effort target (the "Effort target" widget). All pre-formatted at publish time on the user's Effort
+    // scale, like `effortDisplay`, because the extension has no access to the app's scale preference or to
+    // the repository. Optional so a snapshot from an older build still decodes. `effort...` on the stored
+    // 0-100 axis are for the gauge fill; the texts are what is printed.
+    /// TODAY's Effort on the stored 0-100 axis. Not `effort`, which follows the carried-over anchor day.
+    public var effortTargetEffort: Int?
+    public var effortTargetEffortText: String?
+    public var effortBandLow: Int?
+    public var effortBandHigh: Int?
+    /// "55-70" (en dash), on the user's scale.
+    public var effortBandText: String?
+    /// "13-28 to go", "In your range", "Above range by 5" or "Not scored yet".
+    public var effortToGo: String?
+    /// The logical day (yyyy-MM-dd) the target was built for, and when.
+    public var effortTargetDay: String?
+    public var effortTargetAt: Date?
+    /// Settings > Hide numbers, as the app last published them. The values above stay in the file; the widget
+    /// draws `redactedForDisplay()` instead, so flipping a switch needs no recompute and flipping it back
+    /// brings the numbers straight back. Optional so a snapshot from an older build still decodes.
+    public var scoresHidden: Bool?
+    public var bodyHidden: Bool?
 
     public init(recovery: Int?, bpm: Int?, batteryPct: Int?, bonded: Bool, updated: Date,
                 effort: Int? = nil, rest: Int? = nil, hrv: Int? = nil, restingHr: Int? = nil,
                 effortDisplay: String? = nil, effortWhoop: Bool? = nil,
                 hrSeries: [HrPoint]? = nil, stressSeries: [StressPoint]? = nil,
-                stressDay: Int? = nil) {
+                stressDay: Int? = nil,
+                effortTargetEffort: Int? = nil, effortTargetEffortText: String? = nil,
+                effortBandLow: Int? = nil, effortBandHigh: Int? = nil, effortBandText: String? = nil,
+                effortToGo: String? = nil, effortTargetDay: String? = nil, effortTargetAt: Date? = nil) {
         self.recovery = recovery
         self.bpm = bpm
         self.batteryPct = batteryPct
@@ -60,6 +84,60 @@ public struct WidgetSnapshot: Codable, Equatable {
         self.hrSeries = hrSeries
         self.stressSeries = stressSeries
         self.stressDay = stressDay
+        self.effortTargetEffort = effortTargetEffort
+        self.effortTargetEffortText = effortTargetEffortText
+        self.effortBandLow = effortBandLow
+        self.effortBandHigh = effortBandHigh
+        self.effortBandText = effortBandText
+        self.effortToGo = effortToGo
+        self.effortTargetDay = effortTargetDay
+        self.effortTargetAt = effortTargetAt
+    }
+
+    /// This snapshot as a widget draws it: with Charge, Effort and Rest (and the Effort target built from them)
+    /// taken out while the scores are hidden, so no face can print what it was asked to hide.
+    public func redactedForDisplay() -> WidgetSnapshot {
+        guard scoresHidden == true else { return self }
+        var out = self
+        out.recovery = nil
+        out.effort = nil
+        out.rest = nil
+        out.effortDisplay = nil
+        out.effortTargetEffort = nil
+        out.effortTargetEffortText = nil
+        out.effortBandLow = nil
+        out.effortBandHigh = nil
+        out.effortBandText = nil
+        out.effortToGo = nil
+        return out
+    }
+
+    /// How old the Effort target may be before the widget stops showing it.
+    public static let effortTargetMaxAge: TimeInterval = 6 * 60 * 60
+    /// The hour the logical day rolls over (04:00 local), the same boundary as `Repository.logicalDayKey`.
+    public static let logicalDayRolloverHour = 4
+
+    /// yyyy-MM-dd of the logical day for `date`: the calendar date of `date` minus the rollover hours.
+    /// The extension cannot reach `Repository`, so the boundary is mirrored here, in the device's own zone
+    /// (`Calendar.current`'s, which `Repository.localDayKey` also follows); a caller passes a calendar only
+    /// to pin the zone in tests.
+    public static func logicalDayKey(_ date: Date, calendar: Calendar = .current,
+                                     rolloverHour: Int = logicalDayRolloverHour) -> String {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.timeZone = calendar.timeZone
+        f.dateFormat = "yyyy-MM-dd"
+        return f.string(from: date.addingTimeInterval(-Double(rolloverHour) * 3_600))
+    }
+
+    /// Whether the Effort target describes today and was written recently enough to show. Resolved on read,
+    /// like `stressCurve`: nothing runs at midnight to clear the App Group, so a yesterday's band is dropped
+    /// where it would be drawn, and a file the app stopped refreshing goes stale after `effortTargetMaxAge`.
+    public func effortTargetIsFresh(now: Date = Date(), calendar: Calendar = .current) -> Bool {
+        guard let day = effortTargetDay, let at = effortTargetAt else { return false }
+        return day == WidgetSnapshot.logicalDayKey(now, calendar: calendar)
+            && now.timeIntervalSince(at) >= 0
+            && now.timeIntervalSince(at) <= WidgetSnapshot.effortTargetMaxAge
     }
 
     /// The curve to DRAW: what was published, unless it belongs to a day that is over.
@@ -98,7 +176,10 @@ public struct WidgetSnapshot: Codable, Equatable {
     /// key is somehow absent (each process reads its OWN bundle, so the app and the widget extension
     /// each carry the key in their generated Info.plist).
     public static let suiteName: String = {
-        resolveSuiteName(infoDictionary: Bundle.main.infoDictionary ?? [:])
+        resolveSuiteName(infoDictionary: Bundle.main.infoDictionary ?? [:],
+                         bundleIdentifier: Bundle.main.bundleIdentifier) {
+            FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: $0) != nil
+        }
     }()
     public static let storageKey = "noop.widget.snapshot"
 
@@ -131,6 +212,40 @@ public struct WidgetSnapshot: Codable, Equatable {
             return configured
         }
         return "group.com.noopapp.noop"
+    }
+
+    /// Every App Group this process might be entitled to, best guess first.
+    ///
+    /// The sideloader on the mini PC (AltKeeper / isideload) does not publish `ALTAppGroups` for NOOP. It
+    /// creates `group.<signed main bundle id>` (the bundle id with the team id appended) and signs EVERY
+    /// bundle with the main app's profile, so that is the only group the app, the widgets and the watch are
+    /// actually entitled to. The build-time `AppGroupIdentifier` names a group that was never created, so the
+    /// app and the widget each got a private, unshared store and the widget showed "Open NOOP to refresh".
+    /// The extra candidates are the group named after this bundle and after the bundles above it (an
+    /// extension drops its own suffix: `.widgets`, `.watch`, `.watch.complications`).
+    ///
+    /// Without a configured id (a bare host such as the unit tests) there is nothing to probe, so the list is
+    /// just the existing answer.
+    static func suiteNameCandidates(infoDictionary: [String: Any], bundleIdentifier: String?) -> [String] {
+        let primary = resolveSuiteName(infoDictionary: infoDictionary)
+        let configured = (infoDictionary["AppGroupIdentifier"] as? String)?
+            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        guard !configured.isEmpty, let bundleIdentifier else { return [primary] }
+        let parts = bundleIdentifier.split(separator: ".").map(String.init)
+        var candidates = [primary]
+        for dropped in 0...2 where parts.count - dropped >= 3 {
+            let candidate = "group." + parts.dropLast(dropped).joined(separator: ".")
+            if !candidates.contains(candidate) { candidates.append(candidate) }
+        }
+        return candidates
+    }
+
+    /// The first candidate the process can open a container for; the first candidate when none can (as before).
+    static func resolveSuiteName(infoDictionary: [String: Any], bundleIdentifier: String?,
+                                 hasContainer: (String) -> Bool) -> String {
+        let candidates = suiteNameCandidates(infoDictionary: infoDictionary, bundleIdentifier: bundleIdentifier)
+        if candidates.count == 1 { return candidates[0] }
+        return candidates.first(where: hasContainer) ?? candidates[0]
     }
 
     /// Debug-only canary: trips on the first run after a misprovisioning so the silent no-op gets
@@ -229,6 +344,23 @@ public struct WidgetSnapshot: Codable, Equatable {
             // midnight still reaches WidgetKit even when the new day has no scored hour yet.
             || previous.stressSeries != next.stressSeries
             || previous.stressDay != next.stressDay
+            // The Effort target: its figures and day, plus the hour it was written in. The stamp is the
+            // widget's freshness check, so an otherwise-identical publish must still refresh it, but only
+            // once an hour rather than on every publish.
+            || previous.effortTargetEffort != next.effortTargetEffort
+            || previous.effortTargetEffortText != next.effortTargetEffortText
+            || previous.effortBandLow != next.effortBandLow
+            || previous.effortBandHigh != next.effortBandHigh
+            || previous.effortBandText != next.effortBandText
+            || previous.effortToGo != next.effortToGo
+            || previous.effortTargetDay != next.effortTargetDay
+            || previous.scoresHidden != next.scoresHidden
+            || previous.bodyHidden != next.bodyHidden
+            || effortTargetHour(previous.effortTargetAt) != effortTargetHour(next.effortTargetAt)
+    }
+
+    private static func effortTargetHour(_ date: Date?) -> Int? {
+        date.map { Int($0.timeIntervalSince1970 / 3_600) }
     }
 
     /// A live-only update may reuse score fields only within the same local calendar day. At rollover,

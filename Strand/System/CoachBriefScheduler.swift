@@ -2,14 +2,14 @@ import Foundation
 import UserNotifications
 #if os(iOS)
 import BackgroundTasks
+import UIKit
 import WidgetKit
 #endif
 
-/// PRD-K5: a user-scheduled, LOCAL notification that delivers a one-line morning coaching brief,
-/// generated on-device via the user's already-configured Coach provider, at a chosen time each day.
-/// Tap → opens Coach with the full brief. No push server, no cloud — the network call is the SAME
-/// bring-your-own-key request Coach already makes on every send, just user-armed on a daily timer
-/// instead of triggered by a tap. Default OFF, like every NOOP automation.
+/// PRD-K5: a user-scheduled, local notification for the morning coaching brief. On iOS, the unified
+/// Coach requires PaceForge and uses its server-written brief; it does not fall back to a separate
+/// on-device Coach when PaceForge is disconnected. macOS uses the configured on-device Coach provider.
+/// Tap → opens Coach with the full brief. Default OFF, like every NOOP automation.
 ///
 /// Cross-platform (macOS + iOS), same architecture as `ScheduledDebugExport`:
 /// - **macOS** — the app is usually running; a foreground `DispatchSourceTimer` fires at the chosen
@@ -20,10 +20,9 @@ import WidgetKit
 ///   `activateIfEnabled` catches up and generates then instead — same honest "best-effort" posture
 ///   `ScheduledDebugExport`'s Settings copy already uses.
 ///
-/// Triple-gated network call: `enabled` (this feature, default OFF) + a saved Coach key + the existing
-/// `dataConsent`. `generateBrief` is `AICoachEngine.generateBrief()`, itself gated on both of those; this
-/// scheduler additionally never marks a day "done" on a failed generation, so a missing key/consent (or
-/// a transient network failure) simply retries next wake rather than going permanently silent.
+/// Each platform uses its unified Coach source: PaceForge on iOS and the configured provider on macOS.
+/// Generation additionally requires this feature's default-off `enabled` setting. A failed attempt never
+/// marks the day "done", so the next wake retries instead of going permanently silent.
 @MainActor
 enum CoachBriefScheduler {
 
@@ -35,6 +34,21 @@ enum CoachBriefScheduler {
         static let lastRun = "coachBrief.lastRunDayKey"    // yyyy-MM-dd of the last GENERATED brief (dedup)
         static let storedBrief = "coachBrief.storedText"   // the full brief, for the notification tap-through
         static let hasUnconsumed = "coachBrief.hasUnconsumedBrief"
+        static let lastFailureReason = "coachBrief.lastFailureReason"
+        static let lastFailureNotificationDay = "coachBrief.lastFailureNotificationDay"
+        static let lastAttemptAt = "coachBrief.lastAttemptAt"
+        static let lastSuccessAt = "coachBrief.lastSuccessAt"
+        static let state = "coachBrief.state"
+        static let lastTrigger = "coachBrief.lastTrigger"
+        static let lastInvocation = "coachBrief.lastInvocation"
+        static let lastInvocationAt = "coachBrief.lastInvocationAt"
+        static let source = "coachBrief.source"
+        static let dataReadiness = "coachBrief.dataReadiness"
+        static let providerStatus = "coachBrief.providerStatus"
+        static let lastResult = "coachBrief.lastResult"
+        static let notificationOutcome = "coachBrief.notificationOutcome"
+        static let backgroundEarliest = "coachBrief.backgroundEarliest"
+        static let backgroundIssue = "coachBrief.backgroundIssue"
         // K10: the brief text mirrored into the App Group so the widget extension (separate process)
         // can read it. The app's own UserDefaults.standard isn't visible to the widget.
         static let widgetBriefKey = "coachBrief.widgetText"
@@ -43,6 +57,8 @@ enum CoachBriefScheduler {
 
     /// 07:00 — a brief waiting when you check your phone (matches `ScheduledDebugExport`'s default).
     static let defaultTimeMinutes = 7 * 60
+    /// The earliest a data-woken PaceForge brief may go out (04:00): a night's sleep cannot be in before then.
+    static let earliestWakeMinutes = 4 * 60
     private static let minutesPerDay = 24 * 60
 
     /// Category id the posted notification carries, so `NotificationPresenter` can recognise a brief tap
@@ -109,6 +125,142 @@ enum CoachBriefScheduler {
     /// The most recently generated full brief text (for the notification tap-through), or nil before the
     /// first successful generation.
     static var storedBrief: String? { UserDefaults.standard.string(forKey: K.storedBrief) }
+
+    /// Short, non-sensitive reason from the last failed provider attempt. Kept locally so both the
+    /// scheduled notification and the Settings retry button can explain what needs attention.
+    static var lastFailureReason: String? { UserDefaults.standard.string(forKey: K.lastFailureReason) }
+
+    /// Most recent safe-to-show state, such as waiting for overnight data or a brief ready.
+    static var state: String? { UserDefaults.standard.string(forKey: K.state) }
+    static var lastAttemptAt: Date? { UserDefaults.standard.object(forKey: K.lastAttemptAt) as? Date }
+    static var lastSuccessAt: Date? { UserDefaults.standard.object(forKey: K.lastSuccessAt) as? Date }
+    /// True when a brief was generated successfully today: `recordSuccess` stamps `lastSuccessAt` at the same moment
+    /// it sets the "Today's brief is ready." state.
+    static var hasBriefToday: Bool {
+        guard let at = lastSuccessAt else { return false }
+        return Calendar.current.isDateInToday(at)
+    }
+
+    /// iOS may defer an available background task, but a disabled/restricted setting explains why
+    /// automatic catch-up cannot be expected. This is diagnostic context, not a delivery guarantee.
+    static var backgroundRefreshAvailability: String {
+        #if os(iOS)
+        switch UIApplication.shared.backgroundRefreshStatus {
+        case .available: return "available; iOS still chooses whether and when to run"
+        case .denied: return "disabled; iOS Settings or Low Power Mode may be responsible"
+        case .restricted: return "restricted by iOS; the user cannot enable background refresh"
+        @unknown default: return "unknown"
+        }
+        #else
+        return "not applicable"
+        #endif
+    }
+
+    /// Apple advises against warning for `.restricted`: the user cannot change that state.
+    static var shouldExplainBackgroundRefreshUnavailable: Bool {
+        #if os(iOS)
+        UIApplication.shared.backgroundRefreshStatus == .denied
+        #else
+        false
+        #endif
+    }
+
+    /// Copyable, privacy-safe diagnostics: no prompt, key, sensor values, or briefing text.
+    static var diagnosticsSummary: String {
+        let formatter = ISO8601DateFormatter()
+        let attempt = lastAttemptAt.map(formatter.string(from:)) ?? "none"
+        let success = lastSuccessAt.map(formatter.string(from:)) ?? "none"
+        let reason = lastFailureReason ?? "none"
+        let scheduledTime = String(format: "%02d:%02d", timeMinutes / 60, timeMinutes % 60)
+        let stateText = state ?? "not recorded"
+        let defaults = UserDefaults.standard
+        let invocation = defaults.string(forKey: K.lastInvocation) ?? "not recorded"
+        let invocationAt = (defaults.object(forKey: K.lastInvocationAt) as? Date).map(formatter.string(from:)) ?? "none"
+        let trigger = defaults.string(forKey: K.lastTrigger) ?? "not recorded (no generation attempt yet)"
+        let source = defaults.string(forKey: K.source) ?? "not recorded"
+        let readiness = defaults.string(forKey: K.dataReadiness) ?? "not recorded"
+        let provider = defaults.string(forKey: K.providerStatus) ?? "not recorded"
+        let result = defaults.string(forKey: K.lastResult) ?? "not recorded"
+        let notification = defaults.string(forKey: K.notificationOutcome) ?? "not recorded"
+        let earliest = (defaults.object(forKey: K.backgroundEarliest) as? Date).map(formatter.string(from:)) ?? "not recorded"
+        let backgroundIssue = defaults.string(forKey: K.backgroundIssue) ?? "none"
+        let invocationNote = invocation == "not recorded"
+            ? "No invocation was captured; this cannot establish why iOS did not run the app. Open Coach and tap Check now to try immediately."
+            : ""
+        return [
+            "NOOP Coach brief diagnostics",
+            "Selected source: \(source)",
+            "Enabled: \(isEnabled)",
+            "Scheduled local time: \(scheduledTime)",
+            "State: \(stateText)",
+            "Last app/scheduler invocation: \(invocation) at \(invocationAt)",
+            invocationNote,
+            "Last generation trigger: \(trigger)",
+            "Data readiness: \(readiness)",
+            "Provider/configuration: \(provider)",
+            "Last result: \(result)",
+            "Last attempt: \(attempt)",
+            "Last success: \(success)",
+            "Notification request: \(notification)",
+            "iOS Background App Refresh: \(backgroundRefreshAvailability)",
+            "Next background earliest run: \(earliest)",
+            "Background scheduling issue: \(backgroundIssue)",
+            "Last actionable issue: \(reason)"
+        ].joined(separator: "\n")
+    }
+
+    private static func recordAttemptState(_ value: String, trigger: String) {
+        recordInvocation(trigger)
+        #if os(iOS)
+        let source = "PaceForge shared Coach"
+        let provider = "Server-owned Coach; no iPhone provider key used"
+        #else
+        let source = "Configured NOOP Coach provider"
+        let provider = "Configured provider"
+        #endif
+        UserDefaults.standard.set(trigger, forKey: K.lastTrigger)
+        UserDefaults.standard.set(source, forKey: K.source)
+        UserDefaults.standard.set(provider, forKey: K.providerStatus)
+        UserDefaults.standard.set("checking current brief and required data", forKey: K.dataReadiness)
+        UserDefaults.standard.set("running", forKey: K.lastResult)
+        UserDefaults.standard.set("not sent for this attempt yet", forKey: K.notificationOutcome)
+        UserDefaults.standard.set(Date(), forKey: K.lastAttemptAt)
+        UserDefaults.standard.set(value, forKey: K.state)
+    }
+
+    private static func recordInvocation(_ kind: String) {
+        UserDefaults.standard.set(kind, forKey: K.lastInvocation)
+        UserDefaults.standard.set(Date(), forKey: K.lastInvocationAt)
+    }
+
+    private static func recordBackgroundIssue(_ value: String?) {
+        if let value { UserDefaults.standard.set(value, forKey: K.backgroundIssue) }
+        else { UserDefaults.standard.removeObject(forKey: K.backgroundIssue) }
+    }
+
+    private static func recordDataReadiness(_ value: String) {
+        UserDefaults.standard.set(value, forKey: K.dataReadiness)
+    }
+
+    private static func recordResult(_ value: String) {
+        UserDefaults.standard.set(value, forKey: K.lastResult)
+    }
+
+    private static func recordSuccess(readiness: String = "ready") {
+        let now = Date()
+        UserDefaults.standard.set(now, forKey: K.lastSuccessAt)
+        UserDefaults.standard.set("brief generated and stored", forKey: K.lastResult)
+        UserDefaults.standard.set(readiness, forKey: K.dataReadiness)
+        UserDefaults.standard.set("Today's brief is ready.", forKey: K.state)
+    }
+
+    static func recordFailureReason(_ reason: String?) {
+        if let reason {
+            UserDefaults.standard.set(reason, forKey: K.lastFailureReason)
+        } else {
+            UserDefaults.standard.removeObject(forKey: K.lastFailureReason)
+        }
+    }
 
     /// True when a generated brief hasn't yet been surfaced in the Coach transcript. Set right after a
     /// successful generation; cleared by `consumeStoredBrief()`.
@@ -217,10 +369,58 @@ enum CoachBriefScheduler {
     /// The explicit "Generate now" button: always generates and stores, ignoring the once-per-day dedup,
     /// so a tap produces a fresh brief there and then. Does NOT post a notification (the user is already
     /// looking at Coach) and does NOT touch `lastRun`, so today's scheduled slot still fires normally.
-    /// Returns the brief text, or nil on failure (no key/consent/network) — the caller surfaces that.
+    /// Returns the brief text, or nil on failure — the caller surfaces the recorded reason.
     @discardableResult
     static func generateNow(generateBrief: () async -> String?) async -> String? {
-        await generateBrief()
+        recordInvocation("user_check")
+        recordFailureReason(nil)
+        recordAttemptState("Checking today's brief.", trigger: "user_check")
+        let text: String?
+        var readinessForSuccess = "configured Coach provider returned a brief"
+        #if os(iOS)
+        // Use the same source as the scheduled path so “Generate now” cannot produce a second, different
+        // brief while PaceForge is the connected Coach source.
+        switch await PaceForgeBriefSource.today(timeReached: true) {
+        case .text(let paceForgeText, let readiness):
+            text = paceForgeText
+            readinessForSuccess = readiness
+        case .notReady(let reason):
+            recordDataReadiness("waiting: \(reason)")
+            recordResult("waiting for data; no notification sent")
+            UserDefaults.standard.set("not sent; waiting for data", forKey: K.notificationOutcome)
+            UserDefaults.standard.set(reason, forKey: K.state)
+            return nil
+        case .unavailable(let reason):
+            recordDataReadiness("PaceForge brief unavailable")
+            UserDefaults.standard.set("PaceForge refresh or brief request failed", forKey: K.providerStatus)
+            recordResult("failed; no notification sent")
+            recordFailureReason(reason)
+            UserDefaults.standard.set("Action needed — open Brief settings for the reason and next step.", forKey: K.state)
+            return nil
+        case .notSetUp:
+            let reason = "Connect NOOP to PaceForge to use the shared Coach for morning briefs."
+            recordDataReadiness("not available: PaceForge is not connected")
+            UserDefaults.standard.set("PaceForge connection not configured", forKey: K.providerStatus)
+            recordResult("not configured; no notification sent")
+            recordFailureReason(reason)
+            UserDefaults.standard.set("Action needed — open Brief settings for the reason and next step.", forKey: K.state)
+            return nil
+        }
+        #else
+        text = await generateBrief()
+        #endif
+        if text == nil {
+            recordResult("failed; no notification sent")
+            if lastFailureReason == nil {
+                let reason = "The Coach provider did not return a brief."
+                recordFailureReason(reason)
+                UserDefaults.standard.set("Action needed — open Brief settings for the reason and next step.", forKey: K.state)
+            }
+        } else {
+            recordSuccess(readiness: readinessForSuccess)
+            UserDefaults.standard.set("not sent; manual check", forKey: K.notificationOutcome)
+        }
+        return text
     }
 
     // MARK: - Due check + generation
@@ -259,30 +459,109 @@ enum CoachBriefScheduler {
     /// generation was attempted and failed (so the iOS BGTask handler can report the real outcome and
     /// retry on the next wake instead of marking the day done on a failure).
     @discardableResult
-    static func catchUpIfDue(generateBrief: () async -> String?) async -> Bool {
+    static func catchUpIfDue(generateBrief: () async -> String?, trigger: String = "foreground_catch_up") async -> Bool {
+        recordInvocation(trigger)
         guard isEnabled else { return true }
         let now = Date()
         let cal = Calendar.current
         let comps = cal.dateComponents([.hour, .minute], from: now)
         let nowMinutes = (comps.hour ?? 0) * 60 + (comps.minute ?? 0)
-        guard nowMinutes >= timeMinutes else { return true }                                  // not yet time today
+        let timeReached = nowMinutes >= timeMinutes
+        #if os(iOS)
+        // With PaceForge the brief is woken by data, not by the clock: from the earliest wake time on, it goes out as soon as the
+        // night's sleep and HRV are in. The chosen time is only the latest it waits.
+        guard timeReached || nowMinutes >= earliestWakeMinutes else { return true }
+        #else
+        guard timeReached else { return true }                                                // not yet time today
+        #endif
         guard UserDefaults.standard.string(forKey: K.lastRun) != dayKey(now) else { return true } // already ran today
 
         // One attempt at a time; see `generationInFlight` for why the day guard alone is not enough.
         guard await claimGeneration() else { return true }
-        let generated = await generateBrief()
+        recordFailureReason(nil)
+        recordAttemptState("Checking today's brief.", trigger: trigger)
+        let generated: String?
+        var readinessForSuccess = "configured Coach provider returned a brief"
+        #if os(iOS)
+        // With PaceForge connected the brief is PaceForge's own (written on the server, no AI key needed here). Not published yet
+        // means wait for the next wake quietly: the key-based path would only post "unavailable".
+        switch await PaceForgeBriefSource.today(timeReached: timeReached) {
+        case .text(let text, let readiness):
+            generated = text
+            readinessForSuccess = readiness
+        case .notReady(let reason):
+            recordDataReadiness("waiting: \(reason)")
+            recordResult("waiting for data; no notification sent")
+            UserDefaults.standard.set("not sent; waiting for data", forKey: K.notificationOutcome)
+            UserDefaults.standard.set(reason, forKey: K.state)
+            await releaseGeneration()
+            return true
+        case .unavailable(let reason):
+            recordDataReadiness("PaceForge brief unavailable")
+            UserDefaults.standard.set("PaceForge refresh or brief request failed", forKey: K.providerStatus)
+            recordFailureReason(reason)
+            // A transient PaceForge outage during iOS's earliest background window is not yet
+            // a missed morning brief. Keep the actionable reason in Settings, retry on the next
+            // wake, and wait until the athlete's configured latest time before raising an alert.
+            if !timeReached {
+                recordResult("retrying before selected latest time")
+                UserDefaults.standard.set("not sent; retrying before selected latest time", forKey: K.notificationOutcome)
+                UserDefaults.standard.set("PaceForge is unavailable; retrying before the scheduled time. \(reason)",
+                                          forKey: K.state)
+                await releaseGeneration()
+                return true
+            }
+            recordResult("failed; retry scheduled")
+            UserDefaults.standard.set("Action needed — open Brief settings for the reason and next step.", forKey: K.state)
+            generated = nil
+        case .notSetUp:
+            recordDataReadiness("not available: PaceForge is not connected")
+            UserDefaults.standard.set("PaceForge connection not configured", forKey: K.providerStatus)
+            guard timeReached else {            // Wait until the selected latest time before reporting missing PaceForge setup.
+                recordResult("waiting for selected latest time")
+                UserDefaults.standard.set("not sent; waiting for selected latest time", forKey: K.notificationOutcome)
+                UserDefaults.standard.set(
+                    String(localized: "Waiting until the selected brief time: connect NOOP to PaceForge for the shared Coach."),
+                    forKey: K.state)
+                await releaseGeneration()
+                return true
+            }
+            let reason = "Connect NOOP to PaceForge to use the shared Coach for morning briefs."
+            recordResult("not configured; retry scheduled")
+            recordFailureReason(reason)
+            UserDefaults.standard.set("Action needed — open Brief settings for the reason and next step.", forKey: K.state)
+            generated = nil
+        }
+        #else
+        generated = await generateBrief()
+        #endif
         await releaseGeneration()
 
         guard let text = generated else {
-            // No key/consent/network, or the provider returned nothing. Never mark the day done, so the
-            // next wake (BGTask retry, or the next foreground open) tries again. Post a low-key retry
-            // notification rather than silently doing nothing — the PRD's "unavailable, tap to retry".
-            postNotification(title: String(localized: "Coach brief unavailable"),
-                              body: String(localized: "Couldn't generate today's brief. Tap to try again in Coach."),
-                              isRetry: true)
+            recordResult("failed; retry scheduled")
+            if lastFailureReason == nil {
+                let reason = "The Coach provider did not return a brief."
+                recordFailureReason(reason)
+                UserDefaults.standard.set("Action needed — open Brief settings for the reason and next step.", forKey: K.state)
+            }
+            // No brief arrived from the platform's Coach source. Never mark the day done, so the next
+            // wake (BGTask retry, or the next foreground open) tries again. iOS can wake this path
+            // repeatedly in one day, so notify once per local day; keep lastFailureReason current for
+            // Coach Settings, where the athlete can see what needs fixing.
+            let today = dayKey(now)
+            if UserDefaults.standard.string(forKey: K.lastFailureNotificationDay) != today {
+                UserDefaults.standard.set(today, forKey: K.lastFailureNotificationDay)
+                postNotification(title: String(localized: "Coach brief unavailable"),
+                                  body: failureNotificationBody,
+                                  isRetry: true)
+            } else {
+                UserDefaults.standard.set("not sent; already alerted today", forKey: K.notificationOutcome)
+            }
             return false
         }
 
+        recordFailureReason(nil)
+        recordSuccess(readiness: readinessForSuccess)
         UserDefaults.standard.set(dayKey(now), forKey: K.lastRun)
         UserDefaults.standard.set(text, forKey: K.storedBrief)
         UserDefaults.standard.set(true, forKey: K.hasUnconsumed)
@@ -313,12 +592,28 @@ enum CoachBriefScheduler {
         content.body = body
         content.sound = .default
         content.categoryIdentifier = notificationCategoryId
-        // Immediate delivery (trigger nil) — this fires the moment generation completes, it is not a
-        // pre-scheduled fixed-content trigger like `WindDownNudge`'s. One id per day, so a retry
-        // replaces rather than stacks the earlier attempt's notification.
-        let request = UNNotificationRequest(identifier: requestIdPrefix + dayKey(Date()),
+        // Immediate delivery (trigger nil) — this fires when generation completes, not at a
+        // pre-scheduled fixed-content time like `WindDownNudge`. Separate retry and success IDs let a
+        // brief that recovers later the same day still announce success.
+        let kind = isRetry ? "retry" : "success"
+        let request = UNNotificationRequest(identifier: requestIdPrefix + kind + "-" + dayKey(Date()),
                                             content: content, trigger: nil)
-        UNUserNotificationCenter.current().add(request)
+        UserDefaults.standard.set("submitting request to Notification Centre", forKey: K.notificationOutcome)
+        UNUserNotificationCenter.current().add(request) { error in
+            let outcome = error.map { "request failed: \($0.localizedDescription)" }
+                ?? "request accepted; delivery is controlled by iOS notification settings"
+            UserDefaults.standard.set(outcome, forKey: K.notificationOutcome)
+        }
+    }
+
+    private static var failureNotificationBody: String {
+        let detail = lastFailureReason ?? "The provider did not return a brief."
+        // Keep the useful error category (for example, "PaceForge: HTTP 503") on the
+        // lock screen, but never disclose the athlete's configured private server host.
+        let reason = SelfHostedPushClient.paceForgeHost.map {
+            detail.replacingOccurrences(of: $0, with: "PaceForge")
+        } ?? detail
+        return "Today's brief couldn't be generated: \(reason) Open Coach to fix it or retry."
     }
 
     /// yyyy-MM-dd local-day key for the once-per-day dedup. POSIX locale so the key is stable everywhere.
@@ -357,7 +652,7 @@ enum CoachBriefScheduler {
         timer.setEventHandler {
             Task { @MainActor in
                 guard isEnabled else { return }
-                _ = await catchUpIfDue(generateBrief: generateBrief)
+                _ = await catchUpIfDue(generateBrief: generateBrief, trigger: "scheduled_timer")
                 scheduleNext(generateBrief: generateBrief)
             }
         }
@@ -375,6 +670,7 @@ enum CoachBriefScheduler {
         macTimer = nil
         #elseif os(iOS)
         BGTaskScheduler.shared.cancel(taskRequestWithIdentifier: bgTaskIdentifier)
+        UserDefaults.standard.removeObject(forKey: K.backgroundEarliest)
         #endif
     }
 
@@ -391,20 +687,27 @@ enum CoachBriefScheduler {
     static func register(generateBrief: @escaping () async -> String?, log: @escaping (String) -> Void) {
         logBackgroundFailure = log
         BGTaskScheduler.shared.register(forTaskWithIdentifier: bgTaskIdentifier, using: nil) { task in
+            Task { @MainActor in recordInvocation("background_refresh") }
             let completion = TaskCompletionGuard(task: task)
             let worker = Task { @MainActor in
-                task.expirationHandler = { completion.finish(success: false) }
                 guard isEnabled else {
                     completion.finish(success: true)
                     return
                 }
-                let succeeded = await catchUpIfDue(generateBrief: generateBrief)
+                let succeeded = await catchUpIfDue(generateBrief: generateBrief, trigger: "background_refresh")
                 // Single-shot; request the next occurrence regardless of this run's outcome so a failed
                 // generation still retries at the next wake rather than going silent for good.
                 submitBackgroundRequest()
                 completion.finish(success: succeeded)
             }
-            task.expirationHandler = { worker.cancel(); completion.finish(success: false) }
+            task.expirationHandler = {
+                worker.cancel()
+                Task { @MainActor in
+                    recordResult("background task expired before completion")
+                    UserDefaults.standard.set("background task expired", forKey: K.backgroundIssue)
+                }
+                completion.finish(success: false)
+            }
         }
     }
 
@@ -428,12 +731,30 @@ enum CoachBriefScheduler {
 
     /// Submit a background-refresh request for *no earlier than* the next chosen time. iOS decides when
     /// (and whether) to actually run it — best-effort, same honesty as `ScheduledDebugExport`.
+    /// Until today's brief is out, ask again every 15 minutes (iOS decides when it really runs; opening the app also tries).
+    /// Once it is out, the next attempt is tomorrow's earliest wake time.
+    private static func secondsToNextBriefAttempt() -> TimeInterval {
+        let now = Date()
+        let cal = Calendar.current
+        guard UserDefaults.standard.string(forKey: K.lastRun) == dayKey(now),
+              let tomorrow = cal.date(byAdding: .day, value: 1, to: cal.startOfDay(for: now)),
+              let wake = cal.date(byAdding: .minute, value: earliestWakeMinutes, to: tomorrow) else { return 15 * 60 }
+        return max(60, wake.timeIntervalSince(now))
+    }
+
     private static func submitBackgroundRequest() {
         let request = BGAppRefreshTaskRequest(identifier: bgTaskIdentifier)
-        request.earliestBeginDate = Date(timeIntervalSinceNow: secondsToNextOccurrence(timeMinutes))
+        request.earliestBeginDate = Date(timeIntervalSinceNow: secondsToNextBriefAttempt())
         do {
             try BGTaskScheduler.shared.submit(request)
+            if let earliest = request.earliestBeginDate {
+                UserDefaults.standard.set(earliest, forKey: K.backgroundEarliest)
+            } else {
+                UserDefaults.standard.removeObject(forKey: K.backgroundEarliest)
+            }
+            recordBackgroundIssue(nil)
         } catch {
+            recordBackgroundIssue(error.localizedDescription)
             logBackgroundFailure?("coach brief: background request refused (\(error.localizedDescription))")
         }
     }

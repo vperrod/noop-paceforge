@@ -164,6 +164,18 @@ final class AICoachEngine: ObservableObject {
     // Published state the UI binds to.
     @Published var messages: [ChatMessage] = []
 
+    /// Past conversations put away by "New conversation" or by the day rolling over, newest first. Kept in a
+    /// JSON file on this device only (`CoachLocalFiles`); never sent anywhere.
+    @Published private(set) var history: [CoachConversationRecord] =
+        CoachLocalFiles.load([CoachConversationRecord].self, from: CoachLocalFiles.historyURL)
+    /// Thumbs on replies, newest first. Local only, and never the reply text.
+    @Published private(set) var feedback: [CoachFeedbackEntry] =
+        CoachLocalFiles.load([CoachFeedbackEntry].self, from: CoachLocalFiles.feedbackURL)
+    /// How long replies should be. "Condensed" adds one instruction to the system prompt of each request.
+    @Published var responseLength: CoachResponseLength = CoachResponseLength.current() {
+        didSet { CoachResponseLength.save(responseLength) }
+    }
+
     /// Local day the current transcript was last written on; nil while it is empty. Drives the day
     /// boundary in `send` — see `isStaleConversation`. Kotlin twin: `CoachViewModel.conversationDay`.
     private var conversationDay: Int?
@@ -191,6 +203,8 @@ final class AICoachEngine: ObservableObject {
     /// which already has all of that, consumes it exactly once and clears it. Nil is the normal state, and
     /// setting it performs NO network work by itself.
     @Published var pendingPrompt: String?
+    /// Optional PaceForge session to attach to a contextual Coach handoff. Nil for ordinary questions.
+    @Published var pendingSessionID: String?
     @Published var provider: AIProvider {
         didSet {
             guard provider != oldValue else { return }
@@ -298,6 +312,9 @@ final class AICoachEngine: ObservableObject {
         return Self.defaultSystemPrompt
     }
 
+    /// What each request carries as its system prompt: the prompt above plus the response-length instruction.
+    var requestSystemPrompt: String { responseLength.systemPrompt(base: systemPrompt) }
+
     /// The user's stored prompt override, or the default when nothing custom is set. The UI binds its
     /// editor to this: writing persists the override; writing a blank string clears it (back to default).
     var customSystemPrompt: String {
@@ -396,6 +413,9 @@ final class AICoachEngine: ObservableObject {
         self.customConnected = UserDefaults.standard.bool(forKey: Self.customConnectedKey)
         self.includeOnDeviceSignals = UserDefaults.standard.bool(forKey: Self.onDeviceSignalsKey)
         self.multimodalChartEnabled = UserDefaults.standard.bool(forKey: Self.multimodalChartKey)
+        #if DEBUG
+        if CoachUITestFixture.isActive { applyUITestFixture() }
+        #endif
     }
 
     // MARK: Key management
@@ -671,6 +691,11 @@ final class AICoachEngine: ObservableObject {
         // Retire by NOT restoring. The next append replaces the stored rows wholesale, so nothing is
         // deleted here and a transcript is never destroyed by merely opening the screen.
         guard !Self.isStaleConversation(lastEpochDay: lastDay, todayEpochDay: Self.localEpochDay()) else {
+            // Yesterday's chat is not restored, but it is kept in the history. The id is the newest row's time,
+            // so a launch that finds the same stale rows again replaces the same history entry.
+            let stored = rows.sorted { $0.orderIndex < $1.orderIndex }
+                .map { CoachStoredMessage(role: $0.role, text: $0.text) }
+            archive(stored, id: "stale-\(newest)", at: Date(timeIntervalSince1970: TimeInterval(newest)))
             return
         }
         messages = rows
@@ -709,6 +734,74 @@ final class AICoachEngine: ObservableObject {
         Task { try? await repo.storeHandle()?.clearCoachMessages() }
     }
 
+    // MARK: - History of past conversations
+
+    private func archive(_ stored: [CoachStoredMessage], id: String, at date: Date) {
+        guard let record = CoachHistory.record(from: stored, now: date, id: id) else { return }
+        history = CoachHistory.archiving(history, record: record)
+        CoachLocalFiles.save(history, to: CoachLocalFiles.historyURL)
+    }
+
+    /// Puts the current conversation into the history (nothing happens when nothing was asked).
+    private func archiveCurrentConversation() {
+        archive(messages.map { CoachStoredMessage(role: $0.role.rawValue, text: $0.text) },
+                id: UUID().uuidString, at: Date())
+    }
+
+    private func resetCurrentConversation() {
+        messages = []
+        conversationDay = nil
+        droppedSummary = nil
+        droppedSummaryKey = []
+        errorText = nil
+    }
+
+    /// "New conversation": the current one goes to the history, and the next question starts a fresh thread.
+    func startNewConversation() {
+        guard !sending else { return }
+        archiveCurrentConversation()
+        resetCurrentConversation()
+        Task { try? await repo.storeHandle()?.clearCoachMessages() }
+    }
+
+    /// Opens a past conversation as the current one. The one that was current is put into the history first,
+    /// and the opened one leaves it (it is current now, and is archived again when it is put away).
+    func openConversation(_ record: CoachConversationRecord) {
+        guard !sending else { return }
+        archiveCurrentConversation()
+        history = CoachHistory.removing(history, id: record.id)
+        CoachLocalFiles.save(history, to: CoachLocalFiles.historyURL)
+        resetCurrentConversation()
+        messages = record.messages.map {
+            ChatMessage(role: ChatMessage.Role(rawValue: $0.role) ?? .assistant, text: $0.text)
+        }
+        conversationDay = Self.localEpochDay()
+        persistMessages()
+    }
+
+    func deleteConversation(id: String) {
+        history = CoachHistory.removing(history, id: id)
+        CoachLocalFiles.save(history, to: CoachLocalFiles.historyURL)
+    }
+
+    // MARK: - Feedback on a reply
+
+    func feedbackEntry(for message: ChatMessage) -> CoachFeedbackEntry? {
+        CoachFeedbackLog.entry(for: message.id.uuidString, in: feedback)
+    }
+
+    /// Files a thumbs on a reply; the same rating again takes it back.
+    func rate(_ message: ChatMessage, _ rating: CoachFeedbackRating, reason: CoachFeedbackReason? = nil) {
+        let id = message.id.uuidString
+        if let existing = feedbackEntry(for: message), existing.rating == rating, existing.reason == reason {
+            feedback = CoachFeedbackLog.removing(feedback, messageId: id)
+        } else {
+            feedback = CoachFeedbackLog.recording(
+                feedback, entry: CoachFeedbackEntry(messageId: id, rating: rating, reason: reason, at: Date()))
+        }
+        CoachLocalFiles.save(feedback, to: CoachLocalFiles.feedbackURL)
+    }
+
     /// K5: surface a brief generated by the SCHEDULED morning-brief notification as the first Coach
     /// message, with no network call — called once when the app opens via a tap on that notification.
     /// No-op if a conversation already exists, so it never duplicates into an active chat.
@@ -726,6 +819,7 @@ final class AICoachEngine: ObservableObject {
     func retireStaleConversationIfNeeded() {
         guard Self.isStaleConversation(lastEpochDay: conversationDay,
                                        todayEpochDay: Self.localEpochDay()) else { return }
+        archiveCurrentConversation()
         messages = []
         conversationDay = nil
         droppedSummary = nil
@@ -941,14 +1035,58 @@ final class AICoachEngine: ObservableObject {
         // Same master-switch gate as `send`, because this entry has NO UI at all: it is what the scheduler
         // calls, and a caller that skipped the scheduler's own gate would otherwise reach a provider with
         // the AI switched off.
-        guard CoachBriefScheduler.coachMasterEnabled else { return nil }
-        guard isConfigured, dataConsent, let key = resolvedKey else { return nil }
+        guard CoachBriefScheduler.coachMasterEnabled else {
+            CoachBriefScheduler.recordFailureReason("Coach is turned off in Settings.")
+            return nil
+        }
+        guard isConfigured else {
+            CoachBriefScheduler.recordFailureReason("No Coach provider key is set up.")
+            return nil
+        }
+        guard dataConsent else {
+            CoachBriefScheduler.recordFailureReason("Coach data access is turned off in Settings.")
+            return nil
+        }
+        guard let key = resolvedKey else {
+            CoachBriefScheduler.recordFailureReason("The saved Coach provider key is unavailable.")
+            return nil
+        }
         let context = await buildFullContext()
         let wire: [(role: ChatMessage.Role, content: String)] =
             [(.user, context + "\n\n---\n\n" + Self.briefInstruction)]
-        guard let reply = try? await callProvider(key: key, messages: wire) else { return nil }
+        let reply: String
+        do {
+            reply = try await callProvider(key: key, messages: wire)
+        } catch let error as AICoachError {
+            CoachBriefScheduler.recordFailureReason(Self.briefFailureReason(for: error))
+            return nil
+        } catch {
+            CoachBriefScheduler.recordFailureReason("The Coach provider could not be reached.")
+            return nil
+        }
         let clean = reply.trimmingCharacters(in: .whitespacesAndNewlines)
-        return clean.isEmpty ? nil : clean
+        guard !clean.isEmpty else {
+            CoachBriefScheduler.recordFailureReason("The Coach provider returned an empty reply.")
+            return nil
+        }
+        CoachBriefScheduler.recordFailureReason(nil)
+        return clean
+    }
+
+    /// Notification-safe wording: name the kind of failure without putting server responses, URLs or
+    /// account details on the lock screen.
+    private static func briefFailureReason(for error: AICoachError) -> String {
+        switch error {
+        case .noKey, .keySaveFailed: return "No usable Coach provider key is saved."
+        case .badKey: return "The provider rejected the saved key."
+        case .rateLimited: return "The provider is rate-limiting requests."
+        case .server: return "The Coach provider returned an error."
+        case .network: return "The Coach provider could not be reached."
+        case .decode: return "The provider reply could not be read."
+        case .emptyReply: return "The Coach provider returned an empty reply."
+        case .badCustomURL: return "The custom provider URL is invalid."
+        case .emptyQuestion: return "The brief request was empty."
+        }
     }
 
     /// Full data context = the metrics summary + recent workouts (+ an OPT-IN on-device-signals summary
@@ -1048,7 +1186,7 @@ final class AICoachEngine: ObservableObject {
         try await provider.client.send(
             key: key,
             model: model,
-            systemPrompt: systemPrompt,
+            systemPrompt: requestSystemPrompt,
             messages: messages,
             session: session
         )
@@ -1065,7 +1203,7 @@ final class AICoachEngine: ObservableObject {
         try await provider.client.streamWithImage(
             key: key,
             model: model,
-            systemPrompt: systemPrompt,
+            systemPrompt: requestSystemPrompt,
             messages: messages,
             inlineImage: inlineImage,
             session: session,
@@ -1331,3 +1469,38 @@ final class AICoachEngine: ObservableObject {
         return f.string(from: Date(timeIntervalSince1970: TimeInterval(ts)))
     }
 }
+
+#if DEBUG
+// MARK: - UI-test fixture (DEBUG only)
+
+/// `-CoachFixture`: Coach starts connected (a local server that nothing listens on), with a made-up conversation,
+/// two made-up past conversations and no feedback, so the history, thumbs and settings can be captured with no
+/// key and no network. Nothing here is real; a question sent in this mode simply fails to connect.
+enum CoachUITestFixture {
+    static let isActive = CommandLine.arguments.contains("-CoachFixture")
+}
+
+extension AICoachEngine {
+    fileprivate func applyUITestFixture() {
+        provider = .custom
+        customBaseURL = "http://127.0.0.1:9/v1"
+        customConnected = true
+        messages = [
+            ChatMessage(id: UUID(uuidString: "00000000-0000-0000-0000-0000000000A1")!, role: .user,
+                        text: "How is my charge trending?"),
+            ChatMessage(id: UUID(uuidString: "00000000-0000-0000-0000-0000000000A2")!, role: .assistant,
+                        text: "Synthetic reply: your charge has been steady this week. This text is made up for layout checks."),
+        ]
+        feedback = []
+        let now = Date()
+        history = [
+            CoachConversationRecord(id: "fixture-1", title: "Why am I run down?", archivedAt: now.addingTimeInterval(-86_400),
+                                    messages: [CoachStoredMessage(role: "user", text: "Why am I run down?"),
+                                               CoachStoredMessage(role: "assistant", text: "Synthetic reply: a short night and a hard day.")]),
+            CoachConversationRecord(id: "fixture-2", title: "Analyse my sleep", archivedAt: now.addingTimeInterval(-3 * 86_400),
+                                    messages: [CoachStoredMessage(role: "user", text: "Analyse my sleep"),
+                                               CoachStoredMessage(role: "assistant", text: "Synthetic reply: sleep was steady.")]),
+        ]
+    }
+}
+#endif

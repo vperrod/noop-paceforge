@@ -544,6 +544,10 @@ public final class LiveState: ObservableObject {
     /// won't advance (likely needs a manual reboot; ~never after high-freq-sync removal). Banner-only.
     @Published public var strapNeedsReboot = false
 
+    /// Wall time (unix seconds) the newest readable live strap sample (heart rate) arrived. With `lastSyncedAt` it says how
+    /// fresh the strap's data is: a completed history sync is rare, live samples arrive continuously while connected.
+    public private(set) var lastSampleAt: TimeInterval?
+
     /// Wall time (unix seconds) of the last successfully-completed offload (a sync, even if nothing new
     /// came — i.e. caught up). Drives the sync tile + the staleness nudge.
     @Published public var lastSyncedAt: TimeInterval?
@@ -567,6 +571,18 @@ public final class LiveState: ObservableObject {
     /// Chunks acked during the current offload session — an honest progress signal (total pending is
     /// unknowable from the protocol, so a count, never a percent).
     @Published public var syncChunksThisSession: Int = 0
+    /// Start (unix seconds) of the current LOGICAL sync: the whole chain of offload sessions the auto-continue
+    /// re-kicks stitch together. nil when no sync is running. Unlike `backfilling` it does not flicker between
+    /// chained sessions, so it is what the sheet's elapsed clock and Stop button follow.
+    @Published public var syncStartedAt: TimeInterval? = nil
+    /// Chunks acked across the whole logical sync (`syncChunksThisSession` restarts at every chained session).
+    @Published public var syncTotalChunks: Int = 0
+    /// How the last logical sync ended: complete, idle_complete, no_response, stalled, max_duration, aborted,
+    /// disconnected. nil until one ends. Process-local, like `lastSyncError`.
+    @Published public var lastSyncEndReason: String? = nil
+    /// Bumped once when a logical sync that moved data ends: the single trigger for the post-sync Repository
+    /// refresh and the server push (AppModel), instead of one per chained session.
+    @Published public var syncFinishedSeq: Int = 0
 
     /// Undecodable HISTORICAL_DATA record frames seen this offload session whose raw bytes WERE
     /// preserved to the on-device archive (#77 / #91). Drives the honest "saved on this Mac" sync
@@ -721,6 +737,9 @@ public final class LiveState: ObservableObject {
     /// silence deadline on. One timer, rescheduled at most every tenth of the wait (once a second in use), so it costs
     /// nothing while samples flow and fires once when they stop.
     public func noteReadableHeartRate() {
+        // Wall time of the newest strap sample received live. Deliberately not @Published: it moves every beat, and the
+        // Today leaves read it through `LiveSnapshot`, which holds it to ten-second steps and wakes them at most once a second.
+        lastSampleAt = Date().timeIntervalSince1970
         let now = DispatchTime.now()
         let rearmNanos = UInt64(heartRateSilence / 10 * 1_000_000_000)
         if let armed = heartRateSilenceArmedAt, now.uptimeNanoseconds &- armed.uptimeNanoseconds < rearmNanos { return }

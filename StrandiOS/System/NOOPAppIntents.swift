@@ -153,6 +153,41 @@ struct NOOPShortcuts: AppShortcutsProvider {
                     ],
                     shortTitle: "Ask Coach",
                     systemImageName: "sparkles")
+        AppShortcut(intent: TodaysPaceForgeSessionIntent(),
+                    phrases: [
+                        "What is my PaceForge session in \(.applicationName)",
+                        "Today's PaceForge session in \(.applicationName)",
+                    ],
+                    shortTitle: "Today's PaceForge session",
+                    systemImageName: "figure.run")
+        AppShortcut(intent: PaceForgeRecoveryIntent(),
+                    phrases: [
+                        "How is my recovery in \(.applicationName)",
+                        "How's my recovery in \(.applicationName)",
+                    ],
+                    shortTitle: "How is my recovery",
+                    systemImageName: "heart.text.square")
+        AppShortcut(intent: PaceForgeHeartRecoveryIntent(),
+                    phrases: [
+                        "What is my heart recovery in \(.applicationName)",
+                        "What's my heart rate recovery in \(.applicationName)",
+                    ],
+                    shortTitle: "My heart recovery",
+                    systemImageName: "waveform.path.ecg")
+        AppShortcut(intent: NextPaceForgeSessionIntent(),
+                    phrases: [
+                        "What's my next session in \(.applicationName)",
+                        "What is my next session in \(.applicationName)",
+                    ],
+                    shortTitle: "My next session",
+                    systemImageName: "calendar")
+        AppShortcut(intent: DaysToNextRaceIntent(),
+                    phrases: [
+                        "Days to my next race in \(.applicationName)",
+                        "How long until my race in \(.applicationName)",
+                    ],
+                    shortTitle: "Days to my next race",
+                    systemImageName: "flag.checkered")
     }
 }
 #endif

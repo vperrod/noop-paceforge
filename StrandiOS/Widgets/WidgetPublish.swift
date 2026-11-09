@@ -98,7 +98,9 @@ extension WidgetSnapshot {
         // would decode the App Group blob twice on any publish that could not score, and this file
         // already went to the trouble of removing one such decode from the live path.
         let storedStress: WidgetSnapshot? = stress == nil ? load() : nil
-        let snap = WidgetSnapshot(
+        // The Effort target widget: today's Effort against the OPTIMAL band, pre-formatted on the user's scale.
+        let target = EffortTargetReading.make(days: days, now: now, effortScale: effortScale).progress
+        var snap = WidgetSnapshot(
             recovery: day?.recovery.map { Int($0.rounded()) },
             bpm: model.bpm ?? model.live.heartRate,
             batteryPct: activeBatteryPct(from: model),
@@ -114,9 +116,35 @@ extension WidgetSnapshot {
             // nil when the curve could not be scored at all, which must not blank a widget that already
             // has one: carry the stored values forward instead of publishing an absence.
             stressSeries: stressPoints ?? storedStress?.stressSeries,
-            stressDay: stress?.day ?? storedStress?.stressDay
+            stressDay: stress?.day ?? storedStress?.stressDay,
+            effortTargetEffort: target.effortFraction.map { Int(($0 * 100).rounded()) },
+            effortTargetEffortText: target.effortText,
+            effortBandLow: target.lowFraction.map { Int(($0 * 100).rounded()) },
+            effortBandHigh: target.highFraction.map { Int(($0 * 100).rounded()) },
+            effortBandText: target.rangeText,
+            effortToGo: target.status == .noTarget ? nil : target.detail,
+            effortTargetDay: WidgetSnapshot.logicalDayKey(now),
+            effortTargetAt: now
         )
+        snap.scoresHidden = HideScoresPrefs.isOn(.scores)
+        snap.bodyHidden = HideScoresPrefs.isOn(.body)
         saveAndReloadIfChanged(snap)
+        // The My Day widget's file rides the same publish, throttled inside the writer.
+        await MyDaySummaryWriter.refresh(repo: model.repo)
+    }
+
+    /// Settings > Hide numbers changed: restate the two switches in the stored snapshot and reload the widgets.
+    /// The scores stay in the file, so turning a switch off brings them straight back with no recompute.
+    @MainActor
+    static func applyHideNumbers() {
+        guard var snap = load() else { return }
+        let scores = HideScoresPrefs.isOn(.scores)
+        let body = HideScoresPrefs.isOn(.body)
+        guard (snap.scoresHidden ?? false) != scores || (snap.bodyHidden ?? false) != body else { return }
+        snap.scoresHidden = scores
+        snap.bodyHidden = body
+        snap.save(previousSeries: snap.hrSeries ?? [])
+        WidgetCenter.shared.reloadAllTimelines()
     }
 
     /// Publish fields that come directly from the live BLE state without re-reading the Rest metric

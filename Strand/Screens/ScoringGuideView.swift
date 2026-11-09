@@ -90,7 +90,7 @@ struct ScoringGuideView: View {
                         introCard
                         scoreCard(.charge,
                                   headline: String(localized: "Charge: how recovered are you?"),
-                                  body: String(localized: "Led by your heart-rate variability (HRV) measured against your own personal baseline, plus resting heart rate, last night's Rest, breathing rate, and a skin-temperature signal (an early illness or overreach flag). Higher HRV versus your baseline means more Charge. NOOP needs a few nights to learn your baseline first. Until then you'll see “Calibrating”."),
+                                  body: String(localized: "Led by your heart-rate variability (HRV) measured against your own personal baseline, plus resting heart rate, last night's Rest, breathing rate, and skin-temperature trend. These signals add context but cannot identify illness or overreach. Higher HRV versus your baseline means more Charge. NOOP needs a few nights to learn your baseline first. Until then you'll see “Calibrating”."),
                                   vsWhoop: String(localized: "Same core idea as WHOOP's Recovery % (HRV-led recovery), but our weighting and baseline maths are our own, and openly documented."))
                         scoreCard(.effort,
                                   headline: String(localized: "Effort: how hard did your heart work?"),
@@ -153,6 +153,7 @@ struct ScoringGuideView: View {
 
     private var footerBar: some View {
         HStack {
+            AskCoachButton(metric: initialSection.map { $0.displayName } ?? "Charge, Effort and Rest scores", onClose: onClose)
             Spacer()
             Button(action: onClose) {
                 Text("Got it").frame(minWidth: 120).padding(.vertical, 4)
@@ -330,7 +331,11 @@ struct ScoringGuideView: View {
 
 #if DEBUG
 #Preview("Scoring guide") {
-    ScoringGuideView(initialSection: .effort, onClose: {})
+    // The guide's "Ask Coach" button reads the coach and the router from the environment.
+    let repo = Repository(deviceId: "preview")
+    return ScoringGuideView(initialSection: .effort, onClose: {})
+        .environmentObject(AICoachEngine(repo: repo))
+        .environmentObject(NavRouter())
         .preferredColorScheme(.dark)
 }
 #endif

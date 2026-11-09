@@ -1,10 +1,10 @@
 import XCTest
 @testable import Strand
 
-/// "Low refresh" (Settings → Power saving sub-option) moves the BASE periodic-offload cadence from 15 min
+/// "Low refresh" (Settings → Power saving sub-option) moves the BASE periodic-offload cadence from 30 min
 /// to 60 min. The invariant that matters is COMPOSITION: every other lever stretches FROM that base with
 /// `max`, so no lever can ever hand back a faster cadence than the user asked for, and a lever that would
-/// have stretched a 15-min base is a no-op once the base is already longer.
+/// have stretched a 30-min base is a no-op once the base is already longer.
 ///
 /// Cadence only, by design: low refresh deliberately does NOT touch the keep-alive (that tick re-arms the
 /// WHOOP 4 realtime burst each cycle and evaluates the 120 s stall fuse) and does NOT release continuous
@@ -17,9 +17,9 @@ import XCTest
 @MainActor
 final class LowRefreshCadenceTests: XCTestCase {
 
-    func testBaseIsFifteenMinutesWhenOff() {
+    func testBaseIsThirtyMinutesWhenOff() {
         XCTAssertEqual(BLEManager.baseBackfillInterval(lowRefresh: false), BLEManager.backfillIntervalSeconds)
-        XCTAssertEqual(BLEManager.backfillIntervalSeconds, 900)
+        XCTAssertEqual(BLEManager.backfillIntervalSeconds, 1800)
     }
 
     func testBaseIsHourlyWhenOn() {
@@ -38,7 +38,7 @@ final class LowRefreshCadenceTests: XCTestCase {
         XCTAssertEqual(composed, BLEManager.lowRefreshBackfillIntervalSeconds)
     }
 
-    /// Without low refresh the same engaged lever still stretches 15 → 45 min, i.e. this change is inert
+    /// Without low refresh the same engaged lever still stretches 30 → 45 min, i.e. this change is inert
     /// for everyone who does not turn it on.
     func testDefaultBehaviourIsUnchangedWhenOff() {
         let base = BLEManager.baseBackfillInterval(lowRefresh: false)
@@ -47,7 +47,7 @@ final class LowRefreshCadenceTests: XCTestCase {
                                        lowSeconds: max(base, BLEManager.lowBatteryBackfillIntervalSeconds),
                                        batteryPct: 10, charging: false, thresholdPct: 20),
             BLEManager.lowBatteryBackfillIntervalSeconds)
-        // …and an idle/charged strap keeps the plain 15-min cadence.
+        // …and an idle/charged strap keeps the plain 30-min cadence.
         XCTAssertEqual(
             BLEManager.offloadInterval(baseSeconds: base,
                                        lowSeconds: max(base, BLEManager.lowBatteryBackfillIntervalSeconds),
@@ -55,7 +55,7 @@ final class LowRefreshCadenceTests: XCTestCase {
             BLEManager.backfillIntervalSeconds)
     }
 
-    /// The 5/MG empty-history stretch (45 min) composes the same way: it may quieten a 15-min base, but
+    /// The 5/MG empty-history stretch (45 min) composes the same way: it may quieten a 30-min base, but
     /// must not pull an already-hourly cadence back down.
     func testWhoop5EmptyHistoryStretchNeverShortensLowRefresh() {
         let base = BLEManager.baseBackfillInterval(lowRefresh: true)

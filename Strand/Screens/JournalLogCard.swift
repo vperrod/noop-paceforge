@@ -88,27 +88,16 @@ struct JournalLogCard: View {
                     pillButton("Edit", selected: false) { editing = true }
                 }
             }
-            // Day picker (#656): a bounded, scrollable range — Tomorrow back through the last 7 days — so
-            // any recent day can be backfilled (was Yesterday/Today/Tomorrow only). Chronological
-            // left→right; snaps to the selected day, so a deep-link from the Today journal widget lands on
-            // that day's pill. Only when not editing.
+            // Day picker (#656): a bounded range, Tomorrow back through the last 7 days, so any recent day
+            // can be backfilled. The pills wrap onto a second row instead of scrolling sideways, so the
+            // selected day is always on screen. Only when not editing.
             if !editing {
-                ScrollViewReader { proxy in
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 6) {
-                            ForEach(Self.journalDayOffsets, id: \.self) { off in
-                                dayPill(journalDayLabel(off), offset: off).id(off)
-                            }
-                        }
-                        .padding(.horizontal, 1)   // don't clip the selected pill's ring
+                LookFlowLayout(spacing: 6, lineSpacing: 6) {
+                    ForEach(Self.journalDayOffsets, id: \.self) { off in
+                        dayPill(journalDayLabel(off), offset: off).id(off)
                     }
-                    // Defer the initial scroll a tick: scrollTo in onAppear can no-op before the pills lay
-                    // out, which would leave the picker on the oldest day instead of the selected one.
-                    .onAppear { DispatchQueue.main.async { proxy.scrollTo(dayOffset, anchor: .center) } }
-                    // onChangeCompat, not onChange: the zero/two-arg onChange is macOS 14+, and this card
-                    // is shared with the macOS 13 target.
-                    .onChangeCompat(of: dayOffset) { _ in proxy.scrollTo(dayOffset, anchor: .center) }
                 }
+                .padding(.horizontal, 1)   // don't clip the selected pill's ring
             }
             NoopCard(tint: StrandPalette.restColor) {
                 VStack(alignment: .leading, spacing: 10) {

@@ -212,7 +212,7 @@ them to wall time with the linear `(device, wall)` offset captured at connect by
 ### Historical path (offload / backfill)
 
 The strap holds a ~14-day on-device biometric store. NOOP re-offloads it the way the official client
-syncs — once per connect and then every `backfillIntervalSeconds` (900s) while connected+bonded — so
+syncs — once per connect and then every `backfillIntervalSeconds` (1800s, 30 min) while connected+bonded — so
 the periodic **type-47 historical offload is the primary metric source**, not the live stream.
 
 1. `requestSync(_:)` gates every kick on connection state **and** `BackfillPolicy` (the rate
@@ -264,7 +264,7 @@ scan(customService) ─▶ didDiscover ─▶ connect ─▶ didDiscoverServices
    ─▶ didWriteValueFor (bond ack) ─┬─ HELLO → SET_CLOCK → GET_CLOCK
                                    ├─ stop type-43 realtime flood, GET_DATA_RANGE
                                    ├─ requestSync(.connect)  (deferred ~1.5s)
-                                   ├─ startBackfillTimer()   (re-offload every 900s)
+                                   ├─ startBackfillTimer()   (re-offload every 1800s)
                                    └─ startKeepAlive()       (re-arm realtime, poll battery, watchdog)
 ```
 

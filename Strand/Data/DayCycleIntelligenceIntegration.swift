@@ -346,7 +346,10 @@ import WhoopStore
 
     static func applying(_ result: Result, to daily: DailyMetric) -> DailyMetric {
         let established = result.firstWakeDay.map { daily.day >= $0 } ?? false
-        let steps = established ? result.stepsByWakeDay[daily.day] : daily.steps
+        // A wake day the cycle pass has no count for keeps the value the row already carried: the pass must
+        // never turn a stored step count into nil.
+        let steps = StepsSourceResolver.cycleSteps(established: established,
+                                                   cycle: result.stepsByWakeDay[daily.day], existing: daily.steps)
         let strain = established ? result.strainByWakeDay[daily.day] : daily.strain
         let calories = established ? result.caloriesByWakeDay[daily.day] : daily.activeKcalEst
         let workouts = established ? result.workoutCountByWakeDay[daily.day] : daily.exerciseCount

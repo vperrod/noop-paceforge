@@ -1,7 +1,7 @@
 import Foundation
 import UserNotifications
 
-/// Surfaces the illness early-warning as a macOS user notification when the banner transitions
+/// Surfaces a contextual overnight-pattern notification when the banner transitions
 /// from clear to raised — today it is silent unless the window is open (the menu-bar extra keeps
 /// NOOP alive). Rate-limited to once per local calendar day; the in-app banner stays the live
 /// surface. On-device only; the summary is APPROXIMATE — informational, not a diagnosis.
@@ -15,7 +15,7 @@ enum IllnessNotifier {
             .requestAuthorization(options: [.alert, .sound]) { _, _ in }
     }
 
-    /// Post the early-warning, at most once per local calendar day.
+    /// Post the pattern note, at most once per local calendar day.
     static func post(_ message: String) {
         let day = dayKey(Date())
         let d = UserDefaults.standard
@@ -30,8 +30,8 @@ enum IllnessNotifier {
         center.getNotificationSettings { settings in
             guard settings.authorizationStatus == .authorized else { return }
             let content = UNMutableNotificationContent()
-            content.title = String(localized: "Early warning: take it easy")
-            content.subtitle = String(localized: "On-device estimate (approximate), not a diagnosis.")
+            content.title = String(localized: "Overnight pattern check")
+            content.subtitle = String(localized: "Wearable estimates are approximate and not illness-specific.")
             content.body = message
             content.sound = .default
             center.add(UNNotificationRequest(identifier: "illness-watch",

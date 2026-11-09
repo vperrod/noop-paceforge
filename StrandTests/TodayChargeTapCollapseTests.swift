@@ -11,10 +11,10 @@ final class TodayChargeTapCollapseTests: XCTestCase {
     // MARK: #205 one-word readiness read (kept on the hero after Readiness folded into the Charge tap)
 
     func testReadinessWord_mapsEveryLevel() {
-        XCTAssertEqual(TodayView.readinessWord(.primed), "Push")
-        XCTAssertEqual(TodayView.readinessWord(.balanced), "Maintain")
-        XCTAssertEqual(TodayView.readinessWord(.strained), "Rest")
-        XCTAssertEqual(TodayView.readinessWord(.rundown), "Rest")
+        XCTAssertEqual(TodayView.readinessWord(.primed), "Signals aligned")
+        XCTAssertEqual(TodayView.readinessWord(.balanced), "Balanced")
+        XCTAssertEqual(TodayView.readinessWord(.strained), "Watch signal")
+        XCTAssertEqual(TodayView.readinessWord(.rundown), "Review signals")
     }
 
     func testReadinessWord_insufficientHasNoWord() {

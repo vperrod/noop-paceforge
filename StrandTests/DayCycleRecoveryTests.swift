@@ -29,6 +29,19 @@ final class DayCycleRecoveryTests: XCTestCase {
         XCTAssertEqual(updated.sleepHrOnly, true)
     }
 
+    func testApplyingCycleWithoutAStepCountKeepsTheStoredSteps() {
+        let daily = DailyMetric(
+            day: "2026-10-12", totalSleepMin: nil, efficiency: nil, deepMin: nil, remMin: nil,
+            lightMin: nil, disturbances: nil, restingHr: nil, avgHrv: nil, recovery: nil,
+            strain: nil, exerciseCount: nil, spo2Pct: nil, skinTempDevC: nil, respRateBpm: nil,
+            steps: 8_300, activeKcalEst: nil)
+        let result = DayCycleIntelligenceIntegration.Result(
+            stepsByWakeDay: [:], strainByWakeDay: [:], caloriesByWakeDay: [:], workoutCountByWakeDay: [:],
+            onsetByWakeDay: [:], firstWakeDay: daily.day, markerUpdate: .preserve)
+
+        XCTAssertEqual(DayCycleIntelligenceIntegration.applying(result, to: daily).steps, 8_300)
+    }
+
     func testBoundaryRecoveryPropagatesSessionReadFailure() async {
         let reader = DayCycleIntelligenceIntegration.BoundaryRecoveryReader(
             sleepSessions: { _, _, _ in throw ReadFailure.injected },

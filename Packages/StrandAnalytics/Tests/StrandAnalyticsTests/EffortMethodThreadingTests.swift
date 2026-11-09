@@ -75,6 +75,22 @@ final class EffortMethodThreadingTests: XCTestCase {
         }
     }
 
+    /// Effort v2: the all-day recipe reaches the day's score (an hour at 45% HRR is real movement), while the
+    /// workouts inside the day keep their classic Edwards score (a workout is never re-scored, or counted
+    /// twice, on top of the day that already integrates it).
+    func testAllDayReachesTheDayScoreWhileWorkoutsKeepTheirClassicScore() {
+        XCTAssertEqual(score(.edwards) ?? -1.0, 0.0, accuracy: 1e-9)
+        XCTAssertGreaterThan(score(.allDay) ?? 0.0, 0.0)
+
+        let hr = subThresholdHour()
+        let grav = (0 ..< 3600).map { GravitySample(ts: $0, x: 0.9, y: 0.1, z: 0.1) }
+        let classic = WorkoutDetector.detect(hr: hr, gravity: grav, restingHR: 60, maxHR: 190,
+                                             age: 30, profile: profile(), effortMethod: .edwards)
+        let allDay = WorkoutDetector.detect(hr: hr, gravity: grav, restingHR: 60, maxHR: 190,
+                                            age: 30, profile: profile(), effortMethod: .allDay)
+        XCTAssertEqual(classic.map { $0.strain }, allDay.map { $0.strain })
+    }
+
     /// A method change must not disturb anything else the day computes.
     func testOnlyEffortMoves() {
         let e = AnalyticsEngine.analyzeDay(day: day, hr: subThresholdHour(), dayHr: subThresholdHour(),

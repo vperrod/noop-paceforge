@@ -204,6 +204,10 @@ final class AppModel: ObservableObject {
     @Published var whoopImportSummary: String?
     /// Last Apple Health import result surfaced in the Apple Health card.
     @Published var appleHealthImportSummary: String?
+    /// Present the completion result once so a large import's outcome cannot be missed below the card.
+    @Published var appleHealthImportResultPresented = false
+    /// Current Apple Health import phase and parsed-record count, displayed while the import runs.
+    @Published var appleHealthImportProgress: String?
     /// Last Xiaomi / Mi Band import result surfaced in the Mi Band card.
     @Published var xiaomiImportSummary: String?
     /// Typed failure flags per source , the summary's warning styling reads these instead of
@@ -249,6 +253,8 @@ final class AppModel: ObservableObject {
     init() {
         let live = LiveState()
         self.live = live
+        // The Today status leaves read a once-a-second copy of the live fields, not LiveState itself.
+        LiveSnapshotStore.shared.attach(to: live)
         // SEED every subsystem with the same id (`deviceId`, "my-whoop" at launch). The store/registry
         // aren't open yet here, so the registry's active id can't be read synchronously; `bootstrapStore`
         // (write side) and `wireSourceCoordinator → adoptActiveDevice` (read spine, #814) re-point them to
@@ -417,13 +423,33 @@ final class AppModel: ObservableObject {
         // trailing edge, so the dashboard still refreshes with the newly-synced data , freshness is kept,
         // we just stop re-doing it dozens of times mid-download. removeDuplicates() still drops a slice that
         // stamped an identical second; the trailing refresh after a real change is never dropped.
+        //
+        // A WHOOP strap no longer refreshes off `lastSyncedAt` at all: BLEManager ends each logical sync (the whole
+        // chain of offload sessions) exactly once and bumps `syncFinishedSeq`, which drives ONE refresh and ONE
+        // server push below. Other sources (the Oura ring) still stamp `lastSyncedAt` and keep this debounce.
         live.$lastSyncedAt
             .dropFirst()
             .compactMap { $0 }
             .removeDuplicates()
+            .filter { [weak self] _ in self?.live.activeIsWhoop == false }
             .debounce(for: .seconds(2), scheduler: DispatchQueue.main)
             .sink { [weak self] _ in
                 Task { [weak self] in await self?.refreshAfterCompletedBackfill() }
+            }
+            .store(in: &hrCancellables)
+        live.$syncFinishedSeq
+            .dropFirst()
+            .removeDuplicates()
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                Task { [weak self] in
+                    guard let self else { return }
+                    // Read and clear before the (long) refresh so a sync started meanwhile cannot lose or inherit the flag.
+                    let immediate = self.ble.syncWantsImmediatePush
+                    self.ble.syncWantsImmediatePush = false
+                    await self.refreshAfterCompletedBackfill()
+                    await self.pushAfterStrapSync(immediate: immediate)
+                }
             }
             .store(in: &hrCancellables)
 
@@ -524,11 +550,19 @@ final class AppModel: ObservableObject {
                 // `live = self.live` spelled out: this is nested inside the cadence `Task`, which
                 // requires explicit `self`, so the bare-name capture shorthand used elsewhere in this
                 // type would not resolve here.
-                await RescoreBackgroundScheduler.run(owesOnDefer: false,
-                                                     log: { [live = self.live] line in
-                                                         live.append(log: line)
-                                                     }) {
-                    await self.intelligence.analyzeRecent(force: false)
+                // Battery: `syncFinishedSeq` moves when a sync ends having moved data (or completed), and the sink's
+                // refreshAfterCompletedBackfill scores it right away and records it in `scoredSyncSeq`. With the seq
+                // already scored, this tick would only re-read the HR the strap streamed live. `scoredSyncSeq` starts
+                // at -1 so the launch tick always scores.
+                let syncSeq = self.live.syncFinishedSeq
+                if syncSeq != self.scoredSyncSeq {
+                    self.scoredSyncSeq = syncSeq
+                    await RescoreBackgroundScheduler.run(owesOnDefer: false,
+                                                         log: { [live = self.live] line in
+                                                             live.append(log: line)
+                                                         }) {
+                        await self.intelligence.analyzeRecent(force: false)
+                    }
                 }
                 // v5: recompute the skin-temp suite snapshots (cycle phase + body clock) from the
                 // freshly-scored history so the Health hub cards read a ready result.
@@ -702,7 +736,7 @@ final class AppModel: ObservableObject {
     /// A closure rather than a direct reference because `HealthKitBridge` owns iOS-only HealthKit state
     /// while this type is shared with macOS, and the bridge is a `@StateObject` the app scene owns.
     var healthWriteBack: (() async -> Void)?
-    /// One-way NOOP → user-owned PaceForge transfer; implementation is installed only by iOS.
+    /// User-owned NOOP ↔ PaceForge transfer; implementation is installed only by iOS.
     var selfHostedPush: (() async -> Void)?
     #endif
 
@@ -749,7 +783,49 @@ final class AppModel: ObservableObject {
         #endif
     }
 
+    /// Server push after a finished strap sync: at most once an hour for periodic and strap-event syncs (each push wakes the
+    /// radio and the receiver). A user or foreground sync, or a last push over an hour old, goes at once. A push held back is
+    /// not dropped: one timer sends it when the hour is up, and the foreground push sends it sooner if the app is opened.
+    private func pushAfterStrapSync(immediate: Bool) async {
+        let lastPush = UserDefaults.standard.double(forKey: SelfHostedPushClient.lastSuccessKey)
+        // Capped at the interval: a future-dated last success must not park the timer for days.
+        let wait = min(lastPush + AppModel.strapSyncPushMinInterval - Date().timeIntervalSince1970,
+                       AppModel.strapSyncPushMinInterval)
+        if immediate || wait <= 0 {
+            cancelDeferredStrapSyncPush()
+            await runStrapSyncPush()
+            return
+        }
+        guard deferredStrapSyncPush == nil, !strapSyncPushInFlight else { return }
+        deferredStrapSyncPush = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: UInt64(wait * 1_000_000_000))
+            guard !Task.isCancelled, let self else { return }
+            self.deferredStrapSyncPush = nil
+            await self.runStrapSyncPush()
+        }
+    }
+
+    /// Drops a held-back strap-sync push. The foreground push calls this because it sends everything the timer would.
+    func cancelDeferredStrapSyncPush() {
+        deferredStrapSyncPush?.cancel()
+        deferredStrapSyncPush = nil
+    }
+
+    private func runStrapSyncPush() async {
+        strapSyncPushInFlight = true
+        defer { strapSyncPushInFlight = false }
+        await SelfHostedPushClient.pushIfEnabled(repo: repo)
+    }
+
+    private static let strapSyncPushMinInterval: TimeInterval = 3600
+    private var deferredStrapSyncPush: Task<Void, Never>?
+    private var strapSyncPushInFlight = false
+    /// The `syncFinishedSeq` the last post-sync pass scored; the 30-min backstop tick skips analyzeRecent while the seq is still this.
+    /// -1 so the launch tick always scores.
+    private var scoredSyncSeq = -1
+
     private func refreshAfterCompletedBackfill() async {
+        let syncSeq = live.syncFinishedSeq
         live.append(log: "Backfill: refreshing dashboard cache from completed sync")
         await repo.refresh(days: 120)
         // Score the freshly-offloaded raw data RIGHT NOW rather than waiting for the next 15-minute
@@ -768,10 +844,17 @@ final class AppModel: ObservableObject {
         // the #1538 report while never producing a score. Decide first whether this pass can finish here,
         // and hand it to a background-processing task when it cannot. A no-op on macOS, and on iOS a
         // foreground pass is never deferred.
+        // WHY: record the seq as scored only if the pass actually started here. A pass deferred to a
+        // background task never runs `work`, and one that finds a tick already running (`computing`) does
+        // not start its own; marking those scored would make the 30-min tick skip, leaving the just-synced
+        // rows unscored until the next sync bumps the seq.
+        var passRan = false
         await RescoreBackgroundScheduler.run(passInProgress: intelligence.computing,
                                              log: { [live] line in live.append(log: line) }) {
+            passRan = !intelligence.computing
             await intelligence.analyzeRecent(skipIfUnchanged: true)
         }
+        if passRan { scoredSyncSeq = syncSeq }
         await refreshV5Signals()
         #if os(iOS)
         // #980: a strap backfill routinely completes while the app is BACKGROUNDED (it runs as a
@@ -1040,7 +1123,7 @@ final class AppModel: ObservableObject {
         let strain = samples.count >= 2
             ? StrainScorer.strain(samples, maxHR: Double(profile.hrMax),
                                   restingHR: restingHR,
-                                  method: PuffinExperiment.effortMethod, sex: profile.sex) : nil
+                                  method: PuffinExperiment.effortMethod.workoutRecipe, sex: profile.sex) : nil
         // Estimate calories from the captured HR window (same Keytel/Harris–Benedict model the
         // auto-detector uses) so a manual session shows energy too, not just duration/strain. (#117)
         let up = UserProfile(weightKg: profile.weightKg, heightCm: profile.heightCm,
@@ -1099,7 +1182,7 @@ final class AppModel: ObservableObject {
         w.peakHr = max(w.peakHr, hr)
         w.avgHr = Int((Double(w.samples.map(\.bpm).reduce(0, +)) / Double(w.samples.count)).rounded())
         w.liveStrain = StrainScorer.strain(w.samples, maxHR: Double(profile.hrMax),
-                                              method: PuffinExperiment.effortMethod, sex: profile.sex) ?? 0
+                                              method: PuffinExperiment.effortMethod.workoutRecipe, sex: profile.sex) ?? 0
         activeWorkout = w
         // Re-snapshot the durable session so a kill keeps the latest accumulated HR window (#529).
         persistActiveWorkout()
@@ -1699,6 +1782,10 @@ final class AppModel: ObservableObject {
     }
 
     func applySmartAlarm() {
+        // A Sleep Planner one-off alarm still ahead owns the strap until it fires or is cancelled; the daily
+        // re-arm, a settings change or a reconnect must not overwrite (or disarm) it. Cancelling clears the
+        // stored alarm first, then calls this to hand the strap back to the regular alarm.
+        if SleepPlannerStore.armedAlarm != nil { return }
         let overrides = WindDownNudge.perDayWakeOverrides
         guard behavior.smartAlarmEnabled else {
             ble.disableStrapAlarm()
@@ -2313,6 +2400,7 @@ final class AppModel: ObservableObject {
             (.noopComputed, deviceId + "-noop"),
             (.appleHealth, appleDeviceId),
             (.xiaomiBand, FusionSource.xiaomiBand.rawValue),
+            (.paceforgeGarmin, FusionSource.paceforgeGarmin.rawValue),
         ]
 
         let now = Date()
@@ -2334,6 +2422,8 @@ final class AppModel: ObservableObject {
         for spec in specs {
             var inputs: [FusionInput] = []
             for (src, daily) in rowsBySource {
+                // The Garmin mirror is a steps source only: its other columns stay out of the fused record.
+                if src == .paceforgeGarmin && spec.key != "steps" { continue }
                 if let v = Self.fusionColumn(key: spec.key, day: daily) {
                     inputs.append(FusionInput(source: src, value: v))
                     contributingSources.insert(src)
@@ -2406,7 +2496,10 @@ final class AppModel: ObservableObject {
 
     /// Runs off the main actor (nonisolated) so copying a large export never blocks the UI; the
     /// caller holds the security scope (process-wide) for the duration.
-    nonisolated static func materializeForImport(_ picked: URL) async throws -> ImportFile {
+    nonisolated static func materializeForImport(
+        _ picked: URL,
+        progress: (@Sendable (Int64, Int64?) -> Void)? = nil
+    ) async throws -> ImportFile {
         #if os(iOS)
         let ext = picked.pathExtension.isEmpty ? "dat" : picked.pathExtension
         let dst = NoopScratch.file("import-\(UUID().uuidString)")
@@ -2419,11 +2512,35 @@ final class AppModel: ObservableObject {
                 if FileManager.default.fileExists(atPath: dst.path) {
                     try FileManager.default.removeItem(at: dst)
                 }
-                try FileManager.default.copyItem(at: readURL, to: dst)
+                if let progress {
+                    let total = (try? readURL.resourceValues(forKeys: [.fileSizeKey]).fileSize).map(Int64.init)
+                    guard FileManager.default.createFile(atPath: dst.path, contents: nil) else {
+                        throw CocoaError(.fileWriteUnknown)
+                    }
+                    let input = try FileHandle(forReadingFrom: readURL)
+                    let output = try FileHandle(forWritingTo: dst)
+                    defer { try? input.close(); try? output.close() }
+                    var copied: Int64 = 0
+                    var lastReported: Int64 = 0
+                    while let chunk = try input.read(upToCount: 1 << 20), !chunk.isEmpty {
+                        try output.write(contentsOf: chunk)
+                        copied += Int64(chunk.count)
+                        if copied - lastReported >= 8 << 20 || copied == total {
+                            progress(copied, total)
+                            lastReported = copied
+                        }
+                    }
+                    if copied != lastReported { progress(copied, total) }
+                } else {
+                    try FileManager.default.copyItem(at: readURL, to: dst)
+                }
             } catch { ioError = error }
         }
         if let coordError { throw coordError }
-        if let ioError { throw ioError }
+        if let ioError {
+            try? FileManager.default.removeItem(at: dst)
+            throw ioError
+        }
         // The picked URL is the picker's own `asCopy:true` duplicate in Documents/Inbox; pass it
         // through so cleanup() can reclaim it (it's the original of `dst`, not a user file).
         return ImportFile(url: dst, temp: dst, inboxOriginal: picked)
@@ -2466,10 +2583,12 @@ final class AppModel: ObservableObject {
                 let local = try await Self.materializeForImport(url)
                 defer { local.cleanup() }
                 emitImportFileMeta(kind: .whoopExport, url: local.url)
+                let refreshSeqBeforeImport = repo.refreshSeq
                 let summary = try await WhoopImporter.importExport(url: local.url, into: store,
                                                                    deviceId: deviceId, trace: importTraceSink())
                 try? await store.checkpointWAL()   // reclaim the WAL a bulk import grew (#590)
                 await repo.refresh()
+                repo.invalidateExternalDataCaches(ifRefreshSeqUnchangedSince: refreshSeqBeforeImport)
                 let span: String
                 if let a = summary.earliest, let b = summary.latest {
                     let f = DateFormatter(); f.dateFormat = "MMM yyyy"
@@ -2497,10 +2616,12 @@ final class AppModel: ObservableObject {
                 let local = try await Self.materializeForImport(url)
                 defer { local.cleanup() }
                 emitImportFileMeta(kind: .xiaomiBand, url: local.url)
+                let refreshSeqBeforeImport = repo.refreshSeq
                 let summary = try await XiaomiImporter.importExport(url: local.url, into: store,
                                                                     trace: importTraceSink())
                 try? await store.checkpointWAL()   // reclaim the WAL a bulk import grew (#590)
                 await repo.refresh()
+                repo.invalidateExternalDataCaches(ifRefreshSeqUnchangedSince: refreshSeqBeforeImport)
                 let span: String
                 if let a = summary.earliest, let b = summary.latest {
                     let f = DateFormatter(); f.dateFormat = "MMM yyyy"
@@ -2517,6 +2638,7 @@ final class AppModel: ObservableObject {
 
     func importAppleHealth(url: URL) {
         beginImport(.appleHealth)
+        appleHealthImportProgress = "Copying Apple Health export to this iPhone…"
         // FIX 2(c): run the parse+writes at `.utility` so a large Apple Health import yields to UI
         // rendering instead of inheriting the user-initiated QoS of the calling tap , the import's bulk
         // work was contending with the main actor and contributing to the transient post-import lag.
@@ -2528,21 +2650,57 @@ final class AppModel: ObservableObject {
                     finishImport(.appleHealth, summary: "Couldn't open the local store.", failed: true)
                     return
                 }
-                let local = try await Self.materializeForImport(url)
+                let refreshSeqBeforeImport = repo.refreshSeq
+                let copyProgress: @Sendable (Int64, Int64?) -> Void = { [weak self] copied, total in
+                    Task { @MainActor in
+                        guard let self, self.isImporting(.appleHealth) else { return }
+                        let copiedMB = copied / 1_048_576
+                        if let total {
+                            self.appleHealthImportProgress = "Copied \(copiedMB.formatted()) of \((total / 1_048_576).formatted()) MB…"
+                        } else {
+                            self.appleHealthImportProgress = "Copied \(copiedMB.formatted()) MB…"
+                        }
+                    }
+                }
+                let local = try await Self.materializeForImport(url, progress: copyProgress)
                 defer { local.cleanup() }
                 emitImportFileMeta(kind: .appleHealth, url: local.url)
+                self.appleHealthImportProgress = "Reading Apple Health records…"
+                let progress: @Sendable (Int) -> Void = { [weak self] count in
+                    Task { @MainActor in
+                        guard let self, self.isImporting(.appleHealth) else { return }
+                        self.appleHealthImportProgress = "Read \(count.formatted()) Apple Health records…"
+                    }
+                }
+                let phase: @Sendable (String) -> Void = { [weak self] message in
+                    Task { @MainActor in
+                        guard let self, self.isImporting(.appleHealth) else { return }
+                        self.appleHealthImportProgress = message
+                    }
+                }
                 let summary = try await AppleHealthImport.importExport(url: local.url, into: store,
-                                                                       deviceId: appleDeviceId, trace: importTraceSink())
+                                                                       deviceId: appleDeviceId, trace: importTraceSink(),
+                                                                       progress: progress, phase: phase)
+                appleHealthImportProgress = "Refreshing NOOP data…"
                 try? await store.checkpointWAL()   // reclaim the WAL a bulk import grew (#590)
                 await repo.refresh()
-                // #833/v7.7.2: an Apple Health import may write ONLY body-composition series (weight/body_fat/
-                // lean_mass/bmi/vo2max), which live in metricSeries OUTSIDE refresh()'s diff over daily/sleep/
-                // vitals, so refresh() may not bump `refreshSeq`. AppleHealthView's re-mount cache keys on
-                // `refreshSeq`, so it would keep serving the pre-import snapshot. Explicitly drop the cache so
-                // the next visit re-reads the freshly imported data. (refresh() alone is insufficient here.)
-                repo.appleHealthCache = nil
-                repo.appleHealthLoadedSeq = -1
-                finishImport(.appleHealth, summary: "Imported \(summary.recordCount) records")
+                // Body-only imports can change metricSeries while daily caches stay identical. Ensure all
+                // source-dependent screens reload even when refresh()'s day diff found no change.
+                repo.invalidateExternalDataCaches(ifRefreshSeqUnchangedSince: refreshSeqBeforeImport)
+                let workoutCount = summary.countsByCategory["workouts"] ?? 0
+                let result = "Imported \(summary.recordCount.formatted()) records and \(workoutCount.formatted()) workouts"
+                if summary.skippedSpans > 0 {
+                    finishImport(.appleHealth,
+                                 summary: result + ". Some damaged sections were skipped (\(summary.skippedSpans)); re-export Apple Health and import again if you need a complete history.",
+                                 failed: true)
+                } else {
+                    finishImport(.appleHealth, summary: result + ".")
+                }
+                #if os(iOS)
+                // A completed file import is new local data too. Send it through the user's
+                // already-enabled NOOP ↔ PaceForge sync instead of waiting for a strap offload.
+                await selfHostedPush?()
+                #endif
             } catch {
                 finishImport(.appleHealth, summary: "Import failed: \(error)", failed: true)
             }
@@ -2650,21 +2808,20 @@ final class AppModel: ObservableObject {
                 finishImport(.appleHealth, summary: "Couldn't open the local store.", failed: true)
                 return
             }
+            let refreshSeqBeforeImport = repo.refreshSeq
             let outcome = await ShortcutHealthImport.ingest(prepared: pending, into: store)
-            await finishShortcutHealthImport(outcome)
+            await finishShortcutHealthImport(outcome, refreshSeqBeforeImport: refreshSeqBeforeImport)
         }
     }
 
-    private func finishShortcutHealthImport(_ outcome: ShortcutHealthImport.Outcome) async {
+    private func finishShortcutHealthImport(_ outcome: ShortcutHealthImport.Outcome,
+                                            refreshSeqBeforeImport: Int? = nil) async {
         switch outcome {
         case .imported(let days, let workouts):
             await repo.refresh()
-            // #833/v7.7.2: the Shortcuts import writes body-composition series (e.g. weight) into
-            // metricSeries, which sits OUTSIDE refresh()'s diff, so refresh() may leave `refreshSeq`
-            // unchanged and AppleHealthView's re-mount cache would serve stale data. Drop the cache so the
-            // next visit re-reads. (Same reasoning as the file-import path above.)
-            repo.appleHealthCache = nil
-            repo.appleHealthLoadedSeq = -1
+            if let refreshSeqBeforeImport {
+                repo.invalidateExternalDataCaches(ifRefreshSeqUnchangedSince: refreshSeqBeforeImport)
+            }
             let w = workouts > 0 ? " · \(workouts) workouts" : ""
             finishImport(.appleHealth, summary: "Imported \(days) days\(w)")
         case .nothingToImport:
@@ -2684,6 +2841,8 @@ final class AppModel: ObservableObject {
         case .appleHealth:
             appleHealthImportSummary = nil
             appleHealthImportFailed = false
+            appleHealthImportResultPresented = false
+            appleHealthImportProgress = nil
         case .xiaomi:
             xiaomiImportSummary = nil
             xiaomiImportFailed = false
@@ -2699,6 +2858,8 @@ final class AppModel: ObservableObject {
         case .appleHealth:
             appleHealthImportSummary = summary
             appleHealthImportFailed = failed
+            appleHealthImportResultPresented = true
+            appleHealthImportProgress = nil
         case .xiaomi:
             xiaomiImportSummary = summary
             xiaomiImportFailed = failed

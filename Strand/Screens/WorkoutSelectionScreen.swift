@@ -126,11 +126,9 @@ struct WorkoutSelectionScreen: View {
             Text("Recent")
                 .font(StrandFont.overline).tracking(StrandFont.overlineTracking)
                 .foregroundStyle(StrandPalette.textSecondary)
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: NoopMetrics.space2) {
-                    ForEach(recentSports) { sport in
-                        RecentWorkoutChip(sport: sport) { select(sport.name) }
-                    }
+            LookFlowLayout(spacing: NoopMetrics.space2, lineSpacing: NoopMetrics.space2) {
+                ForEach(recentSports) { sport in
+                    RecentWorkoutChip(sport: sport) { select(sport.name) }
                 }
             }
         }

@@ -316,7 +316,7 @@ struct VitalReading: Equatable {
 /// latter's source has higher row priority. Within one column, imported wins over computed.
 func skinTempSourceByDay(_ rows: [SourcedDailyMetric], leadsAbsolute: Bool) -> [String: String] {
     var sources: [String: String] = [:]
-    let priority: [DailyMetricSource] = [.whoopImport, .noopComputed, .localCache]
+    let priority: [DailyMetricSource] = [.whoopImport, .noopComputed, .paceForgeGarmin, .localCache]
     let columns = leadsAbsolute ? [0, 1] : [1]
     for column in columns {
         for source in priority {
@@ -333,6 +333,7 @@ func skinTempSourceByDay(_ rows: [SourcedDailyMetric], leadsAbsolute: Bool) -> [
                 switch source {
                 case .whoopImport:  sources[row.metric.day] = FusionSource.whoopImport.rawValue
                 case .noopComputed: sources[row.metric.day] = FusionSource.noopComputed.rawValue
+                case .paceForgeGarmin: sources[row.metric.day] = "paceforge-garmin"
                 case .localCache:   sources[row.metric.day] = FusionSource.localCache.rawValue
                 case .appleHealth:  break // Skin-temperature series never includes Apple Health.
                 }
@@ -721,7 +722,7 @@ struct MetricDetailView: View {
     /// when the setting is on, the plain canvas when off — so a Key-Metrics tile tap doesn't jar from the
     /// liquid Today's sky to a flat page. Same keys TodayView/LiquidTodayView gate on; "Sky behind cards"
     /// extends the sky to the full viewport (softer settle) so the transparent cards reveal it throughout.
-    @AppStorage(SceneBackgroundPrefs.enabledKey) private var showDayCycleBackground = true
+    @AppStorage(SceneBackgroundPrefs.enabledKey) private var showDayCycleBackground = SceneBackgroundPrefs.defaultEnabled
     @AppStorage(SkyBehindCardsPrefs.enabledKey) private var skyBehindCards = true
     /// Custom background image (#custom-background): when active it overrides the sky in the backdrop.
     @ObservedObject private var backgroundStore = BackgroundImageStore.shared
@@ -952,6 +953,74 @@ struct MetricDetailView: View {
         isStepsDetail ? presented.last : series.last
     }
 
+    // MARK: Look (iPhone)
+
+    /// The Charge / Effort / Rest screens carry the look's ring header instead of the vessel read-out.
+    private var usesLookScoreHeader: Bool {
+        #if os(iOS)
+        return LookScoreKind(metricKey: metric.key) != nil && metric.source == "my-whoop"
+        #else
+        return false
+        #endif
+    }
+
+    /// The look's trend view replaces the hero chart for every plain daily metric on iPhone. Steps (bucketed),
+    /// skin temperature and the unit-converted body masses keep their dedicated chart.
+    private var usesLookTrend: Bool {
+        #if os(iOS)
+        return !isStepsDetail && metric.key != "skin_temp" && metric.key != "vo2max_est"
+            && metric.unit != "kg" && metric.unit != "°C"
+        #else
+        return false
+        #endif
+    }
+
+    #if os(iOS)
+    @State private var lookEnd = Calendar.current.startOfDay(for: Date())
+
+    /// The look's W / M / 6M / Y control, kept in step with the screen's own range so the stat tiles below read the same window.
+    private var lookRangeBinding: Binding<LookRange> {
+        Binding(
+            get: {
+                switch range {
+                case .week, .twoWeeks, .threeWeeks: return .week
+                case .month: return .month
+                case .quarter, .half: return .sixMonths
+                case .year, .all: return .year
+                }
+            },
+            set: { new in
+                switch new {
+                case .week: range = .week
+                case .month: range = .month
+                case .sixMonths: range = .half
+                case .year: range = .year
+                }
+            })
+    }
+
+    private var lookTrendSection: some View {
+        let isEffort = metric.key == HeroRingMetric.effort
+        let scale = effortScale
+        let points = LookSeries.points(series, calendar: .current).map { p in
+            isEffort ? LookPoint(date: p.date, value: UnitFormatter.effortValue(p.value, scale: scale)) : p
+        }
+        let info = metric.description.map { LookTrendInfo(title: "What is \(metric.title.lowercased())?", message: $0) }
+        let item = LookTrendMetric(
+            id: metric.id, title: metric.title, icon: metric.icon,
+            unit: isEffort ? "" : metric.unit, decimals: isEffort ? (scale == .whoop ? 1 : 0) : metric.decimals,
+            higherIsBetter: metric.higherIsBetter,
+            style: (isEffort || TrendChartStyle(rawValue: trendChartStyleRaw) == .bar) ? .bars : .line,
+            points: points, caption: metric.description, info: info)
+        // "What moved it" (PaceForge's daily-intel.json) under the metric's own card, for the metrics it covers.
+        let whatMoved: (LookTrendMetric) -> AnyView = { _ in AnyView(PFWhatMovedSection(metricID: metric.key)) }
+        return LookTrendView(metrics: [item], metricID: .constant(metric.id), range: lookRangeBinding,
+                             endDate: $lookEnd, today: Calendar.current.startOfDay(for: Date()), footer: whatMoved)
+            .padding(.horizontal, -NoopMetrics.screenPadding)
+            .containerIdentifier("look-metric-trend")
+    }
+    #endif
+
     // MARK: Body
 
     var body: some View {
@@ -964,6 +1033,12 @@ struct MetricDetailView: View {
         let fellBack = effRange != range
         return ScrollView {
             VStack(alignment: .leading, spacing: NoopMetrics.sectionGap) {
+                #if os(iOS)
+                if let scoreKind = LookScoreKind(metricKey: metric.key), metric.source == "my-whoop" {
+                    LookScoreDetailView(kind: scoreKind)
+                }
+                #endif
+                if metric.key == HeroRingMetric.effort { EffortBreakdownView(embedded: true) }
                 if loaded && win.isEmpty {
                     // No data in the entire history — keep the range bar for context, then the
                     // honest empty state (no scenic hero floating over nothing). Deliberately
@@ -1011,7 +1086,15 @@ struct MetricDetailView: View {
                     // scores) or a big SF-Rounded headline, floated over the domain's starfield,
                     // with the range pill. Then the frosted chart / stat tiles / correlations.
                     heroHeader(effectiveRange: effRange, windowed: win, windowFellBack: fellBack)
+                    #if os(iOS)
+                    if usesLookTrend {
+                        lookTrendSection
+                    } else {
+                        heroChart(effectiveRange: effRange, windowed: win, windowFellBack: fellBack)
+                    }
+                    #else
                     heroChart(effectiveRange: effRange, windowed: win, windowFellBack: fellBack)
+                    #endif
                     // #1848: the skin-temp explorer's explanatory note (nil for every other metric and
                     // for a skin-temp screen that needs no explanation). Sits between the chart and the
                     // stats so it reads as context for the series just plotted, not as a generic banner.
@@ -1053,7 +1136,11 @@ struct MetricDetailView: View {
         // plain canvas when off.
         .background(alignment: .top) {
             ZStack(alignment: .top) {
+                #if os(iOS)
+                if usesLookTrend { LookScreenGradient() } else { StrandPalette.surfaceBase }
+                #else
                 StrandPalette.surfaceBase
+                #endif
                 // Custom background image (#custom-background) OVERRIDES the sky, full-bleed.
                 if backgroundStore.isActive {
                     BackgroundImageBackdrop()
@@ -1103,6 +1190,11 @@ struct MetricDetailView: View {
                     key: metric.key, source: metric.source, fullHistory: fullHistory)
             }
             loadedSeries = resolution.values
+        } else if metric.key == "weight" && metric.source == "apple-health" {
+            // These product-facing metrics combine compatible providers per day. Preserve their source
+            // labels in the readings table, with NOOP/Apple first and PaceForge Garmin/Hume filling gaps.
+            resolution = await repo.resolvedSeries(key: metric.key, source: metric.source)
+            loadedSeries = resolution.values
         } else {
             // Preserve the generic explorer's established value path and load order.
             loadedSeries = await repo.exploreSeries(key: metric.key, source: metric.source)
@@ -1117,6 +1209,10 @@ struct MetricDetailView: View {
         if metric.key == "vo2max_est" {
             var attributed: [String: String] = [:]
             for point in resolution.points {
+                if point.source == "paceforge-garmin" {
+                    attributed[point.day] = point.source
+                    continue
+                }
                 let tag = await repo.scoreProvenanceTag(
                     resolvedSource: point.source, day: point.day, metricKey: metric.key)
                 attributed[point.day] = vo2MaxAttributionSource(tag.flatMap { Vo2MaxEstimator(rawValue: $0) })
@@ -1301,9 +1397,11 @@ struct MetricDetailView: View {
                         .fixedSize(horizontal: false, vertical: true)
                 } }
                 // Range control on its own row beneath the title.
-                SegmentedPillControl(ExploreRange.allCases, selection: selectionBinding,
-                                     adaptsToAvailableWidth: true,
-                                     isEnabled: isUnlocked) { $0.label }
+                if !usesLookTrend {
+                    SegmentedPillControl(ExploreRange.allCases, selection: selectionBinding,
+                                         adaptsToAvailableWidth: true,
+                                         isEnabled: isUnlocked) { $0.label }
+                }
 
                 // The headline read-out in the liquid language: for a 0–100 score, the signature
                 // LiquidVessel gauge filled to the score (the same hero idiom as Today's rings / Health's
@@ -1312,6 +1410,7 @@ struct MetricDetailView: View {
                 // to its fraction on appear (`heroAnimatedFraction`), so it settles once like TodayView's
                 // rings; the number ticks itself. A liquid accent on the ONE headline value, where it reads
                 // well — never over the chart below.
+                if !usesLookScoreHeader {
                 HStack {
                     Spacer(minLength: 0)
                     if let fraction, let v = value {
@@ -1366,6 +1465,7 @@ struct MetricDetailView: View {
                         .padding(.vertical, 18)
                     }
                     Spacer(minLength: 0)
+                }
                 }
 
                 // The "N readings · range" caption (auto-widen flagged when it happens).
@@ -1668,10 +1768,15 @@ struct MetricDetailView: View {
     /// the source words. Swift twin of Android's `VitalReadingsTable`.
     @ViewBuilder
     private func readingsTable(windowed: [(day: String, value: Double)]) -> some View {
-        let readings = windowed.map {
-            VitalReading(day: $0.day, value: $0.value,
-                         source: sourceByDay[$0.day]
-                             ?? (metric.key == "skin_temp" ? FusionSource.localCache.rawValue : metric.source))
+        let readings = windowed.map { point -> VitalReading in
+            let source = sourceByDay[point.day]
+                ?? (metric.key == "skin_temp" ? FusionSource.localCache.rawValue : metric.source)
+            // Steps name their source the way every other steps surface does ("Garmin", "Apple Health",
+            // "strap estimate"). `provenanceDisplayLabel` passes an unknown source id through unchanged.
+            return VitalReading(day: point.day, value: point.value,
+                                source: isStepsDetail
+                                    ? StepsSourceResolver.label(for: StepsSourceResolver.source(forStoredId: source))
+                                    : source)
         }
         // The unit is passed EMPTY on purpose (#1942). `vitalReadingRows` appends its `unit` to whatever
         // the formatter returns, and every `MetricDescriptor.format` overload already ends in the unit —

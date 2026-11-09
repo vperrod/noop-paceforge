@@ -17,11 +17,11 @@ configFiles:
   Release: Config/BundleId.xcconfig
 settings:
   base:
-    MARKETING_VERSION: "12.0.5"
+    MARKETING_VERSION: "12.0.12"
     # iOS build number (CFBundleVersion). GLOBAL so the iOS app AND its widget extension inherit the
     # SAME value — they must match or iOS warns "extension version must match parent app" (#416).
     # macOS sets its own CFBundleVersion on the Strand target and is unaffected by this.
-    CURRENT_PROJECT_VERSION: "441"
+    CURRENT_PROJECT_VERSION: "515"
     SWIFT_VERSION: "5.0"
     # Emit localizable strings so Xcode auto-extracts every LocalizedStringKey into the
     # String Catalog on build (the English (US) base entries).
@@ -91,6 +91,8 @@ targets:
       # The stress screen is shared with iOS and prints levels through the widget's parity formatter,
       # so its Foundation-only trace model belongs to the macOS app module as well.
       - StrandiOSShared/StressTrace.swift
+      # The trap-free Double to Int conversion the Look screens use (the iOS targets get it through StrandiOSShared).
+      - StrandiOSShared/SafeNumber.swift
     # Oura BYO-app OAuth credentials. OuraConfig.xcconfig is a tracked wrapper that optionally
     # includes the untracked, gitignored Strand/Oura/OuraSecrets.xcconfig (template at
     # OuraSecrets.example.xcconfig) — absent secrets leave the $(OURA_*) references in the
@@ -178,6 +180,81 @@ targets:
       # And the widget cost counters, for the same reason again: pure, iOS-only, and the arithmetic is
       # exactly the part that has been wrong twice on the Android side.
       - StrandiOSShared/WidgetTelemetry.swift
+      # PaceForge's wave-2 documents (feel, what changed, answers, trust, explainers, behaviour): the
+      # lenient JSON reader and the Foundation-only parsing, compiled into the test bundle for the same reason.
+      # Safe.int: the trap-free Double to Int conversion every PaceForge number format goes through.
+      - StrandiOSShared/SafeNumber.swift
+      - StrandiOS/PaceForge/PaceForgeFormat.swift
+      # The builder and its models: the crash-guard tests build a whole snapshot from the live documents' shapes.
+      - StrandiOS/PaceForge/PaceForgeModels.swift
+      - StrandiOS/PaceForge/PaceForgeBuilder.swift
+      - StrandiOS/PaceForge/PaceForgeDocs.swift
+      - StrandiOS/PaceForge/PaceForgeJSON.swift
+      - StrandiOS/PaceForge/PaceForgeWave2.swift
+      # Wave 3 (race week, race simulations, easy mode, muscle check, tape, heat, privacy, intraday, day events).
+      - StrandiOS/PaceForge/PaceForgeWave3.swift
+      - StrandiOS/PaceForge/PaceForgeLocalExplainers.swift
+      - StrandiOS/PaceForge/PaceForgeDayMerge.swift
+      # "Where you stand": standing.json parsing, band bars, the summary strip and the Telegram phrase.
+      - StrandiOS/PaceForge/PaceForgeStanding.swift
+      # The Athlete tab's data: the fitness.json extras, the change over four weeks and the strengths / weaknesses / areas.
+      - StrandiOS/PaceForge/PaceForgeAthlete.swift
+      # Its second layer (build 501): profile.json, analytics.json and benchmarks.json.
+      - StrandiOS/PaceForge/PaceForgeAthleteProfile.swift
+      # Insights v2: insights-v2.json parsing, the card order, status and effort wording, the finish bar and sleep clock maths.
+      - StrandiOS/PaceForge/PaceForgeInsightsV2.swift
+      # His own HYROX races and the best one (hyrox_analysis.json progression); a running prognosis only for a road-race goal. No predicted HYROX finish.
+      - StrandiOS/PaceForge/PaceForgeHyroxPrognosis.swift
+      # The HYROX screen: api/hyrox/race-plan and api/hyrox/results parsing, the wording, the training, advisory and season sections.
+      - StrandiOS/PaceForge/PaceForgeHyrox.swift
+      # Daily intel: daily-intel.json parsing, the verdict and Health monitor tile wording, bedtime from a wake time, range bands and the evening switch.
+      - StrandiOS/PaceForge/PaceForgeDailyIntel.swift
+      # Phase 4 intel: healthspan, journal impact, highlights, monthly report and my plan parsing, the age range and pace wording, the driver bar, the streak chip.
+      - StrandiOS/PaceForge/PaceForgeIntelDocs.swift
+      # Daily movement: movement.json parsing, the chip, the range-bar positions, the week bars and the wording.
+      - StrandiOS/PaceForge/PaceForgeMovement.swift
+      # Expert reports: the report documents, stage order, claim-tag handling and the dated/stale wording.
+      - StrandiOS/PaceForge/PaceForgeReports.swift
+      # Coach log: api/coach-log parsing, the kind labels and the day grouping.
+      - StrandiOS/PaceForge/PaceForgeCoachLog.swift
+      # The Coach week card: weekly.json, pending-changes.json with each proposal's reason and its changes in plain words, the race plans, the markdown blocks.
+      - StrandiOS/PaceForge/PaceForgeWeekPlan.swift
+      # The Coach panels: athlete-numbers, readiness-decision and season-plan parsing, the decision sentence, the agree/split mark, the season timeline.
+      - StrandiOS/PaceForge/PaceForgeCoachNumbers.swift
+      # Bike rides: ride-metrics.json, the stream file, 600-point downsampling and the ride formats.
+      - StrandiOS/PaceForge/PaceForgeRide.swift
+      # Hiding a card: the FNV-1a hash, hide-until-it-changes / snooze rules and the storage helpers.
+      - StrandiOS/PaceForge/PaceForgeDismiss.swift
+      # Logging a measurement from the app (phrase building, checks, how the answer reads) and the Today card order.
+      - StrandiOS/PaceForge/PaceForgeLog.swift
+      # Needs you: the list parsing, the answer bodies, the treadmill input checks and how the server's reply reads.
+      - StrandiOS/PaceForge/PaceForgeNeedsYou.swift
+      - StrandiOS/PaceForge/PaceForgeTodayLayout.swift
+      # The Alerts history behind the bell on Today: merging the alerts with the announced Needs you items, grouping, unread counts and the seen list.
+      - StrandiOS/PaceForge/PaceForgeAlertHistory.swift
+      # Garmin's own recovery HR (hrr_garmin): parsing and the card's wording.
+      - StrandiOS/PaceForge/PaceForgeHRRGarmin.swift
+      # The band-report numbers (Recovery two ways and verdict lines, Load Focus, weekly target, muscular load, strap HRV, Healthspan inputs, graded health watch): parsing and the small rules the cards draw from.
+      - StrandiOS/PaceForge/PaceForgeBandReport.swift
+      # Batch D documents (sleep settle, sleep tiles, stage shares, weekly stress load, active hours): parsing and the small rules the cards draw from.
+      - StrandiOS/PaceForge/PaceForgeBandBatchD.swift
+      # The job door to PaceForge's write actions (POST api/app/job): the request bodies, how a reply or a refusal reads, the polling schedule.
+      - StrandiOS/PaceForge/PaceForgeJob.swift
+      # A workout photo: the size it is shrunk to, how the runner's draft of the reading and its retry queue read.
+      - StrandiOS/PaceForge/PaceForgePhoto.swift
+      # Niggles: the list in niggles.json and the inputs of niggle-add / niggle-resolve.
+      - StrandiOS/PaceForge/PaceForgeNiggles.swift
+      # Plan edits: which sessions can be moved, skipped, accepted or dropped, and the inputs of calendar-edit / session-state / session-drop.
+      - StrandiOS/PaceForge/PaceForgePlanEdit.swift
+      # Easy mode from the app: the levels, the days offered and the inputs of easy-mode.
+      - StrandiOS/PaceForge/PaceForgeEasyModeJobs.swift
+      # Events and HYROX simulations logged from the app: the list kept whole for save-events, the times for hyrox-sim-add.
+      - StrandiOS/PaceForge/PaceForgeEvents.swift
+      # Hide numbers applied to sentences (brief, analysis): shared with the widget extension, so compiled here too.
+      - StrandiOSShared/PaceForgeRedact.swift
+      # The Where you stand / Garmin recovery / ride widget glances and the code that cuts them from the files.
+      - StrandiOSShared/PaceForgeGlance.swift
+      - StrandiOS/PaceForge/PaceForgeGlanceBuilder.swift
     # Same wrapper as the app target, so the OURA_CLOUD_IMPORT-gated Oura tests compile exactly
     # when the app's Oura lane does (flag + creds both come from the untracked OuraSecrets.xcconfig).
     configFiles:
@@ -240,7 +317,7 @@ targets:
       path: StrandiOS/Resources/Info.plist
       properties:
         CFBundleName: NOOP
-        CFBundleDisplayName: NOOP
+        CFBundleDisplayName: NOOP PaceForge
         CFBundleShortVersionString: "$(MARKETING_VERSION)"
         CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
         # Surfaces APP_GROUP_ID to runtime (WidgetSnapshot.suiteName) so the App Group id isn't
@@ -259,6 +336,12 @@ targets:
               CFBundleIconFiles: []
               UIPrerenderedIcon: false
         NSSupportsLiveActivities: true
+        # D-DIN numerals for the dark look (SIL OFL 1.1, Datto Inc.; files + licence in StrandiOS/Resources/Fonts).
+        # If registration fails the look falls back to the system rounded face (LookFont).
+        UIAppFonts:
+          - D-DIN.ttf
+          - D-DIN-Bold.ttf
+          - D-DINCondensed-Bold.ttf
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
         UISupportedInterfaceOrientations~ipad:
@@ -289,6 +372,7 @@ targets:
         BGTaskSchedulerPermittedIdentifiers:
           - $(PRODUCT_BUNDLE_IDENTIFIER).debugexport
           - $(PRODUCT_BUNDLE_IDENTIFIER).coachbrief
+          - $(PRODUCT_BUNDLE_IDENTIFIER).paceforge
           # Best-effort fallback that writes already-banked WHOOP data to HealthKit when iOS grants
           # background time. Fresh offloads also write immediately from their completion hook.
           - $(PRODUCT_BUNDLE_IDENTIFIER).healthwriteback
@@ -301,6 +385,7 @@ targets:
           - $(PRODUCT_BUNDLE_IDENTIFIER).stalebattery
         NSBluetoothAlwaysUsageDescription: "NOOP connects directly to your WHOOP strap over Bluetooth to read heart rate, R-R intervals, battery, and sensor data locally on your iPhone. Nothing leaves your device."
         NSLocationWhenInUseUsageDescription: "NOOP records your route during an outdoor workout to show distance, pace, and a map, and keeps recording while the screen is off. The route stays on your device. Nothing leaves it."
+        NSFaceIDUsageDescription: "NOOP uses Face ID to unlock the PaceForge tab when you turn that lock on. Nothing leaves your device."
         NSHealthShareUsageDescription: "NOOP reads your own Apple Health data on-device to compute recovery, strain, and sleep. Nothing leaves your device."
         NSHealthUpdateUsageDescription: "NOOP writes the metrics it computes from your strap back into Apple Health, on-device and only when you allow it."
         NSMotionUsageDescription: "NOOP reads your iPhone's step count for a walking or running workout to show steps in the activity summary. It stays on your device. Nothing leaves it."
@@ -372,6 +457,8 @@ targets:
     deploymentTarget: "17.0"
     sources:
       - NOOPiOSUITests
+      # The live documents' shapes with every value replaced (PaceForgeRealShapesUITests).
+      - StrandTests/LiveShapes/PaceForgeRealShapes.json
     settings:
       base:
         GENERATE_INFOPLIST_FILE: YES

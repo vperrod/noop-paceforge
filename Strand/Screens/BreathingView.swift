@@ -384,9 +384,7 @@ private struct BreathingContent: View {
     }
 
     private var pacePills: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            SegmentedPillControl(availablePaces, selection: $pace) { $0.label }
-        }
+        SegmentedPillControl(availablePaces, selection: $pace, adaptsToAvailableWidth: true) { $0.label }
     }
 
     private var durationPills: some View {
@@ -394,10 +392,8 @@ private struct BreathingContent: View {
             Text(String(localized: "Session length"))
                 .font(StrandFont.caption)
                 .foregroundStyle(StrandPalette.textTertiary)
-            ScrollView(.horizontal, showsIndicators: false) {
-                SegmentedPillControl(SessionLength.allCases, selection: $sessionLength) { $0.label }
-            }
-            .disabled(running)
+            SegmentedPillControl(SessionLength.allCases, selection: $sessionLength, adaptsToAvailableWidth: true) { $0.label }
+                .disabled(running)
         }
     }
 

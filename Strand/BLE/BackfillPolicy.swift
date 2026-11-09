@@ -1,6 +1,6 @@
 import Foundation
 
-/// What prompted a sync attempt. Mirrors WHOOP (15-min periodic floor + event-triggered "process now"
+/// What prompted a sync attempt. Mirrors WHOOP (periodic floor + event-triggered "process now"
 /// syncs + the strap's own prompt events + manual), adapted to iOS.
 enum BackfillTrigger {
     case periodic      // the repeating timer while connected+bonded
@@ -10,15 +10,16 @@ enum BackfillTrigger {
     case strap         // an incoming strap EVENT packet (WHOOP's HighFreqSyncPrompt analog)
     case autoContinue  // #364: an immediate back-to-back continuation of a deep oldest-first backlog,
                        // fired right after a 60s idle-cap exit while still connected. Like .manual it
-                       // bypasses the floor — the whole point is to NOT wait the 15-min periodic floor —
+                       // bypasses the floor — the whole point is to NOT wait for the next periodic offload —
                        // but it's separately bounded by BLEManager's consecutive-cap + trim spin-detector,
                        // so it can't loop forever the way an un-floored periodic could.
 }
 
 /// Pure rate-limiter for historical-offload kicks. No BLE/store deps. Floors match WHOOP
-/// (observed: ~15-min periodic + expedited event syncs).
+/// (observed: ~15-min periodic + expedited event syncs; NOOP's default periodic cadence is 30 min, BLEManager.backfillIntervalSeconds,
+/// and this 15-min floor only bounds how soon a periodic kick may run).
 enum BackfillPolicy {
-    static let periodicFloorSeconds: TimeInterval = 900   // 15 min
+    static let periodicFloorSeconds: TimeInterval = 900   // 15 min floor, not the cadence (default 30 min)
     static let eventFloorSeconds: TimeInterval = 90       // absorbs reconnect-flaps / event bursts
     static let emptyBackoffThreshold = 3                  // empties before the floor starts stretching
     static let maxEmptyBackoff: Double = 4                // cap → ~6-min event / 1-hr periodic floor

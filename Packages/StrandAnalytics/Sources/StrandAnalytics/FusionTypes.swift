@@ -25,6 +25,9 @@ public enum FusionSource: String, Equatable, Sendable, CaseIterable, Codable {
     case healthConnect = "health-connect"
     /// Mi Band / Xiaomi import — a dedicated wrist band (counts steps directly).
     case xiaomiBand = "xiaomi-band"
+    /// Garmin daily metrics that PaceForge mirrors into NOOP under the `paceforge-garmin` device id. The
+    /// watch counts steps itself, so for steps this sits just behind the phone and ahead of any strap estimate.
+    case paceforgeGarmin = "paceforge-garmin"
     /// Nutrition CSV import (single-source passthrough — calories/macros).
     case nutritionCsv = "nutrition-csv"
     /// Locally-cached fallback row with no richer provenance.
@@ -38,6 +41,7 @@ public enum FusionSource: String, Equatable, Sendable, CaseIterable, Codable {
         case .appleHealth:   return "Apple Health"
         case .healthConnect: return "Health Connect"
         case .xiaomiBand:    return "Mi Band"
+        case .paceforgeGarmin: return "Garmin"
         case .nutritionCsv:  return "Nutrition"
         case .localCache:    return "Cached"
         }

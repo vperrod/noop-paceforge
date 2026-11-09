@@ -617,8 +617,9 @@ public final class BLEManager: NSObject, ObservableObject {
     /// User-elected hourly background-sync cadence (Settings → Power saving → "Low refresh"). Default off.
     private var lowRefreshMode = false
     // The timer fires this often, but BackfillPolicy.periodicFloorSeconds is the real floor (a recent
-    // event-triggered sync defers the next periodic tick). 900s = 15 min, matching WHOOP.
-    static let backfillIntervalSeconds = 900
+    // event-triggered sync defers the next periodic tick). 1800s = 30 min: each offload holds the radio
+    // and wakes the app, which showed as ~14%/day of battery. Manual and foreground syncs bypass it.
+    static let backfillIntervalSeconds = 1800
     /// Scheduling flexibility for the long-running periodic offload timer. The offload remains no
     /// earlier than its battery-adaptive deadline; this only lets Darwin coalesce the wake with nearby
     /// system work instead of waking the CPU at an unnecessarily exact instant.
@@ -882,6 +883,23 @@ public final class BLEManager: NSObject, ObservableObject {
     /// (its else path, under the cap) and on disconnect — NOT unconditionally on every HISTORY_COMPLETE,
     /// so a strap that slices one offload into many completions can't reset the cap each slice (#25).
     private var consecutiveAutoContinues = 0
+
+    // MARK: Logical sync lifecycle
+    /// One user-visible sync is a CHAIN of offload sessions (every HISTORY_COMPLETE / idle exit can auto-continue
+    /// into the next). `backfilling` flickers between them and the 60 s idle watchdog only bounds ONE session, so
+    /// nothing used to bound the chain: an indicator debounced over those gaps could say "syncing" for as long as
+    /// the strap kept feeding it. The logical sync owns the clock, the totals and the two hard caps below, and
+    /// it ends exactly once (`finishLogicalSync`).
+    private var logicalSyncStartedAt: Date?
+    private var logicalSyncLastProgressAt = Date()
+    private var logicalSyncRows = 0
+    private var syncSupervisor: DispatchSourceTimer?
+    /// No chunk acked for this long = the sync is stalled; abort it.
+    static let syncStallSeconds: TimeInterval = 12 * 60
+    /// Absolute ceiling for one logical sync.
+    static let syncMaxSeconds: TimeInterval = 45 * 60
+    /// An app activation within this long of a completed or attempted sync neither arms nor kicks another.
+    static let foregroundResyncFloorSeconds: TimeInterval = 300
     /// #battery: consecutive offload sessions that banked ZERO sensor rows — a clean HISTORY_COMPLETE-empty
     /// OR an idle-timeout STALL. Feeds BackfillPolicy's exponential backoff so the 15-min periodic poll
     /// stops spinning the radio on a strap returning nothing (a capture showed ~6 empty stalls/hour with no
@@ -2496,6 +2514,8 @@ public final class BLEManager: NSObject, ObservableObject {
         // the other state mutations (e.g. lastSyncedAt in exitBackfilling). NOT historicalAckLogCounter
         // — that's a puffin-write log throttle that never increments on WHOOP 4.
         state.syncChunksThisSession += 1
+        state.syncTotalChunks += 1
+        logicalSyncLastProgressAt = Date()
     }
 
     // MARK: Backfill helpers
@@ -2534,6 +2554,7 @@ public final class BLEManager: NSObject, ObservableObject {
         // firing SEND_HISTORICAL ahead of hello/SET_CLOCK was part of the storm that stopped serving.
         guard connectHandshakeDone else {
             log("Backfill: deferred — connect handshake not done yet")
+            diag("sync.blocked handshake_not_done", diagLinkFields())
             return false
         }
         guard let backfiller else {
@@ -2545,6 +2566,7 @@ public final class BLEManager: NSObject, ObservableObject {
             // device is unlocked rebuilds the store and backfill proceeds. bootstrapStore() guards on
             // `collector == nil`, so this is a no-op once the store is up.
             log("Backfill: store not ready — re-attempting bootstrap, will retry next tick")
+            diag("sync.blocked store_not_ready", diagLinkFields())
             Task { @MainActor in await self.bootstrapStore() }
             return false
         }
@@ -2556,6 +2578,8 @@ public final class BLEManager: NSObject, ObservableObject {
         backfiller.begin(family: selectedModel.deviceFamily, continuedAfterRows: consecutiveAutoContinues > 0)
         backfilling = true
         state.backfilling = true
+        beginLogicalSyncIfNeeded()
+        diag("sync.started", ["auto_continues": Double(consecutiveAutoContinues), "family": selectedModel.deviceFamily == .whoop5 ? 5 : 4])
         state.syncChunksThisSession = 0
         state.rejectedFramesThisSession = 0
         state.rejectedFramesUnarchived = 0
@@ -2676,6 +2700,11 @@ public final class BLEManager: NSObject, ObservableObject {
             log("Abort sync ignored — no offload in flight")
             return
         }
+        stopBackfill(reason: "aborted by user")
+    }
+
+    /// Tell the strap to stop, then tear the local session down. Shared by the user's Stop and the hard caps.
+    private func stopBackfill(reason: String) {
         // Send before tearing down: the 5/MG allowlist admits opcode 20 only while `backfilling` is
         // still true, so ordering here is load-bearing, not stylistic.
         if state.connected {
@@ -2691,14 +2720,17 @@ public final class BLEManager: NSObject, ObservableObject {
         // stamps `lastSyncedAt` and only "timeout" raises a sync error; everything else falls through
         // leaving both untouched — which is exactly right for an abort. A cancelled sync is neither a
         // success nor a failure: nothing was lost, and the next sync re-offloads what was left.
-        // If a future edit starts classifying more reasons, this one must stay in the fall-through.
-        exitBackfilling(reason: "aborted by user")
+        // If a future edit starts classifying more reasons, this one must stay in the fall-through. The hard
+        // caps ("stalled", "max_duration") fall through for the same reason: `finishLogicalSync` owns their
+        // outcome.
+        exitBackfilling(reason: reason)
     }
 
     private func exitBackfilling(reason: String) {
         guard backfilling else { return }
         backfilling = false
         state.backfilling = false
+        logicalSyncRows += backfiller?.sessionRowsPersisted ?? 0
         // #174: a backfill just ended. Start (or extend) the deep-packet cooldown from this instant so
         // any type-0x2F records the strap flushes in the seconds after the session aren't miscounted as
         // the live R22 stream — they're the offload's tail.
@@ -2976,6 +3008,24 @@ public final class BLEManager: NSObject, ObservableObject {
                                                                   bankedThisOffload: bankedThisOffload)
             }
         }
+        // Idle-complete: the strap handed over chunks or rows and then went quiet. A WHOOP 4.0 routinely ends a
+        // full, successful sync this way instead of on HISTORY_COMPLETE (#1466), so without a stamp here
+        // `lastSyncedAt` stayed nil and every app activation re-armed another sync.
+        let idleComplete = reason == "timeout" && (state.syncChunksThisSession > 0 || persistedSensorRows)
+        if idleComplete { recordSyncCompletion() }
+        let endedKind: String
+        switch reason {
+        case "HISTORY_COMPLETE": endedKind = "complete"
+        case "timeout": endedKind = idleComplete ? "idle_complete" : "timeout"
+        case "aborted by user": endedKind = "aborted"
+        case "stalled", "max_duration": endedKind = reason
+        default: endedKind = "other"
+        }
+        diag("sync.ended \(endedKind)",
+             ["chunks": Double(state.syncChunksThisSession), "rows": Double(backfiller?.sessionRowsPersisted ?? 0),
+              "total_chunks": Double(state.syncTotalChunks),
+              "duration_s": logicalSyncStartedAt.map { Date().timeIntervalSince($0).rounded() } ?? 0,
+              "has_error": state.lastSyncError != nil ? 1 : 0, "connected": state.connected ? 1 : 0])
         checkStrapLiveness()         // safety-net: strap ahead of us AND our frontier frozen ⇒ stuck?
         // #364 / #25: a session that ended on the 60s IDLE cap OR on a true HISTORY_COMPLETE while still
         // connected, with more backlog to fetch and the trim still advancing, immediately re-kicks another
@@ -2994,8 +3044,97 @@ public final class BLEManager: NSObject, ObservableObject {
             // Snapshotting `> 0` = the auto-continue can't disagree with the empty verdict, and a dup-only
             // re-offload (0 new rows) stops instead of spinning on already-synced data.
             maybeAutoContinueBackfill(trimAdvanced: trimAdvanced,
-                                      persistedSensorRows: persistedSensorRows)
+                                      persistedSensorRows: persistedSensorRows,
+                                      endReason: reason == "HISTORY_COMPLETE" ? "complete"
+                                          : (idleComplete || logicalSyncRows > 0 || state.syncTotalChunks > 0 ? "idle_complete" : "no_response"))
+        } else {
+            // Abort, hard cap or any other exit never auto-continues: the sync is over.
+            finishLogicalSync(reason: reason == "aborted by user" ? "aborted" : reason)
         }
+    }
+
+    // MARK: Logical sync
+
+    private func beginLogicalSyncIfNeeded() {
+        guard logicalSyncStartedAt == nil else { return }
+        let now = Date()
+        logicalSyncStartedAt = now
+        logicalSyncLastProgressAt = now
+        logicalSyncRows = 0
+        state.syncStartedAt = now.timeIntervalSince1970
+        state.syncTotalChunks = 0
+        state.lastSyncEndReason = nil
+        syncSupervisor?.cancel()
+        let t = DispatchSource.makeTimerSource(queue: .main)
+        t.schedule(deadline: .now() + 15, repeating: .seconds(15), leeway: .seconds(2))
+        t.setEventHandler { [weak self] in self?.superviseLogicalSync() }
+        t.resume()
+        syncSupervisor = t
+    }
+
+    /// Every 15 s while a logical sync is open: enforce the stall and absolute caps, so the UI can never say
+    /// "syncing" past them whatever the strap or the auto-continue chain is doing.
+    private func superviseLogicalSync() {
+        guard let started = logicalSyncStartedAt else {
+            syncSupervisor?.cancel()
+            syncSupervisor = nil
+            return
+        }
+        let now = Date()
+        let reason: String
+        if now.timeIntervalSince(started) >= Self.syncMaxSeconds {
+            reason = "max_duration"
+        } else if now.timeIntervalSince(logicalSyncLastProgressAt) >= Self.syncStallSeconds {
+            reason = "stalled"
+        } else {
+            return
+        }
+        log("Sync: hard cap hit (\(reason)) — stopping the sync")
+        if backfilling { stopBackfill(reason: reason) } else { finishLogicalSync(reason: reason) }
+    }
+
+    /// Stamp a completed sync. Same three writes the HISTORY_COMPLETE path makes, for the idle-complete exit.
+    private func recordSyncCompletion() {
+        let now = Date().timeIntervalSince1970
+        state.lastSyncedAt = now
+        if let key = LastSyncAttribution.prefKey(peripheralId: peripheral?.identifier.uuidString) {
+            UserDefaults.standard.set(now, forKey: key)
+        }
+        UserDefaults.standard.set(now, forKey: "lastSyncedAt")
+    }
+
+    /// End the logical sync exactly once: clock and supervisor stop, the outcome is published, one breadcrumb is
+    /// written, and (when data moved) `syncFinishedSeq` fires the single post-sync refresh and server push.
+    private func finishLogicalSync(reason: String) {
+        guard let started = logicalSyncStartedAt else { return }
+        logicalSyncStartedAt = nil
+        syncSupervisor?.cancel()
+        syncSupervisor = nil
+        let duration = Date().timeIntervalSince(started)
+        let chunks = state.syncTotalChunks
+        switch reason {
+        case "stalled":
+            state.lastSyncError = "Sync stopped: the strap sent nothing new for \(Int(Self.syncStallSeconds / 60)) minutes. Data received so far is saved; tap Sync now to continue."
+        case "max_duration":
+            state.lastSyncError = "Sync stopped after \(Int(Self.syncMaxSeconds / 60)) minutes. Data received so far is saved; tap Sync now to continue."
+        default:
+            break
+        }
+        state.syncStartedAt = nil
+        state.lastSyncEndReason = reason
+        diag("sync.finished \(reason)", ["total_chunks": Double(chunks), "rows": Double(logicalSyncRows),
+                                          "duration_s": duration.rounded()])
+        log("Sync: finished — reason=\(reason) chunks=\(chunks) rows=\(logicalSyncRows) duration=\(Int(duration))s")
+        if chunks > 0 || logicalSyncRows > 0 || reason == "complete" || reason == "idle_complete" {
+            state.syncFinishedSeq += 1   // AppModel's sink reads and clears syncWantsImmediatePush
+        } else {
+            syncWantsImmediatePush = false   // no sink will run, so do not leave a stale true for the next sync
+        }
+    }
+
+    /// The Sync sheet's Stop: ends a running offload, or the gap between two chained sessions.
+    public func cancelSync() {
+        if backfilling { abortBackfill() } else { finishLogicalSync(reason: "aborted") }
     }
 
     /// #364 / #25: evaluate (and, if warranted, fire) an immediate back-to-back backfill after a 60s
@@ -3005,14 +3144,17 @@ public final class BLEManager: NSObject, ObservableObject {
     /// stays unit-testable; this method only gathers the inputs, bumps the counter (or clears it on the
     /// caught-up else path — see #25), and re-kicks via the SAME gated requestSync path (so it still
     /// respects connected/bonded and can't double-start). The `.autoContinue` trigger ⇒
-    /// the BackfillPolicy 15-min floor is bypassed for this expedited continuation (the cap is the guard).
+    /// the BackfillPolicy periodic floor is bypassed for this expedited continuation (the cap is the guard).
     /// `trimAdvanced` is the spin-detector signal computed in exitBackfilling (did this session move the
     /// trim cursor vs the previous one) — passed in because exitBackfilling has already advanced
     /// `lastSessionEndTrim` past the comparison point by the time this Task runs.
-    private func maybeAutoContinueBackfill(trimAdvanced: Bool, persistedSensorRows: Bool) {
+    private func maybeAutoContinueBackfill(trimAdvanced: Bool, persistedSensorRows: Bool, endReason: String) {
         // Cheap pre-checks first (no Task if we already know we won't continue): still connected, under
         // the cap, and the trim moved. The frontier read only happens when those already hold.
-        guard state.connected, state.bonded else { return }
+        guard state.connected, state.bonded else {
+            finishLogicalSync(reason: endReason)
+            return
+        }
         let newest = strapNewestTs
         let count = consecutiveAutoContinues
         Task { @MainActor in
@@ -3080,18 +3222,24 @@ public final class BLEManager: NSObject, ObservableObject {
                 if count < BackfillContinuation.defaultMaxAutoContinues {
                     consecutiveAutoContinues = 0
                 }
+                // The chain is over: this is where the whole logical sync completes.
+                if !backfilling { finishLogicalSync(reason: endReason) }
                 return
             }
             // Guard against a race: a real backfill may already have re-started (periodic/connect) in the
             // gap before this Task ran. requestSync's own gate (!backfilling) handles that, but skip the
             // log/counter churn if so.
             guard !backfilling else { return }
+            // A hard cap or the user's Stop ended the sync while this Task was in flight: do not restart it.
+            guard logicalSyncStartedAt != nil else { return }
             consecutiveAutoContinues += 1
-            log("Backfill: auto-continuing (#364/#451) — the trim advanced and the strap is still handing over real records (frontier \(frontier.map(String.init) ?? "?"), strap-reported newest \(newest.map(String.init) ?? "?")); re-kicking offload \(consecutiveAutoContinues)/\(BackfillContinuation.defaultMaxAutoContinues) without waiting the 15-min floor.")
-            // .autoContinue bypasses the BackfillPolicy floor (the whole point — don't wait 15 min);
+            log("Backfill: auto-continuing (#364/#451) — the trim advanced and the strap is still handing over real records (frontier \(frontier.map(String.init) ?? "?"), strap-reported newest \(newest.map(String.init) ?? "?")); re-kicking offload \(consecutiveAutoContinues)/\(BackfillContinuation.defaultMaxAutoContinues) without waiting for the next periodic offload (30 min).")
+            // .autoContinue bypasses the BackfillPolicy floor (the whole point — don't wait 30 min for the next periodic offload);
             // requestSync still re-checks connected/bonded/not-backfilling before kicking, and the
             // consecutive-cap above is the runaway guard.
             requestSync(.autoContinue)
+            // The re-kick can be declined (store not ready, handshake lost); never leave the sync open.
+            if !backfilling { finishLogicalSync(reason: endReason) }
         }
     }
 
@@ -3332,7 +3480,7 @@ public final class BLEManager: NSObject, ObservableObject {
     /// power (#477). Reads the battery snapshot only when the lever is armed (threshold > 0).
     /// #battery: a 5/MG whose history offload is known-empty (`whoop5EmptyOffload.historyEmpty`, crossed
     /// after 2 consecutive empty offloads) is stretched to the low-battery cadence (45 min) regardless of
-    /// battery % — history sync is experimental on 5.0 and such a strap banks nothing per pass, so a 15-min
+    /// battery % — history sync is experimental on 5.0 and such a strap banks nothing per pass, so a 30-min
     /// periodic kick just holds the link ~60 s for zero data. The BackfillPolicy empty-backoff also
     /// stretches (after 3 empties, doubling to a 1-hr cap), but this engages one cycle earlier (the
     /// tracker's quietThreshold is 2) and at a fixed 45-min floor that stacks with it. Twin of Android
@@ -4877,7 +5025,10 @@ public final class BLEManager: NSObject, ObservableObject {
     /// (persisted) and starts the offload.
     func requestSync(_ trigger: BackfillTrigger) {
         guard BLEManager.shouldRunPeriodicBackfill(
-            connected: state.connected, bonded: state.bonded, backfilling: backfilling) else { return }
+            connected: state.connected, bonded: state.bonded, backfilling: backfilling) else {
+            diag("sync.blocked gate \(trigger)", diagLinkFields())
+            return
+        }
         let now = Date().timeIntervalSince1970
         let last = UserDefaults.standard.object(forKey: BLEManager.backfillLastAtKey) as? Double
         // #160: a future-dated-clock strap's recurring automatic offloads (#928/#1012) are near-useless
@@ -4892,12 +5043,23 @@ public final class BLEManager: NSObject, ObservableObject {
                                        emptyStreak: max(emptySyncTracker.consecutiveEmptySyncs, consecutiveEmptyOffloads),
                                        clockUntrusted: clockUntrusted) else {
             log("Backfill: \(trigger) skipped (rate-limited; last \(last.map { Int(now - $0) } ?? -1)s ago)")
+            diag("sync.blocked rate_limited \(trigger)", ["last_s": last.map { (now - $0).rounded() } ?? -1])
             return
         }
         if beginBackfill() {
             UserDefaults.standard.set(now, forKey: BLEManager.backfillLastAtKey)
+            diag("sync.requested \(trigger)", diagLinkFields())
+            // Only ever raised here: a periodic/strap/connect kick that joins a logical sync a user started must not
+            // clear the user's flag. finishLogicalSync clears it.
+            if trigger == .manual || trigger == .foreground { syncWantsImmediatePush = true }
         }
     }
+
+    /// True while the running logical sync was started by the user or by opening the app. The server push after a
+    /// periodic or strap-event sync is coalesced to once an hour; one the user is waiting on is not. Raised by a user or
+    /// foreground request (also one that finds a sync already running); AppModel reads and clears it when the sync banked
+    /// rows, and finishLogicalSync clears it when the sync did not.
+    var syncWantsImmediatePush = false
 
     /// Periodic-timer callback: routes through the rate-limited requestSync entry point.
     private func triggerPeriodicBackfill() {
@@ -4918,10 +5080,129 @@ public final class BLEManager: NSObject, ObservableObject {
         }
         if backfilling {
             log("Sync now: a sync is already in progress.")
+            syncWantsImmediatePush = true   // the user is waiting on the running sync, so its push goes at once
             return
         }
         log("Sync now: manual sync requested by user.")
         requestSync(.manual)
+    }
+
+    /// What a "Sync now" tap did, in words the sheet can show. Every case is a plain answer: the tap never
+    /// ends in silence.
+    public enum SyncNowOutcome: Equatable {
+        /// An offload began; progress shows in `LiveState.backfilling` / `syncChunksThisSession`.
+        case started
+        case alreadyRunning
+        /// The strap is not connected yet. A reconnect was requested and the sync is armed to run the moment the
+        /// connect handshake settles (up to `pendingManualSyncTTL`).
+        case waitingForStrap
+        /// Connected, but the connect handshake has not finished; the armed sync runs when it does.
+        case linkStillSettingUp
+        case bluetoothOff
+        case bluetoothDenied
+        case bluetoothUnsupported
+        /// A ring (not the strap) is the active device.
+        case otherDeviceActive
+
+        /// Stable label and number for the diagnostics breadcrumb (`result` field): started 1, alreadyRunning 2,
+        /// waitingForStrap 3, linkStillSettingUp 4, bluetoothOff 5, bluetoothDenied 6, bluetoothUnsupported 7,
+        /// otherDeviceActive 8.
+        var diagName: String {
+            switch self {
+            case .started: return "started"
+            case .alreadyRunning: return "already_running"
+            case .waitingForStrap: return "waiting_for_strap"
+            case .linkStillSettingUp: return "link_still_setting_up"
+            case .bluetoothOff: return "bluetooth_off"
+            case .bluetoothDenied: return "bluetooth_denied"
+            case .bluetoothUnsupported: return "bluetooth_unsupported"
+            case .otherDeviceActive: return "other_device_active"
+            }
+        }
+
+        var diagCode: Int {
+            switch self {
+            case .started: return 1
+            case .alreadyRunning: return 2
+            case .waitingForStrap: return 3
+            case .linkStillSettingUp: return 4
+            case .bluetoothOff: return 5
+            case .bluetoothDenied: return 6
+            case .bluetoothUnsupported: return 7
+            case .otherDeviceActive: return 8
+            }
+        }
+    }
+
+    /// The "Sync now" action behind the Today and PaceForge sync controls: `syncNow()` plus an honest answer for
+    /// every state it cannot start in. A user gesture, so an unconnected strap gets an explicit connect.
+    @discardableResult
+    public func syncNowReporting() -> SyncNowOutcome {
+        var fields = diagLinkFields()
+        fields["central_state"] = Double(central.state.rawValue)
+        let outcome = performSyncNow()
+        fields["result"] = Double(outcome.diagCode)
+        diag("sync.now \(outcome.diagName)", fields)
+        return outcome
+    }
+
+    private func performSyncNow() -> SyncNowOutcome {
+        switch central.state {
+        case .poweredOff: return .bluetoothOff
+        case .unauthorized: return .bluetoothDenied
+        case .unsupported: return .bluetoothUnsupported
+        default: break
+        }
+        guard state.activeIsWhoop else { return .otherDeviceActive }
+        if backfilling {
+            syncWantsImmediatePush = true   // the user is waiting on the running sync, so its push goes at once
+            return .alreadyRunning
+        }
+        guard state.connected, state.bonded else {
+            armPendingManualSync()
+            connect()
+            return .waitingForStrap
+        }
+        guard connectHandshakeDone else {
+            armPendingManualSync()
+            return .linkStillSettingUp
+        }
+        log("Sync now: manual sync requested by user.")
+        requestSync(.manual)
+        return backfilling ? .started : .linkStillSettingUp
+    }
+
+    /// The app became active. A sync no older than `staleAfter` keeps the old behaviour (the 90 s-floored
+    /// `.foreground` kick). An older one, or none, must not be lost to a link that is not ready yet: `requestSync`
+    /// drops the kick silently when the strap is still reconnecting or the handshake has not run, so in that case
+    /// the sync is armed instead and the connect handshake runs it as soon as the strap answers.
+    public func syncOnForeground(staleAfter: TimeInterval = 300) {
+        let nowTs = Date().timeIntervalSince1970
+        // `state.lastSyncedAt` is seeded asynchronously once the store opens, so on a cold launch it is still nil when
+        // the scene turns active; every launch then read as "never synced" (`last_sync_age_s` -1, stale) and armed a
+        // floor-bypassing manual sync. Fall back to the persisted stamp and to the persisted last ATTEMPT.
+        let defaults = UserDefaults.standard
+        let lastDone = state.lastSyncedAt ?? defaults.object(forKey: "lastSyncedAt") as? Double
+        let lastAttempt = defaults.object(forKey: Self.backfillLastAtKey) as? Double
+        let touchedAge = nowTs - max(lastDone ?? 0, lastAttempt ?? 0)
+        if backfilling || logicalSyncStartedAt != nil || (touchedAge >= 0 && touchedAge < Self.foregroundResyncFloorSeconds) {
+            diag("sync.foreground skipped", ["running": backfilling || logicalSyncStartedAt != nil ? 1 : 0,
+                                              "touched_age_s": touchedAge.rounded()])
+            return
+        }
+        let isStale = lastDone.map { nowTs - $0 > staleAfter } ?? true
+        let linkReady = state.connected && state.bonded && connectHandshakeDone
+        var fields = diagLinkFields()
+        fields["stale"] = isStale ? 1 : 0
+        fields["link_ready"] = linkReady ? 1 : 0
+        fields["last_sync_age_s"] = lastDone.map { (nowTs - $0).rounded() } ?? -1
+        if isStale, state.activeIsWhoop, !backfilling, !linkReady {
+            diag("sync.foreground armed", fields)
+            armPendingManualSync()
+            return
+        }
+        diag("sync.foreground kick", fields)
+        requestSync(.foreground)
     }
 
     /// When the iOS "Sync Strap" shortcut asked for a sync while no strap link was ready. The connect
@@ -4946,6 +5227,7 @@ public final class BLEManager: NSObject, ObservableObject {
     /// Record that a manual sync was asked for before the link was ready.
     public func armPendingManualSync() {
         pendingManualSyncRequestedAt = Date()
+        diag("sync.armed", diagLinkFields())
         log("Sync now: requested before the strap link was ready — will run once the connect handshake settles.")
     }
 
@@ -4963,6 +5245,7 @@ public final class BLEManager: NSObject, ObservableObject {
         let trigger = Self.connectSyncTrigger(pendingManualRequestedAt: pendingManualSyncRequestedAt, now: Date())
         pendingManualSyncRequestedAt = nil
         if trigger == .manual { log("Sync now: running the sync requested before the link was ready.") }
+        diag("sync.connect_kick \(trigger)", diagLinkFields())
         requestSync(trigger)
     }
 
@@ -4973,6 +5256,20 @@ public final class BLEManager: NSObject, ObservableObject {
 
     private func log(_ s: String) {
         state.append(log: "[\(timestamp())] \(s)")
+    }
+
+    /// An on-device diagnostics breadcrumb (iOS: NoopDiag's ring, uploaded with the next diagnostics report) for the
+    /// strap link and sync path, tagged with the screen on show. `event` is a fixed label and `fields` are numbers
+    /// only, so nothing from the strap or the user lands in it. A no-op off iOS.
+    private func diag(_ event: String, _ fields: [String: Double] = [:]) {
+        #if os(iOS)
+        NoopDiag.crumb("\(event) @\(NoopDiag.currentLabels.screen)", fields)
+        #endif
+    }
+
+    private func diagLinkFields() -> [String: Double] {
+        ["connected": state.connected ? 1 : 0, "bonded": state.bonded ? 1 : 0, "handshake": connectHandshakeDone ? 1 : 0,
+         "backfilling": backfilling ? 1 : 0]
     }
     private func timestamp() -> String {
         BLEManager.logTimeFormatter.string(from: Date())
@@ -5720,6 +6017,7 @@ extension BLEManager: @preconcurrency CBCentralManagerDelegate {
 
     public func centralManagerDidUpdateState(_ central: CBCentralManager) {
         log("Central state: \(central.state.rawValue) (5 = poweredOn)")
+        diag("ble.central_state", ["state": Double(central.state.rawValue)])
         // #391: ANY state update means the cold-start settling window moved on — a pending
         // unauthorized-settle escalation is obsolete whether the new state is good news (poweredOn)
         // or its own banner-worthy case (poweredOff handles itself below).
@@ -5882,6 +6180,7 @@ extension BLEManager: @preconcurrency CBCentralManagerDelegate {
     }
 
     public func centralManager(_ central: CBCentralManager, didConnect peripheral: CBPeripheral) {
+        diag("ble.connected", ["failed_attempts": Double(failedConnectAttempts)])
         cancelScanFallback()
         cancelPendingConnectProbe()   // #730: the connect resolved; no pending-connect log needed
         failedConnectAttempts = 0   // a successful connect clears the reconnect backoff (#414)
@@ -6039,6 +6338,8 @@ extension BLEManager: @preconcurrency CBCentralManagerDelegate {
     public func centralManager(_ central: CBCentralManager,
                                didDisconnectPeripheral peripheral: CBPeripheral,
                                error: Error?) {
+        diag("ble.disconnected", ["was_backfilling": backfilling ? 1 : 0, "handshake": connectHandshakeDone ? 1 : 0,
+                                  "error_code": Double((error as NSError?)?.code ?? 0), "had_error": error != nil ? 1 : 0])
         Task { @MainActor in await collector?.flush() }
         // Reboot trail: if a user reboot is in flight, this drop is the strap acting on it. Log how long
         // the link stayed up (a real reboot drops within ~1-2 s) and cancel the no-disconnect watchdog. The
@@ -6261,6 +6562,7 @@ extension BLEManager: @preconcurrency CBCentralManagerDelegate {
         lastSessionEndTrim = nil
         backfilling = false
         state.backfilling = false
+        finishLogicalSync(reason: "disconnected")
         state.historyPendingSync = false   // #1164: a stale "pending" must not outlive the link
         state.syncChunksThisSession = 0
         // A mid-sync disconnect bypasses exitBackfilling, so clear the reject counters here too —
@@ -6348,6 +6650,7 @@ extension BLEManager: @preconcurrency CBCentralManagerDelegate {
                                didFailToConnect peripheral: CBPeripheral,
                                error: Error?) {
         cancelPendingConnectProbe()   // #730: it FAILED rather than pending — this log is the answer
+        diag("ble.connect_failed", ["error_code": Double((error as NSError?)?.code ?? 0), "attempts": Double(failedConnectAttempts + 1)])
         log("Failed to connect\(error.map { " — \($0.localizedDescription)" } ?? "")\(BLEManager.bleErrorSuffix(error))")
         // The strap wiped its bond (a firmware update, or the official WHOOP app re-bonding it). macOS keeps
         // re-presenting the now-stale pairing key, so every reconnect loops on this same error with no
@@ -6868,6 +7171,7 @@ extension BLEManager: @preconcurrency CBPeripheralDelegate {
                 connectHandshakeDone = true     // unblocks beginBackfill()'s guard
                 state.historyReady = true       // and the sync controls, which must not offer what it declines
                 log("WHOOP 5/MG: connect handshake done — backfill unblocked")
+                diag("ble.handshake_done", ["family": 5])
                 noteRebootReconnectIfNeeded()
                 // Re-apply the Broadcast-HR device-config flag if the user opted in (#181).
                 if PuffinExperiment.broadcastHrEnabled { setBroadcastHr(true) }
@@ -6921,6 +7225,7 @@ extension BLEManager: @preconcurrency CBPeripheralDelegate {
         guard !connectHandshakeDone else { return }
         connectHandshakeDone = true
         state.historyReady = true
+        diag("ble.handshake_done", ["family": 4])
         noteRebootReconnectIfNeeded()
         backfillStarted = true
 

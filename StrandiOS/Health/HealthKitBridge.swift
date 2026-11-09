@@ -61,6 +61,9 @@ final class HealthKitBridge: ObservableObject {
     /// The most recent failure surfaced by `sync` / `writeBack`. Cleared on a successful run. UI binds
     /// here so an Apple Health auth revoke, quota hit, or invalid sample is visible instead of silent.
     @Published private(set) var lastError: String?
+    /// Metrics whose Apple Health read failed in the last pass (steps included), by label. Empty after a
+    /// clean pass. Steps fail on their own without stopping the rest of the sync; the others hold the write.
+    @Published private(set) var lastReadFailures: [String] = []
 
     private let store = HKHealthStore()
     private let repo: Repository
@@ -255,12 +258,24 @@ final class HealthKitBridge: ObservableObject {
     /// never reveals *read* status, but *write*/share status is observable — if the user already
     /// authorized all of our write types, treat the bridge as `.authorized`. This only reads
     /// status, so no system permission sheet is shown.
-    func refreshAuthIfPreviouslyGranted() {
+    ///
+    /// `async` because `authorizationStatus(for:)` is one synchronous round trip to the Health daemon per type: this used to run
+    /// them on the main actor at every app activation (up to every write type in a row), and a daemon slow to answer right
+    /// after the phone woke held the main thread for as long as it took. The reads now run on a utility thread and the result
+    /// is applied here.
+    func refreshAuthIfPreviouslyGranted() async {
         guard auth == .unknown, HKHealthStore.isHealthDataAvailable() else { return }
-        // Share authorization is per type. Resume when at least one write type is granted so a person
-        // who intentionally declined (for example) workouts still gets sleep/vitals exported after a
-        // relaunch. Requiring every legacy type made partial grants look wholly disconnected.
-        let granted = writeTypes.contains { store.authorizationStatus(for: $0) == .sharingAuthorized }
+        let store = self.store
+        let types = Array(writeTypes)
+        let (granted, newTypesPending) = await Task.detached(priority: .utility) { () -> (Bool, Bool) in
+            let statuses = types.map { store.authorizationStatus(for: $0) }
+            // Share authorization is per type. Resume when at least one write type is granted so a person
+            // who intentionally declined (for example) workouts still gets sleep/vitals exported after a
+            // relaunch. Requiring every legacy type made partial grants look wholly disconnected.
+            return (statuses.contains(.sharingAuthorized), statuses.contains(.notDetermined))
+        }.value
+        // Another resume or a request finished while the reads ran: it already decided.
+        guard auth == .unknown else { return }
         if granted {
             auth = .authorized
             // A returning user who already granted access should get the live stream re-armed for this
@@ -278,7 +293,6 @@ final class HealthKitBridge: ObservableObject {
             // also called from the offload write-back (#1021), which runs in processes that were never
             // foregrounded. Asking there would spend the one request we get where no sheet can be
             // presented. The status read above is unaffected, so a legacy grant still resumes.
-            let newTypesPending = writeTypes.contains { store.authorizationStatus(for: $0) == .notDetermined }
             if newTypesPending, UIApplication.shared.applicationState == .active {
                 Task { try? await store.requestAuthorization(toShare: writeTypes, read: readTypes) }
             }
@@ -506,11 +520,12 @@ final class HealthKitBridge: ObservableObject {
         func agg(_ day: String) -> DayAgg { byDay[day] ?? DayAgg() }
         // #2561 follow-up: every aggregate below feeds an upsert that writes `column = excluded.column`,
         // so a nil from a FAILED read replaces a stored value instead of recording an absence. Each read
-        // records its own outcome here and the whole write is held back if any of them failed, because a
-        // partial write cannot say which columns it is entitled to overwrite.
-        var failedReads: [String] = []
+        // records its own outcome in the ledger and the write is held back if any read other than steps
+        // failed, because a partial write cannot say which columns it is entitled to overwrite. A failed
+        // steps read does not hold the pass: the stored step counts are written back unchanged (below).
+        var ledger = AppleSyncLedger()
         func note(_ outcome: HealthRead, _ label: String) {
-            if outcome == .failed { failedReads.append(label) }
+            ledger.record(label, failed: outcome == .failed)
         }
 
         // Quantity aggregates per day.
@@ -541,18 +556,10 @@ final class HealthKitBridge: ObservableObject {
         let stepsReadOk = await collect(.stepCount, unit: .count(), start: start, end: end, op: .cumulativeSum) { day, v in
             var a = agg(day); a.steps = v; byDay[day] = a
         }
-        // Steps is in the ledger as well as behind its own guard below. The guard returns first and so
-        // wins the message, but recording it here is what keeps steps covered if that early return is
-        // ever removed: the general guard then catches it instead of it silently losing its protection.
-        note(stepsReadOk, "stepCount")
-        // A failed query is not an empty step history. Stop before upserting AppleDaily: its conflict
-        // update replaces the stored count with nil when another Health metric populated that day.
-        // The next foreground or observer sync can retry without losing the last good reading.
-        guard stepsReadOk != .failed else {
-            lastSyncDays = 0
-            lastError = String(localized: "Apple Health sync failed: \(String(localized: "Steps"))")
-            return false
-        }
+        // A failed query is not an empty step history, and it must not stop the other metrics from
+        // syncing. It is recorded under its own label; the rows below carry the stored step counts
+        // forward, the next sync reads steps again, and Today says Apple Health steps are unavailable.
+        note(stepsReadOk, AppleSyncLedger.stepsLabel)
         let activeEnergyBurnedRead = await collect(.activeEnergyBurned, unit: .kilocalorie(), start: start, end: end, op: .cumulativeSum) { day, v in
             var a = agg(day); a.activeKcal = v; byDay[day] = a
         }
@@ -605,24 +612,39 @@ final class HealthKitBridge: ObservableObject {
             byDay[day] = a
         }
 
-        // #2561 follow-up: hold the whole write back if ANY aggregate read failed. Every upsert below
-        // assigns `column = excluded.column`, so writing now would replace each failed metric's stored
-        // value with the nil standing in for it. Steps had this guard already; the rest did not, and the
-        // clobber is identical for activeKcal, basalKcal, vo2max, avgHr, maxHr and weightKg.
+        // #2561 follow-up: hold the whole write back if any aggregate read EXCEPT steps failed. Every upsert
+        // below assigns `column = excluded.column`, so writing now would replace each failed metric's stored
+        // value with the nil standing in for it: the clobber is identical for activeKcal, basalKcal, vo2max,
+        // avgHr, maxHr and weightKg.
         //
         // The whole pass is held rather than the failed columns dropped, because these rows are built
         // from one `byDay` and the upserts take whole rows: there is no way to say "leave that column
         // alone" without a per-column mask the store does not have. A held pass loses nothing, since the
-        // next foreground or observer sync re-reads the same window.
-        guard failedReads.isEmpty else {
+        // next foreground or observer sync re-reads the same window. Steps are the exception: their column
+        // is refilled from the stored rows when the read failed, so they never need to hold the pass.
+        lastReadFailures = ledger.allFailures
+        UserDefaults.standard.set(ledger.stepsFailed, forKey: StepsSourceResolver.appleStepsUnavailableKey)
+        guard ledger.blockingFailures.isEmpty else {
             lastSyncDays = 0
-            lastError = String(localized: "Apple Health sync failed: \(failedReads.joined(separator: ", "))")
+            lastError = String(localized: "Apple Health sync failed: \(ledger.blockingFailures.joined(separator: ", "))")
             return false
+        }
+
+        // A failed steps read leaves `a.steps` nil for every day; read the stored counts so the upsert
+        // writes them back instead of erasing them.
+        var storedSteps: [String: Int] = [:]
+        if ledger.stepsFailed {
+            let stored = (try? await store.appleDaily(deviceId: appleDeviceId,
+                                                      from: HealthKitBridge.dayString(start),
+                                                      to: HealthKitBridge.dayString(end))) ?? []
+            for row in stored { if let steps = row.steps { storedSteps[row.day] = steps } }
         }
 
         // Build + upsert the store rows under the apple-health source.
         let appleRows = byDay.map { (day, a) in
-            AppleDaily(day: day, steps: a.steps.map { Int($0) },
+            AppleDaily(day: day,
+                       steps: AppleSyncLedger.stepsForWrite(stepsFailed: ledger.stepsFailed,
+                                                            fresh: a.steps.map { Int($0) }, stored: storedSteps[day]),
                        activeKcal: a.activeKcal, basalKcal: a.basalKcal, vo2max: a.vo2max,
                        avgHr: a.avgHr.map { Int($0.rounded()) }, maxHr: a.maxHr.map { Int($0.rounded()) },
                        walkingHr: nil, weightKg: a.weightKg)
@@ -731,7 +753,18 @@ final class HealthKitBridge: ObservableObject {
             let hourlyStepsBackfilled = UserDefaults.standard.bool(forKey: Self.hourlyStepsBackfilledKey)
             let hourlyStepsStart: Date = hourlyStepsBackfilled ? start
                 : (cal.date(byAdding: .day, value: -90, to: cal.startOfDay(for: end)) ?? start)
-            let hourlySteps = try await collectHourlySteps(start: hourlyStepsStart, end: end)
+            // A steps failure here is not a sync failure: skip the hourly shape for this pass and leave the
+            // backfill flag unset so the next sync tries again.
+            var hourlySteps: [(ts: Int, steps: Int)] = []
+            if !ledger.stepsFailed {
+                do {
+                    hourlySteps = try await collectHourlySteps(start: hourlyStepsStart, end: end)
+                } catch {
+                    ledger.record(AppleSyncLedger.stepsLabel, failed: true)
+                    lastReadFailures = ledger.allFailures
+                    UserDefaults.standard.set(true, forKey: StepsSourceResolver.appleStepsUnavailableKey)
+                }
+            }
             // Only mark the backfill done once hourly data actually lands. HealthKit returns EMPTY (not
             // an error) when step read-access is denied, and users grant Health scopes incrementally — so
             // gating on non-empty, not merely on no-throw, stops a deny-then-grant sequence from burning
@@ -747,8 +780,10 @@ final class HealthKitBridge: ObservableObject {
             lastSync = Date()
             // Record the window alongside the time: an observer wake may only stand down for a sync that
             // actually covered ITS days (see `observerCoalesceWindow`). Set on the success path only.
-            lastSyncDays = days
-            lastError = nil
+            // A pass whose steps read failed does not count as covering its window, so an observer wake inside
+            // the coalescing window cannot skip the steps retry.
+            lastSyncDays = ledger.stepsFailed ? 0 : days
+            lastError = ledger.stepsFailed ? String(localized: "Steps from Apple Health unavailable") : nil
             return true
         } catch {
             // A failed sync must never let a later wake skip on the strength of it — the rows it would
@@ -785,7 +820,7 @@ final class HealthKitBridge: ObservableObject {
         // only resume runs on scenePhase == .active, so without this the guard below would silently drop
         // exactly the writes this is meant to deliver. Idempotent, and never prompts: it reads share
         // status, and its re-request for new types is foreground-gated.
-        refreshAuthIfPreviouslyGranted()
+        await refreshAuthIfPreviouslyGranted()
         // No authorization is a successful no-op for a background task. The scheduler is cancelled by
         // its app-owned operation after observing this state, so it does not keep waking unnecessarily.
         guard auth == .authorized else { return true }
@@ -1751,7 +1786,7 @@ final class HealthKitBridge: ObservableObject {
               samples.count >= effortMinimumSamples,
               last.ts - first.ts >= effortMinimumSpanSeconds else { return nil }
         return StrainScorer.strain(samples, maxHR: profile.hrMax,
-                                   method: PuffinExperiment.effortMethod,
+                                   method: PuffinExperiment.effortMethod.workoutRecipe,
                                    sex: profile.sex)
     }
 

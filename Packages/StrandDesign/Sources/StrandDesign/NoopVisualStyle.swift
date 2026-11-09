@@ -8,6 +8,19 @@ import SwiftUI
 
 public enum NoopVisualStyle {
     // Neutral, low-chroma surfaces sampled from the supplied dark-mode reference.
+    // iPhone's dark theme is the "look" palette (Look/NoopLook.swift: #101518 canvas, #1A2227 cards); the
+    // other platforms keep the original navy-grey. Light is unchanged everywhere.
+    #if os(iOS)
+    public static let canvas = Color(light: "#F3F4F6", dark: NoopLook.Hex.bgStd)
+    public static let surface = Color(light: "#FFFFFF", dark: NoopLook.Hex.surface)
+    public static let surfaceTop = Color(light: "#FFFFFF", dark: NoopLook.Hex.surfaceTop)
+    public static let surfaceBottom = Color(light: "#F4F5F7", dark: NoopLook.Hex.surface)
+    public static let inset = Color(light: "#E8E9ED", dark: NoopLook.Hex.inset)
+
+    public static let border = Color(light: "#D8DAE0", dark: NoopLook.Hex.border)
+    public static let borderHighlight = Color(light: "#FFFFFF", dark: NoopLook.Hex.borderHighlight)
+    public static let divider = Color(light: "#E4E5E9", dark: NoopLook.Hex.border)
+    #else
     public static let canvas = Color(light: "#F3F4F6", dark: "#1D1E23")
     public static let surface = Color(light: "#FFFFFF", dark: "#2A2C34")
     public static let surfaceTop = Color(light: "#FFFFFF", dark: "#30323B")
@@ -17,6 +30,7 @@ public enum NoopVisualStyle {
     public static let border = Color(light: "#D8DAE0", dark: "#373A44")
     public static let borderHighlight = Color(light: "#FFFFFF", dark: "#4B4E59")
     public static let divider = Color(light: "#E4E5E9", dark: "#383A43")
+    #endif
 
     public static let primaryText = Color(light: "#17181C", dark: "#F7F7FA")
     public static let secondaryText = Color(light: "#555861", dark: "#C3C4CA")

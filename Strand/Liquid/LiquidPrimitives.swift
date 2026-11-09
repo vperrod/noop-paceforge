@@ -323,6 +323,9 @@ struct LiquidVessel: View {
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObservedObject private var motion = NoopMotionState.shared
+    /// Off screen (background, app switcher, Control Center) the gauge poses still: a live 30-60 fps Canvas has nothing to show
+    /// there and kept the main thread busy for as long as the app was alive. Foreground behaviour is unchanged.
+    @Environment(\.scenePhase) private var scenePhase
     @State private var sim: LiquidSim
     @State private var splashes = 0
     /// Whether the fill is still easing toward `value`: the only time the ring changes (see `gauge`).
@@ -339,7 +342,7 @@ struct LiquidVessel: View {
     }
 
     var body: some View {
-        if animated && !motion.poseStill(reduceMotion) { gauge } else { staticGauge }
+        if animated && scenePhase == .active && !motion.poseStill(reduceMotion) { gauge } else { staticGauge }
     }
 
     /// The live gauge: the fill eases in from empty and to each new value, then the ring holds still.
@@ -421,10 +424,13 @@ struct LiquidTube: View {
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObservedObject private var motion = NoopMotionState.shared
+    /// Off screen (background, app switcher, Control Center) the gauge poses still: a live 30-60 fps Canvas has nothing to show
+    /// there and kept the main thread busy for as long as the app was alive. Foreground behaviour is unchanged.
+    @Environment(\.scenePhase) private var scenePhase
     @State private var sim = LiquidSim(target: 0)
 
     var body: some View {
-        if animated && !motion.poseStill(reduceMotion) { liveTube } else { staticTube }
+        if animated && scenePhase == .active && !motion.poseStill(reduceMotion) { liveTube } else { staticTube }
     }
 
     private var liveTube: some View {
@@ -465,9 +471,12 @@ struct LiquidThread: View {
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObservedObject private var motion = NoopMotionState.shared
+    /// Off screen (background, app switcher, Control Center) the gauge poses still: a live 30-60 fps Canvas has nothing to show
+    /// there and kept the main thread busy for as long as the app was alive. Foreground behaviour is unchanged.
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
-        if animated && !motion.poseStill(reduceMotion) { liveThread } else { staticThread }
+        if animated && scenePhase == .active && !motion.poseStill(reduceMotion) { liveThread } else { staticThread }
     }
 
     private var liveThread: some View {

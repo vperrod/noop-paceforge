@@ -52,6 +52,7 @@ struct SmartAlarmView: View {
                 strapAlarmCard
                 strapRejectedCard   // #34: only shows when the strap keeps refusing the alarm
                 honestyCard
+                SleepPlannerAlarmEntry()
                 windDownCard
             }
         }

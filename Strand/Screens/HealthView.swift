@@ -34,6 +34,12 @@ struct HealthView: View {
                        // The day-of-sky liquid backdrop, matching Today / Sleep / Trends: a fixed,
                        // full-bleed time-of-day sky behind the scroll content (does not scroll).
                        topBackground: liquidScaffoldSky()) {
+            #if os(iOS)
+            // PaceForge's Health monitor (each vital against its own 30-day range) leads the one Health screen.
+            PFPageNote(key: "vitals")
+            PFHealthMonitorSection()
+            PFStrapHRVSection()
+            #endif
             if repo.days.isEmpty {
                 // First run / no history: whether to show the empty state or the full live stack depends
                 // on whether a strap is streaming live HR — a `live`-dependent choice. It's isolated to
@@ -1202,6 +1208,8 @@ private struct VitalitySection: View {
     @EnvironmentObject var profile: ProfileStore
     @State private var vitality: Double?
     @State private var bodyAge: Double?
+    /// The weekly Body Age series, for the pace-of-aging card.
+    @State private var bodyAgeSeries: [(day: String, value: Double)] = []
     @State private var loaded = false
 
     private var contributions: [VitalityEngine.Contribution] {
@@ -1237,6 +1245,7 @@ private struct VitalitySection: View {
             } else {
                 ComingSoon(what: "Reading your Vitality…", symbol: "sparkles")
             }
+            if loaded { PaceOfAgingCard(series: bodyAgeSeries, today: Repository.localDayKey(Date())) }
         }
         .task(id: repo.refreshSeq) { await load() }
     }
@@ -1319,7 +1328,9 @@ private struct VitalitySection: View {
 
     private func load() async {
         vitality = (await repo.exploreSeries(key: "vitality", source: "my-whoop")).last?.value
-        bodyAge = (await repo.exploreSeries(key: "body_age", source: "my-whoop")).last?.value
+        let ageSeries = await repo.exploreSeries(key: "body_age", source: "my-whoop")
+        bodyAgeSeries = ageSeries
+        bodyAge = ageSeries.last?.value
         loaded = true
     }
 }
@@ -1347,6 +1358,9 @@ private struct VitalsSection: View {
     @State private var spo2CandidateByDay: [String: Double] = [:]
     @State private var hrvOverCountByDay: [String: Double] = [:]   // #1118
 
+    /// Nights with an HRV reading, the series the vital baselines are learned from.
+    private var hrvNights: Int { repo.days.compactMap(\.avgHrv).filter { $0 > 0 }.count }
+
     var body: some View {
         let readings = BodyVitalSigns.readings(
             sourceRows: repo.vitalMetricRows,
@@ -1372,10 +1386,23 @@ private struct VitalsSection: View {
                         .staggeredAppear(index: idx)
                 }
             }
-            Text("Once NOOP has 14 nights of history, in-range compares each vital to your own baseline (approximate, not medical advice); until then, typical adult ranges apply.")
-                .font(StrandFont.footnote)
-                .foregroundStyle(StrandPalette.textTertiary)
-                .fixedSize(horizontal: false, vertical: true)
+            HStack(alignment: .top, spacing: 0) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Once NOOP has 14 nights of history, in-range compares each vital to your own baseline (approximate, not medical advice); until then, typical adult ranges apply.")
+                        .font(StrandFont.footnote)
+                        .foregroundStyle(StrandPalette.textTertiary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    if let calibration = MetricCalibration.vitalsLine(nights: hrvNights) {
+                        Text(calibration)
+                            .font(StrandFont.footnote.weight(.semibold))
+                            .foregroundStyle(StrandPalette.textSecondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .accessibilityIdentifier("vitals-calibration")
+                    }
+                }
+                Spacer(minLength: 0)
+                MetricInfoButton(topic: .vitals)
+            }
         }
         .task(id: PuffinExperiment.spo2CandidateDisplayEnabled) {
             // #1118: load the per-night HRV over-count flags (always — no toggle) so the HRV tile can

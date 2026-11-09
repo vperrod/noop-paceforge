@@ -224,6 +224,24 @@ extension Color {
 Because the design system already compiles against UIKit, the SwiftUI components,
 charts, and palette render on iOS as-is.
 
+### The dark "look" layer (iPhone)
+
+`Packages/StrandDesign/Sources/StrandDesign/Look/` holds the iPhone's dark look. Dark is the default on iPhone
+(`AppearanceMode.platformDefault`); light is chosen in Settings → Theme, which was already persisted.
+
+- `NoopLook` — colour tokens (dynamic light/dark for surfaces and text; fixed data colours: Charge bands at 67 and 34,
+  Effort blue, Rest blue-grey, sleep-stage and heart-rate-zone colours, trend up/down, the coach gradient). On iPhone the
+  legacy `NoopVisualStyle` dark surfaces read from it, so every existing card follows.
+- `LookFont` — numerals in D-DIN (`StrandiOS/Resources/Fonts`, SIL OFL 1.1, registered through `UIAppFonts` in
+  `project.yml` and `Info.plist`; licence in `OFL-D-DIN.txt`). If the face is not registered the numerals fall back to the
+  system rounded face in its condensed width. Caps labels use `lookCaps` (0.1 em tracking).
+- `LookLogic.swift` — the Foundation-only decisions (bands, delta chips, today-vs-30-days marks, dial geometry, W/M/6M/Y
+  windows and steppers, monthly segments, axis ticks). Tested on Linux: `scripts/look-logic-tests-linux.sh`.
+- Components: `RingDial`, `InsightCard`, `TodayVs30Rows`, `ThreeStepRow(s)`, `LookTrendView`, `WeeklyBars`,
+  `TypicalRangeBars`, `ActivityPillRow` / `ActivitiesCard`, `FloatingTabBar`, `StickyMiniDials`, plus `MonitorTile`,
+  `OutlookBar` and `LookInfoCard`. Each takes plain values and has a `#Preview`.
+- `--demo-screen looklab` (DEBUG) renders every component with made-up numbers; `LookComponentsUITests` captures them.
+
 ---
 
 ## The macOS app today (the reference implementation)

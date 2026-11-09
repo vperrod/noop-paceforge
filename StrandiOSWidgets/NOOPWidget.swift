@@ -15,13 +15,13 @@ struct NOOPProvider: TimelineProvider {
 
     func getSnapshot(in context: Context, completion: @escaping (NOOPEntry) -> Void) {
         let fallback: WidgetSnapshot = context.isPreview ? .placeholder : .unavailable
-        completion(NOOPEntry(date: Date(), snapshot: WidgetSnapshot.load() ?? fallback))
+        completion(NOOPEntry(date: Date(), snapshot: (WidgetSnapshot.load() ?? fallback).redactedForDisplay()))
     }
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<NOOPEntry>) -> Void) {
         // Gallery previews use `placeholder(in:)` / getSnapshot's preview branch. A real timeline
         // with no shared snapshot must show missing data honestly, never plausible sample numbers.
-        let snap = WidgetSnapshot.load() ?? .unavailable
+        let snap = (WidgetSnapshot.load() ?? .unavailable).redactedForDisplay()
         // Refresh roughly every 15 minutes; the app also forces a reload when it publishes fresh data.
         let next = Calendar.current.date(byAdding: .minute, value: 15, to: Date()) ?? Date().addingTimeInterval(900)
         completion(Timeline(entries: [NOOPEntry(date: Date(), snapshot: snap)], policy: .after(next)))
@@ -40,6 +40,12 @@ struct NOOPWidgetView: View {
     let entry: NOOPEntry
 
     private var snap: WidgetSnapshot { entry.snapshot }
+
+    /// Settings > Hide numbers: the three scores are taken out of the snapshot (`redactedForDisplay`), and each
+    /// place that would print a dash for "not scored yet" prints the placeholder instead.
+    private var scoresHidden: Bool { snap.scoresHidden == true }
+    private var scoreGap: String { scoresHidden ? PFRedact.placeholder : "–" }
+    private func shown(_ text: String?) -> String? { scoresHidden ? PFRedact.placeholder : text }
 
     var body: some View {
         switch family {
@@ -82,7 +88,8 @@ struct NOOPWidgetView: View {
 
     private var inlineText: String {
         var parts: [String] = []
-        if let r = snap.recovery { parts.append("Charge \(r)%") }
+        if scoresHidden { parts.append("Charge \(PFRedact.placeholder)") }
+        else if let r = snap.recovery { parts.append("Charge \(r)%") }
         if let b = snap.bpm { parts.append("\(b) bpm") }
         return parts.isEmpty ? "NOOP" : parts.joined(separator: " · ")
     }
@@ -93,7 +100,9 @@ struct NOOPWidgetView: View {
         Gauge(value: Double(snap.recovery ?? 0), in: 0...100) {
             Image(systemName: "heart.fill")
         } currentValueLabel: {
-            Text(snap.recovery.map { "\($0)" } ?? "–")
+            Text(snap.recovery.map { "\($0)" } ?? scoreGap)
+                .minimumScaleFactor(0.5)
+                .lineLimit(1)
         }
         .gaugeStyle(.accessoryCircular)
         .tint(chargeColor)
@@ -114,11 +123,11 @@ struct NOOPWidgetView: View {
             }
             HStack(alignment: .top, spacing: 0) {
                 accessoryScore("Charge", symbol: "figure.mind.and.body",
-                               text: snap.recovery.map { "\($0)%" }, tint: chargeColor)
+                               text: shown(snap.recovery.map { "\($0)%" }), tint: chargeColor)
                 accessoryScore("Effort", symbol: "figure.strengthtraining.traditional",
-                               text: effortText, tint: effortColor)
+                               text: shown(effortText), tint: effortColor)
                 accessoryScore("Rest", symbol: "moon.fill",
-                               text: snap.rest.map { "\($0)%" }, tint: restColor)
+                               text: shown(snap.rest.map { "\($0)%" }), tint: restColor)
             }
         }
     }
@@ -247,7 +256,7 @@ struct NOOPWidgetView: View {
     private func scoreRings(diameter: CGFloat, lineWidth: CGFloat, labelFont: Font) -> some View {
         HStack(alignment: .top, spacing: 0) {
             WidgetScoreRing(
-                text: snap.recovery.map(String.init),
+                text: shown(snap.recovery.map(String.init)),
                 fraction: snap.recovery.map { Double($0) / 100 },
                 label: "Charge",
                 color: chargeColor,
@@ -257,7 +266,7 @@ struct NOOPWidgetView: View {
                 accessibilityOutOf: 100
             )
             WidgetScoreRing(
-                text: effortText,
+                text: shown(effortText),
                 // Fill is always the stored 0–100 axis so WHOOP 0–21 and native 0–100 agree on arc length.
                 fraction: snap.effort.map { Double($0) / 100 },
                 label: "Effort",
@@ -268,7 +277,7 @@ struct NOOPWidgetView: View {
                 accessibilityOutOf: (snap.effortWhoop == true) ? 21 : 100
             )
             WidgetScoreRing(
-                text: snap.rest.map(String.init),
+                text: shown(snap.rest.map(String.init)),
                 fraction: snap.rest.map { Double($0) / 100 },
                 label: "Rest",
                 color: restColor,
@@ -412,7 +421,7 @@ private struct WidgetScoreRing: View {
         .frame(maxWidth: .infinity)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(Text(label))
-        .accessibilityValue(Text(text.map { "\($0) out of \(accessibilityOutOf)" } ?? "unavailable"))
+        .accessibilityValue(Text(text == PFRedact.placeholder ? "hidden" : (text.map { "\($0) out of \(accessibilityOutOf)" } ?? "unavailable")))
     }
 }
 

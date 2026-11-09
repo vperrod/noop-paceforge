@@ -922,8 +922,11 @@ public enum AnalyticsEngine {
         // The Effort ring's own funnel. A nil sink builds nothing at all, so a caller that does not want
         // diagnostics pays nothing; IntelligenceEngine passes its per-day recorder, the same one the
         // `workout detect` and `sleep-detect` lines beside it already use.
+        // Effort v2 skips the day's sleep. `matched` is the sessions that END today, so the evening before a
+        // night that ends tomorrow is not named here; that heart rate sits under the floor, so it scores ~0 either way.
         let strain = StrainScorer.strain(dayHr ?? hr, maxHR: effMaxHR, restingHR: restForStrain,
                                          method: effortMethod, sex: profile.sex,
+                                         sleepWindows: matched.map { (start: $0.start, end: $0.end) },
                                          diag: strainDiag, day: day)
         // #2438 step 0 asks two things of a contributed log: whether the day was scored against the
         // user's own setting or against the age formula, and how far the day's own heart rate ran above

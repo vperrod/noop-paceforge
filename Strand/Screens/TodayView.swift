@@ -198,6 +198,7 @@ struct TodayView: View {
     /// classification and tint selection stable when the app language changes.
     private static let whoopBrandName = "WHOOP"
     @EnvironmentObject var repo: Repository
+    @AppStorage(StepsSourceResolver.appleStepsUnavailableKey) private var appleStepsUnavailable = false
     // PERF (scroll stutter): TodayView deliberately does NOT observe `LiveState` directly. A connected
     // strap publishes `LiveState` ~1 Hz (heart rate + each R-R packet), and an `@EnvironmentObject live`
     // here would invalidate the ENTIRE Today `body` on every tick, re-evaluating the scene backdrop, the
@@ -241,7 +242,7 @@ struct TodayView: View {
     // Day-cycle scene backdrop (#698). Default ON. When the user turns it off in Settings → Appearance,
     // Today drops the SceneScreenBackground and falls back to the plain dark surfaceBase canvas. The
     // cards already sit on an opaque canvas, so readability is unchanged either way.
-    @AppStorage(SceneBackgroundPrefs.enabledKey) private var showDayCycleBackground = true
+    @AppStorage(SceneBackgroundPrefs.enabledKey) private var showDayCycleBackground = SceneBackgroundPrefs.defaultEnabled
     // Effort display scale (#268), drives the Effort tile's value + caption. Display-only.
     @AppStorage(UnitPrefs.effortScaleKey) private var effortScaleRaw = EffortScale.hundred.rawValue
     private var effortScale: EffortScale { UnitPrefs.resolveEffortScale(effortScaleRaw) }
@@ -318,6 +319,7 @@ struct TodayView: View {
 
     // 14-day sparkline series, keyed by metric key. Loaded once in .task.
     @State private var sparks: [String: [Double]] = [:]
+    @State private var weightSourceCaption = String(localized: "latest")
     @State private var workouts: [WorkoutRow] = []
     /// #1694: a tapped Latest-Workouts tile. Wrapped so `.sheet(item:)` drives presentation, mirroring
     /// WorkoutsView's own detail target — the feed was read-only, so the only route to a session's
@@ -860,16 +862,17 @@ struct TodayView: View {
         RecoveryScorer.skinTempRelative(deviationC: chargeBreakdownRow?.skinTempDevC)
     }
 
-    /// #205 (one-word readiness read kept on the hero: Push / Maintain / Rest). PURE mapping of the
+    /// #205 (one-word readiness context kept on the hero). PURE mapping of the
     /// existing `ReadinessEngine.Level` so the hero keeps a glanceable verdict even though the full
     /// Readiness card folds into the Charge breakdown sheet (S4). `insufficient` returns nil (the hero then
-    /// shows no readiness word, matching the old card hiding itself). Mirror EXACTLY in Kotlin.
+    /// shows no readiness word, matching the old card hiding itself). The metric states stay aligned with
+    /// Android; this iPhone wording describes signals rather than prescribing a session from the bucket.
     static func readinessWord(_ level: ReadinessEngine.Level) -> String? {
         switch level {
-        case .primed:       return String(localized: "Push")
-        case .balanced:     return String(localized: "Maintain")
-        case .strained:     return String(localized: "Rest")
-        case .rundown:      return String(localized: "Rest")
+        case .primed:       return String(localized: "Signals aligned")
+        case .balanced:     return String(localized: "Balanced")
+        case .strained:     return String(localized: "Watch signal")
+        case .rundown:      return String(localized: "Review signals")
         case .insufficient: return nil
         }
     }
@@ -929,6 +932,7 @@ struct TodayView: View {
     /// Any other real source (Mi Band, Health Connect, nutrition) keeps its `FusionSource.displayName`
     ///, still the genuine merge winner, never a blanket claim. Mirror EXACTLY in Kotlin.
     static func provenanceDisplayLabel(rawSource: String, deviceId: String) -> String {
+        if rawSource == "paceforge-garmin" { return "Garmin via PaceForge" }
         if rawSource.hasPrefix(vo2MaxAttributionPrefix) {
             let raw = String(rawSource.dropFirst(vo2MaxAttributionPrefix.count))
             let method = vo2MaxEstimatorDisplayName(Vo2MaxEstimator(rawValue: raw))
@@ -949,6 +953,7 @@ struct TodayView: View {
         switch FusionSource(rawValue: rawSource) {
         case .healthConnect: return "Health Connect"
         case .xiaomiBand:    return "Mi Band"
+        case .paceforgeGarmin: return "Garmin via PaceForge"
         case .nutritionCsv:  return String(localized: "Nutrition")
         case .localCache:    return String(localized: "Cached")
         case .whoopImport:   return Self.whoopBrandName
@@ -1004,6 +1009,7 @@ struct TodayView: View {
     static func todayScoreProviderLabel(sourceId: String, brand: String?) -> String {
         let source = sourceId.lowercased()
         switch source {
+        case "paceforge-garmin": return "Garmin via PaceForge"
         case Repository.appleHealthSource: return "Apple Watch"
         case Repository.healthConnectSource: return "Health Connect"
         case "oura-import", "oura-api": return "Oura"
@@ -1381,6 +1387,7 @@ struct TodayView: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Menu and settings")
+                .accessibilityIdentifier("today-settings")
             }
         }
         .frame(height: 46)
@@ -1721,8 +1728,8 @@ struct TodayView: View {
 
     /// S4: Readiness now lives behind the Charge-ring tap (in `chargeBreakdownSheet`), not as a standalone
     /// home-screen card. This wrapper is retained for the sheet's use: a titled header + the card body. A
-    /// one-word readiness read (Push / Maintain / Rest, #205) stays on the hero so the home screen keeps a
-    /// glanceable verdict. Hidden when there isn't enough history (the `.insufficient` level).
+    /// concise readiness context (#205) stays on the hero so the home screen keeps a
+    /// glanceable signal read. Hidden when there isn't enough history (the `.insufficient` level).
     @ViewBuilder
     private func readinessCard(_ r: ReadinessEngine.Readiness) -> some View {
         let headline = readinessHeadlineText(r.level)
@@ -1745,7 +1752,7 @@ struct TodayView: View {
                                 Text("load \(String(format: "%.2f", locale: AppLanguage.activeLocale, acwr))")
                                     .font(StrandFont.captionNumber)
                                     .foregroundStyle(StrandPalette.textTertiary)
-                                    .help("Acute (7-day) vs chronic (28-day) training load. 0.8–1.3 is the sweet spot.")
+                                    .help("Acute (7-day) vs chronic (28-day) training load. A reference comparison, not a safety score.")
                             }
                         }
                         // #1405: mark this as a DIFFERENT axis from the home Synthesis word (the Charge-%
@@ -1804,8 +1811,8 @@ struct TodayView: View {
         switch level {
         case .primed: return String(localized: "Primed")
         case .balanced: return String(localized: "Balanced")
-        case .strained: return String(localized: "Strained")
-        case .rundown: return String(localized: "Run down")
+        case .strained: return String(localized: "One signal to review")
+        case .rundown: return String(localized: "Several signals to review")
         case .insufficient: return String(localized: "Readiness")
         }
     }
@@ -1813,13 +1820,13 @@ struct TodayView: View {
     private func readinessSummaryText(_ level: ReadinessEngine.Level) -> String {
         switch level {
         case .primed:
-            return String(localized: "Your signals are aligned and your load is supported. A harder session is well backed today.")
+            return String(localized: "Your recovery signals are aligned. Keep your plan and how you feel in view today.")
         case .balanced:
-            return String(localized: "Nothing's flagging. Train to feel - your body's holding steady.")
+            return String(localized: "No strong recovery signal stands out. Keep your plan and how you feel in view today.")
         case .strained:
-            return String(localized: "One of your signals is flagging. You can train, but keep it controlled and bank the recovery.")
+            return String(localized: "A recovery signal is outside your personal range. Compare it with sleep, recent training and how you feel; this read alone does not decide today's session.")
         case .rundown:
-            return String(localized: "Several signals are down at once. Treat today as recovery - easy movement, real sleep tonight.")
+            return String(localized: "Several recovery signals are outside your personal range. Check their source and dates; the Coach can weigh them with your plan and how you feel.")
         case .insufficient:
             return String(localized: "A few more nights of data and your readiness read will sharpen.")
         }
@@ -1856,26 +1863,29 @@ struct TodayView: View {
         if signal.key == "acwr", let evidence = signal.evidenceData,
            case .trainingLoad(let acute, let chronic) = evidence {
             let ratio = readinessNumber(chronic > 0 ? acute / chronic : 0, decimals: 2)
+            if chronic > 0, acute / chronic >= 1.5 {
+                return String(localized: "recent load is markedly above prior weeks (acute:chronic \(ratio)); review recovery and the sessions ahead")
+            }
             switch signal.flag {
-            case .good: return String(localized: "in the sweet spot (acute:chronic \(ratio))")
-            case .bad: return String(localized: "spiking (acute:chronic \(ratio)) - higher injury risk")
+            case .good: return String(localized: "inside the reference band (acute:chronic \(ratio)); not a safety score")
+            case .bad: return String(localized: "recent load is markedly above prior weeks (acute:chronic \(ratio)); review recovery and the sessions ahead")
             case .watch: return acute < chronic
-                ? String(localized: "ramping down (acute:chronic \(ratio)) - room to build")
-                : String(localized: "building fast (acute:chronic \(ratio)) - watch fatigue")
-            case .neutral: return String(localized: "in the sweet spot (acute:chronic \(ratio))")
+                ? String(localized: "below the prior-weeks comparison (acute:chronic \(ratio)); use your plan and recovery to guide any increase")
+                : String(localized: "recent load is rising vs prior weeks (acute:chronic \(ratio)); check fatigue and recovery")
+            case .neutral: return String(localized: "inside the reference band (acute:chronic \(ratio)); not a safety score")
             }
         }
         switch (signal.key, signal.flag) {
-        case ("hrv", .good): return String(localized: "above your baseline - well recovered")
+        case ("hrv", .good): return String(localized: "above your baseline today; one signal, not a recovery verdict")
         case ("hrv", .neutral), ("rhr", .neutral): return String(localized: "in your normal range")
         case ("hrv", .watch): return String(localized: "a touch below baseline")
-        case ("hrv", .bad): return String(localized: "suppressed - a sign of autonomic fatigue")
+        case ("hrv", .bad): return String(localized: "below your baseline; check the trend with sleep, training and how you feel")
         case ("rhr", .good): return String(localized: "at or below baseline")
         case ("rhr", .watch): return String(localized: "running a little high")
-        case ("rhr", .bad): return String(localized: "elevated - overtraining or illness can do this")
-        case ("respRate", .bad): return String(localized: "up vs baseline - sometimes an early sign of getting sick")
+        case ("rhr", .bad): return String(localized: "above your baseline; training, sleep, illness and other factors can affect it")
+        case ("respRate", .bad): return String(localized: "above your baseline; a sustained change is context, not a diagnosis")
         case ("respRate", .watch): return String(localized: "slightly raised vs baseline")
-        case ("monotony", _): return String(localized: "low - similar strain every day raises strain/illness risk")
+        case ("monotony", _): return String(localized: "daily strain was similar across the week; review session variety and recovery, not as a risk score")
         default: return String(localized: "in your normal range")
         }
     }
@@ -1890,8 +1900,8 @@ struct TodayView: View {
         switch l {
         case .primed:       return String(localized: "Primed")
         case .balanced:     return String(localized: "Balanced")
-        case .strained:     return String(localized: "Strained")
-        case .rundown:      return String(localized: "Run down")
+        case .strained:     return String(localized: "One signal to review")
+        case .rundown:      return String(localized: "Several signals to review")
         case .insufficient: return String(localized: "Not enough data")
         }
     }
@@ -1920,7 +1930,7 @@ struct TodayView: View {
         case .primed:       return StrandPalette.accent
         case .balanced:     return StrandPalette.statusPositive
         case .strained:     return StrandPalette.statusWarning
-        case .rundown:      return StrandPalette.metricRose
+        case .rundown:      return StrandPalette.statusWarning
         case .insufficient: return StrandPalette.textTertiary
         }
     }
@@ -1940,8 +1950,13 @@ struct TodayView: View {
     @ViewBuilder
     private func todaySection(_ section: TodaySection) -> some View {
         switch section {
+        case .todaysCall, .dayInReview, .myDay, .myPlan, .myDashboard:
+            // iPhone's Liquid Today draws these (the first two read PaceForge's daily-intel.json, My Plan its my-plan.json, My Dashboard
+            // is the user's own list; My Day is its own section there, while here the hero section carries it); the classic stack has no twin.
+            EmptyView()
         case .hero:
             classicHeroSection
+            if selectedDayOffset == 0 { MyDayEntryCard(); EffortTargetCard(); SleepPlannerEntryCard(); WeeklyGoalsCard() }
         case .liveSession:
             if liveSessionsBeta { liveSessionStartSection }
         case .synthesis:
@@ -2299,7 +2314,7 @@ struct TodayView: View {
                     .minimumScaleFactor(0.8)
                 Spacer(minLength: 8)
                 // S4 (#205): the one-word readiness read kept on the hero now the full Readiness card folded
-                // into the Charge-ring tap. Push / Maintain / Rest, derived from the existing Readiness
+                // into the Charge-ring tap. Signal context, derived from the existing Readiness
                 // level; hidden when there isn't enough history (nil word). Sits beside the confidence pill.
                 if let word = Self.readinessWord(readiness.level) {
                     readinessHeroPill(word)
@@ -2403,7 +2418,7 @@ struct TodayView: View {
         }
     }
 
-    /// S4 (#205): the one-word readiness pill on the hero (Push / Maintain / Rest). A small tinted capsule
+    /// S4 (#205): the one-word readiness context on the hero. A small tinted capsule
     /// matching the score-pill chrome, coloured by the readiness level. Tapping it opens the Charge
     /// breakdown sheet, where the FULL Readiness card now lives, so the glanceable word still leads to the
     /// detail it summarises.
@@ -2755,11 +2770,10 @@ struct TodayView: View {
         case .steps:
             // #843/#813, same-day real count only (strap @57 or same-day phone import); never the latest
             // imported row or the sparkline tail (both went stale). Else fall through to the estimate.
-            let appleStepsForDay = appleDays.last(where: { $0.day == selectedDayKey })?.steps
-            let real = (d?.steps).map { intString(Double($0)) }
-                ?? appleStepsForDay.map { intString(Double($0)) }
+            // Resolved across Apple Health, the Garmin mirror and the strap by `StepsSourceResolver`; only a
+            // day none of them counted falls through to the on-device estimate.
             let est = stepsEstByDay[selectedDayKey].map { intString(Double($0)) }
-            return real ?? est ?? "—"
+            return resolvedSteps(for: d).map { intString($0.value) } ?? est ?? "—"
         case .calories:
             return withUnit(caloriesValue(appleDays.last))
         case .stress:
@@ -3208,16 +3222,16 @@ struct TodayView: View {
             // Health screen on an unknown key rather than failing, which is why they are pinned.
             heroRingColumn(section: .charge, domain: .charge, provenanceKey: "recovery",
                            onOpenBreakdown: { showChargeBreakdown = true }) {
-                chargeRing(score: score, d: d, diameter: ring)
+                chargeRing(score: score, d: d, diameter: ring).hiddenWhenPrivate(.scores, name: "Charge")
             }
             heroRingColumn(section: .effort, domain: .effort,
-                           detailRoute: .metric(HeroRingMetric.effort)) { effortRing(d: d, diameter: ring) }
+                           detailRoute: .metric(HeroRingMetric.effort)) { effortRing(d: d, diameter: ring).hiddenWhenPrivate(.scores, name: "Effort") }
             // `provenanceKey` spells the same string the route does and stays a literal on purpose: it
             // asks which SOURCE won this day, not which catalog entry to open. See `HeroRingMetric`.
             heroRingColumn(section: .rest, domain: .rest, provenanceKey: "sleep_performance",
                            detailRoute: .metric(HeroRingMetric.rest),
                            caption: restIsPendingSync ? "Pending sync" : nil,
-                           captionWidth: ring) { restRing(diameter: ring) }
+                           captionWidth: ring) { restRing(diameter: ring).hiddenWhenPrivate(.scores, name: "Rest") }
         }
         .frame(maxWidth: .infinity, alignment: .center)
         // Zero-impact width reader: a clear background that publishes the row's width up via preference. It
@@ -3905,8 +3919,21 @@ struct TodayView: View {
     /// One Key-Metric tile, keyed so the grid can be filtered + reordered per the saved layout (#251).
     /// Each case is byte-for-byte the tile that used to be hard-coded in the grid, the refactor only
     /// changes WHICH tiles render and in WHAT order, never how an individual tile looks.
-    @ViewBuilder
     private func keyMetricTile(_ metric: KeyMetric) -> some View {
+        // Hide numbers (Settings): Charge, Effort, Rest and Weight read "Hidden" while their switch is on.
+        keyMetricTileContent(metric).hiddenWhenPrivate(Self.hideKind(for: metric), name: String(describing: metric))
+    }
+
+    private static func hideKind(for metric: KeyMetric) -> HideScoresKind? {
+        switch metric {
+        case .charge, .effort, .rest: return .scores
+        case .weight: return .body
+        default: return nil
+        }
+    }
+
+    @ViewBuilder
+    private func keyMetricTileContent(_ metric: KeyMetric) -> some View {
         let d = displayDay
         let aLatest = appleDays.last
         switch metric {
@@ -3986,7 +4013,8 @@ struct TodayView: View {
                 caption: hrv.caption,
                 accent: hrv.value == "—" ? StrandPalette.textPrimary : StrandPalette.metricPurple,
                 sparkline: sparks["hrv"],
-                sparkColor: StrandPalette.metricPurple
+                sparkColor: StrandPalette.metricPurple,
+                accessory: { MetricInfoButton(topic: .hrv) }
             )
         case .restingHr:
             let rhr = carriedVital(unit: "bpm", today: d?.restingHr.map(Double.init),
@@ -4066,9 +4094,10 @@ struct TodayView: View {
             // Never the latest imported Apple-Health row (it can be days stale) or the sparkline tail (that
             // is the most-recent value, not this day's): both froze the tile on an old import. Otherwise
             // fall through to the on-device estimate ("est."). Mirrors Android stepsForDay (#276/#150).
-            let appleStepsForDay = appleDays.last(where: { $0.day == selectedDayKey })?.steps
-            let realSteps: String? = (d?.steps).map { intString(Double($0)) }
-                ?? appleStepsForDay.map { intString(Double($0)) }
+            // The resolver (Apple Health, then the Garmin mirror, then the strap's estimate) supplies the count
+            // and its source label; only a day with none of them falls through to the estimate caption below.
+            let resolved = resolvedSteps(for: d)
+            let realSteps: String? = resolved.map { intString($0.value) }
             let estSteps = stepsEstByDay[selectedDayKey]
             // H6, only an ESTIMATED day (no real strap/phone count, so the on-device estimate filled in)
             // gets the calibration entry; a real measured count needs no calibration.
@@ -4086,7 +4115,9 @@ struct TodayView: View {
                 // An estimated day reads "est." plus the calibration STATUS (k / days / confidence) so a
                 // frozen-looking estimate self-explains (#760/#792); a not-yet-calibrated day says how many
                 // more phone-counted days are needed (so a blank tile is never silently unexplained, #589).
-                caption: realSteps != nil ? String(localized: "today")
+                caption: realSteps != nil
+                    ? (StepsSourceResolver.unavailableNotice(appleUnavailable: appleStepsUnavailable, resolved: resolved)
+                       ?? resolved?.label ?? String(localized: "today"))
                     : (estSteps != nil ? stepsEstimateCaption
                        : (needsCalibration ? stepsCalibrationCaption : String(localized: "today"))),
                 accent: (realSteps != nil || estSteps != nil) ? StrandPalette.metricCyan : StrandPalette.textPrimary,
@@ -4645,10 +4676,10 @@ struct TodayView: View {
         // actor and the final values are byte-identical to the sequential version.
         async let recoverySpark      = sparkValues("recovery", source: "my-whoop", window: 14)
         async let strainSpark        = sparkValues("strain", source: "my-whoop", window: 14)
-        async let sleepTotalSpark    = sparkValues("sleep_total_min", source: "my-whoop", window: 14)
-        async let hrvSpark           = sparkValues("hrv", source: "my-whoop", window: 14)
-        async let rhrSpark           = sparkValues("rhr", source: "my-whoop", window: 14)
-        async let spo2Spark          = sparkValues("spo2", source: "my-whoop", window: 14)
+        async let sleepTotalSpark    = sparkValuesExplore("sleep_total_min", source: "my-whoop", window: 14)
+        async let hrvSpark           = sparkValuesExplore("hrv", source: "my-whoop", window: 14)
+        async let rhrSpark           = sparkValuesExplore("rhr", source: "my-whoop", window: 14)
+        async let spo2Spark          = sparkValuesExplore("spo2", source: "my-whoop", window: 14)
         // #103/queue-11a: SpO₂ candidate nightly mean — WHOOP `spo2_candidate_82`, or an Oura owner's
         // ceiling@100 `0x6F` mean (device-conditional, see IntelligenceEngine). Read via `exploreSeries`
         // so the computed "-noop" metricSeries backs the trend; "my-whoop" here is the generic "active
@@ -4667,9 +4698,11 @@ struct TodayView: View {
         // which is empty without a Health import — parity bug vs Android's `DailyMetric.respRateBpm`
         // trend. "my-whoop" covers imported WHOOP CSV (Layer 1) + computed DailyMetric (Layer 3).
         async let respRateSpark      = sparkValuesExplore("resp_rate", source: "my-whoop", window: 14)
-        async let stepsAppleSpark    = sparkValues("steps", source: "apple-health", window: 14)
-        async let weightSpark        = sparkValues("weight", source: "apple-health", window: 90)
-        async let activeKcalSpark    = sparkValues("active_kcal", source: "apple-health", window: 14)
+        let stepsFromDay = Repository.localDayKey(Calendar.current.date(byAdding: .day, value: -13, to: Date()) ?? Date())
+        let stepsThroughDay = Repository.localDayKey(Calendar.current.date(byAdding: .day, value: 1, to: Date()) ?? Date())
+        async let stepsResolution   = repo.resolvedSteps(from: stepsFromDay, to: stepsThroughDay)
+        async let weightResolution   = repo.resolvedSeries(key: "weight", source: "apple-health", days: 91)
+        async let activeKcalSpark    = activeKcalTrend()
 
         sparks["recovery"]        = await recoverySpark
         sparks["strain"]          = await strainSpark
@@ -4680,14 +4713,20 @@ struct TodayView: View {
         sparks["spo2_candidate"]  = await spo2CandidateSpark
         sparks["skin_temp"]       = await skinTempSpark
         sparks["resp_rate"]   = await respRateSpark
-        sparks["steps"]       = await stepsAppleSpark
-        // Steps prefer the strap's own @57 daily total (no metricSeries, it lives on the daily row),
-        // so a strap-only WHOOP 5/MG user gets a steps trend without Apple Health. Falls back to the
-        // Apple Health series above when the strap supplied no steps (#276). This synchronous overwrite
-        // must run AFTER sparks["steps"] is assigned from the Apple-Health read above (unchanged order).
-        let strapSteps = repo.days.suffix(14).compactMap { $0.steps.map(Double.init) }
-        if !strapSteps.isEmpty { sparks["steps"] = strapSteps }
-        sparks["weight"]      = await weightSpark
+        let recentSteps = await stepsResolution
+        sparks["steps"] = recentSteps.values.map { $0.value }
+        let resolvedWeight = await weightResolution
+        let recentWeight = trailingWindow(resolvedWeight.values, days: 90)
+        sparks["weight"] = recentWeight.map { $0.value }
+        weightSourceCaption = String(localized: "latest")
+        if let source = resolvedWeight.points.last?.source {
+            switch source {
+            case "paceforge-hume": weightSourceCaption = "Hume via PaceForge"
+            case "apple-health": weightSourceCaption = "Apple Health"
+            case "health-connect": weightSourceCaption = "Health Connect"
+            default: weightSourceCaption = String(localized: "latest")
+            }
+        }
         sparks["active_kcal"] = await activeKcalSpark
 
         // Steps ESTIMATE per day (WHOOP 4.0 motion → calibrated steps), the Mi-Band series, workout +
@@ -4713,6 +4752,8 @@ struct TodayView: View {
         async let stressStoredA      = repo.series(key: "stress", source: "my-whoop")
         async let fitnessAgeSeriesA  = repo.exploreSeries(key: "fitness_age", source: "my-whoop")
         async let vo2maxSeriesA      = repo.exploreSeries(key: "vo2max_est", source: "my-whoop")
+        async let garminVo2maxA      = repo.series(key: "vo2max", source: "paceforge-garmin")
+        async let appleVo2maxA       = repo.series(key: "vo2max", source: "apple-health")
         async let vitalitySeriesA    = repo.exploreSeries(key: "vitality", source: "my-whoop")
 
         // Steps ESTIMATE per day (WHOOP 4.0 motion → calibrated steps). exploreSeries reads the computed
@@ -4736,7 +4777,13 @@ struct TodayView: View {
         // placeholder, matching StressView's empty state. Fitness age / Vitality keep their merged reads.
         stressToday = StressModel(days: repo.days, stored: await stressStoredA)?.score
         fitnessAgeToday = (await fitnessAgeSeriesA).last?.value
-        vo2maxToday = (await vo2maxSeriesA).last?.value   // #1391: latest banked VO₂max estimate
+        // Prefer an imported measurement (Garmin, then Apple Health); use the on-device estimate only
+        // when no measured VO₂ max exists. The actual Garmin series is keyed `vo2max`, not `vo2max_est`.
+        let garminVo2 = await garminVo2maxA
+        let appleVo2 = await appleVo2maxA
+        let measuredVo2 = garminVo2.last ?? appleVo2.last
+        let estimatedVo2 = (await vo2maxSeriesA).last?.value
+        vo2maxToday = measuredVo2?.value ?? estimatedVo2
         vitalityToday = (await vitalitySeriesA).last?.value
         // Hydration card (opt-in): today's stored total + the sex/Effort goal. Only loaded when the
         // feature is on, so a disabled feature does zero work and the card stays hidden.
@@ -5152,6 +5199,22 @@ struct TodayView: View {
         return trailingWindow(all, days: window).map { $0.value }
     }
 
+    /// Daily calories use the Apple Health total when it exists and NOOP's own estimate otherwise.
+    /// Keep the provider streams separate in storage; this is a display-only, same-day fallback.
+    private func activeKcalTrend() async -> [Double] {
+        let from = Repository.localDayKey(Calendar.current.date(byAdding: .day, value: -13, to: Date()) ?? Date())
+        let through = Repository.localDayKey(Date())
+        var byDay: [String: Double] = [:]
+        for row in repo.days where row.day >= from && row.day <= through {
+            if let kcal = row.activeKcalEst { byDay[row.day] = kcal }
+        }
+        let imported = await repo.appleDailyRows()
+        for row in imported where row.day >= from && row.day <= through {
+            if let kcal = row.activeKcal { byDay[row.day] = kcal }
+        }
+        return byDay.keys.sorted().compactMap { byDay[$0] }
+    }
+
     /// Same as `sparkValues` but reads via `exploreSeries` so the on-device COMPUTED `DailyMetric`
     /// column backs the sparkline for a BLE-only WHOOP user (no CSV/Health import). `series` reads
     /// metricSeries only, which is empty for computed keys like `resp_rate` (the engine writes
@@ -5182,13 +5245,13 @@ struct TodayView: View {
     }
 
     /// The Weight tile's display string + an honest caption ("from profile" only on the fallback).
-    /// Prefers a real Apple-Health reading (today's daily, else the "weight" series' newest point so a
-    /// sparse-but-recent value still renders); when neither carries a weight, falls back to the user's
+    /// Prefers the newest resolved Apple Health / Hume reading (Apple wins same-day conflicts); when
+    /// neither carries a weight, falls back to the user's
     /// self-reported profile weight instead of ", " (#204). Always formatted through the shared
-    /// `UnitFormatter` so the Imperial/Metric toggle reaches this tile. Mirrors Android's `weightTile`.
+    /// `UnitFormatter` so the Imperial/Metric toggle reaches this tile.
     private func weightTile(_ appleWeightKg: Double?) -> (value: String, caption: String) {
-        if let kg = appleWeightKg ?? sparks["weight"]?.last {
-            return (UnitFormatter.massFromKilograms(kg, system: unitSystem), String(localized: "latest"))
+        if let kg = sparks["weight"]?.last ?? appleWeightKg {
+            return (UnitFormatter.massFromKilograms(kg, system: unitSystem), weightSourceCaption)
         }
         return (UnitFormatter.massFromKilograms(profile.weightKg, system: unitSystem), String(localized: "from profile"))
     }
@@ -5226,7 +5289,7 @@ struct TodayView: View {
     private func synthesisWord(_ score: Double?) -> String {
         guard let s = score else { return String(localized: "No Data") }
         // #1405: these are CHARGE/recovery-level words, a different axis from the ReadinessEngine training
-        // verdict (Run down / Strained / Balanced / Primed). They must NOT share a word, or the Synthesis
+        // signal context (Several signals / One signal / Balanced / Signals aligned). They must NOT share a word, or the Synthesis
         // card ("Steady") and the Charge-breakdown Readiness card ("Primed") read as the same thing
         // contradicting itself. So the [70,88) band is "Strong" (which also matches this card's own "Charge
         // is strong" detail copy), leaving "Primed" exclusively to the readiness engine. Keep parity with Kotlin.
@@ -5354,9 +5417,11 @@ struct TodayView: View {
         }
     }
 
-    /// Active calories (Apple) for the latest day, falling back to the sparkline tail.
+    /// Active calories prefer Apple Health for the selected day, then NOOP's same-day estimate.
     private func caloriesValue(_ a: AppleDaily?) -> String {
-        if let kcal = a?.activeKcal { return intString(kcal) }
+        let appleValue = appleDays.last(where: { $0.day == selectedDayKey })?.activeKcal ?? a?.activeKcal
+        let estimatedValue = repo.days.last(where: { $0.day == selectedDayKey })?.activeKcalEst
+        if let kcal = appleValue ?? estimatedValue { return intString(kcal) }
         return latestString("active_kcal", decimals: 0)
     }
 
@@ -5377,6 +5442,14 @@ struct TodayView: View {
         guard w.endTs > w.startTs else { return "\(date) · \(Self.hrTimeFmt.string(from: start))" }
         let end = Date(timeIntervalSince1970: TimeInterval(w.endTs))
         return "\(date) · \(Self.hrTimeFmt.string(from: start))-\(Self.hrTimeFmt.string(from: end))"
+    }
+
+    /// The selected day's real step count (never the motion estimate) and the source that supplied it: Apple
+    /// Health, then the Garmin mirror, then the strap, via `StepsSourceResolver`. `d` is the day's merged row.
+    private func resolvedSteps(for d: DailyMetric?) -> ResolvedSteps? {
+        repo.daySteps(day: selectedDayKey,
+                      apple: appleDays.last(where: { $0.day == selectedDayKey })?.steps,
+                      merged: d?.steps, estimate: nil)
     }
 
     /// Thousands-grouped integer string (steps / calories).

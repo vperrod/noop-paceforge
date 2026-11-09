@@ -1,0 +1,328 @@
+{
+ "note": "Synthetic heart-rate series (segments) for Effort v2 Swift/Python parity. resting 55, max 180. Timestamps relative to 0.",
+ "resting": 55.0,
+ "max_hr": 180.0,
+ "constants": {
+  "low_weight": 2.0,
+  "floor": 0.25,
+  "denominator": 7201.0
+ },
+ "cases": [
+  {
+   "name": "desk_day_below_floor",
+   "about": "16 h awake at 24 % of reserve, 8 h asleep at resting: nothing counts",
+   "segments": [
+    {
+     "t0": 0,
+     "t1": 28800,
+     "step": 30,
+     "bpm": 52
+    },
+    {
+     "t0": 28800,
+     "t1": 86400,
+     "step": 5,
+     "bpm": 85
+    }
+   ],
+   "sleep": [
+    [
+     0,
+     28800
+    ]
+   ],
+   "classic": 0.0,
+   "all_day": 0.0,
+   "trimp_all_day": 0.0
+  },
+  {
+   "name": "walking_only_day",
+   "about": "a 2.6 h walk at 34 % of reserve between desk hours",
+   "segments": [
+    {
+     "t0": 0,
+     "t1": 25200,
+     "step": 30,
+     "bpm": 52
+    },
+    {
+     "t0": 25200,
+     "t1": 36000,
+     "step": 5,
+     "bpm": 68
+    },
+    {
+     "t0": 36000,
+     "t1": 45480,
+     "step": 5,
+     "bpm": 98
+    },
+    {
+     "t0": 45480,
+     "t1": 86400,
+     "step": 5,
+     "bpm": 68
+    }
+   ],
+   "sleep": [
+    [
+     0,
+     25200
+    ]
+   ],
+   "classic": 0.0,
+   "all_day": 38.55,
+   "trimp_all_day": 29.704
+  },
+  {
+   "name": "hard_session_day",
+   "about": "45 min at 75 % of reserve plus desk hours: the all-day term adds almost nothing",
+   "segments": [
+    {
+     "t0": 0,
+     "t1": 25200,
+     "step": 30,
+     "bpm": 52
+    },
+    {
+     "t0": 25200,
+     "t1": 61200,
+     "step": 5,
+     "bpm": 70
+    },
+    {
+     "t0": 61200,
+     "t1": 63900,
+     "step": 1,
+     "bpm": 149
+    },
+    {
+     "t0": 63900,
+     "t1": 86400,
+     "step": 5,
+     "bpm": 66
+    }
+   ],
+   "sleep": [
+    [
+     0,
+     25200
+    ]
+   ],
+   "classic": 55.31,
+   "all_day": 55.31,
+   "trimp_all_day": 135.0
+  },
+  {
+   "name": "sleep_window_excluded",
+   "about": "elevated heart rate inside a sleep window is not counted",
+   "segments": [
+    {
+     "t0": 0,
+     "t1": 21600,
+     "step": 5,
+     "bpm": 105
+    },
+    {
+     "t0": 21600,
+     "t1": 43200,
+     "step": 5,
+     "bpm": 70
+    }
+   ],
+   "sleep": [
+    [
+     0,
+     21600
+    ]
+   ],
+   "classic": 0.0,
+   "all_day": 0.0,
+   "trimp_all_day": 0.0
+  },
+  {
+   "name": "sleep_window_ignored_when_absent",
+   "about": "the same series with no sleep window counts the first six hours",
+   "segments": [
+    {
+     "t0": 0,
+     "t1": 21600,
+     "step": 5,
+     "bpm": 105
+    },
+    {
+     "t0": 21600,
+     "t1": 43200,
+     "step": 5,
+     "bpm": 70
+    }
+   ],
+   "sleep": [],
+   "classic": 0.0,
+   "all_day": 52.82,
+   "trimp_all_day": 108.0
+  },
+  {
+   "name": "strap_off_gap",
+   "about": "a three-hour gap in the series adds at most two minutes for the reading before it",
+   "segments": [
+    {
+     "t0": 0,
+     "t1": 7200,
+     "step": 5,
+     "bpm": 105
+    },
+    {
+     "t0": 18000,
+     "t1": 25200,
+     "step": 5,
+     "bpm": 105
+    }
+   ],
+   "sleep": [],
+   "classic": 0.0,
+   "all_day": 48.39,
+   "trimp_all_day": 72.575
+  },
+  {
+   "name": "just_under_floor",
+   "about": "24.8 % of reserve, a hair under the 25 % floor: weight zero",
+   "segments": [
+    {
+     "t0": 0,
+     "t1": 14400,
+     "step": 5,
+     "bpm": 86
+    }
+   ],
+   "sleep": [],
+   "classic": 0.0,
+   "all_day": 0.0,
+   "trimp_all_day": 0.0
+  },
+  {
+   "name": "just_above_floor",
+   "about": "30 % of reserve",
+   "segments": [
+    {
+     "t0": 0,
+     "t1": 14400,
+     "step": 5,
+     "bpm": 92
+    }
+   ],
+   "sleep": [],
+   "classic": 0.0,
+   "all_day": 35.34,
+   "trimp_all_day": 22.08
+  },
+  {
+   "name": "just_below_zone_one",
+   "about": "49 % of reserve: continuous weight, not an Edwards zone",
+   "segments": [
+    {
+     "t0": 0,
+     "t1": 14400,
+     "step": 5,
+     "bpm": 116
+    }
+   ],
+   "sleep": [],
+   "classic": 0.0,
+   "all_day": 53.45,
+   "trimp_all_day": 114.24
+  },
+  {
+   "name": "zone_one_edge",
+   "about": "50 % of reserve: Edwards zone 1 (weight 1) in both versions",
+   "segments": [
+    {
+     "t0": 0,
+     "t1": 14400,
+     "step": 5,
+     "bpm": 118
+    }
+   ],
+   "sleep": [],
+   "classic": 61.75,
+   "all_day": 61.75,
+   "trimp_all_day": 240.0
+  },
+  {
+   "name": "top_zone",
+   "about": "95 % of reserve for 20 minutes",
+   "segments": [
+    {
+     "t0": 0,
+     "t1": 1200,
+     "step": 1,
+     "bpm": 174
+    }
+   ],
+   "sleep": [],
+   "classic": 51.96,
+   "all_day": 51.96,
+   "trimp_all_day": 100.0
+  },
+  {
+   "name": "sparse_stream",
+   "about": "thirty-second cadence: 21 readings across 600 s clear the sparse gate",
+   "segments": [
+    {
+     "t0": 0,
+     "t1": 630,
+     "step": 30,
+     "bpm": 130
+    }
+   ],
+   "sleep": [],
+   "classic": 34.8,
+   "all_day": 34.8,
+   "trimp_all_day": 21.0
+  },
+  {
+   "name": "too_few_readings",
+   "about": "19 readings: no score",
+   "segments": [
+    {
+     "t0": 0,
+     "t1": 570,
+     "step": 30,
+     "bpm": 130
+    }
+   ],
+   "sleep": [],
+   "classic": null,
+   "all_day": null,
+   "trimp_all_day": 19.0
+  },
+  {
+   "name": "short_span",
+   "about": "40 readings over 195 s: no score",
+   "segments": [
+    {
+     "t0": 0,
+     "t1": 200,
+     "step": 5,
+     "bpm": 130
+    }
+   ],
+   "sleep": [],
+   "classic": null,
+   "all_day": null,
+   "trimp_all_day": 6.666667
+  }
+ ],
+ "invalid": {
+  "resting": 100.0,
+  "max_hr": 100.0,
+  "segments": [
+   {
+    "t0": 0,
+    "t1": 14400,
+    "step": 5,
+    "bpm": 120
+   }
+  ]
+ }
+}

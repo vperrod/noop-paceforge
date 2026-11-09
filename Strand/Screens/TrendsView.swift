@@ -275,6 +275,9 @@ struct TrendsView: View {
     }
 
     var body: some View {
+        #if os(iOS)
+        let _ = NoopDiag.body("TrendsView")
+        #endif
         // The liquid metric cards now tap through to their MetricDetailView (matching Today's card
         // taps + Explore's rows). On iOS each tab already supplies a NavigationStack, so those pushes
         // land in the ambient stack. On macOS the .trends detail pane has NO enclosing NavigationStack
@@ -287,6 +290,20 @@ struct TrendsView: View {
         #else
         scaffold
         #endif
+    }
+
+    /// What the heavy history cards below are built from.
+    private struct HistoryKey: Equatable {
+        let seq: Int
+        let dayCount: Int
+        let range: Int
+        let isDark: Bool
+        let locale: String
+    }
+
+    private var historyKey: HistoryKey {
+        HistoryKey(seq: repo.refreshSeq, dayCount: repo.days.count, range: range.rawValue,
+                   isDark: colorScheme == .dark, locale: locale.identifier)
     }
 
     private var scaffold: some View {
@@ -305,7 +322,8 @@ struct TrendsView: View {
                 // Reuse the resolved windows until the data, range, or loaded Rest series changes.
                 // An unrelated Repository publication must not re-filter five years of history.
                 let metrics = resolvedMetrics
-                VStack(alignment: .leading, spacing: NoopMetrics.sectionSpacing) {
+                // Lazy, so the charts below the fold are built when they scroll near (the scaffold's `lazy` only deferred this one child).
+                LazyVStack(alignment: .leading, spacing: NoopMetrics.sectionSpacing) {
                     // The main card list ripples in once on appear (Reduce-Motion safe).
                     Group {
                         // Week-in-review digest (#208) with prev/next week browsing (#710) — self-hides
@@ -315,6 +333,12 @@ struct TrendsView: View {
                         // The Charge / Effort / Rest trio, presented in NOOP's pip language.
                         weekInReview(charge: metrics.recovery, effort: metrics.strain, rest: metrics.rest)
                             .staggeredAppear(index: 1)
+                        #if os(iOS)
+                        // The look's trend view: metric dropdown, average with change, W / M / 6M / Y, 7-day average.
+                        LookRepoTrends(specs: LookRepoTrends.trendsSpecs, initialKey: "recovery",
+                                       identifier: "look-noop-trends")
+                            .staggeredAppear(index: 2)
+                        #endif
                         rangeBar(recovery: metrics.recovery)
                             .staggeredAppear(index: 2)
                         heroRecovery(recovery: metrics.recovery)
@@ -324,9 +348,14 @@ struct TrendsView: View {
                         // Long-horizon training load (CTL/ATL/TSB). Uses the FULL history, not the
                         // range window — chronic load is inherently a 42-day horizon. Self-hides its
                         // chart behind an honest "needs N more days" state until enough history exists.
-                        TrainingLoadCard(days: repo.days)
+                        // Both rebuild a chart or a year of cells from the whole history, so they re-evaluate only when the
+                        // history, the range or the appearance changes, not on every unrelated publish of the repository or
+                        // the tab shell (these tabs stay alive behind the one on screen).
+                        MemoizedByKey(key: historyKey) { TrainingLoadCard(days: repo.days) }
+                            .equatable()
                             .staggeredAppear(index: 5)
-                        yearStrip
+                        MemoizedByKey(key: historyKey) { yearStrip }
+                            .equatable()
                             .staggeredAppear(index: 6)
                         exportReportRow
                             .staggeredAppear(index: 7)
@@ -579,6 +608,7 @@ struct TrendsView: View {
                     showingReport = true
                 }
                 .fixedSize()
+                .accessibilityIdentifier("trends-export-report")
             }
         }
         .accessibilityElement(children: .contain)
@@ -897,3 +927,15 @@ private func previewRepo() -> Repository {
         .preferredColorScheme(.dark)
 }
 #endif
+
+/// Re-evaluates `content` only when `key` changes. Wrap it in `.equatable()`: SwiftUI then compares keys and skips the body
+/// when they match, however often the parent was evaluated. The content closure of the skipped pass is dropped, so everything
+/// the content reads has to be part of the key (or be observed by the content itself).
+private struct MemoizedByKey<Key: Equatable, Content: View>: View, Equatable {
+    let key: Key
+    let content: () -> Content
+
+    static func == (lhs: Self, rhs: Self) -> Bool { lhs.key == rhs.key }
+
+    var body: some View { content() }
+}
