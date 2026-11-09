@@ -638,7 +638,8 @@ enum PFHyroxSeason {
     private static func taperText(_ taper: PFSeasonBlock?, _ inside: PFSeasonBlock?) -> String {
         if let taper { return "Taper \(span(taper))." }
         if let inside {
-            return "No taper of its own: it falls in the \(inside.kind.lowercased())\(inside.race.map { " of " + $0 } ?? "") (\(span(inside)))."
+            let owner = inside.race.map { " of " + $0 } ?? ""
+            return "No taper of its own: it falls in the " + inside.kind.lowercased() + owner + " (" + span(inside) + ")."
         }
         return "No taper window planned."
     }
