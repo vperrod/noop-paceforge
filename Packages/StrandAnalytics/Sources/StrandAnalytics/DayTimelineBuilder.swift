@@ -488,7 +488,7 @@ extension DayTimeline {
             && overlapsEnough(aStart: a.startTs, aEnd: a.endTs, bStart: b.startTs, bEnd: b.endTs)
     }
 
-    /// RULE (proposed, awaiting Victor): effort, not a walk, from this heart rate (same numbers as PaceForge's strap view).
+    /// RULE (approved by Victor 2026-11-11 for cardio; strength left as is): effort, not a walk, from this heart rate (same numbers as PaceForge's strap view).
     static let plannedEffortAvgBpm = 100
     static let plannedEffortPeakBpm = 140
 
