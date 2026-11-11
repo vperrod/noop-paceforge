@@ -179,7 +179,7 @@ enum DayTimelineLoader {
         let nowTs = Int(now.timeIntervalSince1970)
         var count = 0
         for event in loaded.timeline.events where event.kind == .detected {
-            guard let suggestion = event.suggestion, let found = loaded.detected[event.id] else { continue }
+            guard let suggestion = event.suggestion, suggestion.plannedAs == nil, let found = loaded.detected[event.id] else { continue }
             let length = found.endSec - found.startSec
             guard DetectedSegmentClassifier.shouldAutoSave(
                 guess: suggestion.guess, isRecorded: suggestion.isRecorded, durationSec: length,

@@ -286,13 +286,20 @@ extension DayTimeline {
                 minuteBpm: DetectedSegmentClassifier.minuteMeans(samples: hrSeries, start: d.startTs, end: d.endTs),
                 gait: d.gait, profile: input.segmentProfile)
             let figures = "\(durationText(length)) \u{00B7} avg \(d.avgBpm) bpm"
+            // No recording, but a planned session holds this slot and the heart rate is above walking: the strap
+            // calls it a walk whatever it was, so offer the plan's name instead (confirmed only by the user).
+            let planned: String? = match != nil || !(d.avgBpm >= plannedEffortAvgBpm || d.peakBpm >= plannedEffortPeakBpm) ? nil :
+                input.planned.first { p in
+                    guard let start = p.startTs, let mins = p.durationMin else { return false }
+                    return overlapsEnough(aStart: d.startTs, aEnd: d.endTs, bStart: start, bEnd: start + mins * 60)
+                }?.title
             events.append(Event(
                 id: "detected-\(d.startTs)-\(d.endTs)", kind: .detected, start: date(d.startTs), end: date(d.endTs),
-                title: match?.sport ?? (guess == .walk ? "Walk" : "Looks like a workout"),
-                subtitle: match == nil ? figures : "Already recorded \u{00B7} \(figures)",
+                title: match?.sport ?? planned ?? (guess == .walk ? "Walk" : "Looks like a workout"),
+                subtitle: match != nil ? "Already recorded \u{00B7} \(figures)" : planned != nil ? "Matches your plan \u{00B7} \(figures)" : figures,
                 sources: [.strap],
                 metrics: Metrics(durationSec: length, avgHr: d.avgBpm, maxHr: d.peakBpm),
-                suggestion: Suggestion(guess: guess, recordedAs: match?.sport)))
+                suggestion: Suggestion(guess: guess, recordedAs: match?.sport, plannedAs: planned)))
         }
 
         // Planned sessions not already shown as the workout they became.
@@ -480,6 +487,10 @@ extension DayTimeline {
         abs(a.startTs - b.startTs) <= sameWorkoutStartSec
             && overlapsEnough(aStart: a.startTs, aEnd: a.endTs, bStart: b.startTs, bEnd: b.endTs)
     }
+
+    /// RULE (proposed, awaiting Victor): effort, not a walk, from this heart rate (same numbers as PaceForge's strap view).
+    static let plannedEffortAvgBpm = 100
+    static let plannedEffortPeakBpm = 140
 
     static func overlapsEnough(aStart: Int, aEnd: Int, bStart: Int, bEnd: Int) -> Bool {
         let overlap = min(aEnd, bEnd) - max(aStart, bStart)

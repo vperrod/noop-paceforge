@@ -135,9 +135,11 @@ public struct DayTimeline: Equatable, Sendable {
     public struct Suggestion: Equatable, Sendable {
         public let guess: DetectedSegmentClassifier.Guess
         public let recordedAs: String?
+        /// The planned session whose slot this stretch falls in, when nothing recorded it and the heart rate is above walking.
+        public let plannedAs: String?
         public var isRecorded: Bool { recordedAs != nil }
-        public init(guess: DetectedSegmentClassifier.Guess, recordedAs: String? = nil) {
-            self.guess = guess; self.recordedAs = recordedAs
+        public init(guess: DetectedSegmentClassifier.Guess, recordedAs: String? = nil, plannedAs: String? = nil) {
+            self.guess = guess; self.recordedAs = recordedAs; self.plannedAs = plannedAs
         }
     }
 

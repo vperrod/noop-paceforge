@@ -17,6 +17,14 @@ approximate; downloads are on the [Releases](https://github.com/NoopApp/noop/rel
 
 ---
 
+## 12.0.12 build 517 (PaceForge iPhone build): a detected stretch in a planned slot is offered as that plan
+
+- My Day: when the strap detects an effort stretch (average 100+ bpm or peak 140+) with no recording, and a
+  planned session holds that time slot, the stretch is titled "Matches your plan" with the plan's name and
+  saves under that name instead of "Walk" or "Workout". It is only a suggestion; a Garmin recording of the
+  same minutes still wins, and a calm stretch stays a walk. Stretches matched to a plan are no longer
+  auto-saved as Walk.
+
 ## 12.0.12 build 516 (PaceForge iPhone build): HYROX follow-ups
 
 - **HYROX race picker.** A race that could not be loaded and has no saved copy no longer leaves the previous race's plan on screen under the new selection labelled "last saved copy": the pick is undone and the card says it could not load that race and which one it still shows.

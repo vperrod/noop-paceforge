@@ -324,6 +324,21 @@ final class DayTimelineTests: XCTestCase {
                        ["Running", "Running", "Already recorded \u{00B7} 36 min \u{00B7} avg 150 bpm"])
     }
 
+    func testAnUnrecordedEffortWindowInsideAPlannedSlotIsOfferedAsThePlan() {
+        var i = input()
+        i.planned = [.init(id: "p", title: "Cardio Class", startTs: at(18), durationMin: 45)]
+        i.detected = [.init(startTs: at(18, 2), endTs: at(18, 40), avgBpm: 120, peakBpm: 150)]
+        let e = events(DayTimeline.build(i), .detected).first
+        XCTAssertEqual([e?.title, e?.suggestion?.plannedAs], ["Cardio Class", "Cardio Class"])
+    }
+
+    func testACalmWindowInsideAPlannedSlotStaysAWalk() {
+        var i = input()
+        i.planned = [.init(id: "p", title: "Cardio Class", startTs: at(18), durationMin: 45)]
+        i.detected = [.init(startTs: at(18, 2), endTs: at(18, 40), avgBpm: 90, peakBpm: 110)]
+        XCTAssertNil(events(DayTimeline.build(i), .detected).first?.suggestion?.plannedAs)
+    }
+
     func testADetectedWindowJustOverHalfCoveredByAGarminActivityIsAlreadyRecorded() {
         var i = input()
         i.workouts = [.init(key: "g", startTs: at(9), endTs: at(9, 31), title: "Walking", sources: [.garmin])]

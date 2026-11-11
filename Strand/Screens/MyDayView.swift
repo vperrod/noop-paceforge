@@ -440,7 +440,7 @@ struct MyDayView: View {
     /// stretch, the generic "Workout" otherwise.
     private func save(_ event: DayTimeline.Event, as choice: DetectedSportChoice?) {
         guard let suggestion = loaded?.detected[event.id] else { return }
-        let sport = choice?.sportName ?? (event.suggestion?.guess == .walk ? DetectedSportChoice.walk.sportName : "Workout")
+        let sport = choice?.sportName ?? event.suggestion?.plannedAs ?? (event.suggestion?.guess == .walk ? DetectedSportChoice.walk.sportName : "Workout")
         Task {
             _ = await repo.saveDetectedWorkout(suggestion, sport: sport)
             await repo.refresh()
