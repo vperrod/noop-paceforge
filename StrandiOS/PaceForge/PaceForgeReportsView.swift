@@ -8,22 +8,19 @@ import StrandDesign
 
 struct PFReportsScreen: View {
     @ObservedObject private var store = PFReportsStore.shared
-    @State private var kind: PFReportKind
+    private let kind: PFReportKind
     @State private var selectedKey: String?
     private let hiding = PFHiding()
 
-    private static let screenTitle = "Reports"
+    private var screenTitle: String { "\(kind.title) report" }
 
     init(kind: PFReportKind = .daily) {
-        _kind = State(initialValue: kind)
+        self.kind = kind
     }
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
-                LookSegmented(options: PFReportKind.allCases, selection: kindBinding, identifier: "pf-reports-kind",
-                              title: { $0.title })
-                    .frame(height: 44)
                 stateContent
             }
             .padding(.horizontal, NoopLook.Metric.screenInset)
@@ -32,17 +29,13 @@ struct PFReportsScreen: View {
         }
         .scrollBounceBehavior(.basedOnSize, axes: .horizontal)
         .lookScreenBackground()
-        .navigationTitle(Self.screenTitle)
+        .navigationTitle(screenTitle)
         .navigationBarTitleDisplayMode(.inline)
         .containerIdentifier("pf-reports")
         .task {
             await store.loadIndex()
             await store.loadRuns()
         }
-    }
-
-    private var kindBinding: Binding<PFReportKind> {
-        Binding(get: { kind }, set: { kind = $0; selectedKey = nil })
     }
 
     @ViewBuilder private var stateContent: some View {
@@ -178,10 +171,15 @@ private struct PFReportContent: View {
     private let hiding = PFHiding()
 
     private static let notCheckedTitle = "What was not checked"
-    /// The weekly stage the tables belong under ("The week, session by session").
-    private static let detailStageID = "detail"
 
-    private var hasDetailStage: Bool { report.stages.contains { $0.id == Self.detailStageID } }
+    /// What the report answers, shown first: the headline of a weekly or monthly report, the decisions of a daily one. The other
+    /// stages follow folded, each with a two-line preview.
+    private var answerStage: PFReportStage? {
+        if report.kind == .daily, let decisions = report.stages.first(where: { $0.id == "decisions" }) { return decisions }
+        return report.lead
+    }
+
+    private var foldedStages: [PFReportStage] { report.stages.filter { $0.id != answerStage?.id } }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -195,16 +193,14 @@ private struct PFReportContent: View {
                     .fixedSize(horizontal: false, vertical: true)
                     .accessibilityIdentifier("pf-reports-note")
             }
-            if let lead = report.lead {
-                PFReportStageCard(stage: lead, prominent: true)
-                if lead.id == Self.detailStageID, report.hasWeekNumbers { PFReportWeekNumbers(report: report) }
+            if let answer = answerStage {
+                PFReportAnswerCard(stage: answer)
             }
-            ForEach(report.otherStages) { stage in
-                PFReportStageCard(stage: stage, prominent: false)
-                if stage.id == Self.detailStageID, report.hasWeekNumbers { PFReportWeekNumbers(report: report) }
-            }
-            if !hasDetailStage, report.hasWeekNumbers { PFReportWeekNumbers(report: report) }
             if !report.proposals.isEmpty { proposals }
+            ForEach(foldedStages) { stage in
+                PFReportStageFold(stage: stage)
+            }
+            if report.hasWeekNumbers { PFReportWeekNumbers(report: report) }
             if !report.experts.isEmpty { experts }
             if !report.sources.isEmpty { PFReportSureFold(sources: report.sources) }
             if !report.glossary.isEmpty { PFReportGlossaryFold(entries: report.glossary) }
@@ -354,26 +350,98 @@ struct PFReportFreshnessBlock: View {
     }
 }
 
-private struct PFReportStageCard: View {
+/// The stage that answers the report: its first paragraphs in full (about 450 characters), the rest behind "Read the rest".
+private struct PFReportAnswerCard: View {
     let stage: PFReportStage
-    let prominent: Bool
+    @State private var showRest = false
+
+    private static let headLimit = 450
 
     var body: some View {
+        let all = PFReportText.blocks(stage.text)
+        let cut = Self.cut(all)
+        let head = Array(all.prefix(cut))
+        let rest = Array(all.dropFirst(cut))
         PFCard(stage.title) {
             VStack(alignment: .leading, spacing: 10) {
-                PFReportBlocks(text: stage.text, size: prominent ? 16 : 15)
+                VStack(alignment: .leading, spacing: 8) {
+                    ForEach(head) { PFReportBlockRow(block: $0, size: 16) }
+                }
+                if !rest.isEmpty {
+                    DisclosureGroup(isExpanded: $showRest) {
+                        VStack(alignment: .leading, spacing: 8) {
+                            ForEach(rest) { PFReportBlockRow(block: $0, size: 15) }
+                        }
+                        .padding(.top, 6)
+                    } label: {
+                        Text("Read the rest")
+                            .font(LookFont.text(13.5, weight: .semibold))
+                            .foregroundStyle(StrandPalette.accent)
+                    }
+                    .tint(StrandPalette.accent)
+                }
                 Text(PFReportText.sourceNote(stage.source))
                     .font(LookFont.text(11.5, weight: .medium))
                     .foregroundStyle(NoopLook.textTertiary)
             }
         }
         .overlay {
-            if prominent {
-                RoundedRectangle(cornerRadius: NoopLook.Metric.tileRadius, style: .continuous)
-                    .stroke(StrandPalette.accent.opacity(0.4), lineWidth: 1)
-            }
+            RoundedRectangle(cornerRadius: NoopLook.Metric.tileRadius, style: .continuous)
+                .stroke(StrandPalette.accent.opacity(0.4), lineWidth: 1)
         }
         .containerIdentifier("pf-reports-stage-\(stage.id)")
+    }
+
+    /// How many blocks make the head: enough to pass the limit, at least one.
+    private static func cut(_ blocks: [PFReportBlock]) -> Int {
+        var used = 0
+        for (index, block) in blocks.enumerated() {
+            used += block.text.count
+            if used >= headLimit { return index + 1 }
+        }
+        return blocks.count
+    }
+}
+
+/// A stage that is not the answer: its title and a two-line preview, opening to the whole text.
+private struct PFReportStageFold: View {
+    let stage: PFReportStage
+    @State private var isOpen = false
+
+    var body: some View {
+        DisclosureGroup(isExpanded: $isOpen) {
+            VStack(alignment: .leading, spacing: 10) {
+                PFReportBlocks(text: stage.text, size: 15)
+                Text(PFReportText.sourceNote(stage.source))
+                    .font(LookFont.text(11.5, weight: .medium))
+                    .foregroundStyle(NoopLook.textTertiary)
+            }
+            .padding(.top, 6)
+        } label: {
+            VStack(alignment: .leading, spacing: 3) {
+                Text(stage.title)
+                    .font(LookFont.text(15, weight: .semibold))
+                    .foregroundStyle(NoopLook.textPrimary)
+                if !isOpen, let preview {
+                    Text(preview)
+                        .font(LookFont.text(13.5))
+                        .foregroundStyle(NoopLook.textSecondary)
+                        .lineLimit(2)
+                        .multilineTextAlignment(.leading)
+                }
+            }
+        }
+        .tint(StrandPalette.accent)
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: NoopLook.Metric.tileRadius, style: .continuous).fill(NoopLook.card))
+        .containerIdentifier("pf-reports-stage-\(stage.id)")
+    }
+
+    private var preview: AttributedString? {
+        guard let block = PFReportText.blocks(stage.text).first(where: { !$0.isHeading }) else { return nil }
+        let text = PFHiding().text(block.text)
+        return (try? AttributedString(markdown: text)) ?? AttributedString(text)
     }
 }
 
@@ -553,7 +621,7 @@ private struct PFReportWeekNumbers: View {
     private static let hardLabel = "hard"
 
     var body: some View {
-        PFCard(Self.title, icon: "tablecells") {
+        PFReportFold(Self.title, identifier: "pf-reports-week-numbers") {
             VStack(alignment: .leading, spacing: 14) {
                 if !report.sessions.isEmpty { sessions }
                 if !report.days.isEmpty { days }
@@ -561,7 +629,6 @@ private struct PFReportWeekNumbers: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .containerIdentifier("pf-reports-week-numbers")
     }
 
     private func heading(_ text: String) -> some View {

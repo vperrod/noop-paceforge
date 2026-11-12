@@ -114,7 +114,11 @@ extension View {
                 #endif
             case .reports(let kind):
                 #if os(iOS)
-                PFReportsScreen(kind: PFReportKind(rawValue: kind) ?? .daily)
+                switch kind {
+                case "index": PFReportsIndexScreen()
+                case "week": PFWeekPlanScreen()
+                default: PFReportsScreen(kind: PFReportKind(rawValue: kind) ?? .daily)
+                }
                 #else
                 InsightsView()
                 #endif

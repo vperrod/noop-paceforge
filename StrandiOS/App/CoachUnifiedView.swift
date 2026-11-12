@@ -32,12 +32,14 @@ struct CoachUnifiedView: View {
             .foregroundStyle(StrandPalette.accent)
             .accessibilityIdentifier("coach-brief-settings")
         }) {
-            // The Coach is where PaceForge's text lives, in this order: the assessment, the briefing, Today's call and the readings that
+            // The Coach is where PaceForge's text lives. The first cards are the day's (CoachTextCards: Today's call, the Expert reading, then the rows to
+            // the week plan and the reports); the rest in this order: the race plans, the dual readiness, the season plan, the numbers, the briefing, Today's call and the readings that
             // sit behind the rows on Today, the Expert reading with the reports row, Day in review, the reviews and the conversation,
             // then the status of the morning briefing. The cards in the middle read their own stores, so they are siblings of the two
             // snapshot hosts around them and stay reachable while the PaceForge snapshot is loading or has failed.
-            // The week report leads: what the coach wants to change and why, then the race plans of the next two weeks.
-            PFWeekPlanCard(onAsk: askCoach)
+            // The day leads: Today's call and the Expert reading, then two rows to the week plan and the reports, each on its own
+            // page (the week report used to sit here and push the daily reading far down). Then the race plans of the next two weeks.
+            CoachTextCards()
             PFRacePackCards()
             // What the server decided from the two devices, the plan for the season and the figures behind both, in that order.
             PFDualReadinessPanel()
@@ -46,7 +48,6 @@ struct CoachUnifiedView: View {
             PFPageNote(key: "today", alwaysOpen: true)
             PFPageNote(key: "coach", alwaysOpen: true)
             CoachPaceForgeChip(part: .brief)
-            CoachTextCards()
             PFCoachLogCard()
             CoachPaceForgeChip(part: .reviews)
             briefStatusCard
@@ -149,8 +150,9 @@ private struct CoachTextCards: View {
             CoachPFReadout()
             PFExpertReadingHost()
             if reports.showsReports {
-                IndexSection("Reports") {
-                    IndexRow("Coach reports", "doc.text.fill", TabRoute.reports(PFReportKind.daily.rawValue), id: "coach-reports-row")
+                IndexSection("Plan and reports") {
+                    IndexRow("This week", "calendar", TabRoute.reports("week"), id: "coach-week-plan-row")
+                    IndexRow("Reports: daily, weekly, monthly", "doc.text.fill", TabRoute.reports("index"), id: "coach-reports-row")
                 }
             }
             PFDayReviewStoreHost()

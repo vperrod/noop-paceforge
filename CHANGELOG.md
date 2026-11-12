@@ -17,6 +17,15 @@ approximate; downloads are on the [Releases](https://github.com/NoopApp/noop/rel
 
 ---
 
+## 12.0.12 build 518 (PaceForge iPhone build): the Coach opens on the day, and every report has its own page
+
+- Coach: it opens on Today's call and the Expert reading again, not on the week report. Two rows lead to "This week" (the week plan
+  on its own page) and "Reports".
+- Reports: a list of Daily, Weekly and Monthly with the latest headline of each. Each report is its own page for one scope. The
+  answer comes first (the decisions for a daily report, the headline for the others); the other sections are folded with a
+  two-line preview, and the week in numbers is folded. Experts, how sure we are and the glossary stay at the bottom, folded.
+- Nothing is removed: every section and every earlier report is still there.
+
 ## 12.0.12 build 517 (PaceForge iPhone build): a detected stretch in a planned slot is offered as that plan
 
 - My Day: when the strap detects an effort stretch (average 100+ bpm or peak 140+) with no recording, and a
