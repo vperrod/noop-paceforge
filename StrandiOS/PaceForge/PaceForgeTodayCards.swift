@@ -170,10 +170,10 @@ private struct PFTodaySlotCard: View {
             rowButton(icon: "flag.checkered", title: info.today.title ?? "Race day",
                       detail: info.today.detail.map { "Race day \u{00B7} \($0)" } ?? "Race day", id: "pf-today-race") { showRace = true }
         case "session":
-            let workout = workout(for: info.today.sessionID)
-            rowButton(icon: "figure.run", title: info.today.title ?? workout?.name ?? "Session",
+            let planned = plannedWorkout(for: info.today.sessionID)
+            rowButton(icon: "figure.run", title: info.today.title ?? planned?.name ?? "Session",
                       detail: info.today.detail ?? "Planned for today", id: "pf-today-session",
-                      isEnabled: workout != nil) { sessionToOpen = workout }
+                      isEnabled: planned != nil) { sessionToOpen = planned }
         default:
             rowButton(icon: "moon.zzz", title: "Rest day", detail: "Nothing scheduled. Recovery is training.", id: "pf-today-rest",
                       isEnabled: false) {}
@@ -188,45 +188,52 @@ private struct PFTodaySlotCard: View {
                          id: "pf-today-next-race") { showRace = true }
     }
 
-    private func rowButton(icon: String, title: String, detail: String, id: String, isEnabled: Bool = true,
-                           action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            HStack(alignment: .center, spacing: 12) {
-                Image(systemName: icon)
-                    .font(StrandFont.subhead.weight(.semibold))
-                    .foregroundStyle(StrandPalette.accent)
-                    .frame(width: 24)
-                    .accessibilityHidden(true)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(title)
-                        .font(StrandFont.subhead.weight(.semibold))
-                        .foregroundStyle(StrandPalette.textPrimary)
-                        .multilineTextAlignment(.leading)
-                        .fixedSize(horizontal: false, vertical: true)
-                    Text(detail)
-                        .font(StrandFont.caption)
-                        .foregroundStyle(StrandPalette.textSecondary)
-                        .multilineTextAlignment(.leading)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                Spacer(minLength: 4)
-                if isEnabled {
-                    Image(systemName: "chevron.right")
-                        .font(StrandFont.caption.weight(.semibold))
-                        .foregroundStyle(StrandPalette.textTertiary)
-                        .accessibilityHidden(true)
-                }
-            }
-            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
-            .contentShape(Rectangle())
+    @ViewBuilder private func rowButton(icon: String, title: String, detail: String, id: String, isEnabled: Bool = true,
+                                        action: @escaping () -> Void) -> some View {
+        if isEnabled {
+            Button(action: action) { rowContent(icon: icon, title: title, detail: detail, showsChevron: true) }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier(id)
+        } else {
+            rowContent(icon: icon, title: title, detail: detail, showsChevron: false)
+                .accessibilityElement(children: .combine)
+                .accessibilityIdentifier(id)
         }
-        .buttonStyle(.plain)
-        .disabled(!isEnabled)
-        .accessibilityIdentifier(id)
+    }
+
+    private func rowContent(icon: String, title: String, detail: String, showsChevron: Bool) -> some View {
+        HStack(alignment: .center, spacing: 12) {
+            Image(systemName: icon)
+                .font(StrandFont.subhead.weight(.semibold))
+                .foregroundStyle(StrandPalette.accent)
+                .frame(width: 24)
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(StrandFont.subhead.weight(.semibold))
+                    .foregroundStyle(StrandPalette.textPrimary)
+                    .multilineTextAlignment(.leading)
+                    .fixedSize(horizontal: false, vertical: true)
+                Text(detail)
+                    .font(StrandFont.caption)
+                    .foregroundStyle(StrandPalette.textSecondary)
+                    .multilineTextAlignment(.leading)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 4)
+            if showsChevron {
+                Image(systemName: "chevron.right")
+                    .font(StrandFont.caption.weight(.semibold))
+                    .foregroundStyle(StrandPalette.textTertiary)
+                    .accessibilityHidden(true)
+            }
+        }
+        .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+        .contentShape(Rectangle())
     }
 
     /// The planned session the document names, from the weeks the snapshot holds.
-    private func workout(for sessionID: String?) -> PFWorkout? {
+    private func plannedWorkout(for sessionID: String?) -> PFWorkout? {
         guard let sessionID else { return snapshot.today.sessions.first }
         let all = snapshot.weeks.flatMap { $0.days.flatMap { $0.workouts } } + snapshot.today.sessions
         return all.first { ($0.coachSessionID ?? $0.id) == sessionID || $0.id == sessionID }
@@ -356,6 +363,7 @@ private struct PFFeelSlot: View {
             PFDismissable(.feel, text: PFCardText.feel(feel), snapshot: snapshot) {
                 PFFeelCard(feel: feel, todayISO: snapshot.todayISO)
             }
+            .accessibilityElement(children: .contain)
             .accessibilityIdentifier(PFTodayCard.feel.identifier)
         }
     }

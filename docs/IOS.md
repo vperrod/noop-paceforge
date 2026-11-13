@@ -240,7 +240,6 @@ charts, and palette render on iOS as-is.
 - Components: `RingDial`, `InsightCard`, `TodayVs30Rows`, `ThreeStepRow(s)`, `LookTrendView`, `WeeklyBars`,
   `TypicalRangeBars`, `ActivityPillRow` / `ActivitiesCard`, `FloatingTabBar`, `StickyMiniDials`, plus `MonitorTile`,
   `OutlookBar` and `LookInfoCard`. Each takes plain values and has a `#Preview`.
-- `--demo-screen looklab` (DEBUG) renders every component with made-up numbers; `LookComponentsUITests` captures them.
 
 ---
 

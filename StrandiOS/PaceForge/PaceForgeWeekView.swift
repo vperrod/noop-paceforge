@@ -107,11 +107,16 @@ struct PFRaceDayRow: View {
     private var isHyrox: Bool { race.name.localizedCaseInsensitiveContains("hyrox") }
 
     var body: some View {
-        Button { showPlan = true } label: { card }
-            .buttonStyle(.plain)
-            .disabled(!isHyrox)
-            .sheet(isPresented: $showPlan) { PFHyroxSheet() }
-            .accessibilityIdentifier("pf-week-race-\(race.date)")
+        Group {
+            if isHyrox {
+                Button { showPlan = true } label: { card }
+                    .buttonStyle(.plain)
+            } else {
+                card
+            }
+        }
+        .sheet(isPresented: $showPlan) { PFHyroxSheet() }
+        .accessibilityIdentifier("pf-week-race-\(race.date)")
     }
 
     private var card: some View {
