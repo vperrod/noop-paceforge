@@ -2,8 +2,8 @@ import SwiftUI
 import StrandDesign
 
 // The PaceForge section of the unified Today: six small cards in a fixed order (PFTodayCard), each reading the snapshot's
-// `today-call.json` (or, when the server serves none, the same parts built from the snapshot's own data). The native NOOP blocks
-// (rings, heart rate, key metrics) sit below them, folded.
+// `today-call.json` (or, when the server serves none, the same parts built from the snapshot's own data). The six rings sit above them
+// and the native NOOP blocks (monitor tiles, heart rate, key metrics) below them, all open.
 
 /// Mounted by `LiquidTodayView` where the PaceForge blocks used to be. It brings its own snapshot host, so it shows the load, failed
 /// and offline states on Today.
