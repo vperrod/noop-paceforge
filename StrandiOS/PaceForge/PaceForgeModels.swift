@@ -47,6 +47,8 @@ struct PFSnapshot {
     var intelDocs = PFIntelDocs()
     /// Bike rides from `ride-metrics.json`, newest first; empty when the server does not serve it.
     var rides: [PFRide] = []
+    /// Races and other dated events from `events.json`; a race is a booked day in the week list, not an empty one.
+    var races: [PFNextRace] = []
     /// The server's `dismissed.json` (cards hidden in PaceForge); united with the ones hidden on this iPhone.
     var dismissed: [PFDismissal] = []
     /// The server's `today-layout.json` (how the web page arranged the Today cards); empty when it serves none.
@@ -69,6 +71,9 @@ struct PFSnapshot {
 
     /// The rides of one day.
     func rides(on date: String) -> [PFRide] { rides.filter { $0.date == date } }
+
+    /// The races of one day.
+    func races(on date: String) -> [PFNextRace] { races.filter { $0.date == date } }
 
     /// The explainer with this id, if the server has one.
     func explainer(_ id: String) -> PFExplainer? { explainers.first { $0.id == id } }

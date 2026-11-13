@@ -203,6 +203,7 @@ enum PFBuilder {
         snapshot.intelDocs = PFIntelDocsParse.docs(healthspan: raw.healthspan, journalImpact: raw.journalImpact,
                                                    highlights: raw.highlights, monthlyReport: raw.monthlyReport, myPlan: raw.myPlan)
         snapshot.rides = PFRideParse.metrics(raw.rideMetrics)
+        snapshot.races = races(events: state["events"], today: today)
         snapshot.dismissed = PFDismissStorage.parseServer(raw.dismissed)
         snapshot.todayLayout = PFTodayOrder.parseServer(raw.todayLayout)
         // The live list document first, the copy inside /api/state when an older server serves no such file.
@@ -327,6 +328,7 @@ enum PFBuilder {
                                                        highlights: raw.highlights, monthlyReport: raw.monthlyReport,
                                                        myPlan: raw.myPlan)
         }
+        snapshot.races = races(events: state["events"], today: snapshot.todayISO)
         if stale(.rides) { snapshot.rides = PFRideParse.metrics(raw.rideMetrics) }
         if stale(.dismissed) { snapshot.dismissed = PFDismissStorage.parseServer(raw.dismissed) }
         if stale(.todayLayout) { snapshot.todayLayout = PFTodayOrder.parseServer(raw.todayLayout) }
@@ -766,6 +768,15 @@ enum PFBuilder {
         guard !sources.isEmpty else { return nil }
         return PFReadiness(date: j["date"].string, sources: sources, agreement: j["agreement"].text,
                            coachNote: j["coach_note"].text, answers: PFWave2Parse.answers(j["answers"]))
+    }
+
+    /// Every dated event of the list (past ones too: a race of this week stays on its day after it is run).
+    private static func races(events: PFJ, today: String) -> [PFNextRace] {
+        events.array.compactMap { e in
+            guard let name = e["name"].string, let date = e["date"].string, date.count >= 10 else { return nil }
+            let day = String(date.prefix(10))
+            return PFNextRace(name: name, date: day, daysOut: PFFormat.daysBetween(today, day), goalTime: e["goal_time"].text)
+        }
     }
 
     private static func nextRace(events: PFJ, today: String) -> PFNextRace? {

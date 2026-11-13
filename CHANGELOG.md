@@ -17,6 +17,11 @@ approximate; downloads are on the [Releases](https://github.com/NoopApp/noop/rel
 
 ---
 
+## 12.0.12 build 519 (PaceForge iPhone build): a race is on its day in the Plan tab week
+
+- Plan tab, week list: a race of the week (HYROX Dublin singles on Wed 11, Doubles on Sat 14) is a card on its own day with its goal
+  time. A race day no longer reads "Nothing scheduled".
+
 ## 12.0.12 build 518 (PaceForge iPhone build): the Coach opens on the day, and every report has its own page
 
 - Coach: it opens on Today's call and the Expert reading again, not on the week report. Two rows lead to "This week" (the week plan

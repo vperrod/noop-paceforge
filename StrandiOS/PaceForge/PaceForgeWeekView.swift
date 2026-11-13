@@ -82,16 +82,45 @@ private struct PFDaySection: View {
                 .foregroundStyle(StrandPalette.textPrimary)
             let workouts = day.workouts
             let rides = snapshot.rides(on: day.date)
-            if workouts.isEmpty && rides.isEmpty {
+            let races = snapshot.races(on: day.date)
+            if workouts.isEmpty && rides.isEmpty && races.isEmpty {
                 Text("Nothing scheduled")
                     .font(StrandFont.subhead)
                     .foregroundStyle(StrandPalette.textTertiary)
                     .padding(.vertical, 2)
             } else {
+                ForEach(races, id: \.name) { PFRaceDayRow(race: $0) }
                 ForEach(workouts) { PFWorkoutRow(workout: $0, snapshot: snapshot) }
                 ForEach(rides) { PFRideRow(ride: $0, snapshot: snapshot) }
             }
         }
         .accessibilityElement(children: .contain)
+    }
+}
+
+/// A race on its day: the same booked-day card as a session, so a race week never reads "Nothing scheduled".
+private struct PFRaceDayRow: View {
+    let race: PFNextRace
+
+    var body: some View {
+        StrandCard(padding: 14) {
+            HStack(alignment: .center, spacing: 12) {
+                RoundedRectangle(cornerRadius: 2, style: .continuous)
+                    .fill(PFColor.sky)
+                    .frame(width: 4)
+                    .frame(minHeight: 40)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(race.name)
+                        .font(StrandFont.headline)
+                        .foregroundStyle(StrandPalette.textPrimary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Text(race.goalTime.map { "Race \u{00B7} goal \($0)" } ?? "Race")
+                        .font(StrandFont.caption)
+                        .foregroundStyle(StrandPalette.textSecondary)
+                }
+                Spacer(minLength: 0)
+            }
+        }
+        .accessibilityIdentifier("pf-week-race-\(race.date)")
     }
 }
