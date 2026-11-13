@@ -1032,6 +1032,7 @@ struct LiquidTodayView: View {
             Spacer(minLength: 0)
             lookDayPill
             Spacer(minLength: 0)
+            LiquidAddButton()
             LiquidBatteryButton()
             LiquidAlertsBellButton()
             Button { customizationDestination = .today } label: {
@@ -3070,6 +3071,7 @@ private struct LiquidAddButton: View {
         }
         .nativeLiquidGlassHeaderButton()
         .accessibilityLabel("Quick actions")
+        .accessibilityIdentifier("today-quick-actions")
     }
 }
 
