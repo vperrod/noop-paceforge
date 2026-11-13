@@ -313,8 +313,8 @@ struct PFStaleDocsLine: View {
     var isOffline = false
 
     private var text: String? {
-        if !paths.isEmpty { return PFFreshness.staleLine(names: paths.map(PFAPI.documentName), generatedAt: generatedAt) }
-        if isOffline { return PFFreshness.savedCopy(generatedAt: generatedAt) }
+        if !paths.isEmpty { return PFSavedCopy.staleLine(names: paths.map(PFAPI.documentName), generatedAt: generatedAt) }
+        if isOffline { return PFSavedCopy.savedCopy(generatedAt: generatedAt) }
         return nil
     }
 

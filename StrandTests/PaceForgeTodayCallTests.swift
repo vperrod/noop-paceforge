@@ -270,21 +270,21 @@ final class PaceForgeTodayCallTests: XCTestCase {
     }
 
     func testTheStaleLineSaysWhenTheCopyWasSaved() {
-        let line = PFFreshness.staleLine(names: ["the body scale"], generatedAt: iso(3 * 3600), now: now)
+        let line = PFSavedCopy.staleLine(names: ["the body scale"], generatedAt: iso(3 * 3600), now: now)
         XCTAssertEqual(line, "Couldn't refresh the body scale. Showing the copy saved 3 h ago.")
     }
 
     func testTheStaleLineNamesThreeDocumentsAndCountsTheRest() {
-        let line = PFFreshness.staleLine(names: ["a", "b", "c", "d", "e"], generatedAt: iso(120), now: now)
+        let line = PFSavedCopy.staleLine(names: ["a", "b", "c", "d", "e"], generatedAt: iso(120), now: now)
         XCTAssertEqual(line, "Couldn't refresh a, b, c and 2 more. Showing the copy saved 2 min ago.")
     }
 
     func testASavedCopyWithNoKnownTimeStillSaysItIsSaved() {
-        XCTAssertEqual(PFFreshness.savedCopy(generatedAt: nil, now: now), "Showing the last saved copy.")
+        XCTAssertEqual(PFSavedCopy.savedCopy(generatedAt: nil, now: now), "Showing the last saved copy.")
     }
 
     func testAgeReadsInMinutesHoursAndDays() {
-        XCTAssertEqual([30, 300, 7200, 172_800].map { PFFreshness.age($0) }, ["just now", "5 min ago", "2 h ago", "2 days ago"])
+        XCTAssertEqual([30, 300, 7200, 172_800].map { PFSavedCopy.age($0) }, ["just now", "5 min ago", "2 h ago", "2 days ago"])
     }
 
     func testTheAutomaticRetriesComeAfterTenSecondsThirtySecondsAndTwoMinutes() {

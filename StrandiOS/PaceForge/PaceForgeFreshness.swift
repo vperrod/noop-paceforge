@@ -3,7 +3,7 @@ import Foundation
 // How old the data on screen is and why it could not be refreshed, in words. Foundation only (no RelativeDateTimeFormatter, which the
 // Linux Foundation lacks), so it is compiled into the macOS unit-test bundle.
 
-enum PFFreshness {
+enum PFSavedCopy {
     /// "just now", "5 min ago", "3 h ago", "2 days ago".
     static func age(_ seconds: TimeInterval) -> String {
         let s = max(0, seconds)
