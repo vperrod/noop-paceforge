@@ -123,6 +123,11 @@ final class PaceForgeDismissTests: XCTestCase {
         XCTAssertFalse(PFDismissLogic.isHidden(key: "feel", text: "x", today: "2030-03-13", local: [], server: server))
     }
 
+    func testTheCallCardAndTheTodaysCallChipCardAreHiddenIndependently() {
+        let local = PFDismissLogic.dismissing([], key: "the-call", text: "Train.Steady", mode: .untilTomorrow, today: "2030-03-13", now: now)
+        XCTAssertFalse(PFDismissLogic.isHidden(key: "todays-call", text: "Train.Steady", today: "2030-03-13", local: local, server: []))
+    }
+
     // MARK: Restore
 
     func testRestoringRemovesOnlyThatCard() {

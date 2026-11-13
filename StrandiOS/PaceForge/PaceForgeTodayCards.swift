@@ -64,7 +64,7 @@ private struct PFTheCallCard: View {
 
     var body: some View {
         if let call = info.call {
-            PFDismissable(.todaysCall, text: call.verdict + call.reason, snapshot: snapshot) {
+            PFDismissable(.theCall, text: PFCardText.theCall(call), snapshot: snapshot) {
                 Button { showBrief = true } label: {
                     PFCard(title: "The call", icon: "scope", trailing: {
                         Image(systemName: "chevron.right")
