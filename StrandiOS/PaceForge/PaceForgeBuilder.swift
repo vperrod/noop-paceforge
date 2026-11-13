@@ -37,6 +37,7 @@ struct PFRawBundle {
     var dismissed = PFJ(nil)
     var todayLayout = PFJ(nil)
     var needsYou = PFJ(nil)
+    var todayCall = PFJ(nil)
     var profile = PFJ(nil)
     var analytics = PFJ(nil)
     var benchmarks = PFJ(nil)
@@ -82,6 +83,7 @@ extension PFRawBundle {
         raw.dismissed = PFJ(data: read("data/dismissed.json"))
         raw.todayLayout = PFJ(data: read("data/today-layout.json"))
         raw.needsYou = PFJ(data: read("data/needs-you.json"))
+        raw.todayCall = PFJ(data: read(PFDocs.todayCall))
         raw.profile = PFJ(data: read(PFDocs.profile))
         raw.analytics = PFJ(data: read(PFDocs.analytics))
         raw.benchmarks = PFJ(data: read(PFDocs.benchmarks))
@@ -93,7 +95,7 @@ extension PFRawBundle {
 /// part from the snapshot it already has. The one list of which document feeds which part. Used by the beta refresh only.
 enum PFLeaf: CaseIterable {
     case insightsV2, body, bodyProgress, alerts, readiness, feel, whatChanged, behaviour, explainers, raceWeek, simulations
-    case easyMode, muscle, tape, standing, dailyIntel, intelDocs, rides, dismissed, todayLayout, needsYou, serverHidesBody
+    case easyMode, muscle, tape, standing, dailyIntel, intelDocs, rides, dismissed, todayLayout, needsYou, serverHidesBody, todayCall
     case activities, analyses, athleteDocs
 
     var docs: [String] {
@@ -120,6 +122,7 @@ enum PFLeaf: CaseIterable {
         case .todayLayout: return [PFDocs.todayLayout]
         case .needsYou: return [PFDocs.needsYou, PFDocs.state]
         case .serverHidesBody: return [PFDocs.state]
+        case .todayCall: return [PFDocs.todayCall]
         case .activities: return [PFDocs.activities, PFDocs.workoutMatches]
         case .analyses: return [PFDocs.analysesIndex, PFDocs.analysisStatus]
         case .athleteDocs: return [PFDocs.profile, PFDocs.analytics, PFDocs.benchmarks]
@@ -209,6 +212,7 @@ enum PFBuilder {
         // The live list document first, the copy inside /api/state when an older server serves no such file.
         snapshot.needsYou = PFNeedsParse.items(raw.needsYou.exists ? raw.needsYou : state["needs_you"])
         snapshot.serverHidesBody = PFWave3Parse.hidesBodyOnLockScreen(state)
+        snapshot.todayCall = PFTodayCallParse.document(raw.todayCall)
         snapshot.sleepNights = raw.fitness["load"]["sleep"]["stages_14d"].array.compactMap { night in
             guard let date = night["date"].string else { return nil }
             let deep = night["deep_min"].double ?? 0
@@ -335,6 +339,7 @@ enum PFBuilder {
         // The live list document first, the copy inside /api/state when an older server serves no such file.
         if stale(.needsYou) { snapshot.needsYou = PFNeedsParse.items(raw.needsYou.exists ? raw.needsYou : state["needs_you"]) }
         if stale(.serverHidesBody) { snapshot.serverHidesBody = PFWave3Parse.hidesBodyOnLockScreen(state) }
+        if stale(.todayCall) { snapshot.todayCall = PFTodayCallParse.document(raw.todayCall) }
         if stale(.activities) {
             snapshot.activities = [:]
             for item in raw.activities.array {

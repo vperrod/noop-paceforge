@@ -189,6 +189,8 @@ targets:
       - StrandiOS/PaceForge/PaceForgeModels.swift
       - StrandiOS/PaceForge/PaceForgeBuilder.swift
       - StrandiOS/PaceForge/PaceForgeDocs.swift
+      # today-call.json: the document the unified Today cards read.
+      - StrandiOS/PaceForge/PaceForgeTodayCall.swift
       - StrandiOS/PaceForge/PaceForgeJSON.swift
       - StrandiOS/PaceForge/PaceForgeWave2.swift
       # Wave 3 (race week, race simulations, easy mode, muscle check, tape, heat, privacy, intraday, day events).

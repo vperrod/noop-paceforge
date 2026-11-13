@@ -40,6 +40,7 @@ enum PFDocs {
     static let dismissed = "data/dismissed.json"
     static let todayLayout = "data/today-layout.json"
     static let needsYou = "data/needs-you.json"
+    static let todayCall = "data/today-call.json"
     static let workoutMatches = "data/workout-matches.json"
     static let pageNotes = "data/page-notes.json"
     static let profile = "data/profile.json"
@@ -80,6 +81,7 @@ enum PFDocs {
         PFDocSpec(path: dismissed, key: \PFRawBundle.dismissed),
         PFDocSpec(path: todayLayout, key: \PFRawBundle.todayLayout),
         PFDocSpec(path: needsYou, key: \PFRawBundle.needsYou),
+        PFDocSpec(path: todayCall, key: \PFRawBundle.todayCall),
         // Not part of the bundle's view models: fetched so My Day finds it saved on the phone (PFStore).
         PFDocSpec(path: workoutMatches, key: \PFRawBundle.workoutMatches),
         // The Athlete tab's second layer (build 501); each is optional, a missing one just leaves its cards out.
@@ -94,7 +96,7 @@ enum PFDocs {
     /// added later counts as read until it is listed here, so a missed entry costs a widget reload, never a stale widget.
     static let summaryInputs: Set<String> = Set(all.map { $0.path }).subtracting(
         [analysesIndex, analysisStatus, bodyProgress, whatChanged, explainers, behaviour, hyroxSims, hyroxSimAnalysis, easyMode, muscle, tape,
-         dailyIntel, dismissed, todayLayout, needsYou, workoutMatches, pageNotes, profile, analytics, benchmarks] + PFDocPath.all)
+         dailyIntel, dismissed, todayLayout, needsYou, todayCall, workoutMatches, pageNotes, profile, analytics, benchmarks] + PFDocPath.all)
 
     static func specs(for scope: PFRefreshScope) -> [PFDocSpec] {
         if scope.contains(.snapshot) { return all }
