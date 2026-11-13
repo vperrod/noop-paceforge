@@ -7,7 +7,7 @@ final class PlannerUITests: XCTestCase {
 
     private func launch(effort: String? = nil, sleep: String? = nil, widgetGallery: Bool = false, classic: Bool = false) throws -> XCUIApplication {
         let app = XCUIApplication()
-        if classic { app.useClassicNavigation() }
+        if classic { try app.useClassicNavigation() }
         app.launchArguments.append("--demo-seed")
         if let effort { app.launchArguments += ["-EffortTargetFixture", effort] }
         if let sleep { app.launchArguments += ["-SleepPlannerFixture", sleep] }
@@ -94,11 +94,9 @@ final class PlannerUITests: XCTestCase {
 
     // MARK: Sleep Planner
 
-    /// The Sleep item of the bar, then the Sleep Planner card at the top of the Sleep screen.
+    /// Sleep (a More row at the end of Reports), then the Sleep Planner card at the top of the Sleep screen.
     private func openPlanner(_ app: XCUIApplication) {
-        let sleep = app.shellTab("Sleep")
-        XCTAssertTrue(sleep.waitForExistence(timeout: 30), "The bar should have a Sleep item.")
-        sleep.tap()
+        app.openMoreRow(tab: "Reports", row: "sleep")
         let entry = element(app, "sleep-planner-entry")
         XCTAssertTrue(entry.waitForExistence(timeout: 30), "The Sleep screen should show the Sleep Planner card.")
         reveal(entry, in: app)

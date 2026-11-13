@@ -9,7 +9,7 @@ final class PaceForgeWave3UITests: XCTestCase {
     private func launch(extraArguments: [String] = [], widgetGallery: Bool = false) throws -> XCUIApplication {
         let app = XCUIApplication()
         // These tests drive the classic PaceForge tab and its segments, which the unified bar (the default) does not have.
-        app.useClassicNavigation()
+        try app.useClassicNavigation()
         app.launchArguments.append("--demo-seed")
         app.launchArguments.append(contentsOf: extraArguments)
         app.launchArguments.append("-PaceForgeFixture")

@@ -1,16 +1,14 @@
 import XCTest
 
-/// The unified navigation, Settings > Tools. With the switch on (the default) the bar scrolls and holds Today, My Day, Plan, Athlete, Sleep,
-/// Insights, Workouts and More (Sleep also opens from the Rest ring on Today); with it off the tabs are the classic ones (Today, Workouts,
-/// Sleep, PaceForge, More). The switch is a launch argument here (`-unifiedNav YES` or `NO`); like the other UI tests these run on
-/// `--demo-seed` data, and the PaceForge chips on the synthetic fixture (`-PaceForgeFixture`). Not run in CI.
+/// The navigation, the only one: five tabs in the floating bar (Today, Plan, Coach, Reports, Body), Plan's three chips, Reports' two chips
+/// (with the index of Day, Week, Month and Race), the Coach's four blocks and the six PaceForge cards on Today. Like the other UI tests
+/// these run on `--demo-seed` data and the synthetic fixture (`-PaceForgeFixture`). Not run in CI.
 final class UnifiedNavUITests: XCTestCase {
-    private func launch(unifiedNav: Bool, fixture: Bool = true) throws -> XCUIApplication {
+    private func launch(fixture: Bool = true, extra: [String] = []) throws -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments.append("--demo-seed")
         app.launchArguments.append(contentsOf: ["-theme.appearance", "dark"])
-        // The default is on, so "off" has to be asked for.
-        if unifiedNav { app.launchArguments.append(contentsOf: ["-unifiedNav", "YES"]) } else { app.useClassicNavigation() }
+        app.launchArguments.append(contentsOf: extra)
         if fixture {
             app.launchArguments.append("-PaceForgeFixture")
             let url = try XCTUnwrap(Bundle(for: Self.self).url(forResource: "PaceForgeFixture", withExtension: "json"),
@@ -33,206 +31,121 @@ final class UnifiedNavUITests: XCTestCase {
         XCTAssertTrue(element(app, host).waitForExistence(timeout: 30), "The \(tab) screen should open.")
     }
 
-    private func openInsights(in app: XCUIApplication) {
-        let tab = app.shellTab("Insights")
-        XCTAssertTrue(tab.waitForExistence(timeout: 20), "The Insights item should be in the bar.")
-        tab.tap()
-        XCTAssertTrue(element(app, "insights-host").waitForExistence(timeout: 30), "The Insights item should open Insights.")
-    }
-
     private func choose(_ chip: String, prefix: String, in app: XCUIApplication) {
         let button = element(app, "\(prefix)-chip-\(chip)")
         XCTAssertTrue(button.waitForExistence(timeout: 15), "The \(chip) chip should be in the chip bar.")
         button.tap()
     }
 
-    // MARK: The switch
+    // MARK: The bar
 
-    func testFlagOnShowsTheEightBarItemsInOrder() throws {
-        let app = try launch(unifiedNav: true)
-        XCTAssertTrue(app.shellTab("My Day").waitForExistence(timeout: 20), "With the switch on, tab 2 is My Day.")
-        XCTAssertTrue(app.shellTab("Plan").exists, "With the switch on, tab 3 is Plan.")
-        XCTAssertTrue(app.shellTab("Athlete").exists, "With the switch on, tab 4 is Athlete.")
-        for title in ["Sleep", "Insights", "Workouts", "More"] {
-            XCTAssertTrue(app.shellTab(title).exists, "With the switch on, the scrolling bar has \(title).")
-        }
-        let order = ["Today", "My Day", "Plan", "Athlete", "Sleep", "Insights", "Workouts", "More"]
+    func testTheBarHasTheFiveTabsInOrder() throws {
+        let app = try launch()
+        XCTAssertTrue(app.shellTab("Today").waitForExistence(timeout: 20))
+        let order = ["Today", "Plan", "Coach", "Reports", "Body"]
+        for title in order { XCTAssertTrue(app.shellTab(title).exists, "The bar has \(title).") }
         let xs = order.map { app.shellTab($0).frame.minX }
         XCTAssertEqual(xs, xs.sorted(), "The bar items should run in the order \(order.joined(separator: ", ")).")
     }
 
-    func testFlagOnHasNoPaceForgeTrendsOrCalendarTab() throws {
-        let app = try launch(unifiedNav: true)
+    func testThereIsNoOldTabAndNoCoachButton() throws {
+        let app = try launch()
         XCTAssertTrue(app.shellTab("Plan").waitForExistence(timeout: 20))
-        XCTAssertFalse(app.shellTab("PaceForge").exists, "With the switch on there is no PaceForge tab.")
-        XCTAssertFalse(app.shellTab("Trends").exists, "With the switch on there is no Trends tab.")
-        XCTAssertFalse(app.shellTab("Calendar").exists, "Calendar is a chip of Plan, not a tab.")
+        for title in ["PaceForge", "My Day", "Athlete", "Sleep", "Insights", "Workouts", "More"] {
+            XCTAssertFalse(app.shellTab(title).exists, "\(title) is not a tab.")
+        }
+        XCTAssertFalse(element(app, "look-coach").exists, "Coach is a tab, so the floating button is gone.")
     }
 
-    func testFlagOnKeepsTheCoachButton() throws {
-        let app = try launch(unifiedNav: true)
-        XCTAssertTrue(element(app, "look-coach").waitForExistence(timeout: 20), "The Coach button stays at the end of the bar.")
+    // MARK: Today
+
+    func testTodayDrawsThePaceForgeCardsInTheFixedOrder() throws {
+        let app = try launch()
+        XCTAssertTrue(element(app, "pf-today-cards").waitForExistence(timeout: 30), "Today should draw PaceForge's cards.")
+        let ids = ["the-call", "needs-you", "today", "how-you-are", "feel", "this-week"].map { "pf-today-card-\($0)" }
+        let shown = ids.filter { element(app, $0).waitForExistence(timeout: 5) }
+        XCTAssertTrue(shown.contains("pf-today-card-the-call"), "The call leads.")
+        XCTAssertTrue(shown.contains("pf-today-card-this-week"), "The week closes.")
+        let ys = shown.map { element(app, $0).frame.minY }
+        XCTAssertEqual(ys, ys.sorted(), "The cards should run in the order \(shown.joined(separator: ", ")).")
     }
 
-    func testFlagOffKeepsTheClassicTabs() throws {
-        let app = try launch(unifiedNav: false)
-        XCTAssertTrue(app.shellTab("PaceForge").waitForExistence(timeout: 20), "With the switch off, tab 4 is PaceForge.")
-        XCTAssertTrue(app.shellTab("Workouts").exists, "With the switch off, tab 2 is Workouts.")
-        XCTAssertFalse(app.shellTab("Calendar").exists, "With the switch off there is no Calendar tab.")
-        XCTAssertFalse(app.shellTab("Insights").exists, "With the switch off there is no Insights tab.")
-    }
-
-    // MARK: My Day
-
-    func testMyDayIsATabWithItsOwnTimeline() throws {
-        let app = try launch(unifiedNav: true)
-        let tab = app.shellTab("My Day")
-        XCTAssertTrue(tab.waitForExistence(timeout: 20), "My Day is in the bar.")
-        tab.tap()
-        XCTAssertTrue(element(app, "myday-strip").waitForExistence(timeout: 30), "My Day draws the day's strip.")
+    func testTheStrapBlocksAreFoldedUnderTheCards() throws {
+        let app = try launch()
+        XCTAssertTrue(element(app, "today-strap-disclosure").waitForExistence(timeout: 30), "More from the strap is one folded row.")
     }
 
     // MARK: Plan
 
-    func testPlanTabFoldsMyPlanAndEasyModeAndHasNoViewMyPlanButton() throws {
-        let app = try launch(unifiedNav: true)
+    func testPlanOpensOnThisWeek() throws {
+        let app = try launch()
         open("Plan", host: "calendar-host", in: app)
-        let myPlan = element(app, "pf-plan-toggle")
-        XCTAssertTrue(myPlan.waitForExistence(timeout: 30), "My Plan on the Plan tab is a one-line header.")
-        XCTAssertEqual(myPlan.value as? String, "collapsed", "My Plan starts folded.")
-        XCTAssertFalse(element(app, "pf-plan-view").exists, "VIEW MY PLAN only re-selects the Plan tab, so it is not drawn there.")
-        let easy = element(app, "pf-easy-toggle")
-        XCTAssertTrue(easy.waitForExistence(timeout: 30), "Easy mode is one compact row.")
-        XCTAssertEqual(easy.value as? String, "collapsed", "Easy mode starts folded.")
-        myPlan.tap()
-        XCTAssertTrue(element(app, "pf-plan-header").waitForExistence(timeout: 10), "Tapping the header opens My Plan.")
+        XCTAssertTrue(element(app, "calendar-chip-content-plan").waitForExistence(timeout: 30), "Plan opens on This week.")
     }
 
-    func testPlanOpensOnThePlanChip() throws {
-        let app = try launch(unifiedNav: true)
+    func testPlanHasThreeChipsAndEachMounts() throws {
+        let app = try launch()
         open("Plan", host: "calendar-host", in: app)
-        XCTAssertTrue(element(app, "calendar-chip-content-plan").waitForExistence(timeout: 30), "Plan opens on its Plan chip.")
-    }
-
-    func testCalendarIsTheSecondChipOfPlan() throws {
-        let app = try launch(unifiedNav: true)
-        open("Plan", host: "calendar-host", in: app)
-        choose("calendar", prefix: "calendar", in: app)
-        XCTAssertTrue(element(app, "calendar-chip-content-calendar").waitForExistence(timeout: 30), "The Calendar chip should mount.")
-        XCTAssertTrue(element(app, "calendar-month").exists, "The Calendar chip draws the month.")
-    }
-
-    func testEveryPlanChipMounts() throws {
-        let app = try launch(unifiedNav: true)
-        open("Plan", host: "calendar-host", in: app)
-        for chip in ["workouts", "season", "events", "hyrox"] {
+        for chip in ["calendar", "season"] {
             choose(chip, prefix: "calendar", in: app)
             XCTAssertTrue(element(app, "calendar-chip-content-\(chip)").waitForExistence(timeout: 30), "The \(chip) chip should mount.")
         }
-    }
-
-    // MARK: Athlete
-
-    func testAthleteOpensOnTheProfileHeader() throws {
-        let app = try launch(unifiedNav: true)
-        open("Athlete", host: "athlete-host", in: app)
-        XCTAssertTrue(element(app, "athlete-header").waitForExistence(timeout: 30), "Athlete opens on the profile header.")
-    }
-
-    // MARK: Sleep
-
-    func testSleepIsABarItemAndNotAMoreRow() throws {
-        let app = try launch(unifiedNav: true)
-        let tab = app.shellTab("Sleep")
-        XCTAssertTrue(tab.waitForExistence(timeout: 20), "The bar has Sleep.")
-        tab.tap()
-        XCTAssertTrue(element(app, "screen-sleep").waitForExistence(timeout: 30), "The Sleep item opens the Sleep screen.")
-        app.shellTab("More").tap()
-        XCTAssertTrue(element(app, "more-row-body").waitForExistence(timeout: 20), "The More item shows the list again.")
-        XCTAssertFalse(element(app, "more-row-sleep").exists, "More no longer repeats Sleep.")
-    }
-
-    func testWorkoutsIsABarItem() throws {
-        let app = try launch(unifiedNav: true)
-        let tab = app.shellTab("Workouts")
-        XCTAssertTrue(tab.waitForExistence(timeout: 20), "The bar has Workouts.")
-        tab.tap()
-        XCTAssertTrue(element(app, "screen-workouts").waitForExistence(timeout: 30), "The Workouts item opens the Workouts screen.")
-    }
-
-    // MARK: Insights
-
-    func testInsightsOpensOnOverview() throws {
-        let app = try launch(unifiedNav: true)
-        openInsights(in: app)
-        XCTAssertTrue(element(app, "insights-chip-content-overview").waitForExistence(timeout: 30), "Insights opens on Overview.")
-    }
-
-    func testEveryInsightsChipMounts() throws {
-        let app = try launch(unifiedNav: true)
-        openInsights(in: app)
-        for chip in ["trends", "reports", "journal", "deepDives"] {
-            choose(chip, prefix: "insights", in: app)
-            XCTAssertTrue(element(app, "insights-chip-content-\(chip)").waitForExistence(timeout: 30), "The \(chip) chip should mount.")
+        for gone in ["workouts", "events", "hyrox"] {
+            XCTAssertFalse(element(app, "calendar-chip-\(gone)").exists, "\(gone) is a section, not a chip.")
         }
     }
 
-    func testReportsChipOffersTheMonthlyReport() throws {
-        let app = try launch(unifiedNav: true)
-        openInsights(in: app)
-        choose("reports", prefix: "insights", in: app)
-        XCTAssertTrue(element(app, "insights-report-monthly").waitForExistence(timeout: 20), "Reports offers the Monthly report.")
+    func testSeasonHasEventsAndHyroxAtTheTop() throws {
+        let app = try launch()
+        open("Plan", host: "calendar-host", in: app)
+        choose("season", prefix: "calendar", in: app)
+        XCTAssertTrue(element(app, "calendar-season-events").waitForExistence(timeout: 30), "Season starts with Events.")
+        XCTAssertTrue(element(app, "calendar-season-hyrox").waitForExistence(timeout: 30), "Season has the HYROX screen under Events.")
     }
 
     // MARK: Coach
 
-    func testCoachButtonOpensTheUnifiedCoach() throws {
-        let app = try launch(unifiedNav: true)
-        let button = element(app, "look-coach")
-        XCTAssertTrue(button.waitForExistence(timeout: 20))
-        button.tap()
-        XCTAssertTrue(element(app, "coach-host").waitForExistence(timeout: 30), "The Coach button opens the one Coach screen.")
-    }
-
-    func testUnifiedCoachShowsOneSharedConversation() throws {
-        let app = try launch(unifiedNav: true)
-        element(app, "look-coach").tap()
+    func testCoachIsATabWithOneComposer() throws {
+        let app = try launch()
+        open("Coach", host: "coach-host", in: app)
         XCTAssertTrue(element(app, "coach-full-brain").waitForExistence(timeout: 30), "The Coach screen should load the shared PaceForge brain.")
-        XCTAssertTrue(element(app, "pf-chat-input").waitForExistence(timeout: 30), "The same screen should offer the shared Coach conversation.")
+        XCTAssertTrue(element(app, "pf-composer-mode").waitForExistence(timeout: 30), "One composer with a mode switch.")
+        XCTAssertFalse(element(app, "pf-tell-coach").exists, "Tell the coach is not a separate card any more.")
     }
 
-    // MARK: More
+    // MARK: Reports
 
-    func testMoreOffersBodyAndNotTheMovedRows() throws {
-        let app = try launch(unifiedNav: true)
-        let tab = app.shellTab("More")
-        XCTAssertTrue(tab.waitForExistence(timeout: 20))
-        tab.tap()
-        XCTAssertTrue(element(app, "more-row-body").waitForExistence(timeout: 20), "More offers Body.")
-        XCTAssertFalse(element(app, "more-row-insights").exists, "Insights is an item of the bar.")
-        XCTAssertFalse(element(app, "more-row-sleep").exists, "Sleep is an item of the bar.")
-        XCTAssertFalse(element(app, "more-row-compare").exists, "Compare moved into Insights.")
-        XCTAssertFalse(element(app, "more-row-labbook").exists, "The Lab Book moved into Body.")
+    func testReportsIndexHasDayWeekMonthAndRace() throws {
+        let app = try launch()
+        open("Reports", host: "reports-host", in: app)
+        for kind in ["daily", "weekly", "monthly", "race"] {
+            XCTAssertTrue(element(app, "pf-reports-index-\(kind)").waitForExistence(timeout: 30), "The index has the \(kind) row.")
+        }
     }
 
-    func testBodyHasBothChips() throws {
-        let app = try launch(unifiedNav: true)
-        app.shellTab("More").tap()
-        let row = element(app, "more-row-body")
-        XCTAssertTrue(row.waitForExistence(timeout: 20))
-        row.tap()
-        XCTAssertTrue(element(app, "body-host").waitForExistence(timeout: 30), "Body should open.")
+    func testInsightsIsAChipOfReports() throws {
+        let app = try launch()
+        open("Reports", host: "reports-host", in: app)
+        choose("insights", prefix: "reports", in: app)
+        XCTAssertTrue(element(app, "insights-host").waitForExistence(timeout: 30), "Insights opens under Reports.")
+    }
+
+    func testReportsEndsWithMyDaySleepAndWorkouts() throws {
+        let app = try launch()
+        open("Reports", host: "reports-host", in: app)
+        for row in ["myday", "sleep", "workouts"] {
+            XCTAssertTrue(element(app, "more-row-\(row)").waitForExistence(timeout: 20), "More has the \(row) row.")
+        }
+    }
+
+    // MARK: Body
+
+    func testBodyHasBothChipsAndTheMoreRows() throws {
+        let app = try launch()
+        open("Body", host: "body-host", in: app)
         choose("labBook", prefix: "body", in: app)
         XCTAssertTrue(element(app, "body-chip-content-labBook").waitForExistence(timeout: 30), "The Lab Book chip should mount.")
-    }
-
-    func testFlagOffMoreKeepsTheOldRows() throws {
-        let app = try launch(unifiedNav: false, fixture: false)
-        let tab = app.shellTab("More")
-        XCTAssertTrue(tab.waitForExistence(timeout: 20))
-        tab.tap()
-        XCTAssertTrue(element(app, "more-row-insights").waitForExistence(timeout: 20), "With the switch off, More keeps Insights.")
-        XCTAssertTrue(element(app, "more-row-labbook").exists, "With the switch off, More keeps the Lab Book.")
-        XCTAssertFalse(element(app, "more-row-body").exists, "With the switch off there is no Body row.")
+        XCTAssertTrue(element(app, "more-row-athlete").waitForExistence(timeout: 20), "More has Athlete.")
+        XCTAssertTrue(element(app, "more-row-settings").exists, "More ends with Settings.")
     }
 }

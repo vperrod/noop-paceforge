@@ -9,7 +9,7 @@ final class LookScreensUITests: XCTestCase {
     private func launch(screen: String? = nil, appearance: String = "dark", fixture: Bool = false,
                         extra: [String] = [], classic: Bool = false) throws -> XCUIApplication {
         let app = XCUIApplication()
-        if classic { app.useClassicNavigation() }
+        if classic { try app.useClassicNavigation() }
         app.launchArguments.append("--demo-seed")
         if let screen { app.launchArguments.append(contentsOf: ["--demo-screen", screen]) }
         app.launchArguments.append(contentsOf: ["-theme.appearance", appearance])
@@ -183,20 +183,19 @@ final class LookScreensUITests: XCTestCase {
         let app = try launch()
         let plan = app.shellTab("Plan")
         XCTAssertTrue(plan.waitForExistence(timeout: 30), "The floating bar should show its tabs.")
-        XCTAssertTrue(element(app, "look-coach").exists, "The floating bar should carry the coach button.")
+        XCTAssertFalse(element(app, "look-coach").exists, "Coach is a tab, so the bar has no coach button.")
         attach(app, "Look B0 floating tab bar on Today")
         plan.tap()
         XCTAssertTrue(element(app, "calendar-host").waitForExistence(timeout: 20), "Plan should open from the floating bar.")
         attach(app, "Look B1 floating tab bar on Plan")
-        app.shellTab("My Day").tap()
-        XCTAssertTrue(element(app, "myday-strip").waitForExistence(timeout: 20), "My Day should open from the floating bar.")
-        app.shellTab("Athlete").tap()
-        XCTAssertTrue(element(app, "athlete-host").waitForExistence(timeout: 20), "Athlete should open from the floating bar.")
-        attach(app, "Look B2 floating tab bar on Athlete")
-        app.shellTab("Sleep").tap()
-        XCTAssertTrue(element(app, "screen-sleep").waitForExistence(timeout: 20), "Sleep should open from the scrolling bar.")
-        app.shellTab("More").tap()
-        XCTAssertTrue(reveal(element(app, "more-row-body"), in: app), "More should list its rows.")
-        attach(app, "Look B3 floating tab bar on More")
+        app.shellTab("Coach").tap()
+        XCTAssertTrue(element(app, "coach-host").waitForExistence(timeout: 20), "Coach should open from the floating bar.")
+        app.shellTab("Reports").tap()
+        XCTAssertTrue(element(app, "reports-host").waitForExistence(timeout: 20), "Reports should open from the floating bar.")
+        attach(app, "Look B2 floating tab bar on Reports")
+        app.shellTab("Body").tap()
+        XCTAssertTrue(element(app, "body-host").waitForExistence(timeout: 20), "Body should open from the floating bar.")
+        XCTAssertTrue(reveal(element(app, "more-row-athlete"), in: app), "Body should end with its More rows.")
+        attach(app, "Look B3 floating tab bar on Body")
     }
 }

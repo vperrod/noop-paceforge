@@ -9,7 +9,7 @@ import XCTest
 final class Phase4UITests: XCTestCase {
     private func launch(screen: String? = nil, appearance: String = "dark", extra: [String] = [], classic: Bool = false) throws -> XCUIApplication {
         let app = XCUIApplication()
-        if classic { app.useClassicNavigation() }
+        if classic { try app.useClassicNavigation() }
         app.launchArguments.append("--demo-seed")
         if let screen { app.launchArguments.append(contentsOf: ["--demo-screen", screen]) }
         app.launchArguments.append(contentsOf: ["-theme.appearance", appearance])

@@ -6,7 +6,7 @@ final class PaceForgeNativeTabUITests: XCTestCase {
     private func launch(fixture: Bool, widgetGallery: Bool = false, extraArguments: [String] = []) throws -> XCUIApplication {
         let app = XCUIApplication()
         // These tests drive the classic PaceForge tab and its segments, which the unified bar (the default) does not have.
-        app.useClassicNavigation()
+        try app.useClassicNavigation()
         app.launchArguments.append("--demo-seed")
         app.launchArguments.append(contentsOf: extraArguments)
         if fixture {

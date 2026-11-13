@@ -81,6 +81,8 @@ enum PFAPI {
         ("-PaceForgeJournalImpactEmpty", "data/journal-impact.json", "data/journal-impact.empty.json"),
         // Things waiting on the athlete (the default fixture has none, so the Needs you card is absent).
         ("-PaceForgeNeedsYou", "data/needs-you.json", "data/needs-you.active.json"),
+        // No today-call.json at all: the Today cards fall back to the snapshot's own data.
+        ("-PaceForgeTodayCallMissing", "data/today-call.json", "data/today-call.missing.json"),
     ]
     #endif
 

@@ -6,8 +6,8 @@ final class PaceForgeMenuVisibilityUITests: XCTestCase {
         app.launchArguments.append("--demo-seed")
         app.launch()
 
-        let moreTab = app.shellTab("More")
-        XCTAssertTrue(moreTab.waitForExistence(timeout: 15), "The More tab should be present.")
+        let moreTab = app.shellTab("Body")
+        XCTAssertTrue(moreTab.waitForExistence(timeout: 15), "The Body tab (which ends in the More rows) should be present.")
         moreTab.tap()
 
         // Since build 468 the Data screen is one row of More (Apple Health, Mi Band, Backup & Sync, PaceForge sync ... are its sections).

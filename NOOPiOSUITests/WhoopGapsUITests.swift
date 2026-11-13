@@ -112,7 +112,7 @@ final class WhoopGapsUITests: XCTestCase {
 
     func testTrendsReportSheetOffersTheHealthReport() {
         let app = launch()
-        app.shellTab("More").tap()
+        app.shellTab("Body").tap()
         let trends = element(app, "more-row-trends")
         XCTAssertTrue(reveal(trends, in: app), "More should expose Trends.")
         trends.tap()
@@ -133,7 +133,7 @@ final class WhoopGapsUITests: XCTestCase {
 
     func testHealthShowsPaceOfAging() {
         let app = launch()
-        let more = app.shellTab("More")
+        let more = app.shellTab("Body")
         XCTAssertTrue(more.waitForExistence(timeout: 30))
         more.tap()
         // More is flat since build 468: no group has to be opened before a row shows.

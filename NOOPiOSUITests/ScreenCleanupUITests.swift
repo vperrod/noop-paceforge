@@ -47,19 +47,22 @@ final class ScreenCleanupUITests: XCTestCase {
         XCTAssertEqual(app.state, .runningForeground, "The app should still be running after \(what).")
     }
 
-    /// The Insights screen: an item of the scrolling bar.
+    /// The Insights screen: the second chip of the Reports tab.
     private func openInsights(_ app: XCUIApplication) {
-        let tab = app.shellTab("Insights")
-        XCTAssertTrue(tab.waitForExistence(timeout: 30), "The bar should have an Insights item.")
+        let tab = app.shellTab("Reports")
+        XCTAssertTrue(tab.waitForExistence(timeout: 30), "The bar should have a Reports tab.")
         tab.tap()
-        XCTAssertTrue(element(app, "insights-host").waitForExistence(timeout: 30), "The Insights item should open Insights.")
+        let chip = element(app, "reports-chip-insights")
+        XCTAssertTrue(chip.waitForExistence(timeout: 20), "Reports should offer the Insights chip.")
+        chip.tap()
+        XCTAssertTrue(element(app, "insights-host").waitForExistence(timeout: 30), "The Insights chip should open Insights.")
     }
 
-    /// Tap 1: the More tab (a re-tap pops whatever it had open back to the list).
+    /// Tap 1: the Body tab, whose end is the More list (a re-tap pops whatever it had open back to the root).
     private func openMore(_ app: XCUIApplication) {
-        let more = app.shellTab("More")
-        XCTAssertTrue(more.waitForExistence(timeout: 30), "The More tab should be present.")
-        more.tap()
+        let body = app.shellTab("Body")
+        XCTAssertTrue(body.waitForExistence(timeout: 30), "The Body tab should be present.")
+        body.tap()
     }
 
     // MARK: More
@@ -67,14 +70,15 @@ final class ScreenCleanupUITests: XCTestCase {
     /// (More row, the screen container it opens). The container id is `screen-` plus the destination's raw value. With the unified bar
     /// Trends, Explore, Compare and the Lab Book are chips of Insights or of Body; Insights and Sleep are items of the bar and Body is a row here.
     private static let moreRows: [(row: String, screen: String)] = [
-        ("body", "body"), ("liftlog", "liftLog"), ("health", "health"), ("stress", "stress"),
-        ("rhythm", "rhythm"), ("alarms", "alarms"), ("data", "data"), ("settings", "settings"),
+        ("athlete", "athlete"), ("rhythm", "rhythm"), ("alarms", "alarms"), ("data", "data"), ("settings", "settings"),
     ]
+    /// Every row at the end of Body: the five above open a `MoreDestination` screen, the other three a `TabRoute` screen.
+    private static let allBodyRows = ["athlete", "liftlog", "health", "stress", "rhythm", "alarms", "data", "settings"]
 
     func testMoreListsAtMostTwelveRowsAndNothingIsCollapsed() throws {
         let app = try launch()
         openMore(app)
-        XCTAssertTrue(element(app, "more-row-body").waitForExistence(timeout: 20), "More should list its rows.")
+        XCTAssertTrue(element(app, "more-row-athlete").waitForExistence(timeout: 20), "More should list its rows.")
         var found = Set<String>()
         for _ in 0..<4 {
             let rows = app.descendants(matching: .any).matching(NSPredicate(format: "identifier BEGINSWITH %@", "more-row-"))
@@ -83,7 +87,7 @@ final class ScreenCleanupUITests: XCTestCase {
         }
         attach(app, "Cleanup 01 More")
         XCTAssertLessThanOrEqual(found.count, 12, "More should list 12 rows or fewer, found \(found.sorted()).")
-        XCTAssertEqual(found, Set(Self.moreRows.map { "more-row-\($0.row)" }), "More should list exactly the eight rows.")
+        XCTAssertEqual(found, Set(Self.allBodyRows.map { "more-row-\($0)" }), "More should list exactly the eight rows.")
         alive(app, "listing More")
     }
 
@@ -104,32 +108,17 @@ final class ScreenCleanupUITests: XCTestCase {
 
     // MARK: Tabs
 
-    func testEveryTabAndTheCoachButtonOpenOnOneTap() throws {
+    func testEveryTabOpensOnOneTap() throws {
         let app = try launch(fixture: true)
         let today = app.shellTab("Today")
         XCTAssertTrue(today.waitForExistence(timeout: 30), "The Today tab should be present.")
         XCTAssertTrue(element(app, "today-settings").waitForExistence(timeout: 20), "Today should open its top bar.")
 
-        app.shellTab("My Day").tap()
-        XCTAssertTrue(element(app, "myday-strip").waitForExistence(timeout: 30), "My Day should open on one tap.")
-        alive(app, "opening My Day")
-        app.shellTab("Plan").tap()
-        XCTAssertTrue(element(app, "calendar-host").waitForExistence(timeout: 30), "Plan should open on one tap.")
-        alive(app, "opening Plan")
-        app.shellTab("Athlete").tap()
-        XCTAssertTrue(element(app, "athlete-host").waitForExistence(timeout: 30), "Athlete should open on one tap.")
-        alive(app, "opening Athlete")
-        openInsights(app)
-        alive(app, "opening Insights")
-        openMore(app)
-        XCTAssertTrue(element(app, "more-row-body").waitForExistence(timeout: 20), "More should open on one tap.")
-
-        let coach = element(app, "look-coach")
-        XCTAssertTrue(coach.exists, "The centre button should be NOOP Coach.")
-        XCTAssertEqual(coach.label, "NOOP Coach", "The Coach button is the single Coach entry point.")
-        coach.tap()
-        XCTAssertTrue(app.buttons["Done"].waitForExistence(timeout: 20), "The Coach button should open Coach in one tap.")
-        alive(app, "opening Coach")
+        for (tab, host) in [("Plan", "calendar-host"), ("Coach", "coach-host"), ("Reports", "reports-host"), ("Body", "body-host")] {
+            app.shellTab(tab).tap()
+            XCTAssertTrue(element(app, host).waitForExistence(timeout: 30), "\(tab) should open on one tap.")
+            alive(app, "opening \(tab)")
+        }
     }
 
     // MARK: Insights

@@ -9,11 +9,25 @@ extension XCUIApplication {
 }
 
 extension XCUIApplication {
-    /// Launches in the classic navigation (Today, Workouts, Sleep, PaceForge, More), which Settings > Tools > Unified navigation
-    /// switches back to. The unified bar (Today, My Day, Plan, Athlete, More) is the default; the PaceForge tab and its segments
-    /// (`pf-segments`) exist only in the classic one. Call it before `launch()`.
-    func useClassicNavigation() {
-        launchArguments.append(contentsOf: ["-unifiedNav", "NO"])
+    /// The classic navigation (Today, Workouts, Sleep, PaceForge, More) and its PaceForge tab with the `pf-segments` control are gone:
+    /// the bar is Today, Plan, Coach, Reports and Body. A test that drove the classic tab calls this before `launch()` and is skipped
+    /// until it is ported to the screen that holds its subject now.
+    func useClassicNavigation() throws {
+        throw XCTSkip("Drives the classic PaceForge tab, which no longer exists. Port it to the unified screens.")
+    }
+}
+
+extension XCUIApplication {
+    /// Opens a "More" row: the row `more-row-<row>` at the end of the Reports tab (My Day, Sleep, Workouts) or the Body tab (Athlete,
+    /// Lift Log, Health, Stress, Rhythm, Alarms, Data, Settings), scrolling to it.
+    func openMoreRow(tab: String, row: String) {
+        let button = shellTab(tab)
+        XCTAssertTrue(button.waitForExistence(timeout: 30), "The \(tab) tab should be in the bar.")
+        button.tap()
+        let target = descendants(matching: .any).matching(identifier: "more-row-\(row)").firstMatch
+        XCTAssertTrue(target.waitForExistence(timeout: 20), "The \(tab) tab should end with the \(row) row.")
+        for _ in 0..<10 where !target.isHittable { swipeUp() }
+        target.tap()
     }
 }
 

@@ -9,7 +9,7 @@ import XCTest
 final class DailyIntelUITests: XCTestCase {
     private func launch(screen: String? = nil, appearance: String = "dark", extra: [String] = [], classic: Bool = false) throws -> XCUIApplication {
         let app = XCUIApplication()
-        if classic { app.useClassicNavigation() }
+        if classic { try app.useClassicNavigation() }
         app.launchArguments.append("--demo-seed")
         if let screen { app.launchArguments.append(contentsOf: ["--demo-screen", screen]) }
         app.launchArguments.append(contentsOf: ["-theme.appearance", appearance])
@@ -174,9 +174,7 @@ final class DailyIntelUITests: XCTestCase {
     func testTonightsSleepCardLeadsTheSleepScreen() throws {
         let app = try launch()
         XCTAssertFalse(element(app, "sleep-planner-entry").exists, "Today no longer shows Tonight's sleep.")
-        let sleep = app.shellTab("Sleep")
-        XCTAssertTrue(sleep.waitForExistence(timeout: 20), "The bar should have a Sleep item.")
-        sleep.tap()
+        app.openMoreRow(tab: "Reports", row: "sleep")
         let entry = element(app, "sleep-planner-entry")
         XCTAssertTrue(reveal(entry, in: app), "The Sleep screen should show Tonight's sleep.")
         attach(app, "Intel 43 Sleep, Tonight's sleep")
@@ -210,10 +208,10 @@ final class DailyIntelUITests: XCTestCase {
 
     // MARK: Day in review
 
-    /// Opens the Coach sheet from the floating N button (`look-coach`), where Day in review lives.
+    /// Opens the Coach tab.
     private func openCoach(_ app: XCUIApplication) {
-        let coach = element(app, "look-coach")
-        XCTAssertTrue(coach.waitForExistence(timeout: 20), "The Coach button should be on screen.")
+        let coach = app.shellTab("Coach")
+        XCTAssertTrue(coach.waitForExistence(timeout: 20), "The Coach tab should be in the bar.")
         coach.tap()
     }
 

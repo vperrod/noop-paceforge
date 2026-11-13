@@ -8,7 +8,7 @@ final class MyDayUITests: XCTestCase {
 
     private func launch(day variant: String? = nil, paceForge: Bool = false, widgetGallery: Bool = false, classic: Bool = false) throws -> XCUIApplication {
         let app = XCUIApplication()
-        if classic { app.useClassicNavigation() }
+        if classic { try app.useClassicNavigation() }
         app.launchArguments.append("--demo-seed")
         if let variant { app.launchArguments += ["-MyDayFixture", variant] }
         if paceForge {
@@ -43,11 +43,9 @@ final class MyDayUITests: XCTestCase {
         app.staticTexts.matching(NSPredicate(format: "label CONTAINS[c] %@", text)).firstMatch
     }
 
-    /// The My Day tab in the bottom bar.
+    /// My Day, the first row of More at the end of Reports.
     private func openMyDay(_ app: XCUIApplication) {
-        let tab = app.shellTab("My Day")
-        XCTAssertTrue(tab.waitForExistence(timeout: 30), "The bar should have a My Day tab.")
-        tab.tap()
+        app.openMoreRow(tab: "Reports", row: "myday")
         XCTAssertTrue(element(app, "myday-strip").waitForExistence(timeout: 20), "My Day should draw its 24 h strip.")
     }
 
