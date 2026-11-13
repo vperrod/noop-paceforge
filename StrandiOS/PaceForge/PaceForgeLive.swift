@@ -29,15 +29,6 @@ enum PFAPI {
     /// test asks to start from saved state (`PFSavedStateSeed`).
     static var usesPhoneState: Bool { !isFixture || PFSavedStateSeed.isRequested }
 
-    /// DEBUG UI-test switch that shows the widget gallery in place of the PaceForge screens.
-    static var showsWidgetGallery: Bool {
-        #if DEBUG
-        return isFixture && ProcessInfo.processInfo.arguments.contains("-PaceForgeWidgetGallery")
-        #else
-        return false
-        #endif
-    }
-
     /// The phone's today, or the fixed day a UI-test fixture is written for.
     static var todayISO: String {
         #if DEBUG

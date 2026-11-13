@@ -7,52 +7,45 @@ import Foundation
 // order, then any card the layout does not name in its default place. Foundation only, so it is compiled into the
 // macOS unit-test bundle.
 
-/// The Today cards and their layout ids. Where the web page has the same card the id is the web's (`daily`, `feel`,
-/// `easy`, `race-week`, `brief`, `session`), so one saved order means the same thing in both. The rest are the
-/// app's own cards and use their own ids; the web layout does not name them, so they sit in their default place.
+/// The six cards of the unified Today's PaceForge section, in the order they are drawn: the call, what needs him, today or the next
+/// race, how he is, how he feels and the week. The order is fixed (the server's saved `today-layout.json` is still read and kept for
+/// the web page, but no longer arranges these). The raw value is the card's id in `accessibilityIdentifier`
+/// (`pf-today-card-<id>`) and in "Not today".
 enum PFTodayCard: String, CaseIterable, Equatable {
-    /// The daily loop's two cards (daily-intel.json): the day's verdict at the top, the evening wrap just under it.
-    case todaysCall = "todays-call"
-    case dayInReview = "day-in-review"
-    case todaySoFar = "today-so-far"
-    /// The week's plan progress (my-plan.json): the same card NOOP Today carries.
-    case myPlan = "my-plan"
-    case raceWeek = "race-week"
-    case brief
-    case nextBestAction = "next-best-action"
-    case easy
+    case theCall = "the-call"
+    case needsYou = "needs-you"
+    case today
+    case howYouAre = "how-you-are"
     case feel
-    case alerts
-    case daily
-    case whatChanged = "what-changed"
-    case readiness
-    case standing
-    case session
-    case nextRace = "next-race"
+    case thisWeek = "this-week"
 
     var title: String {
         switch self {
-        case .todaysCall: return "Today's call"
-        case .dayInReview: return "Day in review"
-        case .todaySoFar: return "Today so far"
-        case .myPlan: return "My Plan"
-        case .raceWeek: return "Race week"
-        case .brief: return "Daily briefing"
-        case .nextBestAction: return "Next best action"
-        case .easy: return "Easy mode"
+        case .theCall: return "The call"
+        case .needsYou: return "Needs you"
+        case .today: return "Today"
+        case .howYouAre: return "How you are"
         case .feel: return "How do you feel?"
-        case .alerts: return "Alerts"
-        case .daily: return "Today's scores"
-        case .whatChanged: return "What changed"
-        case .readiness: return "Readiness"
-        case .standing: return "Where you stand"
-        case .session: return "Today's sessions"
-        case .nextRace: return "Next race"
+        case .thisWeek: return "This week"
         }
     }
 
-    /// The order the app has always drawn them in, before any layout is applied.
-    static let defaultOrder: [PFTodayCard] = allCases
+    var identifier: String { "pf-today-card-" + rawValue }
+
+    /// The cards that have something to show, in the fixed order. `needsYou` is the live count of open items, `hasFeel` whether the
+    /// server serves the feel summary. Today and the week strip always draw (a rest day says so); the rest are left out when empty.
+    static func present(call: PFTodayCall, needsYou: Int, hasFeel: Bool) -> [PFTodayCard] {
+        allCases.filter { card in
+            switch card {
+            case .theCall: return call.call != nil
+            case .needsYou: return needsYou > 0
+            case .today: return true
+            case .howYouAre: return call.hasReadiness
+            case .feel: return hasFeel
+            case .thisWeek: return !call.week.isEmpty
+            }
+        }
+    }
 }
 
 struct PFTodayLayout: Codable, Equatable {

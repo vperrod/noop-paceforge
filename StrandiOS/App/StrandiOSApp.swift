@@ -651,8 +651,6 @@ enum DemoScreens {
         switch args[i + 1].lowercased() {
         // The iPhone has one Today (the classic layout is gone from iOS), so both names render it.
         case "today", "liquidtoday": return AnyView(LiquidTodayView())
-        // Every component of the dark look with made-up numbers, one section each (LookComponentsUITests).
-        case "looklab":  return AnyView(LookGalleryScreen())
         // The Charge / Effort / Rest detail screens and the sleep planner in the look (LookScreensUITests).
         case "lookcharge": return MetricCatalog.metric(key: "recovery", source: "my-whoop").map { AnyView(MetricDetailView(metric: $0)) }
         case "lookeffort": return MetricCatalog.metric(key: "strain", source: "my-whoop").map { AnyView(MetricDetailView(metric: $0)) }

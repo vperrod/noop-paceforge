@@ -126,10 +126,6 @@ final class PaceForgeTodayLayoutTests: XCTestCase {
 
     // MARK: The cards
 
-    func testTheAppsCardsUseTheWebPagesIdsWhereTheWebHasTheSameCard() {
-        let webIds: Set<String> = ["daily", "feel", "easy", "race-week", "brief", "session"]
-        XCTAssertTrue(webIds.isSubset(of: Set(PFTodayCard.allCases.map { $0.rawValue })))
-    }
     func testTodaysCallHasItsOwnLayoutIdSoItCanBePinnedAndMoved() {
         let ids = ["todays-call", "today-so-far", "brief"]
         let moved = PFTodayOrder.moving("todays-call", step: 1, ids: ids, visible: Set(ids), layout: PFTodayLayout())
@@ -138,10 +134,8 @@ final class PaceForgeTodayLayoutTests: XCTestCase {
     func testNoTwoCardsShareAnId() {
         XCTAssertEqual(Set(PFTodayCard.allCases.map { $0.rawValue }).count, PFTodayCard.allCases.count)
     }
-    func testTheDefaultOrderIsTheOneTheScreenHadWithTodaysCallOnTopAndNextBestActionAfterTheBrief() {
-        XCTAssertEqual(PFTodayCard.defaultOrder.map { $0.rawValue },
-                       ["todays-call", "day-in-review", "today-so-far", "my-plan", "race-week", "brief", "next-best-action", "easy", "feel", "alerts", "daily",
-                        "what-changed", "readiness", "standing", "session", "next-race"])
+    func testTheSixCardsAreInTheFixedOrderOfTheUnifiedToday() {
+        XCTAssertEqual(PFTodayCard.allCases.map { $0.rawValue }, ["the-call", "needs-you", "today", "how-you-are", "feel", "this-week"])
     }
     func testAWebLayoutOrdersTheCardsItNamesAndLeavesTheAppsOwnWhereTheyWere() {
         let present = ["today-so-far", "brief", "feel", "daily", "session"]

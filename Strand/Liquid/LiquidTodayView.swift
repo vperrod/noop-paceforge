@@ -111,6 +111,8 @@ struct LiquidTodayView: View {
     @State private var showSettings = false
     /// The sheet behind the Needs you row (the whole card with its answers); a tapped Needs you notification opens it too.
     @State private var showNeedsYouSheet = false
+    /// "More from the strap": the native blocks under PaceForge's six cards, folded until opened.
+    @State private var showsStrapBlocks = false
     /// Set by a tapped Needs you notification until the sheet has opened (or a minute has passed): on a cold launch the snapshot with
     /// the items arrives after the tap, and another sheet may be up.
     @State private var pendingNeedsYouUntil: Date?
@@ -427,98 +429,30 @@ struct LiquidTodayView: View {
                     // nothing and keeps its slot in the saved order.
                     let order = sectionOrder
                     #if os(iOS)
-                    // The six-ring row leads Today, above Today's call and whatever else the saved order puts first. It is the row the
-                    // sticky mini dials measure, so it stays one view in the scroll column; the Arrange sheet still hides it with the
-                    // "Charge / Effort / Rest" section.
-                    // Anything PaceForge is waiting on him for leads everything, until he answers it: one 44 pt row that opens a sheet with
-                    // the whole card. Then the open live alerts (stress, heart rate at rest, Body Battery). One `if`, so the column gains no
-                    // children; each draws nothing when it has nothing to show. PaceForge's one paragraph about the day's metrics is a
-                    // one-line row further down (the Today's call section).
-                    if selectedDayOffset == 0 {
-                        PFTodayNeedsYouHost(onOpen: { showNeedsYouSheet = true }, onReadWhy: { router.openCoach() })
-                        PFTodayLiveAlertsHost()
-                    }
-                    if order.contains(.hero) { heroCard }
-                    // Garmin and WHOOP side by side with the coach's decision; draws nothing until the server serves it.
-                    if selectedDayOffset == 0 { PFDualReadinessHost() }
-                    #endif
-                    ForEach(order.prefix(Self.mountedSectionCount(order, stage: mountStage))) { section in
-                        switch section {
-                        // PaceForge's text, kept short: the assessment as one line, the two body-signal bars (their sentences behind an
-                        // (i)) and Today's call as a chip, the Effort target and the planned session (the rest behind "Why"). Today
-                        // only; each draws nothing, or says so itself, when it has nothing. The Expert reading, the Day in review, the
-                        // call's narrative and the verdict lines are in the Coach.
-                        case .todaysCall:
-                            #if os(iOS)
-                            if selectedDayOffset == 0 {
-                                PFPageNote(key: "today")
-                                TodayPFReadout(isToday: true)
-                                PFTodaysCallStoreHost(compact: true)
-                                PFDailyReportRow()
-                            }
-                            #else
-                            EmptyView()
-                            #endif
-                        // The evening wrap moved to the Coach; the case stays for the saved-layout format.
-                        case .dayInReview:
-                            EmptyView()
-                        // This week's plan progress and the user's own metrics. Today only; each draws nothing when it has nothing to say.
-                        case .myPlan:
-                            #if os(iOS)
-                            if selectedDayOffset == 0 { PFMyPlanStoreHost(showsAdjust: true) }
-                            #else
-                            EmptyView()
-                            #endif
-                        case .myDashboard:
-                            #if os(iOS)
-                            LookMyDashboardSection(day: selectedLogicalDay)
-                            #else
-                            EmptyView()
-                            #endif
-                        case .hero:
-                            #if os(macOS)
-                            heroCard
-                            #endif
-                            // Mounted in steps after the dials (see `mountStage`).
-                            if mountStage >= 1 {
-                                #if os(iOS)
-                                // The dark look: monitor tiles under the dials (the Heart rate chart follows, then My Day).
-                                lookMonitorRow
-                                if chargeLegacyRRGap { ChargeLegacyRRGapNote() }
-                                #else
-                                if chargeLegacyRRGap { ChargeLegacyRRGapNote() }
-                                #endif
-                            }
-                        // The cards that went with My Day in the hero section. My Day itself is a tab on iPhone and Tonight's sleep leads
-                        // the Sleep screen; the Effort target and the Weekly goals stay here.
-                        case .myDay:
-                            if mountStage >= 2 {
-                                #if os(iOS)
-                                if selectedDayOffset == 0 { EffortTargetCard(); WeeklyGoalsCard() }
-                                #else
-                                if selectedDayOffset == 0 { MyDayEntryCard(); EffortTargetCard(); SleepPlannerEntryCard(); WeeklyGoalsCard() }
-                                #endif
-                            }
-                        case .liveSession: if liveSessionsBeta { liveSessionStartRow }
-                        case .synthesis: synthesisSection
-                        case .keyMetrics: keyMetricsSection
-                        case .workouts: lastWorkoutsSection
-                        case .heartRate: heartRateSection
-                        case .recoveryVitals: recoveryVitalsSection
-                        case .yourCards: yourCardsSection
-                        case .menstrualCycle:
-                            if selectedDayOffset == 0 { MenstrualCycleHomeCard() }
-                        // #656: the persistent journal widget (last-7-days strip + tap-through). Now a
-                        // reorderable section like the others — the Arrange sheet moves it. Today only;
-                        // the card self-hides when the reminder toggle is off (an empty branch renders
-                        // nothing yet keeps its slot). Twin of Android TodayScreen's JOURNAL arm.
-                        case .journal: if selectedDayOffset == 0 { JournalReminderCard() }
-                        // #today-hosted-cards: cards the user pulled in from the Trends/Sleep tabs, in the
-                        // order they arranged. Empty (renders nothing) until they add one in Customise.
-                        // Today-only, matching Android's addedCards section gate + the classic TodayView.
-                        case .addedCards: if selectedDayOffset == 0 { hostedCardsSection }
+                    // PaceForge's six cards lead Today (the call, needs you, today or the next race, how you are, feel, this week);
+                    // the strap's own blocks (rings, heart rate, key metrics and the rest of the saved order) sit below them, folded.
+                    // Without PaceForge set up, or on an earlier day, the blocks are shown as before.
+                    if PFAPI.isConfigured && selectedDayOffset == 0 {
+                        PFTodayCards(onOpenNeedsYou: { showNeedsYouSheet = true }, onReadWhy: { router.openCoach() })
+                        Divider().overlay(StrandPalette.hairline)
+                        DisclosureGroup(isExpanded: $showsStrapBlocks) {
+                            VStack(alignment: .leading, spacing: 12) { strapBlocks(order) }
+                                .padding(.top, 12)
+                        } label: {
+                            Text("More from the strap")
+                                .font(StrandFont.headline)
+                                .foregroundStyle(StrandPalette.textPrimary)
                         }
+                        .tint(StrandPalette.accent)
+                        .accessibilityIdentifier("today-strap-disclosure")
+                        // The rings are not in the tree while it is folded, so nothing would clear the sticky strip they drive.
+                        .onChangeCompat(of: showsStrapBlocks) { open in if !open { showsStickyDials = false } }
+                    } else {
+                        strapBlocks(order)
                     }
+                    #else
+                    strapBlocks(order)
+                    #endif
                     // Opt-in "looks like a workout?" suggestion, dropped in the liquid Home rewrite. Its
                     // Settings toggle (PuffinExperiment.autoDetectWorkoutsKey) had no visible effect on the
                     // DEFAULT screen: the card's only mount was classic TodayView, so a user could switch
@@ -1020,7 +954,7 @@ struct LiquidTodayView: View {
         let isWhoopScale = effortScale == .whoop
         let inputs = [
             SixRingNoopInput(name: String(localized: "Rest"), score: restScore, maxValue: 100, decimals: 0, tint: NoopLook.rest,
-                             unit: "%", target: nil, route: UnifiedNav.isOn ? TabRoute.sleep : TabRoute.metric(HeroRingMetric.rest), onGuide: { guideSection = .rest }),
+                             unit: "%", target: nil, route: TabRoute.sleep, onGuide: { guideSection = .rest }),
             SixRingNoopInput(name: String(localized: "Charge"), score: chargeDisplay.pct, maxValue: 100, decimals: 0,
                              tint: chargeColor, unit: "%", target: nil, route: .metric(HeroRingMetric.charge),
                              onGuide: { guideSection = .charge }),
@@ -2066,6 +2000,82 @@ struct LiquidTodayView: View {
             .padding(16)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(NoopPanelSurface(cornerRadius: 22, surfaceOpacity: cardOpacity))
+    }
+
+    /// The strap's own blocks: the six rings first on iPhone, then every section of the saved order.
+    @ViewBuilder private func strapBlocks(_ order: [TodaySection]) -> some View {
+        #if os(iOS)
+        if order.contains(.hero) { heroCard }
+        #endif
+                    ForEach(order.prefix(Self.mountedSectionCount(order, stage: mountStage))) { section in
+                        switch section {
+                        // PaceForge's text, kept short: the assessment as one line, the two body-signal bars (their sentences behind an
+                        // (i)) and Today's call as a chip, the Effort target and the planned session (the rest behind "Why"). Today
+                        // only; each draws nothing, or says so itself, when it has nothing. The Expert reading, the Day in review, the
+                        // call's narrative and the verdict lines are in the Coach.
+                        // PaceForge's call is the first of the six cards above the fold (PFTodayCards); this slot stays for the saved-layout format.
+                        case .todaysCall:
+                            EmptyView()
+                        // The evening wrap moved to the Coach; the case stays for the saved-layout format.
+                        case .dayInReview:
+                            EmptyView()
+                        // This week's plan progress and the user's own metrics. Today only; each draws nothing when it has nothing to say.
+                        case .myPlan:
+                            #if os(iOS)
+                            if selectedDayOffset == 0 { PFMyPlanStoreHost(showsAdjust: true) }
+                            #else
+                            EmptyView()
+                            #endif
+                        case .myDashboard:
+                            #if os(iOS)
+                            LookMyDashboardSection(day: selectedLogicalDay)
+                            #else
+                            EmptyView()
+                            #endif
+                        case .hero:
+                            #if os(macOS)
+                            heroCard
+                            #endif
+                            // Mounted in steps after the dials (see `mountStage`).
+                            if mountStage >= 1 {
+                                #if os(iOS)
+                                // The dark look: monitor tiles under the dials (the Heart rate chart follows, then My Day).
+                                lookMonitorRow
+                                if chargeLegacyRRGap { ChargeLegacyRRGapNote() }
+                                #else
+                                if chargeLegacyRRGap { ChargeLegacyRRGapNote() }
+                                #endif
+                            }
+                        // The cards that went with My Day in the hero section. My Day itself is a tab on iPhone and Tonight's sleep leads
+                        // the Sleep screen; the Effort target and the Weekly goals stay here.
+                        case .myDay:
+                            if mountStage >= 2 {
+                                #if os(iOS)
+                                if selectedDayOffset == 0 { EffortTargetCard(); WeeklyGoalsCard() }
+                                #else
+                                if selectedDayOffset == 0 { MyDayEntryCard(); EffortTargetCard(); SleepPlannerEntryCard(); WeeklyGoalsCard() }
+                                #endif
+                            }
+                        case .liveSession: if liveSessionsBeta { liveSessionStartRow }
+                        case .synthesis: synthesisSection
+                        case .keyMetrics: keyMetricsSection
+                        case .workouts: lastWorkoutsSection
+                        case .heartRate: heartRateSection
+                        case .recoveryVitals: recoveryVitalsSection
+                        case .yourCards: yourCardsSection
+                        case .menstrualCycle:
+                            if selectedDayOffset == 0 { MenstrualCycleHomeCard() }
+                        // #656: the persistent journal widget (last-7-days strip + tap-through). Now a
+                        // reorderable section like the others — the Arrange sheet moves it. Today only;
+                        // the card self-hides when the reminder toggle is off (an empty branch renders
+                        // nothing yet keeps its slot). Twin of Android TodayScreen's JOURNAL arm.
+                        case .journal: if selectedDayOffset == 0 { JournalReminderCard() }
+                        // #today-hosted-cards: cards the user pulled in from the Trends/Sleep tabs, in the
+                        // order they arranged. Empty (renders nothing) until they add one in Customise.
+                        // Today-only, matching Android's addedCards section gate + the classic TodayView.
+                        case .addedCards: if selectedDayOffset == 0 { hostedCardsSection }
+                        }
+                    }
     }
 
     // MARK: - Staged mount

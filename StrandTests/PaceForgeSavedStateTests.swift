@@ -72,6 +72,11 @@ final class PaceForgeSavedStateTests: XCTestCase {
 
     // MARK: PaceForge Today arrangement kept on the phone
 
+    /// The card ids the arrangement kept on the phone may name: the sixteen cards of the retired classic Today. The six cards of the
+    /// unified Today have fixed ids (`PFTodayCard`), but a saved arrangement from an earlier build must still decode and order.
+    private static let legacyCardIDs = ["todays-call", "day-in-review", "today-so-far", "my-plan", "race-week", "brief", "next-best-action",
+                                        "easy", "feel", "alerts", "daily", "what-changed", "readiness", "standing", "session", "next-race"]
+
     func testBuild464ArrangementDecodes() throws {
         let defaults = try suite()
         defaults.set(data(pfLayout464), forKey: PFTodayLayoutStorage.defaultsKey)
@@ -82,7 +87,7 @@ final class PaceForgeSavedStateTests: XCTestCase {
         let defaults = try suite()
         defaults.set(data(pfLayout464), forKey: PFTodayLayoutStorage.defaultsKey)
         let layout = try XCTUnwrap(PFTodayLayoutStorage.load(defaults: defaults))
-        let ids = PFTodayCard.defaultOrder.map(\.rawValue)
+        let ids = Self.legacyCardIDs
         let sorted = PFTodayOrder.sorted(ids, layout: layout)
         XCTAssertEqual(sorted.sorted(), ids.sorted())
     }
@@ -91,7 +96,7 @@ final class PaceForgeSavedStateTests: XCTestCase {
         let defaults = try suite()
         defaults.set(data(pfLayout464), forKey: PFTodayLayoutStorage.defaultsKey)
         let layout = try XCTUnwrap(PFTodayLayoutStorage.load(defaults: defaults))
-        let sorted = PFTodayOrder.sorted(PFTodayCard.defaultOrder.map(\.rawValue), layout: layout)
+        let sorted = PFTodayOrder.sorted(Self.legacyCardIDs, layout: layout)
         XCTAssertEqual(Array(sorted.prefix(2)), ["brief", "alerts"])
     }
 
@@ -99,7 +104,7 @@ final class PaceForgeSavedStateTests: XCTestCase {
         let defaults = try suite()
         defaults.set(data(pfLayout464), forKey: PFTodayLayoutStorage.defaultsKey)
         let layout = try XCTUnwrap(PFTodayLayoutStorage.load(defaults: defaults))
-        let sorted = PFTodayOrder.sorted(PFTodayCard.defaultOrder.map(\.rawValue), layout: layout)
+        let sorted = PFTodayOrder.sorted(Self.legacyCardIDs, layout: layout)
         XCTAssertEqual(Array(sorted.suffix(3)), ["todays-call", "day-in-review", "my-plan"])
     }
 
@@ -107,7 +112,7 @@ final class PaceForgeSavedStateTests: XCTestCase {
         let defaults = try suite()
         defaults.set(data(pfLayout464), forKey: PFTodayLayoutStorage.defaultsKey)
         let layout = try XCTUnwrap(PFTodayLayoutStorage.load(defaults: defaults))
-        let ids = PFTodayCard.defaultOrder.map(\.rawValue)
+        let ids = Self.legacyCardIDs
         let moved = PFTodayOrder.moving("my-plan", step: -1, ids: ids, visible: Set(ids), layout: layout)
         XCTAssertEqual(PFTodayOrder.sorted(ids, layout: moved).sorted(), ids.sorted())
     }
@@ -130,13 +135,13 @@ final class PaceForgeSavedStateTests: XCTestCase {
     func testAnArrangementWithRepeatsAndUnknownIdsStillOrdersEveryCardOnce() {
         let layout = PFTodayLayout(order: ["brief", "brief", "ghost", "", "todays-call", "brief"],
                                    pinned: ["ghost", "ghost", "alerts", "alerts"])
-        let ids = PFTodayCard.defaultOrder.map(\.rawValue)
+        let ids = Self.legacyCardIDs
         XCTAssertEqual(PFTodayOrder.sorted(ids, layout: layout).sorted(), ids.sorted())
     }
 
     func testAHugeArrangementOrdersWithoutTrapping() {
-        let order = (0..<20_000).map { "card-\($0)" } + PFTodayCard.defaultOrder.map(\.rawValue)
-        let ids = PFTodayCard.defaultOrder.map(\.rawValue)
+        let order = (0..<20_000).map { "card-\($0)" } + Self.legacyCardIDs
+        let ids = Self.legacyCardIDs
         XCTAssertEqual(PFTodayOrder.sorted(ids, layout: PFTodayLayout(order: order, pinned: [])).count, ids.count)
     }
 

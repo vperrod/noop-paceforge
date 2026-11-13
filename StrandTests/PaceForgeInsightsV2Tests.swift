@@ -617,9 +617,6 @@ final class PaceForgeInsightsV2Tests: XCTestCase {
 
     // MARK: Today: layout, hide, hide numbers
 
-    func testTheNextBestActionCardHasItsOwnLayoutId() {
-        XCTAssertEqual(PFTodayCard.nextBestAction.rawValue, "next-best-action")
-    }
     func testTheNextBestActionCardCanBePinnedToTheTop() {
         let layout = PFTodayOrder.togglingPin("next-best-action", layout: PFTodayLayout())
         XCTAssertEqual(PFTodayOrder.sorted(["today-so-far", "brief", "next-best-action", "feel"], layout: layout).first, "next-best-action")
@@ -628,10 +625,6 @@ final class PaceForgeInsightsV2Tests: XCTestCase {
         let ids = ["today-so-far", "brief", "next-best-action", "feel"]
         let moved = PFTodayOrder.moving("next-best-action", step: -1, ids: ids, visible: Set(ids), layout: PFTodayLayout())
         XCTAssertEqual(PFTodayOrder.sorted(ids, layout: moved), ["today-so-far", "next-best-action", "brief", "feel"])
-    }
-    func testTheNextBestActionCardSitsAfterTheBriefByDefault() {
-        let ids = PFTodayCard.defaultOrder.map { $0.rawValue }
-        XCTAssertEqual(ids.firstIndex(of: "next-best-action"), (ids.firstIndex(of: "brief") ?? -2) + 1)
     }
     func testHidingTheCardKeepsItHiddenWhileTheAdviceIsTheSame() throws {
         let card = try XCTUnwrap(try doc().todayCard)
