@@ -70,9 +70,11 @@ final class UnifiedNavUITests: XCTestCase {
         XCTAssertEqual(ys, ys.sorted(), "The cards should run in the order \(shown.joined(separator: ", ")).")
     }
 
-    func testTheStrapBlocksAreFoldedUnderTheCards() throws {
+    func testTheRingsLeadTodayAboveTheCards() throws {
         let app = try launch()
-        XCTAssertTrue(element(app, "today-strap-disclosure").waitForExistence(timeout: 30), "More from the strap is one folded row.")
+        let rings = element(app, "today-six-rings")
+        XCTAssertTrue(rings.waitForExistence(timeout: 30), "The rings lead Today.")
+        XCTAssertLessThan(rings.frame.minY, element(app, "pf-today-card-today").frame.minY, "The rings sit above the cards.")
     }
 
     // MARK: Plan

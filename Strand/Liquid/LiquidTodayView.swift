@@ -111,8 +111,6 @@ struct LiquidTodayView: View {
     @State private var showSettings = false
     /// The sheet behind the Needs you row (the whole card with its answers); a tapped Needs you notification opens it too.
     @State private var showNeedsYouSheet = false
-    /// "More from the strap": the native blocks under PaceForge's six cards, folded until opened.
-    @State private var showsStrapBlocks = true
     /// Set by a tapped Needs you notification until the sheet has opened (or a minute has passed): on a cold launch the snapshot with
     /// the items arrives after the tap, and another sheet may be up.
     @State private var pendingNeedsYouUntil: Date?
@@ -429,24 +427,14 @@ struct LiquidTodayView: View {
                     // nothing and keeps its slot in the saved order.
                     let order = sectionOrder
                     #if os(iOS)
-                    // PaceForge's six cards lead Today (the call, needs you, today or the next race, how you are, feel, this week);
-                    // the strap's own blocks (rings, heart rate, key metrics and the rest of the saved order) sit below them, folded.
-                    // Without PaceForge set up, or on an earlier day, the blocks are shown as before.
+                    // The rings lead Today, then PaceForge's six cards (the call, needs you, today or the next race, how you are, feel,
+                    // this week), then the strap's own blocks (monitor tiles, heart rate, key metrics and the rest of the saved order),
+                    // all open. Without PaceForge set up, or on an earlier day, the blocks are shown as before.
                     if PFAPI.isConfigured && selectedDayOffset == 0 {
+                        if order.contains(.hero) { heroCard }
                         PFTodayCards(onOpenNeedsYou: { showNeedsYouSheet = true }, onReadWhy: { router.openCoach() })
                         Divider().overlay(StrandPalette.hairline)
-                        DisclosureGroup(isExpanded: $showsStrapBlocks) {
-                            VStack(alignment: .leading, spacing: 12) { strapBlocks(order) }
-                                .padding(.top, 12)
-                        } label: {
-                            Text("More from the strap")
-                                .font(StrandFont.headline)
-                                .foregroundStyle(StrandPalette.textPrimary)
-                        }
-                        .tint(StrandPalette.accent)
-                        .accessibilityIdentifier("today-strap-disclosure")
-                        // The rings are not in the tree while it is folded, so nothing would clear the sticky strip they drive.
-                        .onChangeCompat(of: showsStrapBlocks) { open in if !open { showsStickyDials = false } }
+                        strapBlocks(order, withHero: false)
                     } else {
                         strapBlocks(order)
                     }
@@ -2003,9 +1991,9 @@ struct LiquidTodayView: View {
     }
 
     /// The strap's own blocks: the six rings first on iPhone, then every section of the saved order.
-    @ViewBuilder private func strapBlocks(_ order: [TodaySection]) -> some View {
+    @ViewBuilder private func strapBlocks(_ order: [TodaySection], withHero: Bool = true) -> some View {
         #if os(iOS)
-        if order.contains(.hero) { heroCard }
+        if withHero && order.contains(.hero) { heroCard }
         #endif
                     ForEach(order.prefix(Self.mountedSectionCount(order, stage: mountStage))) { section in
                         switch section {
