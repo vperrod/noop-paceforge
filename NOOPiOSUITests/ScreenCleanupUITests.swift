@@ -127,7 +127,7 @@ final class ScreenCleanupUITests: XCTestCase {
         let app = try launch(fixture: true)
         openInsights(app)
         XCTAssertTrue(element(app, "insights-chip-content-overview").waitForExistence(timeout: 30), "Insights opens on Overview.")
-        for chip in ["trends", "reports", "journal", "deepDives"] {
+        for chip in ["trends", "journal", "deepDives"] {
             let button = element(app, "insights-chip-\(chip)")
             XCTAssertTrue(button.waitForExistence(timeout: 10), "Insights should have the \(chip) chip.")
             button.tap()
@@ -135,7 +135,7 @@ final class ScreenCleanupUITests: XCTestCase {
             alive(app, "choosing the \(chip) chip")
             attach(app, "Cleanup 3 Insights \(chip)")
         }
-        element(app, "insights-chip-reports").tap()
+        element(app, "insights-chip-overview").tap()
         let reports: [(entry: String, body: String)] = [
             ("highlights", "pf-highlights-body"), ("healthspan", "pf-healthspan-body"), ("monthly", "pf-monthly-body"),
         ]

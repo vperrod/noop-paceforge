@@ -4,14 +4,14 @@ import StrandDesign
 
 // MARK: - Insights: the second chip of the Reports tab
 //
-// Chips at the top and ONE chip mounted below them: Overview (What moves you, Intelligence, and PaceForge's "Where you stand" and
-// insight items), Trends (the Trends screen, with Compare and the Metric Explorer one tap away), Reports (the weekly review, then the
-// Monthly report, Highlights and Healthspan), Journal (the journal, with Journal impact) and Deep dives (PaceForge's fitness, fatigue
-// and form, load warnings, races and HYROX prognosis). Every chip is the content of a screen that already exists, unchanged.
+// Chips at the top and ONE chip mounted below them: Overview (What moves you, Intelligence, PaceForge's "Where you stand" and
+// insight items, then the weekly review and the Monthly report, Highlights and Healthspan rows), Trends (the Trends screen, with
+// Compare and the Metric Explorer one tap away), Journal (the journal, with Journal impact) and Deep dives (PaceForge's fitness,
+// fatigue and form, load warnings, races and HYROX prognosis). Every chip is the content of a screen that already exists, unchanged.
 // NOOP's and PaceForge's scores are never merged: each section says whose it is.
 
 enum InsightsChip: String, CaseIterable, Identifiable {
-    case overview, trends, reports, journal, deepDives
+    case overview, trends, journal, deepDives
 
     /// The chip on show, shared with the shell so an old link can land on a chip. Reset to Overview at every launch.
     static let storageKey = "noop.insights.chip"
@@ -22,14 +22,13 @@ enum InsightsChip: String, CaseIterable, Identifiable {
         switch self {
         case .overview: return "Overview"
         case .trends: return "Trends"
-        case .reports: return "Reports"
         case .journal: return "Journal"
         case .deepDives: return "Deep dives"
         }
     }
 }
 
-/// Insights as the second chip of the Reports tab: its own chips (Overview, Trends, Reports, Journal, Deep dives) and the chosen one.
+/// Insights as the second chip of the Reports tab: its own chips (Overview, Trends, Journal, Deep dives) and the chosen one.
 struct InsightsEmbedded: View {
     @AppStorage(InsightsChip.storageKey) private var chipRaw = InsightsChip.overview.rawValue
 
@@ -80,7 +79,6 @@ private struct InsightsChipBody: View {
         switch chip {
         case .overview: return AnyView(InsightsOverviewChip())
         case .trends: return AnyView(InsightsTrendsChip())
-        case .reports: return AnyView(InsightsReportsChip())
         case .journal: return AnyView(InsightsJournalChip())
         case .deepDives: return AnyView(InsightsDeepDivesChip())
         }
@@ -96,6 +94,8 @@ private struct InsightsOverviewChip: View {
             PFSnapshotHost(isPrimary: true, content: { snapshot in AnyView(InsightsOverviewPaceForge(snapshot: snapshot)) })
             InsightsOverviewMoves()
             InsightsOverviewIntelligence()
+            InsightsReportRows()
+            PFSnapshotHost(content: { snapshot in AnyView(InsightsWeeklyReview(snapshot: snapshot)) })
         }
         .containerIdentifier("insights-chip-content-overview")
     }
@@ -148,17 +148,7 @@ private struct InsightsTrendsChip: View {
     }
 }
 
-/// The weekly review, then the three reports that open their own screens.
-private struct InsightsReportsChip: View {
-    var body: some View {
-        VStack(alignment: .leading, spacing: NoopMetrics.sectionSpacing) {
-            InsightsReportRows()
-            PFSnapshotHost(content: { snapshot in AnyView(InsightsWeeklyReview(snapshot: snapshot)) })
-        }
-        .containerIdentifier("insights-chip-content-reports")
-    }
-}
-
+/// The weekly review (the end of Overview, after the three report rows).
 private struct InsightsWeeklyReview: View {
     let snapshot: PFSnapshot
 
@@ -176,7 +166,7 @@ private struct InsightsWeeklyReview: View {
 
 private struct InsightsReportRows: View {
     var body: some View {
-        IndexSection("Reports") {
+        IndexSection("Longer reports") {
             IndexRow("Monthly report", "calendar", TabRoute.monthlyReport, id: "insights-report-monthly")
             IndexRow("Highlights", "star.fill", TabRoute.highlights, id: "insights-report-highlights")
             IndexRow("Healthspan", "hourglass", TabRoute.healthspan, id: "insights-report-healthspan")
