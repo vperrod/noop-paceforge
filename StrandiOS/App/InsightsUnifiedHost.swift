@@ -2,7 +2,7 @@
 import SwiftUI
 import StrandDesign
 
-// MARK: - Insights: the second chip of the Reports tab
+// MARK: - Insights: the last chip of the Coach
 //
 // Chips at the top and ONE chip mounted below them: Overview (What moves you, Intelligence, PaceForge's "Where you stand" and
 // insight items, then the weekly review and the Monthly report, Highlights and Healthspan rows), Trends (the Trends screen, with
@@ -28,7 +28,7 @@ enum InsightsChip: String, CaseIterable, Identifiable {
     }
 }
 
-/// Insights as the second chip of the Reports tab: its own chips (Overview, Trends, Journal, Deep dives) and the chosen one.
+/// Insights as the last chip of the Coach: its own chips (Overview, Trends, Journal, Deep dives) and the chosen one.
 struct InsightsEmbedded: View {
     @AppStorage(InsightsChip.storageKey) private var chipRaw = InsightsChip.overview.rawValue
 
@@ -95,7 +95,8 @@ private struct InsightsOverviewChip: View {
             InsightsOverviewMoves()
             InsightsOverviewIntelligence()
             InsightsReportRows()
-            PFSnapshotHost(content: { snapshot in AnyView(InsightsWeeklyReview(snapshot: snapshot)) })
+            // The second host on this chip: content only, because the first one already draws the lock, loading, failed and offline states.
+            PFSnapshotHost(drawsChrome: false, content: { snapshot in AnyView(InsightsWeeklyReview(snapshot: snapshot)) })
         }
         .containerIdentifier("insights-chip-content-overview")
     }

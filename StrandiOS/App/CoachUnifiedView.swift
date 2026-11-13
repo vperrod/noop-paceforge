@@ -2,23 +2,62 @@
 import SwiftUI
 import StrandDesign
 
-// MARK: - Coach: the third tab, one surface for the shared PaceForge brain
+// MARK: - Coach: one surface for the shared PaceForge brain
 //
-// Four blocks, in this order: today's read (a headline and up to three sentences, the full read folded), the one composer (Question or
-// Change my plan), how many things wait on the athlete, and the Coach log (three days). Daily interpretation, the weekly review and the
-// conversation all use PaceForge's server-side coach job, which builds its context from the synced NOOP and PaceForge records. The
-// week review is with the reports (Insights), the season plan and the race plans with Plan, the numbers and both devices' readiness with
-// Today (the call), and the status of the morning briefing under Settings > Briefing.
+// Four chips, one mounted at a time: Read (the plan changes waiting, today's read in full, the Expert reading, what waits on the athlete,
+// the Monthly coach review, the workout reviews and reads, the Coach log), Ask (the whole chat and the composer: Question or Change my
+// plan), Reports (Day, Week, Month and Race, and the week plan page) and Insights (Overview, Trends, Journal, Deep dives). Daily
+// interpretation, the weekly review and the conversation all use PaceForge's server-side coach job, which builds its context from the
+// synced NOOP and PaceForge records. The Season plan and "Your numbers" cards are mounted elsewhere; the status of the morning briefing
+// is under Settings > Briefing.
+
+enum CoachChip: String, CaseIterable, Identifiable {
+    case read, ask, reports, insights
+
+    /// The chip on show, remembered between launches.
+    static let storageKey = "noop.coach.chip"
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .read: return "Read"
+        case .ask: return "Ask"
+        case .reports: return "Reports"
+        case .insights: return "Insights"
+        }
+    }
+}
 
 struct CoachUnifiedView: View {
     @EnvironmentObject private var coach: AICoachEngine
+    @ObservedObject private var prefill = PFChatPrefill.shared
+    @AppStorage(CoachChip.storageKey) private var chipRaw = CoachChip.read.rawValue
     @State private var showBriefSettings = false
+    @State private var showNeedsYou = false
+    @State private var showWeekPlan = false
+    /// "Read why" in the Needs you sheet: the sheet closes first, then the week plan page opens (see its `onDismiss`).
+    @State private var openWeekPlanAfterSheet = false
+
+    private var chip: CoachChip { CoachChip(rawValue: chipRaw) ?? .read }
+
+    private var selection: Binding<CoachChip> {
+        Binding(
+            get: { chip },
+            set: { new in
+                guard new != chip else { return }
+                NoopDiag.crumb("nav.chip coach.\(new.rawValue)")
+                chipRaw = new.rawValue
+            }
+        )
+    }
 
     var body: some View {
         ScreenScaffold(title: "Coach", subtitle: "One coach for your training, recovery, sleep and progress.",
                        onRefresh: {
             await PFUnified.model.refresh()
             await PFCoachLogStore.shared.refresh()
+            await PFReportsStore.shared.loadIndex()
         }, lazy: true, topBackground: liquidScaffoldSky(), trailing: {
             Button {
                 showBriefSettings = true
@@ -29,18 +68,123 @@ struct CoachUnifiedView: View {
             .foregroundStyle(StrandPalette.accent)
             .accessibilityIdentifier("coach-brief-settings")
         }) {
-            // The first three blocks need the PaceForge snapshot (the host shows the lock, loading, failed and offline states); the
-            // log reads its own store, so it stays reachable while the snapshot is loading or has failed.
-            PFSnapshotHost(content: { snapshot in AnyView(PFCoachView(snapshot: snapshot)) })
-                .containerIdentifier("coach-full-brain")
-            PFCoachLogCard()
+            CoachColumn(selection: selection,
+                        onOpenProposals: { showWeekPlan = true },
+                        onOpenNeedsYou: { showNeedsYou = true },
+                        onAsk: { chipRaw = CoachChip.ask.rawValue })
         }
         .containerIdentifier("coach-host")
-        .task { await PFCoachLogStore.shared.refreshIfStale() }
+        // The stores behind the Expert reading and the log draw nothing until they have a file, and an empty view never runs its own task.
+        .task {
+            await PFCoachLogStore.shared.refreshIfStale()
+            await PFReportsStore.shared.loadCapabilities()
+            await PFReportsStore.shared.refreshLatestIfStale()
+        }
+        // A question handed to the coach ("Ask the coach about this", "Ask Coach about this workout") lands in the chat, wherever it came from.
+        .onChange(of: prefill.text) { _, text in
+            if text?.isEmpty == false { chipRaw = CoachChip.ask.rawValue }
+        }
+        .onChange(of: coach.pendingPrompt) { _, prompt in
+            if prompt?.isEmpty == false { chipRaw = CoachChip.ask.rawValue }
+        }
         .sheet(isPresented: $showBriefSettings) {
             CoachSettingsView(sharedBrainMode: true)
                 .environmentObject(coach)
         }
+        .sheet(isPresented: $showNeedsYou, onDismiss: {
+            if openWeekPlanAfterSheet {
+                openWeekPlanAfterSheet = false
+                showWeekPlan = true
+            }
+        }) {
+            PFNeedsYouSheet(onReadWhy: {
+                openWeekPlanAfterSheet = true
+                showNeedsYou = false
+            })
+        }
+        .navigationDestination(isPresented: $showWeekPlan) { PFWeekPlanScreen() }
+    }
+}
+
+/// The chips and the chosen chip's content.
+private struct CoachColumn: View {
+    @Binding var selection: CoachChip
+    let onOpenProposals: () -> Void
+    let onOpenNeedsYou: () -> Void
+    let onAsk: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            SectionChips(options: CoachChip.allCases, selection: $selection, idPrefix: "coach-chip",
+                         id: { $0.rawValue }, title: { $0.title })
+            CoachChipBody(chip: selection, onOpenProposals: onOpenProposals, onOpenNeedsYou: onOpenNeedsYou, onAsk: onAsk)
+                .id(selection)
+                .environment(\.screenScaffoldEmbedded, true)
+        }
+    }
+}
+
+private struct CoachChipBody: View {
+    let chip: CoachChip
+    let onOpenProposals: () -> Void
+    let onOpenNeedsYou: () -> Void
+    let onAsk: () -> Void
+
+    var body: some View {
+        UnifiedChipMount(host: "coach", name: chip.rawValue, content: content)
+    }
+
+    private var content: AnyView {
+        switch chip {
+        case .read:
+            return AnyView(CoachReadChip(onOpenProposals: onOpenProposals, onOpenNeedsYou: onOpenNeedsYou, onAsk: onAsk))
+        case .ask:
+            return AnyView(CoachAskChip())
+        case .reports:
+            return AnyView(CoachReportsChip())
+        case .insights:
+            return AnyView(InsightsEmbedded())
+        }
+    }
+}
+
+/// The cards that need the PaceForge snapshot sit in its host (the lock, loading, failed and offline states); the log reads its own
+/// store, so it stays reachable while the snapshot is loading or has failed.
+private struct CoachReadChip: View {
+    let onOpenProposals: () -> Void
+    let onOpenNeedsYou: () -> Void
+    let onAsk: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            PFSnapshotHost(content: { snapshot in
+                AnyView(PFCoachView(snapshot: snapshot, onOpenProposals: onOpenProposals,
+                                    onOpenNeedsYou: onOpenNeedsYou, onAsk: onAsk))
+            })
+            .containerIdentifier("coach-full-brain")
+            PFCoachLogCard()
+        }
+        .containerIdentifier("coach-chip-content-read")
+    }
+}
+
+private struct CoachAskChip: View {
+    var body: some View {
+        PFSnapshotHost(content: { snapshot in AnyView(PFCoachComposer(snapshot: snapshot)) })
+            .containerIdentifier("coach-chip-content-ask")
+    }
+}
+
+/// What the Reports tab's first chip showed (Day, Week, Month and Race), and the week plan page, which has no report row of its own.
+private struct CoachReportsChip: View {
+    var body: some View {
+        VStack(alignment: .leading, spacing: NoopMetrics.sectionSpacing) {
+            PFReportsIndexContent()
+            IndexSection("Plan") {
+                IndexRow("This week", "calendar", TabRoute.reports("week"), id: "coach-week-plan-row")
+            }
+        }
+        .containerIdentifier("coach-chip-content-reports")
     }
 }
 

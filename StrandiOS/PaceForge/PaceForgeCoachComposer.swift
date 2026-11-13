@@ -41,7 +41,7 @@ struct PFCoachComposer: View {
     @State private var changedDays: [String] = []
 
     private static let bullet = "\u{2022} "
-    private static let shownTurns = 4
+    private static let threadHeight: CGFloat = 420
 
     private var isBusy: Bool { sending || tracker.phase == .sending || tracker.phase == .working }
 
@@ -119,7 +119,7 @@ struct PFCoachComposer: View {
     // MARK: Question
 
     @ViewBuilder private var questionOutput: some View {
-        ForEach(Array(snapshot.coach.chat.suffix(Self.shownTurns))) { PFChatBubble(turn: $0) }
+        thread
         if let chatStatus {
             Text(chatStatus)
                 .font(StrandFont.caption)
@@ -132,6 +132,29 @@ struct PFCoachComposer: View {
                 .foregroundStyle(StrandPalette.textTertiary)
                 .fixedSize(horizontal: false, vertical: true)
         }
+    }
+
+    /// The whole conversation in a scroll area of its own, opened at the latest turn and kept there as turns arrive.
+    @ViewBuilder private var thread: some View {
+        let turns = snapshot.coach.chat
+        if !turns.isEmpty {
+            ScrollViewReader { proxy in
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 10) {
+                        ForEach(turns) { turn in PFChatBubble(turn: turn).id(turn.id) }
+                    }
+                }
+                .frame(maxHeight: Self.threadHeight)
+                .onAppear { scrollToLatest(proxy, turns) }
+                .onChange(of: turns.count) { _, _ in scrollToLatest(proxy, turns) }
+            }
+            .accessibilityIdentifier("pf-chat-thread")
+        }
+    }
+
+    private func scrollToLatest(_ proxy: ScrollViewProxy, _ turns: [PFChatTurn]) {
+        guard let last = turns.last else { return }
+        proxy.scrollTo(last.id, anchor: .bottom)
     }
 
     @MainActor private func sendMessage(_ suppliedMessage: String? = nil, sessionID: String? = nil) async {
