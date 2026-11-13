@@ -112,7 +112,7 @@ struct LiquidTodayView: View {
     /// The sheet behind the Needs you row (the whole card with its answers); a tapped Needs you notification opens it too.
     @State private var showNeedsYouSheet = false
     /// "More from the strap": the native blocks under PaceForge's six cards, folded until opened.
-    @State private var showsStrapBlocks = false
+    @State private var showsStrapBlocks = true
     /// Set by a tapped Needs you notification until the sheet has opened (or a minute has passed): on a cold launch the snapshot with
     /// the items arrives after the tap, and another sheet may be up.
     @State private var pendingNeedsYouUntil: Date?
