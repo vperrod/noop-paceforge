@@ -17,6 +17,12 @@ approximate; downloads are on the [Releases](https://github.com/NoopApp/noop/rel
 
 ---
 
+## 12.0.12 build 524 (PaceForge iPhone build): a HYROX race opens as a race, not as a run
+
+- A race recording's results: the official finish, goal gap, overall and age-group rank; every run, station and the roxzone by name with your field position and the gap to your own best station. The run blocks (pace per km, km splits, zones, the tempo explainer) no longer show for a race. The heart-rate chart stays, with a note when the watch reading is not usable.
+- Today: a race you have run opens those results; a race still ahead opens the race plan.
+- Needs the server's race block (deployed with it); without it the sheet looks as before.
+
 ## 12.0.12 build 523 (PaceForge iPhone build): tap a race you ran and see its metrics and the coach's review
 
 - Today: the rings lead the screen again, then the six PaceForge cards, then the strap blocks (monitor tiles, heart rate, key metrics), all open. Nothing is folded away. "Assessment and Today's call" draws again (the call chip, Effort target, planned session and the daily report row).
