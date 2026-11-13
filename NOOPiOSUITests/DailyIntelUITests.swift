@@ -208,16 +208,8 @@ final class DailyIntelUITests: XCTestCase {
 
     // MARK: Day in review
 
-    /// Opens the Coach tab.
-    private func openCoach(_ app: XCUIApplication) {
-        let coach = app.shellTab("Coach")
-        XCTAssertTrue(coach.waitForExistence(timeout: 20), "The Coach tab should be in the bar.")
-        coach.tap()
-    }
-
     func testDayInReviewShowsInTheEvening() throws {
         let app = try launch(extra: ["-PaceForgeEvening"])
-        openCoach(app)
         let card = element(app, "pf-day-review")
         XCTAssertTrue(reveal(card, in: app), "After 18:00 Today should show Day in review.")
         XCTAssertTrue(element(app, "pf-review-outcome").exists, "It should say whether the target was met.")
@@ -228,17 +220,9 @@ final class DailyIntelUITests: XCTestCase {
 
     func testDayInReviewIsAbsentInTheMorning() throws {
         let app = try launch(extra: ["-PaceForgeMorning"])
-        openCoach(app)
-        XCTAssertTrue(reveal(element(app, "pf-todays-call"), in: app), "The Coach should have loaded.")
+        XCTAssertTrue(reveal(element(app, "pf-todays-call"), in: app), "Today should have loaded.")
         XCTAssertFalse(element(app, "pf-day-review").waitForExistence(timeout: 3), "Before 18:00 there is no Day in review.")
-        attach(app, "Intel 61 Coach in the morning, no Day in review")
-    }
-
-    func testPaceForgeTodayShowsDayInReviewInTheEvening() throws {
-        let app = try launch(extra: ["-PaceForgeEvening"], classic: true)
-        try openPaceForgeToday(app)
-        XCTAssertTrue(reveal(element(app, "pf-day-review"), in: app), "PaceForge Today should show Day in review in the evening.")
-        attach(app, "Intel 62 PaceForge Today, Day in review")
+        attach(app, "Intel 61 Today in the morning, no Day in review")
     }
 
     func testTodaysCallInLight() throws {

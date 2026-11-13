@@ -6,7 +6,7 @@ import XCTest
 /// platforms so the byte-identical "today.sectionOrder" wire format can't drift.
 final class TodayLayoutPrefsTests: XCTestCase {
 
-    /// The sections the platform keeps: the iPhone retires four of them (`TodaySection.retired`), the Mac none, so the same tests pin both.
+    /// The sections the platform keeps: the iPhone retires five of them (`TodaySection.retired`), the Mac none, so the same tests pin both.
     private func live(_ order: [TodaySection]) -> [TodaySection] {
         order.filter { !TodaySection.retired.contains($0) }
     }

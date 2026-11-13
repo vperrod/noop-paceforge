@@ -80,9 +80,14 @@ private struct CalendarChipHost: View {
     let chip: CalendarChip
 
     var body: some View {
-        PFSnapshotHost(content: { snapshot in
-            AnyView(UnifiedChipMount(host: "calendar", name: chip.rawValue, content: CalendarChipBody.content(chip, snapshot)))
-        })
+        // Next week reads its own store, so the snapshot's lock, loading and failed states must not stand in front of it.
+        if chip == .nextWeek {
+            UnifiedChipMount(host: "calendar", name: chip.rawValue, content: AnyView(CalendarNextWeekChip()))
+        } else {
+            PFSnapshotHost(content: { snapshot in
+                AnyView(UnifiedChipMount(host: "calendar", name: chip.rawValue, content: CalendarChipBody.content(chip, snapshot)))
+            })
+        }
     }
 }
 

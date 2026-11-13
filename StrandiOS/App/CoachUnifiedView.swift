@@ -81,6 +81,10 @@ struct CoachUnifiedView: View {
             await PFReportsStore.shared.refreshLatestIfStale()
         }
         // A question handed to the coach ("Ask the coach about this", "Ask Coach about this workout") lands in the chat, wherever it came from.
+        // The callers set it before the sheet exists, and onChange does not fire for a value already there at appear.
+        .onAppear {
+            if prefill.text?.isEmpty == false || coach.pendingPrompt?.isEmpty == false { chipRaw = CoachChip.ask.rawValue }
+        }
         .onChange(of: prefill.text) { _, text in
             if text?.isEmpty == false { chipRaw = CoachChip.ask.rawValue }
         }

@@ -135,6 +135,8 @@ struct RootTabView: View {
     /// The Coach keeps its last chip under this key (raw values read, ask, reports, insights); a landing sets it before the sheet opens.
     private static func setCoachChip(_ raw: String) {
         UserDefaults.standard.set(raw, forKey: "noop.coach.chip")
+        // Insight links are answered by the one primary snapshot host, which lives on Insights' Overview chip.
+        if raw == "insights" { UserDefaults.standard.set(InsightsChip.overview.rawValue, forKey: InsightsChip.storageKey) }
     }
 
     /// The Coach opens as a sheet over whatever screen is showing, from the round button beside the bar and from every Coach link.

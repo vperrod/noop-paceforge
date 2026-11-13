@@ -4,10 +4,10 @@ import XCTest
 /// the heart-rate-recovery card, the Where you stand add button and the lift exercise filters. Like the other
 /// PaceForge UI tests they serve the synthetic PaceForgeFixture.json (made-up values only).
 final class PaceForgeBuild463UITests: XCTestCase {
-    private func launch(extraArguments: [String] = [], fixture: Bool = true) throws -> XCUIApplication {
+    private func launch(extraArguments: [String] = [], fixture: Bool = true, classic: Bool = true) throws -> XCUIApplication {
         let app = XCUIApplication()
-        // These tests drive the classic PaceForge tab and its segments, which the unified bar (the default) does not have.
-        try app.useClassicNavigation()
+        // Most of these tests drive the classic PaceForge tab and its segments, which the unified bar (the default) does not have.
+        if classic { try app.useClassicNavigation() }
         app.launchArguments.append("--demo-seed")
         app.launchArguments.append(contentsOf: extraArguments)
         if fixture {
@@ -178,13 +178,13 @@ final class PaceForgeBuild463UITests: XCTestCase {
     // MARK: Lift exercise filters
 
     func testLiftExercisePickerFiltersByMuscleGroupAndEquipment() throws {
-        let app = try launch(fixture: false)
-        let more = app.shellTab("More")
-        XCTAssertTrue(more.waitForExistence(timeout: 30))
-        more.tap()
-        // More is flat since build 468: no group has to be opened before a row shows.
-        let lift = app.descendants(matching: .any).matching(identifier: "more-row-liftlog").firstMatch
-        XCTAssertTrue(reveal(lift, in: app, maxSwipes: 10), "More should list Lift Log.")
+        let app = try launch(fixture: false, classic: false)
+        let train = app.shellTab("Train")
+        XCTAssertTrue(train.waitForExistence(timeout: 30), "The Train tab should be in the bar.")
+        train.tap()
+        // Lift Log is the Strength chip of Train.
+        let lift = app.descendants(matching: .any).matching(identifier: "train-chip-strength").firstMatch
+        XCTAssertTrue(lift.waitForExistence(timeout: 20), "Train should have the Strength chip.")
         lift.tap()
         let newProgram = app.buttons["New program"]
         XCTAssertTrue(newProgram.waitForExistence(timeout: 15), "Lift Log should offer New program.")

@@ -112,9 +112,11 @@ final class WhoopGapsUITests: XCTestCase {
 
     func testTrendsReportSheetOffersTheHealthReport() {
         let app = launch()
-        app.shellTab("Body").tap()
-        let trends = element(app, "more-row-trends")
-        XCTAssertTrue(reveal(trends, in: app), "More should expose Trends.")
+        let health = app.shellTab("Health")
+        XCTAssertTrue(health.waitForExistence(timeout: 30), "The Health tab should be in the bar.")
+        health.tap()
+        let trends = element(app, "health-chip-trends")
+        XCTAssertTrue(trends.waitForExistence(timeout: 20), "Health should have a Trends chip.")
         trends.tap()
         let export = element(app, "trends-export-report")
         XCTAssertTrue(reveal(export, in: app, maxSwipes: 20), "Trends should offer the report export.")
@@ -133,13 +135,13 @@ final class WhoopGapsUITests: XCTestCase {
 
     func testHealthShowsPaceOfAging() {
         let app = launch()
-        let more = app.shellTab("Body")
-        XCTAssertTrue(more.waitForExistence(timeout: 30))
-        more.tap()
-        // More is flat since build 468: no group has to be opened before a row shows.
-        let health = element(app, "more-row-health")
-        XCTAssertTrue(reveal(health, in: app, maxSwipes: 10), "More should list Health.")
-        health.tap()
+        let tab = app.shellTab("Health")
+        XCTAssertTrue(tab.waitForExistence(timeout: 30))
+        tab.tap()
+        // The Health Monitor, with Vitality, is the Vitals chip of the Health tab.
+        let vitals = element(app, "health-chip-vitals")
+        XCTAssertTrue(vitals.waitForExistence(timeout: 20), "Health should have a Vitals chip.")
+        vitals.tap()
         let card = element(app, "pace-of-aging-card")
         XCTAssertTrue(reveal(card, in: app, maxSwipes: 20), "Health should show the Pace of aging card under Vitality.")
         XCTAssertTrue(element(app, "pace-of-aging-value").exists || element(app, "pace-of-aging-calibrating").exists,

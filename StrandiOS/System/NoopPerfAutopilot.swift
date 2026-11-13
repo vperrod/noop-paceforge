@@ -10,7 +10,7 @@ extension Notification.Name {
 /// DEBUG `-NoopPerfAutopilot`: the app walks its own screens for the perf test, so nothing queries the accessibility tree
 /// while a screen is measured (an XCUITest query makes SwiftUI build that tree and resolve every Text on the main thread,
 /// which a phone without an assistive feature never does). Each step names its screen (NoopDiag.screen through the shell
-/// and the PaceForge tab), waits for it to load, scrolls its scroll view to the end and back, then rests. The probe says
+/// and the four tabs), waits for it to load, scrolls its scroll view to the end and back, then rests. The probe says
 /// "autopilot":"done" at the end; the test reads it once.
 enum NoopPerfAutopilot {
     static var isRequested: Bool { ProcessInfo.processInfo.arguments.contains("-NoopPerfAutopilot") }
@@ -24,14 +24,10 @@ enum NoopPerfAutopilot {
         guard isRequested else { return }
         Task { @MainActor in
             try? await Task.sleep(nanoseconds: settleSeconds * 1_000_000_000)
-            await visitTab(1)                           // Trends
+            await visitTab(1)                           // Plan
             await visitTab(0)                           // Today, second visit (the first carried the launch)
-            UserDefaults.standard.set("today", forKey: "noop.paceforge.segment")
-            await visitTab(3, settle: 6)                // PaceForge Today, first open: load and build
-            for segment in ["coach", "week", "insights", "body"] {
-                UserDefaults.standard.set(segment, forKey: "noop.paceforge.segment")
-                await walk(settle: 3)
-            }
+            await visitTab(2, settle: 6)                // Train, first open: load and build
+            await visitTab(3, settle: 6)                // Health
             NoopDiag.screen("perf.done")
             isDone = true
         }
