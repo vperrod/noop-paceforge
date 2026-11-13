@@ -818,7 +818,9 @@ private struct PFHyroxAdvisoryCard: View {
 
     @ObservedObject private var week = PFWeekPlanStore.shared
     @ObservedObject private var store = PFHyroxStore.shared
-    @State private var hasAsked = false
+    @EnvironmentObject private var router: NavRouter
+    /// In the HYROX sheet this closes it first (a sheet cannot open over a sheet); on the Train tab it does nothing.
+    @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         let extra = (store.plan?.events ?? []).map(\.shortName)
@@ -835,10 +837,10 @@ private struct PFHyroxAdvisoryCard: View {
                     ForEach(proposals) { proposal in
                         PFProposalView(proposal: proposal, onAsk: { prompt in
                             PFChatPrefill.shared.text = prompt
-                            hasAsked = true
+                            dismiss()
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { router.openCoach() }
                         })
                     }
-                    if hasAsked { PFHyroxHint("Your question is waiting in the chat box on the Coach screen.") }
                 }
                 if let raceWeek {
                     Text(raceWeekTitle(raceWeek)).strandOverline()

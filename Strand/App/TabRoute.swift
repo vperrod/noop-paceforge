@@ -38,7 +38,7 @@ enum TabRoute: Hashable {
     case sleep
     case health
     /// The Phase 4 screens (PaceForge's highlights, healthspan, journal-impact and monthly-report documents), reached from the
-    /// Reports section of Insights and the streak chip. iPhone only; elsewhere they fall back to the screen they sit beside.
+    /// Coach's Insights chip, Health's Vitals and Journal chips and the streak chip. iPhone only; elsewhere they fall back to the screen they sit beside.
     case highlights
     case healthspan
     case journalImpact
@@ -48,9 +48,9 @@ enum TabRoute: Hashable {
     case reports(String)
     case hydration
     case coupled
-    /// The Lift Log, from the Day tab's Activity chip (iPhone only; macOS falls back to Workouts).
+    /// The Lift Log, the Strength chip of Train opens it inline (iPhone only; macOS falls back to Workouts).
     case liftLog
-    /// Compare, from the Insights tab's Trends chip (New navigation, beta; iPhone only).
+    /// Compare, from the Trends chip of Health (iPhone only).
     case compare
     /// One day of the plan on its own page (a changed day the Coach lists after "Change my plan"). iPhone only; elsewhere Workouts.
     case planDay(String)

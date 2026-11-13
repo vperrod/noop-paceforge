@@ -2,9 +2,9 @@
 import SwiftUI
 import StrandDesign
 
-/// iOS navigation shell. macOS uses a `NavigationSplitView` sidebar (`RootView`); on iPhone the
-/// natural analogue is a `TabView` with the most-used screens as tabs and everything else under a
-/// "More" list. Every screen is the same `StrandDesign`-built view the macOS app uses.
+/// iOS navigation shell. macOS uses a `NavigationSplitView` sidebar (`RootView`); on iPhone it is a `TabView` of four tabs (Today, Plan,
+/// Train, Health, see `UnifiedNav`) with the Coach as a sheet opened from the round button beside the bar. Every screen is the same
+/// `StrandDesign`-built view the macOS app uses.
 struct RootTabView: View {
     /// #1841: shared with Android by NAME and meaning, not by storage — the two platforms keep their own
     /// stores, exactly as the Clock format setting does.
@@ -34,8 +34,8 @@ struct RootTabView: View {
     let homeScreenQuickActionsEnabled: Bool
 
     @EnvironmentObject private var repo: Repository
-    /// Cross-screen navigation requests (e.g. Live → "Manage devices"). Devices isn't a tab — it lives
-    /// behind the More list — so a request presents it as a sheet, matching the quick-action screens.
+    /// Cross-screen navigation requests (e.g. Live → "Manage devices"). Devices isn't a tab, so a request
+    /// presents it as a sheet, matching the quick-action screens.
     @EnvironmentObject private var router: NavRouter
     /// The scene-local receiver for actions chosen from NOOP's Home Screen icon menu.
     @EnvironmentObject private var homeScreenQuickActions: HomeScreenQuickActionSceneDelegate
@@ -55,15 +55,12 @@ struct RootTabView: View {
     /// root view alive, so an at-root re-tap keeps scroll position and never re-runs `.task`
     /// (#198; the #197 resetID/`.id()` rebuild reset both). Requires the tab roots' first-hop
     /// links to push `TabRoute`/`MoreDestination` VALUES — closure-destination links bypass the path.
-    @State private var tabPaths: [NavigationPath] = Array(repeating: NavigationPath(), count: 5)
+    @State private var tabPaths: [NavigationPath] = Array(repeating: NavigationPath(), count: 4)
     /// One scroll-to-top token per tab. Bumped when the user re-taps the active tab while it's ALREADY
     /// at its root — the other half of the iOS convention #197/#198 left unserved (an at-root re-tap was
     /// a no-op). Threaded into each tab's root via `\.scrollToTopSignal`; ScreenScaffold / LiquidTodayView
     /// scroll to their top anchor when their tab's token changes.
-    @State private var scrollTop: [Int] = Array(repeating: 0, count: 5)
-    /// Per tab, the length of its path right after the router pushed Sleep onto it, so a repeat request can tell Sleep is still on top.
-    /// Any other push or pop changes the length and clears the entry (see the `onChange` on `tabPaths`).
-    @State private var sleepPushedCount: [Int: Int] = [:]
+    @State private var scrollTop: [Int] = Array(repeating: 0, count: 4)
     /// Native tab selection binding. SwiftUI sends taps on the already-selected item through the
     /// setter, which lets the system tab bar retain the app's refresh / pop-to-root / scroll-to-top
     /// convention without placing a custom hit-testing layer over the platform bar.
@@ -113,8 +110,9 @@ struct RootTabView: View {
     private func openUnifiedLanding() {
         let raw = UserDefaults.standard.string(forKey: "noop.paceforge.segment") ?? PFSegment.today.rawValue
         var landing = UnifiedNav.landing(for: PFSegment(rawValue: raw) ?? .today)
-        // An insight item's link (`noop://paceforge/insights/<id>`, also the next best action) opens its sheet from Insights, under Reports.
-        if landing == .today, PFInsightLink.pending != nil { landing = .insights(.overview) }
+        // An insight item's link (`noop://paceforge/insights/<id>`, also the next best action) opens its sheet from Insights, a chip of the Coach.
+        if landing == .today, PFInsightLink.pending != nil { landing = .coach; Self.setCoachChip("insights") }
+        if raw == PFSegment.insights.rawValue { Self.setCoachChip("insights") }
         NoopDiag.crumb("nav.redirect pf.\(raw)")
         showUnified(landing)
     }
@@ -127,20 +125,27 @@ struct RootTabView: View {
         case .calendar(let chip):
             defaults.set(chip.rawValue, forKey: CalendarChip.storageKey)
             go(to: UnifiedNav.planTab)
-        case .insights(let chip):
-            defaults.set(chip.rawValue, forKey: InsightsChip.storageKey)
-            defaults.set(ReportsChip.insights.rawValue, forKey: ReportsChip.storageKey)
-            go(to: UnifiedNav.reportsTab)
+        case .health(let chip):
+            showHealth(chip)
         case .coach:
-            go(to: UnifiedNav.coachTab)
-        case .body:
-            showBody(.body)
+            presentCoach()
         }
     }
 
-    private func showBody(_ chip: BodyChip) {
-        UserDefaults.standard.set(chip.rawValue, forKey: BodyChip.storageKey)
-        go(to: UnifiedNav.bodyTab)
+    /// The Coach keeps its last chip under this key (raw values read, ask, reports, insights); a landing sets it before the sheet opens.
+    private static func setCoachChip(_ raw: String) {
+        UserDefaults.standard.set(raw, forKey: "noop.coach.chip")
+    }
+
+    /// The Coach opens as a sheet over whatever screen is showing, from the round button beside the bar and from every Coach link.
+    private func presentCoach() {
+        routedPillar = .coach
+    }
+
+    private func showHealth(_ chip: HealthChip, pushing route: MoreDestination? = nil) {
+        UserDefaults.standard.set(chip.rawValue, forKey: HealthChip.storageKey)
+        go(to: UnifiedNav.healthTab)
+        if let route { tabPaths[UnifiedNav.healthTab].append(route) }
     }
 
     private func go(to tab: Int) {
@@ -148,13 +153,10 @@ struct RootTabView: View {
         withAnimation(.timingCurve(0.22, 1, 0.36, 1, duration: 0.24)) { selectedTab = tab }
     }
 
-    /// My Day is a row under Reports: the Reports tab with My Day pushed on it.
+    /// My Day is the Day chip of Health.
     private func openMyDay() {
         MyDayDeepLink.pending = false
-        var path = NavigationPath()
-        path.append(TabRoute.myDay)
-        tabPaths[UnifiedNav.reportsTab] = path
-        withAnimation(.timingCurve(0.22, 1, 0.36, 1, duration: 0.24)) { selectedTab = UnifiedNav.reportsTab }
+        showHealth(.day)
     }
 
     private func reselectTab(_ tag: Int) {
@@ -181,7 +183,7 @@ struct RootTabView: View {
                 guard selectedTab != 0 else { return }
                 let dx = v.translation.width, dy = v.translation.height
                 guard abs(dx) > 60, abs(dx) > abs(dy) * 1.6 else { return }
-                let next = min(4, max(0, selectedTab + (dx < 0 ? 1 : -1)))
+                let next = min(3, max(0, selectedTab + (dx < 0 ? 1 : -1)))
                 if next != selectedTab {
                     withAnimation(.timingCurve(0.22, 1, 0.36, 1, duration: 0.24)) { selectedTab = next }
                 }
@@ -196,17 +198,14 @@ struct RootTabView: View {
         TabView(selection: nativeTabSelection) {
             tab(LiquidTodayView(), "Today", "square.grid.2x2", path: $tabPaths[0], scrollSignal: scrollTop[0]).tag(0)
             tab(CalendarHostView(), "Plan", "calendar", path: $tabPaths[1], scrollSignal: scrollTop[1]).tag(1)
-            // Coach is a tab; every Coach deep link (the scheduled-brief notification, questions from Today and Siri) selects it.
-            tab(CoachUnifiedView(), "Coach", "sparkles", path: $tabPaths[2], scrollSignal: scrollTop[2]).tag(2)
-            // Reports (with Insights as a chip) and Body end in "More" rows: the screens that are not tabs.
-            tab(ReportsHostView(), "Reports", "doc.text", path: $tabPaths[3], scrollSignal: scrollTop[3]).tag(3)
-            tab(BodyHostView(), "Body", "figure.stand", path: $tabPaths[4], scrollSignal: scrollTop[4]).tag(4)
+            tab(TrainHostView(), "Train", "figure.run", path: $tabPaths[2], scrollSignal: scrollTop[2]).tag(2)
+            tab(HealthHostView(), "Health", "heart.text.square", path: $tabPaths[3], scrollSignal: scrollTop[3]).tag(3)
         }
         .tint(StrandPalette.accent)
         .toolbar(lookTabBar ? .hidden : .automatic, for: .tabBar)
         .overlay(alignment: .bottom) {
             if lookTabBar {
-                FloatingTabBar(items: Self.lookTabs, selection: lookTabSelection)
+                FloatingTabBar(items: Self.lookTabs, selection: lookTabSelection, onCoach: { presentCoach() })
                     .padding(.bottom, 6)
             }
         }
@@ -222,11 +221,6 @@ struct RootTabView: View {
                 NoopDiag.screen("tab.\(tabName(tab))")
                 NoopDiag.crumb("nav.tab \(tabName(tab))")
             }
-            .onChange(of: tabPaths.map { $0.count }) { _, counts in
-                for (tab, pushed) in sleepPushedCount where !counts.indices.contains(tab) || counts[tab] != pushed {
-                    sleepPushedCount[tab] = nil
-                }
-            }
             #if DEBUG
             // `-NoopPerfAutopilot` walks the tabs itself (NoopPerfAutopilot).
             .onReceive(NotificationCenter.default.publisher(for: .noopPerfSelectTab)) { note in
@@ -236,7 +230,7 @@ struct RootTabView: View {
             // Swipe left/right anywhere to move between tabs (2026-07-02), but ONLY while the current
             // tab is at its root. Attaching this ancestor drag gesture unconditionally defeated the
             // edge-restriction of a pushed NavigationStack screen's native interactive-pop gesture —
-            // any More-tab subscreen (Settings, Devices, …) became draggable/rubber-banding from
+            // any pushed subscreen (Alarms, Lab Book, a metric detail, …) became draggable/rubber-banding from
             // anywhere, not just the left edge (#519). Disabling the recognizer once a push is active,
             // rather than just gating the onEnded action, is what stops the interference: the action
             // never runs early enough, because the recognizer competes during recognition.
@@ -272,7 +266,7 @@ struct RootTabView: View {
         // PaceForge links and Control Center land on their requested section; brief taps route to the shared Coach.
         .onReceive(NotificationCenter.default.publisher(for: .pfOpenToday)) { _ in openPaceForgeToday() }
         .onAppear { if PFDeepLink.pending { openPaceForgeToday() } }
-        // `noop://myday` and PaceForge's "Open My Day" button land on the Today tab's My Day.
+        // `noop://myday` and PaceForge's "Open My Day" button land on Health's Day chip.
         .onReceive(NotificationCenter.default.publisher(for: .myDayOpen)) { _ in openMyDay() }
         .onAppear { if MyDayDeepLink.pending { openMyDay() } }
         #if DEBUG
@@ -297,24 +291,25 @@ struct RootTabView: View {
                 showDevices = true
                 router.requestedDestination = nil
             case .insightsHub:
-                // What moves you is on Insights' Overview chip, under Reports.
-                showUnified(.insights(.overview))
+                // What moves you is on Insights' Overview chip, a chip of the Coach sheet.
+                Self.setCoachChip("insights")
+                presentCoach()
                 router.requestedDestination = nil
             case .labBook:
-                // The Lab Book is a chip of Body.
-                showBody(.labBook)
+                // The Lab Book is a row under Health > Body: that chip, with the Lab Book pushed on it.
+                showHealth(.body, pushing: .labBook)
                 router.requestedDestination = nil
             case .fusedRecord, .rhythm, .alarms:
                 routedPillar = dest
                 router.requestedDestination = nil
             case .coach:
-                // Every Coach entry point opens the Coach tab, including the scheduled-brief notification and questions handed
+                // Every Coach entry point opens the Coach sheet, including the scheduled-brief notification and questions handed
                 // over from Today/Siri.
-                go(to: UnifiedNav.coachTab)
+                presentCoach()
                 router.requestedDestination = nil
             case .trends:
-                // Trends is a chip of Insights, under Reports.
-                showUnified(.insights(.trends))
+                // Trends is a chip of Health.
+                showHealth(.trends)
                 router.requestedDestination = nil
             case .activeWorkout:
                 // The Today active-workout indicator opens Live through the quick-action Live sheet; once
@@ -325,7 +320,7 @@ struct RootTabView: View {
             case .liveSession:
                 // Live Sessions is a cover owned by Today (its Start row has left Today in build 502), so a deep-link just
                 // lands on the Today tab.
-                withAnimation(.timingCurve(0.22, 1, 0.36, 1, duration: 0.24)) { selectedTab = 0 }
+                go(to: UnifiedNav.todayTab)
                 router.requestedDestination = nil
             case .journal:
                 // The #627 Today journal widget opens the journal through the quick-action Journal sheet
@@ -333,12 +328,8 @@ struct RootTabView: View {
                 withAnimation(Self.sheetEase) { quickAction = .journal }
                 router.requestedDestination = nil
             case .sleep:
-                // Sleep is not a tab: it opens over the tab on show, and Back returns to it.
-                // Not twice: a second request while that Sleep is still the top of this tab's path adds nothing.
-                if sleepPushedCount[selectedTab] != tabPaths[selectedTab].count {
-                    tabPaths[selectedTab].append(TabRoute.sleep)
-                    sleepPushedCount[selectedTab] = tabPaths[selectedTab].count
-                }
+                // Sleep is the Sleep chip of Health.
+                showHealth(.sleep)
                 router.requestedDestination = nil
             case nil:
                 break
@@ -422,8 +413,8 @@ struct RootTabView: View {
                 case .fusedRecord: FusedRecordHost()
                 case .rhythm: RhythmHost(onClose: { routedPillar = nil })
                 case .devices: DevicesView()
-                // .trends is never presented as a pillar sheet on iPhone (it's a primary tab — the
-                // requestedDestination handler switches `selectedTab` instead), but the switch must stay
+                // .trends is never presented as a pillar sheet on iPhone (it's a chip of Health — the
+                // requestedDestination handler switches the tab instead), but the switch must stay
                 // exhaustive. Fall back to Trends inside the sheet host if it ever arrives here.
                 case .trends: TrendsView()
                 // .activeWorkout routes through the quick-action Live sheet (handled above); this keeps the
@@ -435,12 +426,11 @@ struct RootTabView: View {
                 // .journal opens through the quick-action Journal sheet (handled above); this keeps the
                 // switch exhaustive and falls back to the journal's Insights host if it ever reaches here.
                 case .journal: InsightsHomeView(initial: .journal)
-                // .sleep switches to the Sleep tab (handled above); this keeps the switch exhaustive.
+                // .sleep switches to Health's Sleep chip (handled above); this keeps the switch exhaustive.
                 case .sleep: SleepView()
-                // .coach switches to the Coach tab (handled above — the morning-brief tap-through and the
+                // .coach presents this sheet (handled above — the morning-brief tap-through and the
                 // #1862 launcher both arrive that way, the launcher's question riding on
-                // `AICoachEngine.pendingPrompt`); this keeps the switch exhaustive and falls back to Coach if
-                // it ever reaches the host.
+                // `AICoachEngine.pendingPrompt`).
                 case .coach: CoachUnifiedView()
                 case .alarms: SmartAlarmView()
                 }
@@ -496,11 +486,11 @@ struct RootTabView: View {
     }
 
     /// Wraps a routed quick-action screen in its own nav stack so it has a title bar + the
-    /// shared surface background, matching how the More-tab links present these same views.
+    /// shared surface background.
     private func quickScreen<V: View>(_ view: V) -> some View {
         NavigationStack {
             view
-                // The Reports entries on the Insights screen push TabRoute values, which this sheet's own stack must resolve.
+                // The report rows on the Journal screen push TabRoute values, which this sheet's own stack must resolve.
                 .tabRouteDestinations()
                 .background(StrandPalette.surfaceBase.ignoresSafeArea())
                 .navigationBarTitleDisplayMode(.inline)

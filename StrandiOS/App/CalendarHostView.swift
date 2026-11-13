@@ -4,16 +4,17 @@ import StrandDesign
 
 // MARK: - Plan: the second tab
 //
-// Chips at the top and ONE chip mounted below them: This week (My Plan and the week, Monday to Sunday), Calendar (a month grid with the
-// chosen day's sessions under it, built from the PaceForge snapshot, and the Workouts list under that) and Season (Events, then the HYROX
-// screen with the race plan, then the weeks ahead and behind). Each chip reuses views that exist elsewhere; a day tap shows that day's
-// sessions, which open the same results and session sheets as before. NOOP's and PaceForge's numbers are never merged: this tab is
-// PaceForge's plan and results.
+// Chips at the top and ONE chip mounted below them: This week (My Plan and the week, Monday to Sunday), Next week (the week report and
+// the plan for next week with the coach's proposals, always reachable), Calendar (a month grid with the chosen day's sessions under it,
+// built from the PaceForge snapshot) and Season (the season plan, Events with the race-week card, then the weeks ahead and behind).
+// HYROX and Workouts are chips of Train. Each chip reuses views that exist elsewhere; a day tap shows that day's sessions, which open
+// the same results and session sheets as before. NOOP's and PaceForge's numbers are never merged: this tab is PaceForge's plan and
+// results.
 
 enum CalendarChip: String, CaseIterable, Identifiable {
-    case thisWeek, calendar, season
+    case thisWeek, nextWeek, calendar, season
 
-    /// The chip on show, shared with the shell so a PaceForge link can land on a chip. Reset to This week at every launch.
+    /// The chip on show, shared with the shell so a PaceForge link can land on a chip. Kept between launches.
     static let storageKey = "noop.calendar.chip"
 
     var id: String { rawValue }
@@ -21,6 +22,7 @@ enum CalendarChip: String, CaseIterable, Identifiable {
     var title: String {
         switch self {
         case .thisWeek: return "This week"
+        case .nextWeek: return "Next week"
         case .calendar: return "Calendar"
         case .season: return "Season"
         }
@@ -48,7 +50,8 @@ struct CalendarHostView: View {
         ScreenScaffold(title: "Plan", subtitle: "Your week, your calendar and your season.",
                        onRefresh: {
             await PFUnified.model.refresh()
-            if chip == .season { await PFHyroxStore.shared.refresh() }
+            if chip == .season { await PFCoachPanelsStore.shared.refresh() }
+            if chip == .nextWeek { await PFWeekPlanStore.shared.refresh() }
         }, lazy: true, topBackground: liquidScaffoldSky()) {
             CalendarColumn(selection: selection)
         }
@@ -87,6 +90,7 @@ private enum CalendarChipBody {
     static func content(_ chip: CalendarChip, _ snapshot: PFSnapshot) -> AnyView {
         switch chip {
         case .thisWeek: return AnyView(CalendarPlanChip(snapshot: snapshot))
+        case .nextWeek: return AnyView(CalendarNextWeekChip())
         case .calendar: return AnyView(CalendarMonthChip(snapshot: snapshot))
         case .season: return AnyView(CalendarSeasonChip(snapshot: snapshot))
         }
@@ -162,9 +166,6 @@ private struct CalendarMonthChip: View {
             CalendarMonthCard(monthStart: $monthStart, selected: $selected, today: today, index: index)
             CalendarLegend()
             CalendarDayPanel(day: selected, snapshot: snapshot, workouts: index.workouts(on: selected))
-            // The Workouts list (the old Training screen, whole) lives under the month.
-            Text("Workouts").strandOverline()
-            WorkoutsView()
         }
         .containerIdentifier("calendar-chip-content-calendar")
     }
@@ -392,7 +393,7 @@ private struct CalendarSessionRow: View {
     }
 }
 
-// MARK: - Plan, Season, Events, HYROX
+// MARK: - This week, Next week, Season, Events
 
 /// This week (Monday to Sunday, every session expandable) under My Plan.
 private struct CalendarPlanChip: View {
@@ -405,6 +406,23 @@ private struct CalendarPlanChip: View {
             if !snapshot.weeks.isEmpty { PFWeekView(snapshot: snapshot) }
         }
         .containerIdentifier("calendar-chip-content-plan")
+    }
+}
+
+/// Next week: the week report and the plan for next week, day by day, with each proposal's Accept and Reject. "Ask the coach about this"
+/// puts the question in the Coach's chat box and opens the Coach sheet.
+private struct CalendarNextWeekChip: View {
+    @EnvironmentObject private var router: NavRouter
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            PFWeekPlanCard(onAsk: { prompt in
+                PFChatPrefill.shared.text = prompt
+                router.openCoach()
+            })
+        }
+        .containerIdentifier("calendar-chip-content-nextWeek")
+        .task { await PFWeekPlanStore.shared.refreshIfStale() }
     }
 }
 
@@ -454,19 +472,16 @@ private struct CalendarEasyModeRow: View {
     }
 }
 
-/// The Season chip: Events, then the HYROX screen (the race plan among its cards), then one row per week the snapshot holds: its dates,
-/// phase, focus and tally.
+/// The Season chip: the season plan, Events, then one row per week the snapshot holds: its dates, phase, focus and tally.
 private struct CalendarSeasonChip: View {
     let snapshot: PFSnapshot
 
     var body: some View {
         let currentKey = snapshot.weeks.indices.contains(snapshot.currentWeekIndex) ? snapshot.weeks[snapshot.currentWeekIndex].key : ""
         return VStack(alignment: .leading, spacing: 16) {
+            PFSeasonPlanCard()
             Text("Events").strandOverline()
             CalendarEventsSection(snapshot: snapshot)
-            Text("HYROX").strandOverline()
-            PFHyroxScreen(snapshot: snapshot)
-                .containerIdentifier("calendar-season-hyrox")
             Text("Weeks").strandOverline()
             LazyVStack(alignment: .leading, spacing: 10) {
                 ForEach(snapshot.weeks) { week in
@@ -475,6 +490,8 @@ private struct CalendarSeasonChip: View {
             }
         }
         .containerIdentifier("calendar-chip-content-season")
+        // The season plan card draws nothing until the panels store has its document.
+        .task { await PFCoachPanelsStore.shared.refreshIfStale() }
     }
 }
 

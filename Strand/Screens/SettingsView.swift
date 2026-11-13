@@ -1732,8 +1732,8 @@ struct SettingsView: View {
     // MARK: - Tools (iPhone)
 
     #if os(iOS)
-    /// The four screens that had a row each in the More list: Test Centre, Automations, Siri & Shortcuts and Power saving. Always
-    /// visible, so none of them sits behind the Advanced disclosure.
+    /// The screens that had a row each in the More list: Test Centre, Automations, Siri & Shortcuts and Power saving, and the Data hub.
+    /// Always visible, so none of them sits behind the Advanced disclosure.
     private var toolsCard: some View {
         SettingsSection(
             icon: "wrench.and.screwdriver.fill",
@@ -1745,6 +1745,7 @@ struct SettingsView: View {
                 toolRow("Automations", icon: "wand.and.stars", id: "settings-tool-automations") { AutomationsView() }
                 toolRow("Siri & Shortcuts", icon: "mic.fill", id: "settings-tool-siri") { SiriShortcutsSettingsView() }
                 toolRow("Power saving", icon: "battery.25", id: "settings-tool-powersaving") { PowerSavingView() }
+                toolRow("Data", icon: "externaldrive.fill", id: "settings-tool-data") { DataHubView() }
                 toolRow("Last crash report", icon: "exclamationmark.triangle", id: "settings-tool-crashreport") { NoopDiagnosticsView() }
                 PFRefreshBetaToggle()
                 NoopDiagSendButton()

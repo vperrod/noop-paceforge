@@ -1,7 +1,7 @@
 import XCTest
 
 /// Walks every main screen once and attaches a named screenshot of each, so a reviewer can see the app before a build is installed.
-/// Run it with the simulator-verify workflow: `only=NOOPiOSUITests/ScreenshotTourUITests`. Only the launch and the five tabs are
+/// Run it with the simulator-verify workflow: `only=NOOPiOSUITests/ScreenshotTourUITests`. Only the launch, the four tabs and the Coach button are
 /// assertions; a chip, a row or a sheet that is not found is written down as "missing: <id>" and the tour goes on.
 final class ScreenshotTourUITests: XCTestCase {
     private func launch() throws -> XCUIApplication {
@@ -58,7 +58,7 @@ final class ScreenshotTourUITests: XCTestCase {
         // Today
         let today = app.shellTab("Today")
         XCTAssertTrue(today.waitForExistence(timeout: 30), "The Today tab should be in the bar.")
-        for title in ["Plan", "Coach", "Reports", "Body"] {
+        for title in ["Plan", "Train", "Health"] {
             XCTAssertTrue(app.shellTab(title).exists, "The \(title) tab should be in the bar.")
         }
         if !element(app, "pf-today-cards").waitForExistence(timeout: 30) { note("missing: pf-today-cards") }
@@ -69,33 +69,35 @@ final class ScreenshotTourUITests: XCTestCase {
         XCTAssertTrue(element(app, "calendar-host").waitForExistence(timeout: 30), "The Plan screen should open.")
         if tapIfThere(app, "calendar-chip-thisWeek") { attach(app, "10-plan-this-week") }
         openRace(app)
-        if tapIfThere(app, "calendar-chip-calendar") { attach(app, "11-plan-calendar") }
+        if tapIfThere(app, "calendar-chip-nextWeek") { attach(app, "11-plan-next-week") }
+        if tapIfThere(app, "calendar-chip-calendar") { attach(app, "12-plan-calendar") }
         if tapIfThere(app, "calendar-chip-season") {
-            shoot(app, ["12-plan-season", "12-plan-season-scrolled"])
+            shoot(app, ["13-plan-season", "13-plan-season-scrolled"])
         }
 
-        // Coach
-        app.shellTab("Coach").tap()
-        XCTAssertTrue(element(app, "coach-host").waitForExistence(timeout: 30), "The Coach screen should open.")
-        if !element(app, "coach-full-brain").waitForExistence(timeout: 30) { note("missing: coach-full-brain") }
-        shoot(app, ["20-coach", "21-coach-scrolled"])
-
-        // Reports
-        app.shellTab("Reports").tap()
-        XCTAssertTrue(element(app, "reports-host").waitForExistence(timeout: 30), "The Reports screen should open.")
-        attach(app, "30-reports")
-        if tapIfThere(app, "reports-chip-insights") {
-            if !element(app, "insights-host").waitForExistence(timeout: 30) { note("missing: insights-host") }
-            attach(app, "31-reports-insights")
-            for (index, chip) in ["overview", "trends", "journal", "deepDives"].enumerated() {
-                if tapIfThere(app, "insights-chip-\(chip)") { attach(app, "3\(index + 2)-insights-\(chip)") }
-            }
+        // Train
+        app.shellTab("Train").tap()
+        XCTAssertTrue(element(app, "train-host").waitForExistence(timeout: 30), "The Train screen should open.")
+        for (index, chip) in ["hyrox", "running", "strength", "bike", "workouts", "athlete"].enumerated() {
+            if tapIfThere(app, "train-chip-\(chip)") { attach(app, "2\(index)-train-\(chip)") }
         }
 
-        // Body
-        app.shellTab("Body").tap()
-        XCTAssertTrue(element(app, "body-host").waitForExistence(timeout: 30), "The Body screen should open.")
-        shoot(app, ["40-body", "41-body-scrolled"])
+        // Health
+        app.shellTab("Health").tap()
+        XCTAssertTrue(element(app, "health-host").waitForExistence(timeout: 30), "The Health screen should open.")
+        for (index, chip) in ["day", "sleep", "recovery", "body", "vitals", "journal", "trends"].enumerated() {
+            if tapIfThere(app, "health-chip-\(chip)") { attach(app, "3\(index)-health-\(chip)") }
+        }
+
+        // Coach: the button beside the bar opens it as a sheet over the screen on show.
+        let coach = app.coachButton
+        XCTAssertTrue(coach.waitForExistence(timeout: 30), "The Coach button should be beside the bar.")
+        coach.tap()
+        if !element(app, "coach-host").waitForExistence(timeout: 30) { note("missing: coach-host") }
+        attach(app, "40-coach")
+        for (index, chip) in ["read", "ask", "reports", "insights"].enumerated() {
+            if tapIfThere(app, "coach-chip-\(chip)", timeout: 5) { attach(app, "4\(index + 1)-coach-\(chip)") }
+        }
     }
 
     /// Plan > This week: the finished race row of the fixture's week opens the results sheet with the HYROX race layout.
@@ -107,9 +109,9 @@ final class ScreenshotTourUITests: XCTestCase {
         target.tap()
         let done = app.buttons["Done"]
         guard done.waitForExistence(timeout: 15) else { note("missing: results sheet Done button"); return }
-        attach(app, "13-race-results")
+        attach(app, "15-race-results")
         app.swipeUp()
-        attach(app, "14-race-results-scrolled")
+        attach(app, "16-race-results-scrolled")
         done.tap()
         for _ in 0..<6 { app.swipeDown() }
     }

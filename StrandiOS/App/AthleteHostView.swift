@@ -3,7 +3,7 @@ import SwiftUI
 import Charts
 import StrandDesign
 
-// MARK: - Athlete: the fourth tab with the unified navigation
+// MARK: - Athlete: the last chip of Train
 //
 // The athlete's profile header, the metric tiles with their change over four weeks, the strengths / weaknesses / areas to work on, and a
 // row to the full "Where you stand" scorecard. A tile (or a row's link) opens a detail sheet: the history chart, what the number is and
@@ -13,14 +13,67 @@ import StrandDesign
 // Built small on purpose (builds 465 to 478): the tiles sit in a LazyVGrid, a sparkline is a Canvas (no GeometryReader or ViewThatFits),
 // nothing here reads a live strap value, and only this one screen is mounted for the tab.
 
-/// The Athlete tab's root.
+/// The Athlete chip of Train: "Your numbers" (the athlete figures and pace bands) on top, then the profile and the metric tiles.
 struct AthleteHostView: View {
     @EnvironmentObject private var profile: ProfileStore
 
     var body: some View {
         ScreenScaffold(title: "Athlete", subtitle: "Your profile, your numbers and what to work on.",
                        onRefresh: { await PFUnified.model.refresh() }, lazy: true, topBackground: liquidScaffoldSky()) {
+            PFNumbersCard()
             AthleteColumn(maxHr: profile.hrMaxOverride > 0 ? profile.hrMaxOverride : nil, avatar: profile.avatarImageData)
+        }
+        // The numbers card draws nothing until the panels store has its document.
+        .task { await PFCoachPanelsStore.shared.refreshIfStale() }
+    }
+}
+
+/// The Running chip of Train: the race predictions and heart-rate zones cards of the Athlete screen (each opens its detail page), and a
+/// row to Workouts for the runs themselves. Reads the same snapshot as Athlete; nothing new is fetched.
+struct TrainRunningChip: View {
+    @EnvironmentObject private var profile: ProfileStore
+
+    var body: some View {
+        let maxHr: Int? = profile.hrMaxOverride > 0 ? profile.hrMaxOverride : nil
+        PFSnapshotHost(content: { snapshot in
+            AnyView(TrainRunningContent(athlete: PFAthleteBuild.make(snapshot, maxHr: maxHr)))
+        })
+        .containerIdentifier("train-chip-content-running")
+    }
+}
+
+private struct TrainRunningContent: View {
+    let athlete: PFAthlete
+    @State private var sheet: AthleteSheet?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            if athlete.predictions == nil && athlete.zones == nil {
+                PFCard("Nothing here yet", icon: "figure.run") {
+                    PFParagraph("Race predictions and heart-rate zones appear here once PaceForge has synced your watch.")
+                }
+            }
+            if let predictions = athlete.predictions {
+                AthletePredictionsCard(predictions: predictions) { sheet = .predictions }
+            }
+            if let zones = athlete.zones {
+                AthleteZonesCard(zones: zones) { sheet = .zones }
+            }
+            IndexSection("Runs") {
+                IndexRow("Workouts", "figure.run", TabRoute.workouts, id: "train-running-workouts")
+            }
+        }
+        .sheet(item: $sheet) { sheetContent($0) }
+    }
+
+    @ViewBuilder private func sheetContent(_ sheet: AthleteSheet) -> some View {
+        switch sheet {
+        case .predictions:
+            if let predictions = athlete.predictions { AthletePredictionsSheet(predictions: predictions) }
+        case .zones:
+            if let zones = athlete.zones { AthleteZonesSheet(zones: zones) }
+        default:
+            EmptyView()
         }
     }
 }

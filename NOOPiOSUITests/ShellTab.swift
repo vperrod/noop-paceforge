@@ -10,7 +10,7 @@ extension XCUIApplication {
 
 extension XCUIApplication {
     /// The classic navigation (Today, Workouts, Sleep, PaceForge, More) and its PaceForge tab with the `pf-segments` control are gone:
-    /// the bar is Today, Plan, Coach, Reports and Body. A test that drove the classic tab calls this before `launch()` and is skipped
+    /// the bar is Today, Plan, Train and Health, with a Coach button beside it (`look-coach`). A test that drove the classic tab calls this before `launch()` and is skipped
     /// until it is ported to the screen that holds its subject now.
     func useClassicNavigation() throws {
         throw XCTSkip("Drives the classic PaceForge tab, which no longer exists. Port it to the unified screens.")
@@ -18,8 +18,8 @@ extension XCUIApplication {
 }
 
 extension XCUIApplication {
-    /// Opens a "More" row: the row `more-row-<row>` at the end of the Reports tab (My Day, Sleep, Workouts) or the Body tab (Athlete,
-    /// Lift Log, Health, Stress, Rhythm, Alarms, Data, Settings), scrolling to it.
+    /// Opens a row `more-row-<row>` on a tab, scrolling to it. The More rows are gone with the Reports and Body tabs; a test that calls
+    /// this fails until it is ported to the Train or Health chip that holds its subject now.
     func openMoreRow(tab: String, row: String) {
         let button = shellTab(tab)
         XCTAssertTrue(button.waitForExistence(timeout: 30), "The \(tab) tab should be in the bar.")
@@ -37,5 +37,12 @@ extension XCTestCase {
         addTeardownBlock { [self] in
             if (testRun?.totalFailureCount ?? 0) > 0 { print("HIERARCHY \(name)\n\(app.debugDescription)") }
         }
+    }
+}
+
+extension XCUIApplication {
+    /// The round Coach button beside the bar, which opens the Coach as a sheet.
+    var coachButton: XCUIElement {
+        descendants(matching: .any).matching(identifier: "look-coach").firstMatch
     }
 }

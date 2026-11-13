@@ -1,7 +1,7 @@
 import XCTest
 
-/// The navigation, the only one: five tabs in the floating bar (Today, Plan, Coach, Reports, Body), Plan's three chips, Reports' two chips
-/// (with the index of Day, Week, Month and Race), the Coach's four blocks and the six PaceForge cards on Today. Like the other UI tests
+/// The navigation, the only one: four tabs in the floating bar (Today, Plan, Train, Health) and the Coach button beside it, Plan's four
+/// chips, Train's six, Health's seven, the Coach sheet and the six PaceForge cards on Today. Like the other UI tests
 /// these run on `--demo-seed` data and the synthetic fixture (`-PaceForgeFixture`). Not run in CI.
 final class UnifiedNavUITests: XCTestCase {
     private func launch(fixture: Bool = true, extra: [String] = []) throws -> XCUIApplication {
@@ -39,22 +39,22 @@ final class UnifiedNavUITests: XCTestCase {
 
     // MARK: The bar
 
-    func testTheBarHasTheFiveTabsInOrder() throws {
+    func testTheBarHasTheFourTabsInOrder() throws {
         let app = try launch()
         XCTAssertTrue(app.shellTab("Today").waitForExistence(timeout: 20))
-        let order = ["Today", "Plan", "Coach", "Reports", "Body"]
+        let order = ["Today", "Plan", "Train", "Health"]
         for title in order { XCTAssertTrue(app.shellTab(title).exists, "The bar has \(title).") }
         let xs = order.map { app.shellTab($0).frame.minX }
         XCTAssertEqual(xs, xs.sorted(), "The bar items should run in the order \(order.joined(separator: ", ")).")
     }
 
-    func testThereIsNoOldTabAndNoCoachButton() throws {
+    func testThereIsNoOldTabAndTheCoachIsAButton() throws {
         let app = try launch()
         XCTAssertTrue(app.shellTab("Plan").waitForExistence(timeout: 20))
-        for title in ["PaceForge", "My Day", "Athlete", "Sleep", "Insights", "Workouts", "More"] {
+        for title in ["Coach", "Reports", "Body", "PaceForge", "My Day", "Athlete", "Sleep", "Insights", "Workouts", "More"] {
             XCTAssertFalse(app.shellTab(title).exists, "\(title) is not a tab.")
         }
-        XCTAssertFalse(element(app, "look-coach").exists, "Coach is a tab, so the floating button is gone.")
+        XCTAssertTrue(app.coachButton.exists, "The Coach button sits beside the bar.")
     }
 
     // MARK: Today
@@ -79,75 +79,67 @@ final class UnifiedNavUITests: XCTestCase {
 
     // MARK: Plan
 
-    func testPlanOpensOnThisWeek() throws {
+    func testPlanThisWeekChipMounts() throws {
         let app = try launch()
         open("Plan", host: "calendar-host", in: app)
-        XCTAssertTrue(element(app, "calendar-chip-content-plan").waitForExistence(timeout: 30), "Plan opens on This week.")
+        // The tab reopens on the chip it was left on, so the chip is chosen rather than assumed.
+        choose("thisWeek", prefix: "calendar", in: app)
+        XCTAssertTrue(element(app, "calendar-chip-content-plan").waitForExistence(timeout: 30), "This week should mount.")
     }
 
-    func testPlanHasThreeChipsAndEachMounts() throws {
+    func testPlanHasFourChipsAndEachMounts() throws {
         let app = try launch()
         open("Plan", host: "calendar-host", in: app)
-        for chip in ["calendar", "season"] {
+        for chip in ["nextWeek", "calendar", "season"] {
             choose(chip, prefix: "calendar", in: app)
             XCTAssertTrue(element(app, "calendar-chip-content-\(chip)").waitForExistence(timeout: 30), "The \(chip) chip should mount.")
         }
         for gone in ["workouts", "events", "hyrox"] {
-            XCTAssertFalse(element(app, "calendar-chip-\(gone)").exists, "\(gone) is a section, not a chip.")
+            XCTAssertFalse(element(app, "calendar-chip-\(gone)").exists, "\(gone) is not a Plan chip.")
         }
     }
 
-    func testSeasonHasEventsAndHyroxAtTheTop() throws {
+    func testSeasonHasEventsAndNoHyrox() throws {
         let app = try launch()
         open("Plan", host: "calendar-host", in: app)
         choose("season", prefix: "calendar", in: app)
-        XCTAssertTrue(element(app, "calendar-season-events").waitForExistence(timeout: 30), "Season starts with Events.")
-        XCTAssertTrue(element(app, "calendar-season-hyrox").waitForExistence(timeout: 30), "Season has the HYROX screen under Events.")
+        XCTAssertTrue(element(app, "calendar-season-events").waitForExistence(timeout: 30), "Season has Events.")
+        XCTAssertFalse(element(app, "calendar-season-hyrox").exists, "HYROX moved to Train.")
+    }
+
+    // MARK: Train
+
+    func testTrainHasSixChipsAndEachMounts() throws {
+        let app = try launch()
+        open("Train", host: "train-host", in: app)
+        for chip in ["hyrox", "running", "strength", "bike", "workouts", "athlete"] {
+            choose(chip, prefix: "train", in: app)
+            XCTAssertTrue(element(app, "train-chip-content-\(chip)").waitForExistence(timeout: 30), "The \(chip) chip should mount.")
+        }
+    }
+
+    // MARK: Health
+
+    func testHealthHasSevenChipsAndEachMounts() throws {
+        let app = try launch()
+        open("Health", host: "health-host", in: app)
+        for chip in ["day", "sleep", "recovery", "body", "vitals", "journal", "trends"] {
+            choose(chip, prefix: "health", in: app)
+            XCTAssertTrue(element(app, "health-chip-content-\(chip)").waitForExistence(timeout: 30), "The \(chip) chip should mount.")
+        }
     }
 
     // MARK: Coach
 
-    func testCoachIsATabWithOneComposer() throws {
+    func testCoachOpensAsASheetOverTheScreenOnShow() throws {
         let app = try launch()
-        open("Coach", host: "coach-host", in: app)
-        XCTAssertTrue(element(app, "coach-full-brain").waitForExistence(timeout: 30), "The Coach screen should load the shared PaceForge brain.")
-        XCTAssertTrue(element(app, "pf-composer-mode").waitForExistence(timeout: 30), "One composer with a mode switch.")
+        open("Plan", host: "calendar-host", in: app)
+        XCTAssertTrue(app.coachButton.waitForExistence(timeout: 20), "The Coach button should be beside the bar.")
+        app.coachButton.tap()
+        XCTAssertTrue(element(app, "coach-host").waitForExistence(timeout: 30), "The Coach sheet should open.")
+        XCTAssertTrue(element(app, "coach-full-brain").waitForExistence(timeout: 30), "The Coach should load the shared PaceForge brain.")
+        choose("ask", prefix: "coach", in: app)
+        XCTAssertTrue(element(app, "pf-composer-mode").waitForExistence(timeout: 30), "One composer with a mode switch on the Ask chip.")
         XCTAssertFalse(element(app, "pf-tell-coach").exists, "Tell the coach is not a separate card any more.")
-    }
-
-    // MARK: Reports
-
-    func testReportsIndexHasDayWeekMonthAndRace() throws {
-        let app = try launch()
-        open("Reports", host: "reports-host", in: app)
-        for kind in ["daily", "weekly", "monthly", "race"] {
-            XCTAssertTrue(element(app, "pf-reports-index-\(kind)").waitForExistence(timeout: 30), "The index has the \(kind) row.")
-        }
-    }
-
-    func testInsightsIsAChipOfReports() throws {
-        let app = try launch()
-        open("Reports", host: "reports-host", in: app)
-        choose("insights", prefix: "reports", in: app)
-        XCTAssertTrue(element(app, "insights-host").waitForExistence(timeout: 30), "Insights opens under Reports.")
-    }
-
-    func testReportsEndsWithMyDaySleepAndWorkouts() throws {
-        let app = try launch()
-        open("Reports", host: "reports-host", in: app)
-        for row in ["myday", "sleep", "workouts"] {
-            XCTAssertTrue(element(app, "more-row-\(row)").waitForExistence(timeout: 20), "More has the \(row) row.")
-        }
-    }
-
-    // MARK: Body
-
-    func testBodyHasBothChipsAndTheMoreRows() throws {
-        let app = try launch()
-        open("Body", host: "body-host", in: app)
-        choose("labBook", prefix: "body", in: app)
-        XCTAssertTrue(element(app, "body-chip-content-labBook").waitForExistence(timeout: 30), "The Lab Book chip should mount.")
-        XCTAssertTrue(element(app, "more-row-athlete").waitForExistence(timeout: 20), "More has Athlete.")
-        XCTAssertTrue(element(app, "more-row-settings").exists, "More ends with Settings.")
     }
 }

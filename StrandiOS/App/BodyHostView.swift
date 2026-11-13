@@ -2,79 +2,21 @@
 import SwiftUI
 import StrandDesign
 
-// MARK: - Body: the fifth tab
+// MARK: - Health > Body
 //
-// PaceForge's Body screen (the Hume scale: trend, score, composition, goals, readings) and the Lab Book as two chips, one mounted at a
-// time. Both are the screens that exist today, unchanged.
+// PaceForge's Body screen (the Hume scale: trend, score, composition, goals, readings) under a row to the Lab Book. Both are the screens
+// that exist today, unchanged; this is the content of the Body chip of the Health tab.
 
-enum BodyChip: String, CaseIterable, Identifiable {
-    case body, labBook
-
-    /// The chip on show. Reset to Body at every launch.
-    static let storageKey = "noop.body.chip"
-
-    var id: String { rawValue }
-
-    var title: String {
-        switch self {
-        case .body: return "Body"
-        case .labBook: return "Lab Book"
-        }
-    }
-}
-
-struct BodyHostView: View {
-    @AppStorage(BodyChip.storageKey) private var chipRaw = BodyChip.body.rawValue
-
-    private var chip: BodyChip { BodyChip(rawValue: chipRaw) ?? .body }
-
-    private var selection: Binding<BodyChip> {
-        Binding(
-            get: { chip },
-            set: { new in
-                guard new != chip else { return }
-                NoopDiag.crumb("nav.chip body.\(new.rawValue)")
-                chipRaw = new.rawValue
+/// The Body chip of Health: the Lab Book row, then the scale screen.
+struct HealthBodyChip: View {
+    var body: some View {
+        VStack(alignment: .leading, spacing: NoopMetrics.sectionSpacing) {
+            IndexSection("Lab") {
+                IndexRow("Lab Book", "cross.case.fill", MoreDestination.labBook, id: "health-body-labbook")
             }
-        )
-    }
-
-    var body: some View {
-        ScreenScaffold(title: "Body", subtitle: "Your scale readings and your lab results.",
-                       onRefresh: { await PFUnified.model.refresh() }, lazy: true, topBackground: liquidScaffoldSky()) {
-            BodyColumn(selection: selection)
-            BodyMoreRows()
+            BodyPaceForgeChip()
         }
-    }
-}
-
-private struct BodyColumn: View {
-    @Binding var selection: BodyChip
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            SectionChips(options: BodyChip.allCases, selection: $selection, idPrefix: "body-chip",
-                         id: { $0.rawValue }, title: { $0.title })
-            BodyChipBody(chip: selection)
-                .id(selection)
-                .environment(\.screenScaffoldEmbedded, true)
-        }
-        .containerIdentifier("body-host")
-    }
-}
-
-private struct BodyChipBody: View {
-    let chip: BodyChip
-
-    var body: some View {
-        UnifiedChipMount(host: "body", name: chip.rawValue, content: content)
-    }
-
-    private var content: AnyView {
-        switch chip {
-        case .body: return AnyView(BodyPaceForgeChip())
-        case .labBook: return AnyView(LabBookView().containerIdentifier("body-chip-content-labBook"))
-        }
+        .containerIdentifier("health-chip-content-body")
     }
 }
 

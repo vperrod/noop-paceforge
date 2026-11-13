@@ -23,7 +23,7 @@ public struct LookTabItem: Identifiable, Equatable {
 public struct FloatingTabBar: View {
     public var items: [LookTabItem]
     @Binding public var selection: String
-    /// nil draws no coach button (the unified shell has Coach as a tab).
+    /// nil draws no coach button. The iPhone shell passes one: the Coach opens as a sheet over the screen on show.
     public var onCoach: (() -> Void)?
 
     /// The narrowest a tab gets before the bar starts to scroll.

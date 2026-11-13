@@ -2,15 +2,15 @@
 import SwiftUI
 import StrandDesign
 
-// The navigation: five tabs in the floating bar, Today, Plan, Coach, Reports and Body (tags 0 to 4). It is the only navigation; the
-// earlier classic five-tab map and the Settings switch that chose between them are gone.
+// The navigation: four tabs in the floating bar, Today, Plan, Train and Health (tags 0 to 3), and a round Coach button beside the bar that
+// opens the Coach as a sheet over whatever screen is showing. It is the only navigation.
 //
-// - Plan opens on This week; Calendar and Season are its other chips (Workouts live inside Calendar; Events and HYROX are sections at
-//   the top of Season).
-// - Reports has two chips: Reports (the index: Day, Week, Month, Race) and Insights. My Day, Sleep and Workouts are "More" rows at its
-//   end.
-// - Body has the Body and Lab Book chips; Athlete, Lift Log, Health, Stress, Rhythm, Alarms, Data and Settings are "More" rows at its end.
+// - Plan has four chips: This week, Next week, Calendar and Season (Events, the race-week card, the season plan and the week rows).
+// - Train has six chips: HYROX, Running, Strength, Bike, Workouts and Athlete.
+// - Health has seven chips: Day, Sleep, Recovery, Body, Vitals, Journal and Trends.
+// - The Coach sheet holds the reports and the insights; Settings opens from the avatar on Today, and Data from Settings > Tools.
 // - Sleep also opens from the Rest ring on Today (a push over the tab on show), and My Day from `noop://myday`.
+// - Every tab reopens on the chip it was left on (each host keeps its chip in @AppStorage; nothing resets it at launch).
 //
 // Built small on purpose (builds 465 to 478): every chip is its own small view, only the selected chip of a tab is mounted, nothing
 // here reads a live strap value, there is no GeometryReader, ViewThatFits or preference key, and PaceForge's core is never called
@@ -19,19 +19,13 @@ import StrandDesign
 enum UnifiedNav {
     static let todayTab = 0
     static let planTab = 1
-    static let coachTab = 2
-    static let reportsTab = 3
-    static let bodyTab = 4
+    static let trainTab = 2
+    static let healthTab = 3
 
-    /// A launch always opens every tab on its first chip, never on one remembered from a previous run (a heavy chip left selected is
-    /// what must not be the first thing a restart mounts).
+    /// Called from the app's init. The tabs keep their chips between launches, so there is nothing to reset: only the keys of the two
+    /// switches that are gone are removed, so a stored value does not outlive the code that read it.
     static func captureAtLaunch() {
         let defaults = UserDefaults.standard
-        defaults.set(CalendarChip.thisWeek.rawValue, forKey: CalendarChip.storageKey)
-        defaults.set(InsightsChip.overview.rawValue, forKey: InsightsChip.storageKey)
-        defaults.set(BodyChip.body.rawValue, forKey: BodyChip.storageKey)
-        defaults.set(ReportsChip.reports.rawValue, forKey: ReportsChip.storageKey)
-        // The retired switch and the retired Day-tab preference: a stored value must not outlive the code that read it.
         defaults.removeObject(forKey: "unifiedNav")
         defaults.removeObject(forKey: "unifiedDay")
         NoopDiag.crumb("nav.unified enabled")
@@ -41,18 +35,17 @@ enum UnifiedNav {
     static let tabs: [LookTabItem] = [
         LookTabItem(id: "today", title: "Today", symbol: "square.grid.2x2"),
         LookTabItem(id: "plan", title: "Plan", symbol: "calendar"),
-        LookTabItem(id: "coach", title: "Coach", symbol: "sparkles"),
-        LookTabItem(id: "reports", title: "Reports", symbol: "doc.text"),
-        LookTabItem(id: "body", title: "Body", symbol: "figure.stand"),
+        LookTabItem(id: "train", title: "Train", symbol: "figure.run"),
+        LookTabItem(id: "health", title: "Health", symbol: "heart.text.square"),
     ]
 
     /// Where an old PaceForge link (widget, notification, `noop://paceforge/...`, the Home Screen menu) lands.
     enum Landing: Equatable {
         case today
         case calendar(CalendarChip)
-        case insights(InsightsChip)
+        case health(HealthChip)
+        /// The Coach sheet, which also holds the insights and the reports.
         case coach
-        case body
     }
 
     static func landing(for segment: PFSegment) -> Landing {
@@ -60,8 +53,8 @@ enum UnifiedNav {
         case .today: return .today
         case .coach: return .coach
         case .week: return .calendar(.thisWeek)
-        case .insights: return .insights(.overview)
-        case .body: return .body
+        case .insights: return .coach
+        case .body: return .health(.body)
         }
     }
 }
