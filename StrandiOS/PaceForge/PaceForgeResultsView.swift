@@ -384,7 +384,7 @@ private struct PFRaceResultCard: View {
         guard let goal = race.goalSeconds else { return nil }
         var line = "Goal \(PFFormat.clock(Double(goal)))"
         if let delta = race.goalDeltaS {
-            line += " \u{00B7} \(delta > 0 ? "+" : "-")\(PFFormat.clock(Double(abs(delta)))) vs goal"
+            line += delta == 0 ? " \u{00B7} on goal" : " \u{00B7} \(delta > 0 ? "+" : "-")\(PFFormat.clock(Double(abs(delta)))) vs goal"
         }
         return line
     }
