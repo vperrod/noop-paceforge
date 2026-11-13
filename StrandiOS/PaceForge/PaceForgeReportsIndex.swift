@@ -2,9 +2,9 @@ import SwiftUI
 import StrandDesign
 
 // The Reports index and the week plan page. A report belongs to one scope (daily, weekly, monthly) and lives on its own page; this
-// index lists the three with their latest headline, and a fourth row for the races (pack and debrief), and the week plan is a page of its own instead of the top of the Coach.
+// index lists the three with their latest headline, and a fourth row for the races (pack and debrief), and the week plan is a page of its own (a row on the Coach's Reports chip and the row to its proposals on the Read chip open it).
 
-/// The index as a screen (the `noop://` and Coach links that push it); the Reports tab embeds `PFReportsIndexContent` directly.
+/// The index as a screen (the `noop://` and Coach links that push it); the Coach's Reports chip embeds `PFReportsIndexContent` directly.
 struct PFReportsIndexScreen: View {
     var body: some View {
         ScrollView {
@@ -80,7 +80,7 @@ struct PFReportsIndexContent: View {
     }
 }
 
-/// The week plan on a page of its own. "Ask the coach about this" puts the question in the Coach's chat box and goes back to it.
+/// The week plan on a page of its own. "Ask the coach about this" puts the question in the Coach's chat box (the Coach moves to its Ask chip) and goes back to it.
 struct PFWeekPlanScreen: View {
     @Environment(\.dismiss) private var dismiss
 
