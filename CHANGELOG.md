@@ -17,6 +17,10 @@ approximate; downloads are on the [Releases](https://github.com/NoopApp/noop/rel
 
 ---
 
+## 12.0.12 build 521 (PaceForge iPhone build): Today shows Garmin and WHOOP side by side, with Garmin's why
+
+- Today, "How you are": two columns, Garmin and WHOOP. PaceForge's own recovery number is gone from this card. Under Garmin: why its readiness is what it is (the factors), recovery time and the HRV normal range; tap for the full explanation.
+
 ## 12.0.12 build 520 (PaceForge iPhone build): one Today, five tabs, the coach as read + ask
 
 - Today: six cards from one document the server writes each day (the call, tomorrow or today's race/session, needs-you, Garmin and WHOOP side by side, feel, the week as a strip with races). The strap's rings and cards sit below, folded.
