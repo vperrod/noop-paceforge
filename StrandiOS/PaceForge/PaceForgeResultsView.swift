@@ -22,7 +22,10 @@ struct PFResultsSheet: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
-                    PFResultsHeader(workout: workout, activity: activity, weather: results?.detail?.weather)
+                    // A race has its own result card; the recording's own name and sport would only contradict it.
+                    if results?.detail?.race == nil {
+                        PFResultsHeader(workout: workout, activity: activity, weather: results?.detail?.weather)
+                    }
                     if let results {
                         content(results)
                     } else {
@@ -58,7 +61,7 @@ struct PFResultsSheet: View {
         // A race recording (the server stamps `race` on its detail) gets the race layout; the run blocks below are gated on it.
         let race = detail?.race
         if let race {
-            PFRaceResultCard(race: race)
+            PFRaceResultCard(race: race, weather: detail?.weather)
             PFRaceSegmentsCard(race: race)
         }
         coachCard(results.analysis)
@@ -75,7 +78,7 @@ struct PFResultsSheet: View {
             .tint(StrandPalette.accent)
             .accessibilityIdentifier("pf-ask-coach-workout")
         }
-        if let activity { PFStatTiles(activity: activity) }
+        if let activity { PFStatTiles(activity: activity, hidesHeartRate: race != nil) }
         if let detail {
             PFHeartRateCard(samples: detail.samples, splits: race == nil ? detail.splits : [], avgHr: activity?.avgHr, hrNote: race?.hrNote)
             if race == nil, !detail.zones.isEmpty { PFZonesCard(zones: detail.zones) }
@@ -87,11 +90,13 @@ struct PFResultsSheet: View {
         }
         let hrr = detail?.hrr1 ?? activity?.hrr1
         let garmin = detail?.hrrGarmin ?? activity?.hrrGarmin
-        if hrr != nil || garmin != nil {
+        if race == nil, hrr != nil || garmin != nil {
             PFHRR1Card(hrr: hrr ?? PFHRR1(kind: PFHRR1.notMeasurable), garmin: garmin, tipsGarminWait: true)
         }
-        PFEffortCard(strain: analysis?.strain, band: analysis?.strainBand, trimp: trimp,
-                     recovery: analysis?.recoveryReason, rank: detail?.effortRank)
+        if race == nil {
+            PFEffortCard(strain: analysis?.strain, band: analysis?.strainBand, trimp: trimp,
+                         recovery: analysis?.recoveryReason, rank: detail?.effortRank)
+        }
         if race == nil, let explainer = detail?.runExplainer, workout.briefing == nil { PFRunExplainerCard(explainer: explainer) }
         if race == nil { PFPlanVersusActual(workout: workout, analysis: analysis) }
         if race == nil, let detail {
@@ -228,6 +233,8 @@ private struct PFStatTile: Identifiable {
 
 private struct PFStatTiles: View {
     let activity: PFActivity
+    /// A race: the watch heart rate is not shown as a plain fact (the heart-rate card carries the server's note).
+    var hidesHeartRate = false
 
     private var tiles: [PFStatTile] {
         let a = activity
@@ -264,7 +271,8 @@ private struct PFStatTiles: View {
         } else {
             order = ["time", "avgHr", "maxHr", "kcal", "ate", "ane", "dist", "pace", "elev"]
         }
-        return order.compactMap { all[$0] }
+        let heartRateKeys: Set<String> = ["avgHr", "maxHr", "ate", "ane"]
+        return order.filter { !hidesHeartRate || !heartRateKeys.contains($0) }.compactMap { all[$0] }
     }
 
     var body: some View {
@@ -279,7 +287,7 @@ private struct PFStatTiles: View {
                         }
                     }
                     // The corrected figures lead; what the watch recorded stays beside them, never replaced.
-                    if let recorded = activity.recordedHr {
+                    if !hidesHeartRate, let recorded = activity.recordedHr {
                         Text("Recorded by the watch: avg \(recorded.avg), max \(recorded.peak) bpm")
                             .font(LookFont.text(12, weight: .medium))
                             .foregroundStyle(NoopLook.textTertiary)
@@ -375,6 +383,12 @@ private struct PFHeartRateCard: View {
 /// The race result: finish time, official or Garmin-only, the gap to goal and the field position.
 private struct PFRaceResultCard: View {
     let race: PFRaceResult
+    let weather: PFWeather?
+
+    private var weatherLine: String? {
+        guard let temp = weather?.tempC else { return nil }
+        return "\(Safe.int(temp))\u{00B0}" + (weather?.desc.map { " " + $0 } ?? "")
+    }
 
     private var finish: String {
         race.timeDisplay ?? race.timeSeconds.map { PFFormat.clock(Double($0)) } ?? "\u{2013}"
@@ -399,6 +413,15 @@ private struct PFRaceResultCard: View {
     var body: some View {
         PFCard(race.event ?? "Race", icon: "flag.checkered") {
             VStack(alignment: .leading, spacing: 6) {
+                if let date = race.date {
+                    Text([PFFormat.dayTitle(date), weatherLine].compactMap { $0 }.joined(separator: " \u{00B7} "))
+                        .font(StrandFont.caption)
+                        .foregroundStyle(StrandPalette.textTertiary)
+                } else if let weatherLine {
+                    Text(weatherLine)
+                        .font(StrandFont.caption)
+                        .foregroundStyle(StrandPalette.textTertiary)
+                }
                 Text(finish)
                     .font(StrandFont.rounded(40))
                     .foregroundStyle(StrandPalette.textPrimary)
@@ -436,7 +459,7 @@ private struct PFRaceSegmentsCard: View {
     private func detail(_ s: PFRaceResult.Segment) -> String? {
         var parts: [String] = []
         if let rank = s.rank, let field = s.fieldSize, field > 0 {
-            parts.append("top \((rank * 100 + field - 1) / field) %")
+            parts.append("top \(max(1, Int((Double(rank) * 100 / Double(field)).rounded())))%")
         }
         if let delta = s.deltaS {
             parts.append(delta > 0 ? "+\(PFFormat.clock(Double(delta))) vs best" : "best")
