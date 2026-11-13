@@ -89,7 +89,7 @@ private struct PFDaySection: View {
                     .foregroundStyle(StrandPalette.textTertiary)
                     .padding(.vertical, 2)
             } else {
-                ForEach(races, id: \.name) { PFRaceDayRow(race: $0) }
+                ForEach(races, id: \.name) { PFRaceDayRow(race: $0, outcome: snapshot.raceOutcome(on: day.date, name: $0.name)) }
                 ForEach(workouts) { PFWorkoutRow(workout: $0, snapshot: snapshot) }
                 ForEach(rides) { PFRideRow(ride: $0, snapshot: snapshot) }
             }
@@ -102,6 +102,8 @@ private struct PFDaySection: View {
 /// HYROX screen with its race plan.
 struct PFRaceDayRow: View {
     let race: PFNextRace
+    /// The week strip's entry for this race when it has been run (result, gap to goal, recording).
+    var outcome: PFTodayCall.WeekItem? = nil
     @State private var showPlan = false
 
     private var isHyrox: Bool { race.name.localizedCaseInsensitiveContains("hyrox") }
@@ -131,11 +133,26 @@ struct PFRaceDayRow: View {
                         .font(StrandFont.headline)
                         .foregroundStyle(StrandPalette.textPrimary)
                         .fixedSize(horizontal: false, vertical: true)
+                    if let result = outcome?.result {
+                        Text([result, outcome?.goalGapLine, outcome?.resultSource == "garmin" ? "Garmin recording" : nil]
+                            .compactMap { $0 }.joined(separator: " \u{00B7} "))
+                            .font(StrandFont.subhead.weight(.semibold))
+                            .foregroundStyle(StrandPalette.textPrimary)
+                            .accessibilityIdentifier("pf-week-race-result-\(race.date)")
+                    }
                     Text(race.goalTime.map { "Race \u{00B7} goal \($0)" } ?? "Race")
                         .font(StrandFont.caption)
                         .foregroundStyle(StrandPalette.textSecondary)
                 }
                 Spacer(minLength: 0)
+                if outcome != nil {
+                    Text("DONE")
+                        .font(StrandFont.caption.weight(.bold))
+                        .foregroundStyle(PFColor.positive)
+                        .padding(.horizontal, 8).padding(.vertical, 3)
+                        .background(Capsule().fill(PFColor.positive.opacity(0.15)))
+                        .accessibilityIdentifier("pf-week-race-done-\(race.date)")
+                }
             }
         }
     }

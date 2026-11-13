@@ -359,7 +359,7 @@ struct CalendarDayPanel: View {
                     .font(StrandFont.subhead)
                     .foregroundStyle(StrandPalette.textTertiary)
             } else {
-                ForEach(races, id: \.name) { PFRaceDayRow(race: $0) }
+                ForEach(races, id: \.name) { PFRaceDayRow(race: $0, outcome: snapshot.raceOutcome(on: day, name: $0.name)) }
                 ForEach(workouts) { CalendarSessionRow(workout: $0, snapshot: snapshot) }
                 ForEach(rides) { PFRideRow(ride: $0, snapshot: snapshot) }
             }

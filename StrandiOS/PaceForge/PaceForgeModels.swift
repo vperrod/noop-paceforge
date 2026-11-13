@@ -77,6 +77,12 @@ struct PFSnapshot {
     /// The races of one day.
     func races(on date: String) -> [PFNextRace] { races.filter { $0.date == date } }
 
+    /// The week strip's entry for a race that was run on ``date`` (with its result), from `today-call.json`; nil for a race still ahead.
+    func raceOutcome(on date: String, name: String) -> PFTodayCall.WeekItem? {
+        todayCall?.week.first { $0.date == date }?.items
+            .first { $0.kind == "race" && $0.title == name && ($0.result != nil || $0.status == "done") }
+    }
+
     /// The explainer with this id, if the server has one.
     func explainer(_ id: String) -> PFExplainer? { explainers.first { $0.id == id } }
 }

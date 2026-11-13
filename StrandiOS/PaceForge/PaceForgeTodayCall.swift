@@ -81,6 +81,12 @@ struct PFTodayCall: Equatable {
         /// "done", "planned", "missed", "partial" or "optional".
         var status: String
         var sessionID: String?
+        /// A race that was run: the finish ("1:08:13"), its source ("official" or "garmin"), the gap to the goal in seconds
+        /// (positive = slower) and the recording's activity id.
+        var result: String? = nil
+        var resultSource: String? = nil
+        var goalDeltaSeconds: Int? = nil
+        var activityID: String? = nil
     }
 
     struct WeekDay: Equatable {
@@ -127,7 +133,9 @@ enum PFTodayCallParse {
             let items: [PFTodayCall.WeekItem] = day["items"].array.compactMap { item in
                 guard let title = item["title"].text else { return nil }
                 return PFTodayCall.WeekItem(kind: item["kind"].text ?? "session", title: title, status: item["status"].text ?? "planned",
-                                            sessionID: item["session_id"].idString)
+                                            sessionID: item["session_id"].idString, result: item["result"]["display"].text,
+                                            resultSource: item["result"]["source"].text, goalDeltaSeconds: item["result"]["goal_delta_s"].int,
+                                            activityID: item["activity_id"].idString)
             }
             return PFTodayCall.WeekDay(date: date, dow: day["dow"].text ?? "", items: items)
         }
@@ -201,5 +209,14 @@ enum PFWeekGlyph {
         if sessions.isEmpty { return "\u{2013}" }
         if sessions.allSatisfy({ $0.status == "done" || $0.status == "partial" }) { return "\u{25CF}" }
         return "\u{25CB}"
+    }
+}
+
+extension PFTodayCall.WeekItem {
+    /// "+8:13 vs goal" / "-0:40 vs goal" for a run race with a goal, else nil.
+    var goalGapLine: String? {
+        guard let delta = goalDeltaSeconds else { return nil }
+        let seconds = abs(delta)
+        return "\(delta > 0 ? "+" : "-")\(seconds / 60):\(seconds % 60 < 10 ? "0" : "")\(seconds % 60) vs goal"
     }
 }
