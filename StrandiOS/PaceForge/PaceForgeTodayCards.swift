@@ -2,8 +2,8 @@ import SwiftUI
 import StrandDesign
 
 // The PaceForge section of the unified Today: six small cards in a fixed order (PFTodayCard), each reading the snapshot's
-// `today-call.json` (or, when the server serves none, the same parts built from the snapshot's own data). The native NOOP blocks
-// (rings, heart rate, key metrics) sit below them, folded.
+// `today-call.json` (or, when the server serves none, the same parts built from the snapshot's own data). The six rings sit above them
+// and the native NOOP blocks (monitor tiles, heart rate, key metrics) below them, all open.
 
 /// Mounted by `LiquidTodayView` where the PaceForge blocks used to be. It brings its own snapshot host, so it shows the load, failed
 /// and offline states on Today.
@@ -23,10 +23,16 @@ private struct PFTodayCardsColumn: View {
     let snapshot: PFSnapshot
     let onOpenNeedsYou: () -> Void
     let onReadWhy: () -> Void
+    @ObservedObject private var dismissals = PFDismissStore.shared
 
     var body: some View {
         let info = snapshot.todayCall ?? PFTodayCallParse.fallback(from: snapshot)
-        let cards = PFTodayCard.present(call: info, needsYou: snapshot.needsYou.count, hasFeel: snapshot.feel != nil)
+        let hasLiveAlerts = snapshot.alerts.contains { alert in
+            alert.isLive && !PFDismissLogic.isHidden(key: PFDismissKey.alertKey(alert), text: PFDismissKey.alertText(alert),
+                                                     today: snapshot.todayISO, local: dismissals.local, server: snapshot.dismissed)
+        }
+        let cards = PFTodayCard.present(call: info, needsYou: snapshot.needsYou.count, hasFeel: snapshot.feel != nil,
+                                        hasLiveAlerts: hasLiveAlerts)
         VStack(alignment: .leading, spacing: 12) {
             ForEach(cards, id: \.rawValue) { card in
                 cardView(card, info: info)
@@ -58,7 +64,7 @@ private struct PFTheCallCard: View {
 
     var body: some View {
         if let call = info.call {
-            PFDismissable(.todaysCall, text: call.verdict + call.reason, snapshot: snapshot) {
+            PFDismissable(.theCall, text: PFCardText.theCall(call), snapshot: snapshot) {
                 Button { showBrief = true } label: {
                     PFCard(title: "The call", icon: "scope", trailing: {
                         Image(systemName: "chevron.right")
@@ -128,7 +134,7 @@ private struct PFCallSheet: View {
 
 // MARK: - 2. Needs you
 
-/// The existing Needs you row and proposals row, with the open live alerts under them; drawn only while something is open.
+/// The existing Needs you row and proposals row, with the open live alerts under them; drawn only while an item or a live alert is open.
 private struct PFNeedsYouSlot: View {
     let onOpen: () -> Void
     let onReadWhy: () -> Void

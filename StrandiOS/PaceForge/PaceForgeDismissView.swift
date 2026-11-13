@@ -10,6 +10,8 @@ import StrandDesign
 
 /// The cards that can be hidden. The raw value is the key stored locally and matched against dismissed.json.
 enum PFCardKind: String, CaseIterable {
+    /// Today's first card. Its own key: it must not share `todays-call` with the Today's call chip card, whose text hashes differently.
+    case theCall = "the-call"
     case todaysCall = "todays-call"
     case dayInReview = "day-in-review"
     case todaySoFar = "today-so-far"
@@ -28,6 +30,7 @@ enum PFCardKind: String, CaseIterable {
 
     var title: String {
         switch self {
+        case .theCall: return "The call"
         case .todaysCall: return "Today's call"
         case .dayInReview: return "Day in review"
         case .todaySoFar: return "Today so far"
@@ -72,6 +75,9 @@ struct PFHiddenKeyed: Identifiable {
 /// The text of each card, built from the same fields the card draws. Times that tick (the clock marker, "updated
 /// 08:12") are left out, so a card does not come back just because a minute went by.
 enum PFCardText {
+    /// The call card hashes what it says: the verdict and the reason.
+    static func theCall(_ call: PFTodayCall.Call) -> String { call.verdict + call.reason }
+
     static func todaySoFar(_ s: PFSnapshot) -> String {
         let m = PFTodaySoFar.make(from: s)
         return "\(m.planned)|\(m.done)|\(m.pending.joined(separator: ","))|\(m.sleepText ?? "")"
@@ -177,6 +183,7 @@ enum PFCardText {
     /// Every card the snapshot has right now, in screen order.
     static func all(_ s: PFSnapshot) -> [PFCardRef] {
         var out: [PFCardRef] = []
+        if let call = (s.todayCall ?? PFTodayCallParse.fallback(from: s)).call { out.append(PFCardRef(kind: .theCall, text: theCall(call))) }
         out.append(PFCardRef(kind: .todaySoFar, text: todaySoFar(s)))
         if let brief = s.today.brief { out.append(PFCardRef(kind: .brief, text: Self.brief(brief))) }
         if let easy = s.easyMode, !easy.isIdle { out.append(PFCardRef(kind: .easyMode, text: easyMode(easy))) }

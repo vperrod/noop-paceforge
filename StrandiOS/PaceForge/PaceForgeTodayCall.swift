@@ -167,7 +167,8 @@ enum PFTodayCallParse {
     }
 
     /// What the cards show when the server serves no `today-call.json`: the same parts from the snapshot's own data. The week strip
-    /// is the current week of the plan; the call is the brief's headline. Nothing is invented: a part the snapshot lacks stays empty.
+    /// is the current week of the plan; the call is the brief's headline. Nothing is invented: a part the snapshot lacks stays empty. The Garmin
+    /// column stays empty too: the snapshot's recovery score is PaceForge's own calculation, and Garmin and the strap are never mislabelled.
     static func fallback(from snapshot: PFSnapshot) -> PFTodayCall {
         var out = PFTodayCall()
         out.date = snapshot.todayISO
@@ -183,9 +184,6 @@ enum PFTodayCallParse {
         }
         if let race = snapshot.today.nextRace {
             out.nextRace = PFTodayCall.Race(name: race.name, date: race.date, daysOut: race.daysOut, goalTime: race.goalTime)
-        }
-        if let recovery = snapshot.today.recovery {
-            out.readiness.garmin = PFTodayCall.Device(score: recovery.score, band: recovery.band, label: nil)
         }
         out.needsYou = snapshot.needsYou.count
         if snapshot.weeks.indices.contains(snapshot.currentWeekIndex) {

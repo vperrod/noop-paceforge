@@ -33,8 +33,8 @@ struct PFAlertsCard: View {
 }
 
 /// NOOP Today's live alerts: the open `live_*` alerts in the Alerts card, and nothing else. The daily alert kinds stay on the
-/// PaceForge Today screen. Each alert has the "Not today" menu (key `alert:<kind>`); the Hidden cards row under the card
-/// brings hidden alerts, page notes and cards back. Draws nothing when no alert is open and nothing is hidden.
+/// PaceForge Today screen. Each alert has the "Not today" menu (key `alert:<kind>`); the one Hidden cards row at the end of the
+/// Today cards (`PFTodayCardsColumn`) brings hidden alerts, page notes and cards back. Draws nothing when no alert is open.
 struct PFTodayLiveAlertsHost: View {
     @ObservedObject private var model = PFUnified.model
     @ObservedObject private var dismissals = PFDismissStore.shared
@@ -47,7 +47,6 @@ struct PFTodayLiveAlertsHost: View {
                                                              today: snapshot.todayISO, local: dismissals.local, server: snapshot.dismissed)
                 }
                 if !open.isEmpty { PFAlertsCard(alerts: open, snapshot: snapshot) }
-                PFHiddenCardsRow(snapshot: snapshot)
             }
         }
         .task { await model.refreshIfStale() }

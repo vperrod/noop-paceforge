@@ -54,7 +54,7 @@ enum TodaySection: String, CaseIterable, Identifiable {
     /// The section's display label in the Arrange sheet — matches the Android `TodaySection.title`.
     var title: String {
         switch self {
-        case .todaysCall:     return String(localized: "Assessment and Today's call")
+        case .todaysCall:     return String(localized: "Today's call and daily report")
         case .dayInReview:    return String(localized: "Day in review")
         case .hero:           return String(localized: "Charge / Effort / Rest")
         #if os(iOS)
@@ -77,7 +77,8 @@ enum TodaySection: String, CaseIterable, Identifiable {
         }
     }
 
-    /// Sections the iPhone's Today does not draw: Start session, Recovery Vitals, Your Cards (build 502) and My Dashboard (build 504, which gave
+    /// Sections the iPhone's Today does not draw: Start session, Recovery Vitals, Your Cards (build 502), My Plan (the six PaceForge cards carry
+    /// "This week", and Today stopped drawing this section on 21 Oct, so its row controlled nothing) and My Dashboard (build 504, which gave
     /// the Key Metrics tiles, each opening its detail, their place back: Victor found the rows a poor swap). (`myDay` stays:
     /// on the iPhone it holds the Effort target and the Weekly goals cards only; the My Day timeline is its own tab and the Sleep planner
     /// card moved to the Sleep screen. Adding `.myDay` here would retire those two cards from Today as well.) The cases and their rawValues
@@ -86,7 +87,7 @@ enum TodaySection: String, CaseIterable, Identifiable {
     /// sheet shows them, whatever a phone saved before. Empty on macOS, whose Today keeps every section.
     static let retired: Set<TodaySection> = {
         #if os(iOS)
-        return [.liveSession, .recoveryVitals, .yourCards, .myDashboard]
+        return [.liveSession, .recoveryVitals, .yourCards, .myDashboard, .myPlan]
         #else
         return []
         #endif

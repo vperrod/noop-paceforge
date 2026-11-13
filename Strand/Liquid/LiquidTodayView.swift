@@ -130,9 +130,7 @@ struct LiquidTodayView: View {
     @AppStorage(HideScoresPrefs.bodyKey) private var hideBodyOn = false
     @AppStorage(TodayLayoutPrefs.hiddenKey) private var hiddenSectionsRaw = ""
     private var sectionOrder: [TodaySection] {
-        // My Plan (this week's plan progress) duplicates the Calendar tab, and Day in review moved to the Coach, so Today no longer
-        // draws them; the enum cases stay for the saved-layout format shared with Android.
-        TodayLayoutPrefs.visibleOrder(orderRaw: sectionOrderRaw, hiddenRaw: hiddenSectionsRaw).filter { $0 != .myPlan && $0 != .dayInReview }
+        TodayLayoutPrefs.visibleOrder(orderRaw: sectionOrderRaw, hiddenRaw: hiddenSectionsRaw)
     }
     // #430 parity: the Key-Metrics grid honours the SAME editor selection/order + Detailed-tiles switch as
     // Android (byte-identical @AppStorage keys). `kSparks` holds the trailing-30-day series the detailed
@@ -1034,6 +1032,7 @@ struct LiquidTodayView: View {
             Spacer(minLength: 0)
             lookDayPill
             Spacer(minLength: 0)
+            LiquidAddButton()
             LiquidBatteryButton()
             LiquidAlertsBellButton()
             Button { customizationDestination = .today } label: {
@@ -1999,8 +1998,8 @@ struct LiquidTodayView: View {
                         switch section {
                         // PaceForge's text, kept short: the assessment as one line, the two body-signal bars (their sentences behind an
                         // (i)) and Today's call as a chip, the Effort target and the planned session (the rest behind "Why"). Today
-                        // only; each draws nothing, or says so itself, when it has nothing. The Expert reading, the Day in review, the
-                        // call's narrative and the verdict lines are in the Coach.
+                        // only; each draws nothing, or says so itself, when it has nothing. The Expert reading, the call's narrative and
+                        // the verdict lines are in the Coach.
                         // The six cards above carry the call itself; this section adds Today's call chip with the Effort target and the planned
                         // session, and the daily report row. PaceForge's own recovery bars (TodayPFReadout) stay off Today: it shows Garmin and the strap.
                         case .todaysCall:
@@ -2012,9 +2011,14 @@ struct LiquidTodayView: View {
                             #else
                             EmptyView()
                             #endif
-                        // The evening wrap moved to the Coach; the case stays for the saved-layout format.
+                        // The evening wrap: today only, and only when the server's daily-intel.json carries it (the host holds the gate:
+                        // evening, a current document, a day_in_review item); nothing otherwise.
                         case .dayInReview:
+                            #if os(iOS)
+                            if selectedDayOffset == 0 { PFDayReviewStoreHost() }
+                            #else
                             EmptyView()
+                            #endif
                         // This week's plan progress and the user's own metrics. Today only; each draws nothing when it has nothing to say.
                         case .myPlan:
                             #if os(iOS)
@@ -3067,6 +3071,7 @@ private struct LiquidAddButton: View {
         }
         .nativeLiquidGlassHeaderButton()
         .accessibilityLabel("Quick actions")
+        .accessibilityIdentifier("today-quick-actions")
     }
 }
 
