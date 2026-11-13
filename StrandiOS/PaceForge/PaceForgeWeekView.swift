@@ -89,7 +89,7 @@ private struct PFDaySection: View {
                     .foregroundStyle(StrandPalette.textTertiary)
                     .padding(.vertical, 2)
             } else {
-                ForEach(races, id: \.name) { PFRaceDayRow(race: $0, outcome: snapshot.raceOutcome(on: day.date, name: $0.name)) }
+                ForEach(races, id: \.name) { PFRaceDayRow(race: $0, outcome: snapshot.raceOutcome(on: day.date, name: $0.name), snapshot: snapshot) }
                 ForEach(workouts) { PFWorkoutRow(workout: $0, snapshot: snapshot) }
                 ForEach(rides) { PFRideRow(ride: $0, snapshot: snapshot) }
             }
@@ -104,20 +104,32 @@ struct PFRaceDayRow: View {
     let race: PFNextRace
     /// The week strip's entry for this race when it has been run (result, gap to goal, recording).
     var outcome: PFTodayCall.WeekItem? = nil
+    /// Needed to open the recording's results; without it a run race still opens the race plan.
+    var snapshot: PFSnapshot? = nil
     @State private var showPlan = false
+    @State private var showResults = false
+
+    /// A race that was run opens its metrics and the coach's review; one still ahead opens the race plan.
+    private var resultsWorkout: PFWorkout? {
+        guard let id = outcome?.activityID, snapshot != nil else { return nil }
+        return PFWorkout(id: id, date: race.date, status: "done", name: race.name, kind: "race", activityId: id)
+    }
 
     private var isHyrox: Bool { race.name.localizedCaseInsensitiveContains("hyrox") }
 
     var body: some View {
         Group {
-            if isHyrox {
-                Button { showPlan = true } label: { card }
+            if isHyrox || resultsWorkout != nil {
+                Button { if resultsWorkout != nil { showResults = true } else { showPlan = true } } label: { card }
                     .buttonStyle(.plain)
             } else {
                 card
             }
         }
         .sheet(isPresented: $showPlan) { PFHyroxSheet() }
+        .sheet(isPresented: $showResults) {
+            if let workout = resultsWorkout, let snapshot { PFResultsSheet(workout: workout, snapshot: snapshot) }
+        }
         .accessibilityIdentifier("pf-week-race-\(race.date)")
     }
 
