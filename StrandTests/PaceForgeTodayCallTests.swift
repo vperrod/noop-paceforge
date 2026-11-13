@@ -96,6 +96,44 @@ final class PaceForgeTodayCallTests: XCTestCase {
         XCTAssertEqual(call.readiness.agreement, "unknown")
     }
 
+    private func readiness(_ garmin: String, own: String = "{}") throws -> PFTodayCall.Readiness {
+        let text = #"{"call": {"verdict": "Go.", "reason": ""}, "readiness": {"garmin": "# + garmin + #", "own": "# + own + #"}}"#
+        return try XCTUnwrap(PFTodayCallParse.document(json(text))).readiness
+    }
+
+    func testGarminFactorsRecoveryTimeAndHRVRangeAreParsed() throws {
+        let r = try readiness(#"{"score": 70, "factors": ["Sleep good", "HRV balanced"], "recovery_time_h": 14, "hrv_range_ms": {"low": 31, "high": 44, "last_night": 36}}"#)
+        XCTAssertEqual([r.garminFactors, [r.garminRecoveryHours.map { String($0) } ?? ""], [String(r.garminHRV?.low ?? 0), String(r.garminHRV?.lastNight ?? 0)]],
+                       [["Sleep good", "HRV balanced"], ["14.0"], ["31.0", "36.0"]])
+    }
+
+    func testOwnShowIsParsedAndDefaultsToFalse() throws {
+        XCTAssertEqual([try readiness("{}", own: #"{"show": true}"#).ownShow, try readiness("{}").ownShow], [true, false])
+    }
+
+    func testMissingGarminKeysRenderNoLines() throws {
+        XCTAssertEqual(try readiness(#"{"score": 70}"#).garminLines, [])
+    }
+
+    func testWrongTypesBecomeNothing() throws {
+        let r = try readiness(#"{"factors": "Sleep good", "recovery_time_h": "14", "hrv_range_ms": {"low": "31", "high": 44}}"#)
+        XCTAssertEqual(r.garminLines, [])
+    }
+
+    func testNonStringFactorsAreDroppedAndTheLineKeepsThree() throws {
+        let r = try readiness(#"{"factors": ["A", 5, "B", "C", "D"]}"#)
+        XCTAssertEqual(r.factorsLine, "A \u{00B7} B \u{00B7} C")
+    }
+
+    func testRecoveryTimeAndHRVRangeLinesRead() throws {
+        let r = try readiness(#"{"recovery_time_h": 13.6, "hrv_range_ms": {"low": 31, "high": 44, "last_night": 36}}"#)
+        XCTAssertEqual(r.garminLines, ["Recovery time 14 h", "HRV normal 31\u{2013}44 ms, last night 36"])
+    }
+
+    func testHRVRangeWithoutLastNightOmitsIt() throws {
+        XCTAssertEqual(try readiness(#"{"hrv_range_ms": {"low": 31, "high": 44}}"#).hrvLine, "HRV normal 31\u{2013}44 ms")
+    }
+
     func testTheDocumentIsFetchedWithTheOtherDocuments() {
         XCTAssertTrue(PFDocs.all.contains { $0.path == PFDocs.todayCall })
     }

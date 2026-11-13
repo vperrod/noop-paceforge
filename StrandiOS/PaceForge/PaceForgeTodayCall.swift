@@ -33,14 +33,45 @@ struct PFTodayCall: Equatable {
         var label: String?
     }
 
+    struct HRVRange: Equatable {
+        var low: Double
+        var high: Double
+        var lastNight: Double?
+    }
+
     struct Readiness: Equatable {
         var garmin = Device()
         var strap = Device()
         var own = Device()
+        /// Whether the card may show PaceForge's own score. The Today card shows Garmin and WHOOP only, so the server sends false.
+        var ownShow = false
+        /// Garmin's readiness factors, recovery time (hours) and HRV normal range; each is absent when the server omits it.
+        var garminFactors: [String] = []
+        var garminRecoveryHours: Double?
+        var garminHRV: HRVRange?
         /// "agree", "differ" or "unknown".
         var agreement = "unknown"
         var sleepMinutes: Int?
         var sleepNeedMinutes: Int?
+
+        /// The factors line: at most three, joined with a middle dot.
+        var factorsLine: String? {
+            garminFactors.isEmpty ? nil : garminFactors.prefix(3).joined(separator: " \u{00B7} ")
+        }
+
+        var recoveryLine: String? {
+            garminRecoveryHours.map { "Recovery time \(Int($0.rounded())) h" }
+        }
+
+        var hrvLine: String? {
+            guard let hrv = garminHRV else { return nil }
+            var out = "HRV normal \(Int(hrv.low.rounded()))\u{2013}\(Int(hrv.high.rounded())) ms"
+            if let last = hrv.lastNight { out += ", last night \(Int(last.rounded()))" }
+            return out
+        }
+
+        /// The Garmin column's lines, in order, only those the server sent.
+        var garminLines: [String] { [factorsLine, recoveryLine, hrvLine].compactMap { $0 } }
     }
 
     struct WeekItem: Equatable {
@@ -113,6 +144,14 @@ enum PFTodayCallParse {
         out.garmin = device(j["garmin"])
         out.strap = device(j["strap"])
         out.own = device(j["own"])
+        out.ownShow = j["own"]["show"].bool ?? false
+        let garmin = j["garmin"]
+        out.garminFactors = garmin["factors"].strings.filter { !$0.isEmpty }
+        out.garminRecoveryHours = garmin["recovery_time_h"].double.flatMap { $0 >= 0 ? $0 : nil }
+        let hrv = garmin["hrv_range_ms"]
+        if let low = hrv["low"].double, let high = hrv["high"].double {
+            out.garminHRV = PFTodayCall.HRVRange(low: low, high: high, lastNight: hrv["last_night"].double)
+        }
         out.agreement = j["agreement"].text ?? "unknown"
         out.sleepMinutes = j["sleep"]["minutes"].int
         out.sleepNeedMinutes = j["sleep"]["need_minutes"].int
