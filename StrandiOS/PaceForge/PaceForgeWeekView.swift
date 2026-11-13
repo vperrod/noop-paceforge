@@ -98,11 +98,23 @@ private struct PFDaySection: View {
     }
 }
 
-/// A race on its day: the same booked-day card as a session, so a race week never reads "Nothing scheduled".
+/// A race on its day: the same booked-day card as a session, so a race week never reads "Nothing scheduled". A HYROX race opens the
+/// HYROX screen with its race plan.
 struct PFRaceDayRow: View {
     let race: PFNextRace
+    @State private var showPlan = false
+
+    private var isHyrox: Bool { race.name.localizedCaseInsensitiveContains("hyrox") }
 
     var body: some View {
+        Button { showPlan = true } label: { card }
+            .buttonStyle(.plain)
+            .disabled(!isHyrox)
+            .sheet(isPresented: $showPlan) { PFHyroxSheet() }
+            .accessibilityIdentifier("pf-week-race-\(race.date)")
+    }
+
+    private var card: some View {
         StrandCard(padding: 14) {
             HStack(alignment: .center, spacing: 12) {
                 RoundedRectangle(cornerRadius: 2, style: .continuous)
@@ -121,6 +133,5 @@ struct PFRaceDayRow: View {
                 Spacer(minLength: 0)
             }
         }
-        .accessibilityIdentifier("pf-week-race-\(race.date)")
     }
 }

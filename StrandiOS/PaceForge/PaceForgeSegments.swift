@@ -30,7 +30,7 @@ struct PFBodyHiddenView: View {
 }
 
 /// Refreshes the heart-rate-recovery summary when the tab opens. It lives in its own view because it needs `Repository` and
-/// `ProfileStore` only to read them once: as `@EnvironmentObject`s on `PaceForgeTabView` they re-evaluated the whole tab
+/// `ProfileStore` only to read them once: as `@EnvironmentObject`s on the old PaceForge tab they re-evaluated the whole tab
 /// (every card in it) on each of their publishes, none of which changes what the tab shows.
 struct PFHeartRecoveryTask: View {
     @EnvironmentObject private var repo: Repository

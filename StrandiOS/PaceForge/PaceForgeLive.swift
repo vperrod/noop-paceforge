@@ -246,6 +246,19 @@ enum PFAPI {
         return "\(host): \(reason)"
     }
 
+    /// True when the server could not be asked (no connection, no route, no answer in time); false when it answered, with an error status,
+    /// its login page or something unreadable.
+    static func isUnreachable(_ error: Error) -> Bool {
+        guard let urlError = error as? URLError else { return false }
+        return PFReachability.isUnreachable(urlError.code)
+    }
+
+    /// The HTTP status the server answered with, when the failure was one.
+    static func httpStatus(_ error: Error) -> Int? {
+        guard let failure = error as? SelfHostedPushClient.Failure, case .httpStatus(let code, _) = failure else { return nil }
+        return code
+    }
+
     static func isCancelled(_ error: Error) -> Bool {
         (error as? URLError)?.code == .cancelled || error is CancellationError
     }
@@ -446,6 +459,9 @@ final class PFModel: ObservableObject {
     /// The one load in flight. It runs in its own task so SwiftUI cancelling a caller (`.task` re-run,
     /// `.refreshable` ending, a tab switch) cannot cancel the network requests with URLError.cancelled.
     private var inFlight: Task<Void, Never>?
+    /// The automatic retry waiting after a failed refresh, and how many refreshes in a row have failed.
+    private var retryTask: Task<Void, Never>?
+    private var failuresInARow = 0
 
     /// Called when the tab opens; skips the network when the data is only seconds old.
     func refreshIfStale() async {
@@ -526,17 +542,38 @@ final class PFModel: ObservableObject {
             failureDetail = nil
             staleDocs = fetched.failed
             phase = .ready
+            clearRetry()
         } catch {
             // A request that was cancelled even after a retry says nothing about the server, so it must
             // not replace what is on screen with an "offline" note.
             if PFAPI.isCancelled(error), snapshot != nil { return }
             failureDetail = PFAPI.failureDetail(error)
+            let unreachable = PFAPI.isUnreachable(error)
             if snapshot != nil {
-                offlineNote = "Can't reach PaceForge. Showing the data last saved on this iPhone."
+                offlineNote = PFOfflineNote.banner(unreachable: unreachable, status: PFAPI.httpStatus(error))
             } else {
-                phase = .failed("Can't reach PaceForge")
+                phase = .failed(PFOfflineNote.failedTitle(unreachable: unreachable))
             }
+            scheduleRetry()
         }
+    }
+
+    /// Asks again by itself 10 s, 30 s and 2 min after a failure (`PFRetrySchedule`); the Retry button on the banner asks at once.
+    private func scheduleRetry() {
+        retryTask?.cancel()
+        failuresInARow += 1
+        guard let delay = PFRetrySchedule.delay(afterFailures: failuresInARow) else { return }
+        retryTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+            guard !Task.isCancelled else { return }
+            await self?.refresh()
+        }
+    }
+
+    private func clearRetry() {
+        retryTask?.cancel()
+        retryTask = nil
+        failuresInARow = 0
     }
 
     /// The beta refresh (`PFRefreshCoordinator`). True when it finished and the state is set; false after a `refresh.beta.fallback`
@@ -564,6 +601,7 @@ final class PFModel: ObservableObject {
             failureDetail = nil
             staleDocs = []
             phase = .ready
+            clearRetry()
             return true
         } catch {
             PFBeta.fallback(PFBeta.reason(error))

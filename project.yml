@@ -217,6 +217,12 @@ targets:
       - StrandiOS/PaceForge/PaceForgeMovement.swift
       # Expert reports: the report documents, stage order, claim-tag handling and the dated/stale wording.
       - StrandiOS/PaceForge/PaceForgeReports.swift
+      # The Race kind of the Reports index: which races have a pack or a debrief, newest first.
+      - StrandiOS/PaceForge/PaceForgeRaceReports.swift
+      # The Coach screen: the first sentences of a read and the days a plan change touched.
+      - StrandiOS/PaceForge/PaceForgeCoachSupport.swift
+      # How old the saved copy is, why a refresh failed, and when the app asks again.
+      - StrandiOS/PaceForge/PaceForgeFreshness.swift
       # Coach log: api/coach-log parsing, the kind labels and the day grouping.
       - StrandiOS/PaceForge/PaceForgeCoachLog.swift
       # The Coach week card: weekly.json, pending-changes.json with each proposal's reason and its changes in plain words, the race plans, the markdown blocks.

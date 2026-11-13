@@ -2,7 +2,7 @@
 import SwiftUI
 import StrandDesign
 
-// MARK: - Insights: the first row of More with the unified navigation
+// MARK: - Insights: the second chip of the Reports tab
 //
 // Chips at the top and ONE chip mounted below them: Overview (What moves you, Intelligence, and PaceForge's "Where you stand" and
 // insight items), Trends (the Trends screen, with Compare and the Metric Explorer one tap away), Reports (the weekly review, then the
@@ -29,9 +29,8 @@ enum InsightsChip: String, CaseIterable, Identifiable {
     }
 }
 
-/// The Insights screen's root (pushed from More).
-struct InsightsUnifiedHost: View {
-    @EnvironmentObject private var repo: Repository
+/// Insights as the second chip of the Reports tab: its own chips (Overview, Trends, Reports, Journal, Deep dives) and the chosen one.
+struct InsightsEmbedded: View {
     @AppStorage(InsightsChip.storageKey) private var chipRaw = InsightsChip.overview.rawValue
 
     private var chip: InsightsChip { InsightsChip(rawValue: chipRaw) ?? .overview }
@@ -48,10 +47,7 @@ struct InsightsUnifiedHost: View {
     }
 
     var body: some View {
-        ScreenScaffold(title: "Insights", subtitle: "What moves you, your trends, your reports and your journal.",
-                       onRefresh: { await repo.refresh() }, lazy: true, topBackground: liquidScaffoldSky()) {
-            InsightsUnifiedColumn(selection: selection)
-        }
+        InsightsUnifiedColumn(selection: selection)
     }
 }
 

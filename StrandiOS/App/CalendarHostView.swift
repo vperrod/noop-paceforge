@@ -2,38 +2,36 @@
 import SwiftUI
 import StrandDesign
 
-// MARK: - Plan: the third tab with the unified navigation
+// MARK: - Plan: the second tab
 //
-// Chips at the top and ONE chip mounted below them: Plan (This week, My Plan), Calendar (a month grid with the chosen day's sessions under it, built from the PaceForge snapshot),
-// Workouts (the old Training screen, whole), Season (the weeks ahead and behind), Events (races) and HYROX (the next race, your plan, results, performance, training, advisory and season). Each chip
-// reuses views that exist in the PaceForge tab today; a day tap shows that day's sessions, which open the same results and session
-// sheets as before. NOOP's and PaceForge's numbers are never merged: this tab is PaceForge's plan and results.
+// Chips at the top and ONE chip mounted below them: This week (My Plan and the week, Monday to Sunday), Calendar (a month grid with the
+// chosen day's sessions under it, built from the PaceForge snapshot, and the Workouts list under that) and Season (Events, then the HYROX
+// screen with the race plan, then the weeks ahead and behind). Each chip reuses views that exist elsewhere; a day tap shows that day's
+// sessions, which open the same results and session sheets as before. NOOP's and PaceForge's numbers are never merged: this tab is
+// PaceForge's plan and results.
 
 enum CalendarChip: String, CaseIterable, Identifiable {
-    case plan, calendar, workouts, season, events, hyrox
+    case thisWeek, calendar, season
 
-    /// The chip on show, shared with the shell so a PaceForge link can land on a chip. Reset to Plan at every launch.
+    /// The chip on show, shared with the shell so a PaceForge link can land on a chip. Reset to This week at every launch.
     static let storageKey = "noop.calendar.chip"
 
     var id: String { rawValue }
 
     var title: String {
         switch self {
-        case .workouts: return "Workouts"
+        case .thisWeek: return "This week"
         case .calendar: return "Calendar"
-        case .plan: return "Plan"
         case .season: return "Season"
-        case .events: return "Events"
-        case .hyrox: return "HYROX"
         }
     }
 }
 
-/// The Calendar tab's root.
+/// The Plan tab's root.
 struct CalendarHostView: View {
-    @AppStorage(CalendarChip.storageKey) private var chipRaw = CalendarChip.plan.rawValue
+    @AppStorage(CalendarChip.storageKey) private var chipRaw = CalendarChip.thisWeek.rawValue
 
-    private var chip: CalendarChip { CalendarChip(rawValue: chipRaw) ?? .plan }
+    private var chip: CalendarChip { CalendarChip(rawValue: chipRaw) ?? .thisWeek }
 
     private var selection: Binding<CalendarChip> {
         Binding(
@@ -47,10 +45,10 @@ struct CalendarHostView: View {
     }
 
     var body: some View {
-        ScreenScaffold(title: "Plan", subtitle: "Your plan, calendar, workouts and races.",
+        ScreenScaffold(title: "Plan", subtitle: "Your week, your calendar and your season.",
                        onRefresh: {
             await PFUnified.model.refresh()
-            if chip == .hyrox { await PFHyroxStore.shared.refresh() }
+            if chip == .season { await PFHyroxStore.shared.refresh() }
         }, lazy: true, topBackground: liquidScaffoldSky()) {
             CalendarColumn(selection: selection)
         }
@@ -88,12 +86,9 @@ private struct CalendarChipHost: View {
 private enum CalendarChipBody {
     static func content(_ chip: CalendarChip, _ snapshot: PFSnapshot) -> AnyView {
         switch chip {
-        case .workouts: return AnyView(WorkoutsView())
+        case .thisWeek: return AnyView(CalendarPlanChip(snapshot: snapshot))
         case .calendar: return AnyView(CalendarMonthChip(snapshot: snapshot))
-        case .plan: return AnyView(CalendarPlanChip(snapshot: snapshot))
         case .season: return AnyView(CalendarSeasonChip(snapshot: snapshot))
-        case .events: return AnyView(CalendarEventsChip(snapshot: snapshot))
-        case .hyrox: return AnyView(CalendarHyroxChip(snapshot: snapshot))
         }
     }
 }
@@ -167,6 +162,9 @@ private struct CalendarMonthChip: View {
             CalendarMonthCard(monthStart: $monthStart, selected: $selected, today: today, index: index)
             CalendarLegend()
             CalendarDayPanel(day: selected, snapshot: snapshot, workouts: index.workouts(on: selected))
+            // The Workouts list (the old Training screen, whole) lives under the month.
+            Text("Workouts").strandOverline()
+            WorkoutsView()
         }
         .containerIdentifier("calendar-chip-content-calendar")
     }
@@ -344,7 +342,7 @@ private struct CalendarLegend: View {
 }
 
 /// The chosen day's sessions and rides, each the same row (and the same results or session sheet) as the PaceForge week.
-private struct CalendarDayPanel: View {
+struct CalendarDayPanel: View {
     let day: String
     let snapshot: PFSnapshot
     let workouts: [PFWorkout]
@@ -456,15 +454,24 @@ private struct CalendarEasyModeRow: View {
     }
 }
 
-/// One row per week the snapshot holds: its dates, phase, focus and tally.
+/// The Season chip: Events, then the HYROX screen (the race plan among its cards), then one row per week the snapshot holds: its dates,
+/// phase, focus and tally.
 private struct CalendarSeasonChip: View {
     let snapshot: PFSnapshot
 
     var body: some View {
         let currentKey = snapshot.weeks.indices.contains(snapshot.currentWeekIndex) ? snapshot.weeks[snapshot.currentWeekIndex].key : ""
-        return LazyVStack(alignment: .leading, spacing: 10) {
-            ForEach(snapshot.weeks) { week in
-                CalendarSeasonRow(week: week, isCurrent: week.key == currentKey)
+        return VStack(alignment: .leading, spacing: 16) {
+            Text("Events").strandOverline()
+            CalendarEventsSection(snapshot: snapshot)
+            Text("HYROX").strandOverline()
+            PFHyroxScreen(snapshot: snapshot)
+                .containerIdentifier("calendar-season-hyrox")
+            Text("Weeks").strandOverline()
+            LazyVStack(alignment: .leading, spacing: 10) {
+                ForEach(snapshot.weeks) { week in
+                    CalendarSeasonRow(week: week, isCurrent: week.key == currentKey)
+                }
             }
         }
         .containerIdentifier("calendar-chip-content-season")
@@ -503,7 +510,7 @@ private struct CalendarSeasonRow: View {
 }
 
 /// The races PaceForge knows about, and race week when it is race week.
-private struct CalendarEventsChip: View {
+private struct CalendarEventsSection: View {
     let snapshot: PFSnapshot
 
     var body: some View {
@@ -522,17 +529,36 @@ private struct CalendarEventsChip: View {
                 ForEach(snapshot.insights.races) { PFRaceCard(race: $0) }
             }
         }
-        .containerIdentifier("calendar-chip-content-events")
+        .containerIdentifier("calendar-season-events")
     }
 }
 
-/// The HYROX screen: the next race, your plan, results, performance, training, advisory and season (race simulations sit in Training).
-private struct CalendarHyroxChip: View {
+/// One day of the plan on its own page: the same sessions, rides and races as the Calendar's day panel. Reached from the days the Coach
+/// lists after "Change my plan".
+struct PFPlanDayScreen: View {
+    let day: String
+
+    var body: some View {
+        ScrollView {
+            PFSnapshotHost(content: { snapshot in AnyView(PFPlanDayContent(day: day, snapshot: snapshot)) })
+                .padding(.horizontal, NoopLook.Metric.screenInset)
+                .padding(.top, 8)
+                .padding(.bottom, NoopMetrics.tabBarClearance)
+        }
+        .lookScreenBackground()
+        .navigationTitle(PFFormat.dayTitle(day))
+        .navigationBarTitleDisplayMode(.inline)
+        .containerIdentifier("plan-day-screen")
+    }
+}
+
+private struct PFPlanDayContent: View {
+    let day: String
     let snapshot: PFSnapshot
 
     var body: some View {
-        PFHyroxScreen(snapshot: snapshot)
-            .containerIdentifier("calendar-chip-content-hyrox")
+        let workouts = snapshot.weeks.flatMap { $0.days }.first { $0.date == day }?.workouts ?? []
+        CalendarDayPanel(day: day, snapshot: snapshot, workouts: workouts)
     }
 }
 #endif

@@ -485,7 +485,7 @@ private struct PFHyroxPacing: View {
 }
 
 /// The written pack's own sections: goal and plans A and B, warm-up, cues and what to do if it goes wrong open, the rest folded.
-private struct PFHyroxPackView: View {
+struct PFHyroxPackView: View {
     let pack: PFHyroxPack
 
     private static let written: DateFormatter = {

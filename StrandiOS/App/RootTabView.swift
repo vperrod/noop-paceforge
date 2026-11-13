@@ -64,9 +64,6 @@ struct RootTabView: View {
     /// Per tab, the length of its path right after the router pushed Sleep onto it, so a repeat request can tell Sleep is still on top.
     /// Any other push or pop changes the length and clears the entry (see the `onChange` on `tabPaths`).
     @State private var sleepPushedCount: [Int: Int] = [:]
-    /// With unified navigation, the bar item (Sleep, Insights or Workouts) whose screen is the root of More's stack, and the length of More's
-    /// path right after it was pushed. The bar highlights it while More's path is at least that long; popping to More's list clears it.
-    @State private var moreBarItem: (id: String, count: Int)?
     /// Native tab selection binding. SwiftUI sends taps on the already-selected item through the
     /// setter, which lets the system tab bar retain the app's refresh / pop-to-root / scroll-to-top
     /// convention without placing a custom hit-testing layer over the platform bar.
@@ -85,97 +82,38 @@ struct RootTabView: View {
 
     /// Tab ids for the floating bar, in tag order. The ids are the lower-cased titles, which is also what the UI
     /// tests look for (`look-tab-<id>`).
-    private static let classicTabs: [LookTabItem] = [
-        LookTabItem(id: "today", title: "Today", symbol: "square.grid.2x2"),
-        LookTabItem(id: "workouts", title: "Workouts", symbol: "figure.run"),
-        // Sleep stays directly reachable; the old Day-tab preference no longer replaces it.
-        LookTabItem(id: UnifiedDay.isOn ? "day" : "sleep", title: UnifiedDay.isOn ? "Day" : "Sleep",
-                    symbol: UnifiedDay.isOn ? "calendar" : "bed.double"),
-        LookTabItem(id: "paceforge", title: "PaceForge", symbol: "figure.run"),
-        LookTabItem(id: "more", title: "More", symbol: "ellipsis"),
-    ]
+    private static let lookTabs: [LookTabItem] = UnifiedNav.tabs
 
-    private static let lookTabs: [LookTabItem] = UnifiedNav.isOn ? UnifiedNav.tabs : classicTabs
-
-    /// The bar item on show. With unified navigation the first four items are tabs 0 to 3, and tab 4 (More) is the item named by
-    /// `moreBarItem` while one of Sleep, Insights or Workouts is its root screen, else More itself.
+    /// The bar item on show.
     private var barSelection: String {
-        guard UnifiedNav.isOn else { return Self.lookTabs.indices.contains(selectedTab) ? Self.lookTabs[selectedTab].id : "today" }
-        if selectedTab == UnifiedNav.moreTab {
-            if let item = moreBarItem, tabPaths[UnifiedNav.moreTab].count >= item.count { return item.id }
-            return "more"
-        }
-        return Self.lookTabs.indices.contains(selectedTab) ? Self.lookTabs[selectedTab].id : "today"
+        Self.lookTabs.indices.contains(selectedTab) ? Self.lookTabs[selectedTab].id : "today"
     }
 
     private var lookTabSelection: Binding<String> {
         Binding(
             get: { barSelection },
             set: { id in
-                if UnifiedNav.isOn {
-                    selectBarItem(id)
-                } else if let tag = Self.lookTabs.firstIndex(where: { $0.id == id }) {
-                    nativeTabSelection.wrappedValue = tag
-                }
+                if let tag = Self.lookTabs.firstIndex(where: { $0.id == id }) { nativeTabSelection.wrappedValue = tag }
             }
         )
     }
 
-    /// A tap on a bar item with unified navigation. Sleep, Insights and Workouts open as the only screen on More's stack; a second tap on
-    /// the one on show scrolls it to the top. More itself shows its list, dropping a bar screen it was holding.
-    private func selectBarItem(_ id: String) {
-        switch id {
-        case "sleep": openOnMore(id, .sleep)
-        case "insights": openOnMore(id, .insights)
-        case "workouts": openOnMore(id, .workouts)
-        case "more":
-            if selectedTab == UnifiedNav.moreTab {
-                reselectTab(UnifiedNav.moreTab)
-            } else {
-                if moreBarItem != nil { tabPaths[UnifiedNav.moreTab] = NavigationPath() }
-                withAnimation(.timingCurve(0.22, 1, 0.36, 1, duration: 0.24)) { selectedTab = UnifiedNav.moreTab }
-            }
-        default:
-            if let tag = Self.lookTabs.firstIndex(where: { $0.id == id }) { nativeTabSelection.wrappedValue = tag }
-        }
-    }
-
-    private func openOnMore(_ barID: String, _ destination: MoreDestination) {
-        if barSelection == barID {
-            // A re-tap of the item on show, like a re-tap of a tab: back to its root screen, then to the top of it.
-            Task { await repo.refresh() }
-            if tabPaths[UnifiedNav.moreTab].count > (moreBarItem?.count ?? 1) {
-                pushOnMore(destination, barID: barID)
-            }
-            scrollTop[UnifiedNav.moreTab] += 1
-        } else {
-            pushOnMore(destination, barID: barID)
-        }
-    }
-
     /// The tab on show named for the breadcrumbs.
     private func tabName(_ tab: Int) -> String {
-        if UnifiedNav.isOn && tab == UnifiedNav.moreTab { return "more" }
-        return Self.lookTabs.indices.contains(tab) ? Self.lookTabs[tab].id : String(tab)
+        Self.lookTabs.indices.contains(tab) ? Self.lookTabs[tab].id : String(tab)
     }
 
     private func openPaceForgeToday() {
         PFDeepLink.pending = false
-        if UnifiedNav.isOn { openUnifiedLanding(); return }
-        let segment = UserDefaults.standard.string(forKey: "noop.paceforge.segment") ?? PFSegment.today.rawValue
-        if segment == PFSegment.coach.rawValue {
-            router.openCoach()
-            return
-        }
-        withAnimation(.timingCurve(0.22, 1, 0.36, 1, duration: 0.24)) { selectedTab = 3 }
+        openUnifiedLanding()
     }
 
-    /// With unified navigation on there is no PaceForge tab: the PaceForge link a widget, a notification, `noop://paceforge/...` or the
-    /// Home Screen menu left lands on the screen that now holds that segment.
+    /// There is no PaceForge tab: the PaceForge link a widget, a notification, `noop://paceforge/...` or the Home Screen menu left
+    /// lands on the screen that holds that segment.
     private func openUnifiedLanding() {
         let raw = UserDefaults.standard.string(forKey: "noop.paceforge.segment") ?? PFSegment.today.rawValue
         var landing = UnifiedNav.landing(for: PFSegment(rawValue: raw) ?? .today)
-        // An insight item's link (`noop://paceforge/insights/<id>`, also the next best action) opens its sheet from Insights, the first row of More.
+        // An insight item's link (`noop://paceforge/insights/<id>`, also the next best action) opens its sheet from Insights, under Reports.
         if landing == .today, PFInsightLink.pending != nil { landing = .insights(.overview) }
         NoopDiag.crumb("nav.redirect pf.\(raw)")
         showUnified(landing)
@@ -185,15 +123,16 @@ struct RootTabView: View {
         let defaults = UserDefaults.standard
         switch landing {
         case .today:
-            go(to: 0)
+            go(to: UnifiedNav.todayTab)
         case .calendar(let chip):
             defaults.set(chip.rawValue, forKey: CalendarChip.storageKey)
-            go(to: UnifiedNav.calendarTab)
+            go(to: UnifiedNav.planTab)
         case .insights(let chip):
             defaults.set(chip.rawValue, forKey: InsightsChip.storageKey)
-            pushOnMore(.insights, barID: "insights")
+            defaults.set(ReportsChip.insights.rawValue, forKey: ReportsChip.storageKey)
+            go(to: UnifiedNav.reportsTab)
         case .coach:
-            routedPillar = .coach
+            go(to: UnifiedNav.coachTab)
         case .body:
             showBody(.body)
         }
@@ -201,17 +140,7 @@ struct RootTabView: View {
 
     private func showBody(_ chip: BodyChip) {
         UserDefaults.standard.set(chip.rawValue, forKey: BodyChip.storageKey)
-        pushOnMore(.body)
-    }
-
-    /// Sleep, Insights, Workouts and Body have no tab: they open as the only screen pushed on More. `barID` names the bar item that is
-    /// highlighted while it is on show (Body has none, so More is).
-    private func pushOnMore(_ destination: MoreDestination, barID: String? = nil) {
-        var path = NavigationPath()
-        path.append(destination)
-        tabPaths[UnifiedNav.moreTab] = path
-        moreBarItem = barID.map { (id: $0, count: 1) }
-        withAnimation(.timingCurve(0.22, 1, 0.36, 1, duration: 0.24)) { selectedTab = UnifiedNav.moreTab }
+        go(to: UnifiedNav.bodyTab)
     }
 
     private func go(to tab: Int) {
@@ -219,13 +148,13 @@ struct RootTabView: View {
         withAnimation(.timingCurve(0.22, 1, 0.36, 1, duration: 0.24)) { selectedTab = tab }
     }
 
+    /// My Day is a row under Reports: the Reports tab with My Day pushed on it.
     private func openMyDay() {
         MyDayDeepLink.pending = false
-        if UnifiedNav.isOn { go(to: UnifiedNav.myDayTab); return }
-        withAnimation(.timingCurve(0.22, 1, 0.36, 1, duration: 0.24)) { selectedTab = 0 }
         var path = NavigationPath()
         path.append(TabRoute.myDay)
-        tabPaths[0] = path
+        tabPaths[UnifiedNav.reportsTab] = path
+        withAnimation(.timingCurve(0.22, 1, 0.36, 1, duration: 0.24)) { selectedTab = UnifiedNav.reportsTab }
     }
 
     private func reselectTab(_ tag: Int) {
@@ -266,19 +195,18 @@ struct RootTabView: View {
         // the corresponding system material and safe-area behaviour from the same TabView.
         TabView(selection: nativeTabSelection) {
             tab(LiquidTodayView(), "Today", "square.grid.2x2", path: $tabPaths[0], scrollSignal: scrollTop[0]).tag(0)
-            tab(WorkoutsOrMyDayRoot(), UnifiedNav.secondTabTitle, UnifiedNav.secondTabIcon, path: $tabPaths[1], scrollSignal: scrollTop[1]).tag(1)
-            // The third tab is Plan with the switch on and Sleep in the classic map. Sleep is a push from the Rest ring on Today and an item of the bar (a screen on More's stack).
-            tab(SleepOrPlanRoot(), UnifiedNav.thirdTabTitle, UnifiedNav.thirdTabIcon, path: $tabPaths[2], scrollSignal: scrollTop[2]).tag(2)
-            // The fourth tab is PaceForge in the classic map and Athlete in the unified map. Coach has
-            // one visible entry in the floating bar; Coach deep links route to that same surface below.
-            tab(PaceForgeOrAthleteRoot(), UnifiedNav.fourthTabTitle, UnifiedNav.fourthTabIcon, path: $tabPaths[3], scrollSignal: scrollTop[3]).tag(3)
-            moreTab(path: $tabPaths[4], scrollSignal: scrollTop[4]).tag(4)
+            tab(CalendarHostView(), "Plan", "calendar", path: $tabPaths[1], scrollSignal: scrollTop[1]).tag(1)
+            // Coach is a tab; every Coach deep link (the scheduled-brief notification, questions from Today and Siri) selects it.
+            tab(CoachUnifiedView(), "Coach", "sparkles", path: $tabPaths[2], scrollSignal: scrollTop[2]).tag(2)
+            // Reports (with Insights as a chip) and Body end in "More" rows: the screens that are not tabs.
+            tab(ReportsHostView(), "Reports", "doc.text", path: $tabPaths[3], scrollSignal: scrollTop[3]).tag(3)
+            tab(BodyHostView(), "Body", "figure.stand", path: $tabPaths[4], scrollSignal: scrollTop[4]).tag(4)
         }
         .tint(StrandPalette.accent)
         .toolbar(lookTabBar ? .hidden : .automatic, for: .tabBar)
         .overlay(alignment: .bottom) {
             if lookTabBar {
-                FloatingTabBar(items: Self.lookTabs, selection: lookTabSelection, onCoach: { router.openCoach() })
+                FloatingTabBar(items: Self.lookTabs, selection: lookTabSelection)
                     .padding(.bottom, 6)
             }
         }
@@ -289,18 +217,14 @@ struct RootTabView: View {
             // Tab crossfade — README §Motion: ~240ms opacity swap between tab roots, global calm
             // easing cubic-bezier(0.22,1,0.36,1).
             .animation(.timingCurve(0.22, 1, 0.36, 1, duration: 0.24), value: selectedTab)
-            // The tab on show, for the diagnostics breadcrumbs and the per-screen stall numbers (NoopDiag). The PaceForge
-            // tab names its own segment.
+            // The tab on show, for the diagnostics breadcrumbs and the per-screen stall numbers (NoopDiag).
             .onChange(of: selectedTab, initial: true) { _, tab in
-                if tab != 3 || UnifiedNav.isOn { NoopDiag.screen("tab.\(tabName(tab))") }
-                if UnifiedNav.isOn { NoopDiag.crumb("nav.tab \(tabName(tab))") }
+                NoopDiag.screen("tab.\(tabName(tab))")
+                NoopDiag.crumb("nav.tab \(tabName(tab))")
             }
             .onChange(of: tabPaths.map { $0.count }) { _, counts in
                 for (tab, pushed) in sleepPushedCount where !counts.indices.contains(tab) || counts[tab] != pushed {
                     sleepPushedCount[tab] = nil
-                }
-                if let item = moreBarItem, !counts.indices.contains(UnifiedNav.moreTab) || counts[UnifiedNav.moreTab] < item.count {
-                    moreBarItem = nil
                 }
             }
             #if DEBUG
@@ -372,29 +296,25 @@ struct RootTabView: View {
             case .devices:
                 showDevices = true
                 router.requestedDestination = nil
-            case .insightsHub where UnifiedNav.isOn:
-                // What moves you is on Insights' Overview chip (the first row of More).
+            case .insightsHub:
+                // What moves you is on Insights' Overview chip, under Reports.
                 showUnified(.insights(.overview))
                 router.requestedDestination = nil
-            case .labBook where UnifiedNav.isOn:
-                // The Lab Book is a chip of Body, under More.
+            case .labBook:
+                // The Lab Book is a chip of Body.
                 showBody(.labBook)
                 router.requestedDestination = nil
-            case .insightsHub, .labBook, .fusedRecord, .rhythm, .alarms:
+            case .fusedRecord, .rhythm, .alarms:
                 routedPillar = dest
                 router.requestedDestination = nil
             case .coach:
-                // Every Coach entry point opens the same PaceForge-backed Coach, including the
-                // scheduled-brief notification and questions handed over from Today/Siri.
-                routedPillar = dest
+                // Every Coach entry point opens the Coach tab, including the scheduled-brief notification and questions handed
+                // over from Today/Siri.
+                go(to: UnifiedNav.coachTab)
                 router.requestedDestination = nil
             case .trends:
-                // Trends stays under More in classic navigation and is a chip of Insights in unified navigation.
-                if UnifiedNav.isOn {
-                    showUnified(.insights(.trends))
-                } else {
-                    routedPillar = dest
-                }
+                // Trends is a chip of Insights, under Reports.
+                showUnified(.insights(.trends))
                 router.requestedDestination = nil
             case .activeWorkout:
                 // The Today active-workout indicator opens Live through the quick-action Live sheet; once
@@ -413,21 +333,11 @@ struct RootTabView: View {
                 withAnimation(Self.sheetEase) { quickAction = .journal }
                 router.requestedDestination = nil
             case .sleep:
-                if UnifiedNav.isOn && selectedTab == UnifiedNav.moreTab {
-                    // On More the request becomes the Sleep item of the bar (replacing what More held, never stacked on it).
-                    openOnMore("sleep", .sleep)
-                } else if UnifiedNav.isOn {
-                    // Sleep is not a tab with unified navigation: it opens over the tab on show, and Back returns to it.
-                    // Not twice: a second request while that Sleep is still the top of this tab's path adds nothing.
-                    if sleepPushedCount[selectedTab] != tabPaths[selectedTab].count {
-                        tabPaths[selectedTab].append(TabRoute.sleep)
-                        sleepPushedCount[selectedTab] = tabPaths[selectedTab].count
-                    }
-                } else {
-                    // Sleep is a tab: a link elsewhere switches to it (and leaves the tab it came from at its root) rather than
-                    // pushing a second Sleep screen over that tab.
-                    tabPaths[selectedTab] = NavigationPath()
-                    withAnimation(.timingCurve(0.22, 1, 0.36, 1, duration: 0.24)) { selectedTab = 2 }
+                // Sleep is not a tab: it opens over the tab on show, and Back returns to it.
+                // Not twice: a second request while that Sleep is still the top of this tab's path adds nothing.
+                if sleepPushedCount[selectedTab] != tabPaths[selectedTab].count {
+                    tabPaths[selectedTab].append(TabRoute.sleep)
+                    sleepPushedCount[selectedTab] = tabPaths[selectedTab].count
                 }
                 router.requestedDestination = nil
             case nil:
@@ -531,7 +441,7 @@ struct RootTabView: View {
                 // #1862 launcher both arrive that way, the launcher's question riding on
                 // `AICoachEngine.pendingPrompt`); this keeps the switch exhaustive and falls back to Coach if
                 // it ever reaches the host.
-                case .coach: CoachOrUnifiedCoach()
+                case .coach: CoachUnifiedView()
                 case .alarms: SmartAlarmView()
                 }
             }
@@ -643,6 +553,7 @@ struct RootTabView: View {
                 .background(StrandPalette.surfaceBase.ignoresSafeArea())
                 .toolbar(.hidden, for: .navigationBar)
                 .tabRouteDestinations()
+                .moreDestinations()
         }
         // Drive this tab's root scroll-to-top on an at-root re-tap (#198 follow-up); read by ScreenScaffold
         // / LiquidTodayView inside. Only THIS tab's token changes on its reselect, so the others don't scroll.
@@ -651,159 +562,6 @@ struct RootTabView: View {
         // on iOS 26, and the glass bar showed behind the look's floating bar.
         .toolbar(lookTabBar ? .hidden : .automatic, for: .tabBar)
         .tabItem { Label(title, systemImage: icon) }
-    }
-
-    // The "More" tab is the app's index of everything that is not a tab. With unified navigation, Sleep, Insights and Workouts are items of
-    // the bar and the rows are the body screens and Data and Settings. Classic navigation has eleven rows in three groups, all visible at
-    // rest: Insights (one screen with its sections, Reports among them), Trends, Explore and Compare; the body screens; and Data and Settings. Live,
-    // Breathe and Intervals are in the quick-action sheet; Test Centre, Automations, Siri & Shortcuts and Power saving are in Settings;
-    // Fused, Apple Health, Mi Band, Data Sources, Backup & Sync, Shortcuts Export, PaceForge sync and NOOP Limitations are in Data.
-    private func moreTab(path: Binding<NavigationPath>, scrollSignal: Int) -> some View {
-        NavigationStack(path: path) {
-            ScreenScaffold(title: "More", subtitle: "Everything else, two taps away",
-                           onRefresh: { await repo.refresh() },
-                           topBackground: liquidScaffoldSky()) {
-                // With unified navigation on, Insights (with Trends, Explore and Compare inside) and Sleep are items of the bar, and Body
-                // (with the Lab Book) is one row below.
-                if !UnifiedNav.isOn {
-                    IndexSection("Insights") {
-                        IndexRow("Insights", "lightbulb.fill", MoreDestination.insights, id: "more-row-insights")
-                        IndexRow("Trends", "chart.line.uptrend.xyaxis", MoreDestination.trends, id: "more-row-trends")
-                        IndexRow("Explore", "square.grid.2x2.fill", MoreDestination.explore, id: "more-row-explore")
-                        IndexRow("Compare", "rectangle.split.2x1.fill", MoreDestination.compare, id: "more-row-compare")
-                    }
-                }
-                IndexSection("Body") {
-                    if UnifiedNav.isOn {
-                        IndexRow("Body", "figure.stand", MoreDestination.body, id: "more-row-body")
-                    }
-                    IndexRow("Lift Log", "dumbbell.fill", MoreDestination.liftLog, id: "more-row-liftlog")
-                    IndexRow("Health", "heart.text.square.fill", MoreDestination.health, id: "more-row-health")
-                    IndexRow("Stress", "bolt.heart.fill", MoreDestination.stress, id: "more-row-stress")
-                    if !UnifiedNav.isOn {
-                        IndexRow("Lab Book", "books.vertical.fill", MoreDestination.labBook, id: "more-row-labbook")
-                    }
-                    // Experimental beat-to-beat regularity visualization: self-gates on its own consent.
-                    IndexRow("Rhythm", "waveform.path", MoreDestination.rhythm, id: "more-row-rhythm")
-                    // #805/#811: Alarms is its own row (the single "Alarms" entry the v7.3.1 #766 consolidation made), routed to
-                    // SmartAlarmView, the cross-platform surface. Notifications is macOS-only (it picks which Mac apps tap your
-                    // wrist via NSWorkspace); iPhone's wrist-alert controls are on the Automations screen, now inside Settings.
-                    IndexRow("Alarms", "alarm.fill", MoreDestination.alarms, id: "more-row-alarms")
-                }
-                IndexSection("App") {
-                    IndexRow("Data", "externaldrive.fill", MoreDestination.data, id: "more-row-data")
-                    IndexRow("Settings", "gearshape.fill", MoreDestination.settings, id: "more-row-settings")
-                }
-            }
-            // The rows push MoreDestination VALUES so a re-tap of the More tab can pop them off the bound path (#135/#198).
-            // Each destination keeps the per-screen wrapper the rows used to apply inline (surfaceBase background, inline title
-            // bar, hidden bar background): #1027, a pushed sky-scaffold screen draws a full-bleed liquid sky, and an opaque
-            // surfaceBase nav-bar band sat over it and clipped the top on scroll. The screen's own container identifier is
-            // `screen-<destination>`, which the navigation tests look for.
-            .navigationDestination(for: MoreDestination.self) { route in
-                route.destination
-                    .containerIdentifier("screen-\(route.rawValue)")
-                    .background(StrandPalette.surfaceBase.ignoresSafeArea())
-                    .navigationBarTitleDisplayMode(.inline)
-                    .toolbarBackground(.hidden, for: .navigationBar)
-                    // A bar item's screen is a tab root in all but name: no back button to a list the bar already reaches.
-                    .toolbar(UnifiedNav.isOn && route.barID != nil && moreBarItem?.id == route.barID ? .hidden : .automatic, for: .navigationBar)
-            }
-            // Screens pushed from inside a More destination (the Reports entries, the streak chip's Highlights) push TabRoute
-            // values, which this stack must resolve like every tab's.
-            .tabRouteDestinations()
-        }
-        // Scroll the More index to the top on an at-root re-tap (#198 follow-up); read by its ScreenScaffold.
-        .environment(\.scrollToTopSignal, scrollSignal)
-        .toolbar(lookTabBar ? .hidden : .automatic, for: .tabBar)
-        .tabItem { Label("More", systemImage: "ellipsis") }
-    }
-}
-
-/// Tab 1 gives Workouts a direct home in classic navigation and, in unified navigation, is the My Day tab (the day's graph and its events).
-private struct WorkoutsOrMyDayRoot: View {
-    var body: some View {
-        if UnifiedNav.isOn {
-            MyDayView()
-        } else {
-            WorkoutsView()
-        }
-    }
-}
-
-/// The root of tab 3: the PaceForge tab (build 480), or Athlete when unified navigation was on at launch.
-private struct PaceForgeOrAthleteRoot: View {
-    var body: some View {
-        if UnifiedNav.isOn {
-            AthleteHostView()
-        } else {
-            PaceForgeTabView()
-        }
-    }
-}
-
-/// The one Coach surface used by the tab-bar button and every Coach deep link.
-private struct CoachOrUnifiedCoach: View {
-    var body: some View {
-        CoachUnifiedView()
-    }
-}
-
-/// The root of tab 2: the Plan tab with unified navigation (Plan, Calendar, Workouts and the rest as chips), Sleep in the classic map (the
-/// former Day hub remains reachable through its existing links).
-private struct SleepOrPlanRoot: View {
-    var body: some View {
-        if UnifiedNav.isOn {
-            CalendarHostView()
-        } else {
-            SleepView()
-        }
-    }
-}
-
-/// Every screen the More index links to, as a `Hashable` value the tab's `NavigationPath` can carry
-/// (#198): a closure-destination push would bypass the path and be un-poppable on tab re-tap. The
-/// per-screen chrome the old inline links applied lives at the single `navigationDestination(for:)`
-/// registration in `moreTab`.
-private enum MoreDestination: String, Hashable {
-    case insights, trends, explore, compare
-    case liftLog, health, stress, labBook, rhythm, alarms
-    case data, settings
-    /// Body and the Lab Book as chips; the row exists only with unified navigation on.
-    case body
-    /// Sleep and Workouts as bar items; they exist only with unified navigation on, where neither is a tab.
-    case sleep, workouts
-
-    /// The bar item that opens this screen with unified navigation.
-    var barID: String? {
-        switch self {
-        case .sleep: return "sleep"
-        case .insights: return "insights"
-        case .workouts: return "workouts"
-        default: return nil
-        }
-    }
-
-    @ViewBuilder var destination: some View {
-        switch self {
-        case .insights:
-            // The unified Insights (chips for Overview, Trends, Reports, Journal and Deep dives) has no tab: this row is its door.
-            if UnifiedNav.isOn { InsightsUnifiedHost() } else { InsightsHomeView() }
-        case .trends:          TrendsView()
-        case .explore:         MetricExplorerView()
-        case .compare:         CompareView()
-        case .liftLog:         LiftLogView()
-        case .health:          HealthView()
-        case .stress:          StressView()
-        case .labBook:         LabBookView()
-        case .rhythm:          RhythmHost()
-        case .alarms:          SmartAlarmView()
-        case .data:            DataHubView()
-        case .settings:        SettingsView()
-        case .body:            BodyHostView()
-        case .sleep:           SleepView()
-        case .workouts:        WorkoutsView()
-        }
     }
 }
 

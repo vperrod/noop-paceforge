@@ -23,13 +23,14 @@ public struct LookTabItem: Identifiable, Equatable {
 public struct FloatingTabBar: View {
     public var items: [LookTabItem]
     @Binding public var selection: String
-    public var onCoach: () -> Void
+    /// nil draws no coach button (the unified shell has Coach as a tab).
+    public var onCoach: (() -> Void)?
 
     /// The narrowest a tab gets before the bar starts to scroll.
     private static let minItemWidth: CGFloat = 56
     private static let stripPadding: CGFloat = 4
 
-    public init(items: [LookTabItem], selection: Binding<String>, onCoach: @escaping () -> Void) {
+    public init(items: [LookTabItem], selection: Binding<String>, onCoach: (() -> Void)? = nil) {
         self.items = items
         self._selection = selection
         self.onCoach = onCoach
@@ -38,7 +39,7 @@ public struct FloatingTabBar: View {
     public var body: some View {
         HStack(spacing: 10) {
             tabStrip
-            coachButton
+            if let onCoach { coachButton(onCoach) }
         }
         .padding(.horizontal, NoopLook.Metric.screenInset)
     }
@@ -90,7 +91,7 @@ public struct FloatingTabBar: View {
         .accessibilityIdentifier("look-tab-\(item.id)")
     }
 
-    private var coachButton: some View {
+    private func coachButton(_ onCoach: @escaping () -> Void) -> some View {
         Button(action: onCoach) {
             ZStack {
                 RoundedRectangle(cornerRadius: 20, style: .continuous)

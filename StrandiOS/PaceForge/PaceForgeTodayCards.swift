@@ -35,7 +35,7 @@ private struct PFTodayCardsColumn: View {
         }
     }
 
-    /// One card, erased at its own boundary (see `PFTodayView`'s old note on the nested conditional type).
+    /// One card, erased at its own boundary (a single `@ViewBuilder` switch over every card made SwiftUI build one enormous nested conditional type at runtime).
     private func cardView(_ card: PFTodayCard, info: PFTodayCall) -> AnyView {
         switch card {
         case .theCall: return AnyView(PFTheCallCard(snapshot: snapshot, info: info))

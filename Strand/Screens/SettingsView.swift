@@ -278,6 +278,7 @@ struct SettingsView: View {
                 featuresCard.staggeredAppear(index: 5)
                 #if os(iOS)
                 toolsCard.staggeredAppear(index: 5)
+                briefingCard.staggeredAppear(index: 5)
                 syncCard.staggeredAppear(index: 6)
                 #endif
 
@@ -1713,6 +1714,21 @@ struct SettingsView: View {
         }
     }
 
+    // MARK: - Briefing (iPhone)
+
+    #if os(iOS)
+    /// The morning briefing's status, moved here from the Coach screen.
+    private var briefingCard: some View {
+        SettingsSection(
+            icon: "bell.badge",
+            title: "Briefing",
+            blurb: "When the morning briefing last ran, any issue, and its settings."
+        ) {
+            CoachBriefStatusCard()
+        }
+    }
+    #endif
+
     // MARK: - Tools (iPhone)
 
     #if os(iOS)
@@ -1731,7 +1747,6 @@ struct SettingsView: View {
                 toolRow("Power saving", icon: "battery.25", id: "settings-tool-powersaving") { PowerSavingView() }
                 toolRow("Last crash report", icon: "exclamationmark.triangle", id: "settings-tool-crashreport") { NoopDiagnosticsView() }
                 PFRefreshBetaToggle()
-                UnifiedNavToggle()
                 NoopDiagSendButton()
             }
         }

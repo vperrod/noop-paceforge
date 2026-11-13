@@ -2,7 +2,7 @@
 import SwiftUI
 import StrandDesign
 
-// MARK: - Body: a More screen with the unified navigation
+// MARK: - Body: the fifth tab
 //
 // PaceForge's Body screen (the Hume scale: trend, score, composition, goals, readings) and the Lab Book as two chips, one mounted at a
 // time. Both are the screens that exist today, unchanged.
@@ -43,6 +43,7 @@ struct BodyHostView: View {
         ScreenScaffold(title: "Body", subtitle: "Your scale readings and your lab results.",
                        onRefresh: { await PFUnified.model.refresh() }, lazy: true, topBackground: liquidScaffoldSky()) {
             BodyColumn(selection: selection)
+            BodyMoreRows()
         }
     }
 }

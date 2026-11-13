@@ -39,6 +39,33 @@ enum PFReportKind: String, CaseIterable, Identifiable {
     }
 }
 
+/// The four kinds the Reports index lists: Day, Week, Month and Race. The first three are the expert reports (`PFReportKind`); Race is
+/// the races with a race pack or a debrief (`PFRaceReports`).
+enum PFReportIndexKind: String, CaseIterable, Identifiable {
+    case day, week, month, race
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .day: return "Day"
+        case .week: return "Week"
+        case .month: return "Month"
+        case .race: return "Race"
+        }
+    }
+
+    /// The expert report kind behind the row; nil for Race.
+    var reportKind: PFReportKind? {
+        switch self {
+        case .day: return .daily
+        case .week: return .weekly
+        case .month: return .monthly
+        case .race: return nil
+        }
+    }
+}
+
 struct PFReportStage: Equatable, Identifiable {
     let id: String
     let title: String

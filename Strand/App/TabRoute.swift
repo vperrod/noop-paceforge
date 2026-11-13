@@ -52,6 +52,8 @@ enum TabRoute: Hashable {
     case liftLog
     /// Compare, from the Insights tab's Trends chip (New navigation, beta; iPhone only).
     case compare
+    /// One day of the plan on its own page (a changed day the Coach lists after "Change my plan"). iPhone only; elsewhere Workouts.
+    case planDay(String)
 }
 
 extension View {
@@ -117,7 +119,13 @@ extension View {
                 switch kind {
                 case "index": PFReportsIndexScreen()
                 case "week": PFWeekPlanScreen()
-                default: PFReportsScreen(kind: PFReportKind(rawValue: kind) ?? .daily)
+                case "race": PFRaceReportsScreen()
+                default:
+                    if kind.hasPrefix("race:") {
+                        PFRaceReportPage(date: String(kind.dropFirst("race:".count)))
+                    } else {
+                        PFReportsScreen(kind: PFReportKind(rawValue: kind) ?? .daily)
+                    }
                 }
                 #else
                 InsightsView()
@@ -131,6 +139,12 @@ extension View {
                 WorkoutsView()
                 #endif
             case .compare: CompareView()
+            case .planDay(let day):
+                #if os(iOS)
+                PFPlanDayScreen(day: day)
+                #else
+                WorkoutsView()
+                #endif
             }
         }
     }

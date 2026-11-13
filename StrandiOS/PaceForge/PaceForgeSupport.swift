@@ -303,18 +303,23 @@ struct PFStaleLabel: View {
     }
 }
 
-/// One line under the offline banner when some optional documents could not be refreshed and the saved copy (if any) is on screen.
+/// One line under the offline banner: which optional documents could not be refreshed, or, when the whole refresh failed, that saved
+/// data is on screen. Either way it says when that copy was saved ("Showing the copy saved 3 h ago.").
 struct PFStaleDocsLine: View {
     let paths: [String]
+    /// The snapshot's `generatedAt`, the moment the copy on screen was made.
+    var generatedAt: String? = nil
+    /// The whole refresh failed and the banner above is showing.
+    var isOffline = false
 
-    private var text: String {
-        let names = paths.map(PFAPI.documentName)
-        let more = names.count > 3 ? " and \(names.count - 3) more" : ""
-        return "Couldn't refresh " + names.prefix(3).joined(separator: ", ") + more + ". Showing the last saved copy."
+    private var text: String? {
+        if !paths.isEmpty { return PFFreshness.staleLine(names: paths.map(PFAPI.documentName), generatedAt: generatedAt) }
+        if isOffline { return PFFreshness.savedCopy(generatedAt: generatedAt) }
+        return nil
     }
 
     var body: some View {
-        if !paths.isEmpty {
+        if let text {
             PFStaleLabel(text: text)
                 .accessibilityIdentifier("pf-stale-docs")
         }

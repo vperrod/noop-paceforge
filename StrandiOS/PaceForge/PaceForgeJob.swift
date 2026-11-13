@@ -329,10 +329,14 @@ enum PFJobError: Error, Equatable {
         return "Try again in \((seconds + 59) / 60) min."
     }
 
-    /// A request that threw: no connection, a timeout and every other transport failure read as offline.
+    /// A request that threw: no connection, no route and a timeout read as offline; a reply that cannot be used reads as unreadable.
     static func transport(_ error: Error) -> PFJobError {
         if error is CancellationError { return .cancelled }
-        if let urlError = error as? URLError { return urlError.code == .cancelled ? .cancelled : .offline }
+        if let urlError = error as? URLError {
+            if urlError.code == .cancelled { return .cancelled }
+            // Nothing answered: offline. Something answered in a way that cannot be used (a bad reply, a certificate): not offline.
+            return PFReachability.isUnreachable(urlError.code) ? .offline : .unreadable
+        }
         return .refused(String(error.localizedDescription.prefix(200)))
     }
 }

@@ -57,9 +57,7 @@ struct StrandiOSApp: App {
         NoopDiag.start()
         // The New PaceForge refresh (beta) switch is read here, once per launch.
         PFBeta.captureAtLaunch()
-        // Clear the retired Day-tab preference so it cannot hide the first-level Sleep tab.
-        UnifiedDay.captureAtLaunch()
-        // The unified navigation switch is read here, once per launch.
+        // Every tab opens on its first chip, and the retired navigation switches are cleared.
         UnifiedNav.captureAtLaunch()
         #if DEBUG
         NoopPerfAutopilot.startIfRequested()
@@ -408,12 +406,12 @@ struct StrandiOSApp: App {
                 // PaceForge writes that got no answer earlier are sent again with their first key (the server applies each key once).
                 if PFAPI.isConfigured {
                     Task {
-                        if await PFJobRetry.sendAll() > 0, UnifiedNav.isOn { await PFUnified.model.refresh() }
+                        if await PFJobRetry.sendAll() > 0 { await PFUnified.model.refresh() }
                     }
                 }
                 // PaceForge's Needs you list and cards must not wait for a pull or a restart. The model shares one load in flight, so
                 // this and the screens' own refreshes make one request; it only runs when the last good load is over a minute old.
-                if UnifiedNav.isOn, PFAPI.isConfigured {
+                if PFAPI.isConfigured {
                     Task {
                         await PFUnified.model.refreshIfOlderThan(60)
                         await PFScoresStore.shared.refreshIfStale()
