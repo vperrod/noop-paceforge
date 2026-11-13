@@ -150,6 +150,14 @@ private struct PFTodaySlotCard: View {
     let info: PFTodayCall
     @State private var showRace = false
     @State private var sessionToOpen: PFWorkout?
+    @State private var showRaceResults = false
+
+    /// The recording of a race that was run today (as `PFRaceDayRow` does); nil while the race is still ahead.
+    private var raceResultsWorkout: PFWorkout? {
+        guard info.today.kind == "race", let date = info.today.raceDate, let name = info.today.title,
+              let id = snapshot.raceOutcome(on: date, name: name)?.activityID else { return nil }
+        return PFWorkout(id: id, date: date, status: "done", name: name, kind: "race", activityId: id)
+    }
 
     var body: some View {
         PFCard("Today", icon: "calendar") {
@@ -161,6 +169,9 @@ private struct PFTodaySlotCard: View {
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier(PFTodayCard.today.identifier)
         .sheet(isPresented: $showRace) { PFHyroxSheet() }
+        .sheet(isPresented: $showRaceResults) {
+            if let workout = raceResultsWorkout { PFResultsSheet(workout: workout, snapshot: snapshot) }
+        }
         .sheet(item: $sessionToOpen) { workout in PFTodaySessionSheet(workout: workout, snapshot: snapshot) }
     }
 
@@ -168,7 +179,9 @@ private struct PFTodaySlotCard: View {
         switch info.today.kind {
         case "race":
             rowButton(icon: "flag.checkered", title: info.today.title ?? "Race day",
-                      detail: info.today.detail.map { "Race day \u{00B7} \($0)" } ?? "Race day", id: "pf-today-race") { showRace = true }
+                      detail: info.today.detail.map { "Race day \u{00B7} \($0)" } ?? "Race day", id: "pf-today-race") {
+                if raceResultsWorkout != nil { showRaceResults = true } else { showRace = true }
+            }
         case "session":
             let planned = plannedWorkout(for: info.today.sessionID)
             rowButton(icon: "figure.run", title: info.today.title ?? planned?.name ?? "Session",

@@ -55,6 +55,12 @@ struct PFResultsSheet: View {
 
     @ViewBuilder private func content(_ results: PFSessionResults) -> some View {
         let detail = results.detail
+        // A race recording (the server stamps `race` on its detail) gets the race layout; the run blocks below are gated on it.
+        let race = detail?.race
+        if let race {
+            PFRaceResultCard(race: race)
+            PFRaceSegmentsCard(race: race)
+        }
         coachCard(results.analysis)
         if let onAskCoach, let sessionID = workout.coachSessionID {
             Button {
@@ -71,9 +77,9 @@ struct PFResultsSheet: View {
         }
         if let activity { PFStatTiles(activity: activity) }
         if let detail {
-            PFHeartRateCard(samples: detail.samples, splits: detail.splits, avgHr: activity?.avgHr)
-            if !detail.zones.isEmpty { PFZonesCard(zones: detail.zones) }
-            if let split = detail.ltSplit { PFLtSplitCard(split: split) }
+            PFHeartRateCard(samples: detail.samples, splits: race == nil ? detail.splits : [], avgHr: activity?.avgHr, hrNote: race?.hrNote)
+            if race == nil, !detail.zones.isEmpty { PFZonesCard(zones: detail.zones) }
+            if race == nil, let split = detail.ltSplit { PFLtSplitCard(split: split) }
         } else {
             PFCard("Heart rate", icon: "heart.fill") {
                 PFParagraph("Heart-rate detail for this session is not synced. PaceForge keeps it for recent sessions only.")
@@ -86,9 +92,9 @@ struct PFResultsSheet: View {
         }
         PFEffortCard(strain: analysis?.strain, band: analysis?.strainBand, trimp: trimp,
                      recovery: analysis?.recoveryReason, rank: detail?.effortRank)
-        if let explainer = detail?.runExplainer, workout.briefing == nil { PFRunExplainerCard(explainer: explainer) }
-        PFPlanVersusActual(workout: workout, analysis: analysis)
-        if let detail {
+        if race == nil, let explainer = detail?.runExplainer, workout.briefing == nil { PFRunExplainerCard(explainer: explainer) }
+        if race == nil { PFPlanVersusActual(workout: workout, analysis: analysis) }
+        if race == nil, let detail {
             PFPaceCard(samples: detail.samples, splits: detail.splits)
             PFSplitsCard(splits: detail.splits)
         }
@@ -293,6 +299,7 @@ private struct PFHeartRateCard: View {
     let samples: [PFSample]
     let splits: [PFSplit]
     let avgHr: Double?
+    var hrNote: String? = nil
 
     private var points: [(minutes: Double, hr: Double)] {
         samples.compactMap { s in s.hr.map { (minutes: s.t / 60, hr: $0) } }
@@ -358,6 +365,113 @@ private struct PFHeartRateCard: View {
             } else {
                 PFParagraph("No heart-rate samples were recorded over this session.")
             }
+            if let hrNote { PFParagraph(hrNote) }
+        }
+    }
+}
+
+// MARK: Race layout
+
+/// The race result: finish time, official or Garmin-only, the gap to goal and the field position.
+private struct PFRaceResultCard: View {
+    let race: PFRaceResult
+
+    private var finish: String {
+        race.timeDisplay ?? race.timeSeconds.map { PFFormat.clock(Double($0)) } ?? "\u{2013}"
+    }
+
+    private var goalLine: String? {
+        guard let goal = race.goalSeconds else { return nil }
+        var line = "Goal \(PFFormat.clock(Double(goal)))"
+        if let delta = race.goalDeltaS {
+            line += " \u{00B7} \(delta > 0 ? "+" : "-")\(PFFormat.clock(Double(abs(delta)))) vs goal"
+        }
+        return line
+    }
+
+    private var rankLine: String? {
+        var parts: [String] = []
+        if let rank = race.rank, let field = race.fieldSize { parts.append("\(rank) of \(field)") }
+        if let group = race.rankAgeGroup { parts.append("age group \(group)") }
+        return parts.isEmpty ? nil : parts.joined(separator: " \u{00B7} ")
+    }
+
+    var body: some View {
+        PFCard(race.event ?? "Race", icon: "flag.checkered") {
+            VStack(alignment: .leading, spacing: 6) {
+                Text(finish)
+                    .font(StrandFont.rounded(40))
+                    .foregroundStyle(StrandPalette.textPrimary)
+                Text(race.official ? "Official result" : "Garmin recording, official result pending")
+                    .font(StrandFont.subhead.weight(.semibold))
+                    .foregroundStyle(race.official ? PFColor.positive : StrandPalette.textSecondary)
+                if let goalLine {
+                    Text(goalLine)
+                        .font(StrandFont.subhead)
+                        .foregroundStyle(StrandPalette.textSecondary)
+                }
+                if let rankLine {
+                    Text(rankLine)
+                        .font(StrandFont.subhead)
+                        .foregroundStyle(StrandPalette.textSecondary)
+                }
+            }
+        }
+        .containerIdentifier("pf-race-result")
+    }
+}
+
+/// One row per race segment in the order the server sent: time, field position and the gap to his best.
+private struct PFRaceSegmentsCard: View {
+    let race: PFRaceResult
+
+    private func color(_ kind: String?) -> Color {
+        switch kind {
+        case "run": return PFColor.sky
+        case "station": return PFColor.violet
+        default: return StrandPalette.textTertiary
+        }
+    }
+
+    private func detail(_ s: PFRaceResult.Segment) -> String? {
+        var parts: [String] = []
+        if let rank = s.rank, let field = s.fieldSize, field > 0 {
+            parts.append("top \((rank * 100 + field - 1) / field) %")
+        }
+        if let delta = s.deltaS {
+            parts.append(delta > 0 ? "+\(PFFormat.clock(Double(delta))) vs best" : "best")
+        }
+        return parts.isEmpty ? nil : parts.joined(separator: " \u{00B7} ")
+    }
+
+    var body: some View {
+        if !race.segments.isEmpty {
+            PFCard("Segments", icon: "list.number") {
+                VStack(spacing: 10) {
+                    ForEach(Array(race.segments.enumerated()), id: \.offset) { _, s in
+                        HStack(alignment: .center, spacing: 10) {
+                            RoundedRectangle(cornerRadius: 2, style: .continuous)
+                                .fill(color(s.kind))
+                                .frame(width: 4, height: 32)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(s.name)
+                                    .font(StrandFont.subhead.weight(.semibold))
+                                    .foregroundStyle(StrandPalette.textPrimary)
+                                if let line = detail(s) {
+                                    Text(line)
+                                        .font(StrandFont.caption)
+                                        .foregroundStyle(StrandPalette.textSecondary)
+                                }
+                            }
+                            Spacer(minLength: 8)
+                            Text(s.seconds.map { PFFormat.clock(Double($0)) } ?? "\u{2013}")
+                                .font(StrandFont.subhead.weight(.semibold))
+                                .foregroundStyle(StrandPalette.textPrimary)
+                        }
+                    }
+                }
+            }
+            .containerIdentifier("pf-race-segments")
         }
     }
 }

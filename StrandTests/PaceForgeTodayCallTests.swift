@@ -367,4 +367,23 @@ final class PaceForgeTodayCallTests: XCTestCase {
     func testAJobThatMeetsABadReplyIsNotOffline() {
         XCTAssertEqual(PFJobError.transport(URLError(.badServerResponse)), .unreadable)
     }
+
+    // MARK: Race detail
+
+    func testDetailWithARaceParsesItsSegments() throws {
+        let doc = """
+        {"series": [], "race": {"event": "HYROX Testville", "date": "2030-03-16", "official": false, "time_seconds": 4093, "time_display": "1:08:13",
+         "goal_seconds": 3600, "goal_delta_s": 493.0, "rank": 130, "field_size": 1308, "rank_age_group": 13,
+         "segments": [{"name": "Run 1", "kind": "run", "seconds": 290, "rank": 50, "field_size": 1308, "best_seconds": 251, "delta_s": 39},
+                      {"name": "SkiErg", "kind": "station", "seconds": 270.0, "rank": null, "field_size": null, "best_seconds": null, "delta_s": null}],
+         "hr_note": "Strap HR read low."}}
+        """
+        let race = try XCTUnwrap(PFBuilder.detail(json(doc)).race)
+        XCTAssertEqual(race.segments.map { $0.name }, ["Run 1", "SkiErg"])
+        XCTAssertEqual([race.timeSeconds, race.goalDeltaS, race.rank, race.segments[0].deltaS, race.segments[1].seconds], [4093, 493, 130, 39, 270])
+    }
+
+    func testDetailWithoutARaceHasNone() {
+        XCTAssertNil(PFBuilder.detail(json(#"{"series": []}"#)).race)
+    }
 }

@@ -264,6 +264,8 @@ struct PFDetail {
     var runExplainer: PFRunExplainer?
     var ltSplit: PFLtSplit?
     var effortRank: PFEffortRank?
+    /// Stamped on the detail of a race recording; its presence switches the results sheet to the race layout.
+    var race: PFRaceResult?
 }
 
 /// One row of `/data/analyses/index.json`: the coach's verdict plus the scored insights.
@@ -666,6 +668,50 @@ struct PFLtSplit: Equatable, Sendable {
         let out = PFLtSplit(belowS: j["below_s"].double, atS: j["at_s"].double, aboveS: j["above_s"].double, ltHr: j["lt_hr"].double,
                             ltPaceSecPerKm: j["lt_pace_sec_per_km"].double, ltDate: j["lt_date"].text)
         return out.totalS != nil ? out : nil
+    }
+}
+
+/// `race` of `/data/details/<id>.json`: the result of a race recording with its per-segment breakdown (HYROX: runs, stations, Roxzone).
+struct PFRaceResult: Equatable, Sendable {
+    struct Segment: Equatable, Sendable {
+        var name: String
+        /// "run", "station" or "roxzone".
+        var kind: String?
+        var seconds: Int?
+        var rank: Int?
+        var fieldSize: Int?
+        var bestSeconds: Int?
+        /// Seconds slower (+) or faster (-) than his best for the segment.
+        var deltaS: Int?
+
+        static func parse(_ j: PFJ) -> Segment? {
+            guard let name = j["name"].text else { return nil }
+            return Segment(name: name, kind: j["kind"].text, seconds: j["seconds"].double.map { Safe.int($0) }, rank: j["rank"].int,
+                           fieldSize: j["field_size"].int, bestSeconds: j["best_seconds"].double.map { Safe.int($0) }, deltaS: j["delta_s"].double.map { Safe.int($0) })
+        }
+    }
+
+    var event: String?
+    var date: String?
+    var official: Bool
+    var timeSeconds: Int?
+    var timeDisplay: String?
+    var goalSeconds: Int?
+    var goalDeltaS: Int?
+    var rank: Int?
+    var fieldSize: Int?
+    var rankAgeGroup: Int?
+    var segments: [Segment]
+    var hrNote: String?
+
+    static func parse(_ j: PFJ) -> PFRaceResult? {
+        guard j.exists else { return nil }
+        let out = PFRaceResult(event: j["event"].text, date: j["date"].text, official: j["official"].bool ?? false,
+                               timeSeconds: j["time_seconds"].double.map { Safe.int($0) }, timeDisplay: j["time_display"].text,
+                               goalSeconds: j["goal_seconds"].double.map { Safe.int($0) }, goalDeltaS: j["goal_delta_s"].double.map { Safe.int($0) },
+                               rank: j["rank"].int, fieldSize: j["field_size"].int, rankAgeGroup: j["rank_age_group"].int,
+                               segments: j["segments"].array.compactMap { Segment.parse($0) }, hrNote: j["hr_note"].text)
+        return out.timeSeconds != nil || out.timeDisplay != nil || !out.segments.isEmpty ? out : nil
     }
 }
 

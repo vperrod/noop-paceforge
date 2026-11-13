@@ -1049,6 +1049,7 @@ enum PFBuilder {
         out.runExplainer = PFRunExplainer.parse(d["run_explainer"])
         out.ltSplit = PFLtSplit.parse(d["lt_split"])
         out.effortRank = PFEffortRank.parse(d["effort_rank"])
+        out.race = PFRaceResult.parse(d["race"])
         return out
     }
 
