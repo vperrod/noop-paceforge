@@ -130,9 +130,7 @@ struct LiquidTodayView: View {
     @AppStorage(HideScoresPrefs.bodyKey) private var hideBodyOn = false
     @AppStorage(TodayLayoutPrefs.hiddenKey) private var hiddenSectionsRaw = ""
     private var sectionOrder: [TodaySection] {
-        // My Plan (this week's plan progress) duplicates the Calendar tab, so Today no longer draws it; the enum case stays for the
-        // saved-layout format shared with Android.
-        TodayLayoutPrefs.visibleOrder(orderRaw: sectionOrderRaw, hiddenRaw: hiddenSectionsRaw).filter { $0 != .myPlan }
+        TodayLayoutPrefs.visibleOrder(orderRaw: sectionOrderRaw, hiddenRaw: hiddenSectionsRaw)
     }
     // #430 parity: the Key-Metrics grid honours the SAME editor selection/order + Detailed-tiles switch as
     // Android (byte-identical @AppStorage keys). `kSparks` holds the trailing-30-day series the detailed
