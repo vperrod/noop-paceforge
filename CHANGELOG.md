@@ -17,6 +17,11 @@ approximate; downloads are on the [Releases](https://github.com/NoopApp/noop/rel
 
 ---
 
+## 12.0.12 build 522 (PaceForge iPhone build): a race you ran shows as done, with its result
+
+- Plan (week list and calendar day): a race that has been run says DONE, shows the finish time and the gap to the goal, and says when the time is from the Garmin recording and the official result is still pending. Wednesday's HYROX no longer reads as an unplayed card.
+- Includes build 521: Today shows Garmin and WHOOP side by side with Garmin's why.
+
 ## 12.0.12 build 521 (PaceForge iPhone build): Today shows Garmin and WHOOP side by side, with Garmin's why
 
 - Today, "How you are": two columns, Garmin and WHOOP. PaceForge's own recovery number is gone from this card. Under Garmin: why its readiness is what it is (the factors), recovery time and the HRV normal range; tap for the full explanation.
