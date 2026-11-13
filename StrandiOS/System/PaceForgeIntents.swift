@@ -9,8 +9,11 @@ enum PFSpoken {
     static func session() -> String {
         guard let s = PFSummary.load(), !s.isStale() else { return refresh }
         var parts: [String] = []
+        if let race = s.race, race.days == 0 {
+            parts.append("Race day: \(race.name).")
+        }
         if s.sessions.isEmpty {
-            parts.append("Rest day today.")
+            if s.race?.days != 0 { parts.append("Rest day today.") }
         } else {
             for session in s.sessions {
                 var line = session.done ? "Done: \(session.name)" : "Today: \(session.name)"

@@ -102,6 +102,7 @@ private enum CalendarChipBody {
 
 /// The planned sessions of every day the snapshot holds, by day.
 private struct CalendarIndex {
+    let snapshot: PFSnapshot
     let byDay: [String: [PFWorkout]]
     let first: String
     let last: String
@@ -111,12 +112,14 @@ private struct CalendarIndex {
         for week in snapshot.weeks {
             for day in week.days { map[day.date] = day.workouts }
         }
+        self.snapshot = snapshot
         byDay = map
         first = snapshot.weeks.first?.start ?? snapshot.todayISO
         last = snapshot.weeks.last?.end ?? snapshot.todayISO
     }
 
     func workouts(on day: String) -> [PFWorkout] { byDay[day] ?? [] }
+    func races(on day: String) -> Int { snapshot.races(on: day).count }
 }
 
 private enum CalendarMath {
@@ -262,7 +265,7 @@ private struct CalendarMonthRow: View {
             ForEach(days, id: \.self) { day in
                 CalendarDayCell(day: day, today: today, isSelected: day == selected,
                                 isInMonth: day.prefix(7) == monthStart.prefix(7),
-                                workouts: index.workouts(on: day), height: 44) { selected = day }
+                                workouts: index.workouts(on: day), races: index.races(on: day), height: 44) { selected = day }
             }
         }
     }
@@ -276,6 +279,7 @@ private struct CalendarDayCell: View {
     let isSelected: Bool
     let isInMonth: Bool
     let workouts: [PFWorkout]
+    let races: Int
     let height: CGFloat
     let onTap: () -> Void
 
@@ -285,7 +289,7 @@ private struct CalendarDayCell: View {
                 Text(CalendarMath.dayNumber(day))
                     .font(StrandFont.subhead.weight(day == today ? .bold : .regular))
                     .foregroundStyle(isInMonth ? StrandPalette.textPrimary : StrandPalette.textTertiary)
-                CalendarDots(workouts: workouts)
+                CalendarDots(workouts: workouts, races: races)
             }
             .frame(maxWidth: .infinity)
             .frame(height: height)
@@ -296,16 +300,18 @@ private struct CalendarDayCell: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("\(PFFormat.dayTitle(day)), \(workouts.count) sessions")
+        .accessibilityLabel("\(PFFormat.dayTitle(day)), \(workouts.count) sessions" + (races > 0 ? ", race day" : ""))
         .accessibilityIdentifier("calendar-day-\(day)")
     }
 }
 
 private struct CalendarDots: View {
     let workouts: [PFWorkout]
+    let races: Int
 
     var body: some View {
         HStack(spacing: 3) {
+            if races > 0 { Circle().fill(PFColor.sky).frame(width: 8, height: 8) }
             ForEach(Array(workouts.prefix(4).enumerated()), id: \.offset) { _, workout in
                 Circle()
                     .fill(PFColor.status(workout.status))
@@ -349,11 +355,13 @@ private struct CalendarDayPanel: View {
                 .font(StrandFont.title2)
                 .foregroundStyle(StrandPalette.textPrimary)
             let rides = snapshot.rides(on: day)
-            if workouts.isEmpty && rides.isEmpty {
+            let races = snapshot.races(on: day)
+            if workouts.isEmpty && rides.isEmpty && races.isEmpty {
                 Text("Nothing scheduled")
                     .font(StrandFont.subhead)
                     .foregroundStyle(StrandPalette.textTertiary)
             } else {
+                ForEach(races, id: \.name) { PFRaceDayRow(race: $0) }
                 ForEach(workouts) { CalendarSessionRow(workout: $0, snapshot: snapshot) }
                 ForEach(rides) { PFRideRow(ride: $0, snapshot: snapshot) }
             }

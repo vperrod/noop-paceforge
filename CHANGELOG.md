@@ -17,10 +17,12 @@ approximate; downloads are on the [Releases](https://github.com/NoopApp/noop/rel
 
 ---
 
-## 12.0.12 build 519 (PaceForge iPhone build): a race is on its day in the Plan tab week
+## 12.0.12 build 519 (PaceForge iPhone build): a race is a booked day everywhere a day is shown
 
-- Plan tab, week list: a race of the week (HYROX Dublin singles on Wed 11, Doubles on Sat 14) is a card on its own day with its goal
-  time. A race day no longer reads "Nothing scheduled".
+- Plan tab week list, Calendar day panel, and Today: a race (HYROX Dublin singles on Wed 11, Doubles on Sat 14) is a card on its
+  day with its goal time. A race day no longer reads "Nothing scheduled" or "Enjoy the rest day".
+- Calendar month grid: a race day carries a larger blue dot.
+- The evening reminder for tomorrow names the race; Siri's "today's session" says "Race day: <name>" instead of "Rest day today".
 
 ## 12.0.12 build 518 (PaceForge iPhone build): the Coach opens on the day, and every report has its own page
 

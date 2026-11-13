@@ -310,12 +310,14 @@ struct PFTodayView: View {
     private var sessionsRows: AnyView {
         let sessions = today.sessions
         let rides = snapshot.rides(on: snapshot.todayISO)
-        if sessions.isEmpty && rides.isEmpty {
+        let races = snapshot.races(on: snapshot.todayISO)
+        if sessions.isEmpty && rides.isEmpty && races.isEmpty {
             return AnyView(PFCard("Nothing scheduled") {
                 PFParagraph("Enjoy the rest day \u{2014} recovery is training.")
             })
         }
         return AnyView(Group {
+            ForEach(races, id: \.name) { PFRaceDayRow(race: $0) }
             ForEach(sessions) { PFWorkoutRow(workout: $0, snapshot: snapshot) }
             ForEach(rides) { PFRideRow(ride: $0, snapshot: snapshot) }
         })

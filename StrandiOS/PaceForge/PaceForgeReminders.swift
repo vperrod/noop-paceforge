@@ -89,7 +89,7 @@ enum PFReminders {
             return
         }
         let todo = day.workouts.filter { $0.status != "optional" && $0.status != "done" && $0.status != "partial" }
-        let lines = todo.map(describe)
+        let lines = s.races(on: target).map { "Race: \($0.name)" } + todo.map(describe)
         let body = lines.isEmpty ? "Tomorrow is a rest day. Recovery is training." : lines.joined(separator: "\n")
         await schedule(id: eveningId, at: fire, title: "Tomorrow on PaceForge", body: body, center: center)
     }

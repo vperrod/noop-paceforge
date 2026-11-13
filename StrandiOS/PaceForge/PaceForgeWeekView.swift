@@ -99,7 +99,7 @@ private struct PFDaySection: View {
 }
 
 /// A race on its day: the same booked-day card as a session, so a race week never reads "Nothing scheduled".
-private struct PFRaceDayRow: View {
+struct PFRaceDayRow: View {
     let race: PFNextRace
 
     var body: some View {
