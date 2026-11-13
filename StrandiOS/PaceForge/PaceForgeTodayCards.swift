@@ -284,7 +284,7 @@ private struct PFHowYouAreCard: View {
             PFCard("How you are", icon: "heart.text.square") {
                 VStack(alignment: .leading, spacing: 10) {
                     HStack(alignment: .top, spacing: 12) {
-                        column("Garmin", readiness.garmin)
+                        column("Garmin", readiness.garmin, lines: readiness.garminLines)
                         column("WHOOP", readiness.strap)
                     }
                     if let line = caption { Text(line).font(StrandFont.caption).foregroundStyle(StrandPalette.textTertiary)
@@ -298,7 +298,7 @@ private struct PFHowYouAreCard: View {
         .sheet(isPresented: $showJudged) { judgedSheet }
     }
 
-    private func column(_ title: String, _ device: PFTodayCall.Device) -> some View {
+    private func column(_ title: String, _ device: PFTodayCall.Device, lines: [String] = []) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(title).font(StrandFont.caption.weight(.semibold)).foregroundStyle(StrandPalette.textSecondary)
             if let score = device.score {
@@ -311,19 +311,19 @@ private struct PFHowYouAreCard: View {
             if let band = device.band ?? device.label {
                 Text(band).font(StrandFont.caption).foregroundStyle(StrandPalette.textSecondary)
             }
+            ForEach(lines, id: \.self) { line in
+                Text(line).font(StrandFont.caption).foregroundStyle(StrandPalette.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .combine)
         .accessibilityIdentifier("pf-how-" + title.lowercased())
     }
 
-    /// NOOP's own score and last night's sleep, as one quiet line.
+    /// Last night's sleep, as one quiet line.
     private var caption: String? {
         var parts: [String] = []
-        if let own = readiness.own.score {
-            let shown = HideScoresPrefs.shown(String(Safe.int(own)), hidden: hiding.hides(.scores))
-            parts.append("Your own score \(shown)" + (readiness.own.band.map { " \u{00B7} \($0)" } ?? ""))
-        }
         if let minutes = readiness.sleepMinutes {
             let slept = "\(minutes / 60) h \(minutes % 60) min"
             if let need = readiness.sleepNeedMinutes { parts.append("Slept \(slept) of \(need / 60) h \(need % 60) min") } else { parts.append("Slept \(slept)") }
@@ -346,10 +346,35 @@ private struct PFHowYouAreCard: View {
     /// "How this is judged": the readiness explainer the server serves, else the app's own short text.
     @ViewBuilder private var judgedSheet: some View {
         if let explainer = snapshot.explainer(PFExplainerID.readinessSources) ?? PFLocalExplainers.fallback[PFExplainerID.readinessSources] {
-            PFExplainerSheet(explainer: explainer)
+            VStack(spacing: 0) {
+                if !garminDetailRows.isEmpty { garminDetail }
+                PFExplainerSheet(explainer: explainer)
+            }
+        } else if !garminDetailRows.isEmpty {
+            garminDetail
         } else {
             PFCallSheet(snapshot: snapshot)
         }
+    }
+
+    /// The Garmin lines in full, plus the endurance score when the snapshot's profile has it.
+    private var garminDetailRows: [String] {
+        var rows = readiness.garminFactors
+        rows += [readiness.recoveryLine, readiness.hrvLine].compactMap { $0 }
+        if let endurance = snapshot.athleteDocs?.profile?.enduranceScore { rows.append("Endurance score \(Int(endurance.rounded()))") }
+        return rows
+    }
+
+    private var garminDetail: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("Garmin").font(StrandFont.caption.weight(.semibold)).foregroundStyle(StrandPalette.textSecondary)
+            ForEach(garminDetailRows, id: \.self) { row in
+                Text(row).font(StrandFont.caption).foregroundStyle(StrandPalette.textSecondary).fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(16)
+        .accessibilityIdentifier("pf-how-garmin-detail")
     }
 }
 
