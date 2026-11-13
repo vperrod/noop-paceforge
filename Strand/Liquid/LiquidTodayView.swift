@@ -2001,9 +2001,17 @@ struct LiquidTodayView: View {
                         // (i)) and Today's call as a chip, the Effort target and the planned session (the rest behind "Why"). Today
                         // only; each draws nothing, or says so itself, when it has nothing. The Expert reading, the Day in review, the
                         // call's narrative and the verdict lines are in the Coach.
-                        // PaceForge's call is the first of the six cards above the fold (PFTodayCards); this slot stays for the saved-layout format.
+                        // The six cards above carry the call itself; this section adds Today's call chip with the Effort target and the planned
+                        // session, and the daily report row. PaceForge's own recovery bars (TodayPFReadout) stay off Today: it shows Garmin and the strap.
                         case .todaysCall:
+                            #if os(iOS)
+                            if selectedDayOffset == 0 {
+                                PFTodaysCallStoreHost(compact: true)
+                                PFDailyReportRow()
+                            }
+                            #else
                             EmptyView()
+                            #endif
                         // The evening wrap moved to the Coach; the case stays for the saved-layout format.
                         case .dayInReview:
                             EmptyView()

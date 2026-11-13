@@ -19,7 +19,7 @@ approximate; downloads are on the [Releases](https://github.com/NoopApp/noop/rel
 
 ## 12.0.12 build 523 (PaceForge iPhone build): tap a race you ran and see its metrics and the coach's review
 
-- Today: the rings lead the screen again, then the six PaceForge cards, then the strap blocks (monitor tiles, heart rate, key metrics), all open. Nothing is folded away.
+- Today: the rings lead the screen again, then the six PaceForge cards, then the strap blocks (monitor tiles, heart rate, key metrics), all open. Nothing is folded away. "Assessment and Today's call" draws again (the call chip, Effort target, planned session and the daily report row).
 - Reports > Insights: the chip no longer contains a second "Reports" chip; its rows sit at the end of Overview under "Longer reports".
 - Plan (week list and calendar day): a race with a recording opens that recording's results (metrics, charts, the coach's review) instead of the HYROX race plan. A race still ahead still opens the race plan.
 
