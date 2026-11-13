@@ -17,6 +17,14 @@ approximate; downloads are on the [Releases](https://github.com/NoopApp/noop/rel
 
 ---
 
+## 12.0.12 build 520 (PaceForge iPhone build): one Today, five tabs, the coach as read + ask
+
+- Today: six cards from one document the server writes each day (the call, tomorrow or today's race/session, needs-you, Garmin and WHOOP side by side, feel, the week as a strip with races). The strap's rings and cards sit below, folded.
+- Tabs: Today, Plan, Coach, Reports, Body. Plan is This week | Calendar | Season. Reports has Day, Week, Month and Race (the pack above, the debrief below).
+- Coach: today's read, then one composer (Question or Change my plan; a change lists the days it moved, each opening that day in Plan), the log.
+- When PaceForge cannot be reached the note says when the saved copy is from and retries by itself after 10 s, 30 s and 2 min; an error answered by the server reads differently from no connection.
+- Text scales with Dynamic Type on every PaceForge screen. The old classic Today, classic navigation, the second Coach card and the design galleries are gone.
+
 ## 12.0.12 build 519 (PaceForge iPhone build): a race is a booked day everywhere a day is shown
 
 - Plan tab week list, Calendar day panel, and Today: a race (HYROX Dublin singles on Wed 11, Doubles on Sat 14) is a card on its
