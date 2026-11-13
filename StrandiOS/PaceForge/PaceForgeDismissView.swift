@@ -293,7 +293,7 @@ struct PFDismissMenu: View {
             }
         } label: {
             Image(systemName: "xmark.circle.fill")
-                .font(.system(size: 18))
+                .font(StrandFont.scaled(18))
                 .foregroundStyle(StrandPalette.textTertiary)
                 .frame(width: 32, height: 32)
                 .contentShape(Rectangle())
@@ -327,7 +327,7 @@ struct PFHiddenCardsRow: View {
                         .font(StrandFont.subhead.weight(.semibold))
                         .foregroundStyle(StrandPalette.textTertiary)
                     Image(systemName: "chevron.right")
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(StrandFont.scaled(12, weight: .semibold))
                         .foregroundStyle(StrandPalette.textTertiary)
                 }
                 .padding(.vertical, 10)

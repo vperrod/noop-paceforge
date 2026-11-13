@@ -186,7 +186,7 @@ struct PFMuscleCheckCard: View {
             ForEach(check.advice) { line in
                 HStack(alignment: .top, spacing: 8) {
                     Image(systemName: line.severity == "act" || line.severity == "watch" ? "exclamationmark.circle" : "info.circle")
-                        .font(.system(size: 13))
+                        .font(StrandFont.scaled(13))
                         .foregroundStyle(StrandPalette.textTertiary)
                     Text(line.text)
                         .font(StrandFont.subhead)

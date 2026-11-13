@@ -68,7 +68,7 @@ struct PFWorkoutRow: View {
             VStack(alignment: .trailing, spacing: 6) {
                 PFChip(text: workout.status, color: PFColor.status(workout.status))
                 Image(systemName: workout.hasResults ? "chevron.right" : "chevron.down")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(StrandFont.scaled(12, weight: .semibold))
                     .foregroundStyle(StrandPalette.textTertiary)
                     .rotationEffect(.degrees(isOpen && !workout.hasResults ? 180 : 0))
             }

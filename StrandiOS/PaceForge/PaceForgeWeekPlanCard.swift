@@ -298,7 +298,7 @@ struct PFDisclosure<Content: View>: View {
                     }
                     Spacer(minLength: 4)
                     Image(systemName: "chevron.right")
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(StrandFont.scaled(12, weight: .semibold))
                         .foregroundStyle(StrandPalette.textTertiary)
                         .rotationEffect(.degrees(isOpen ? 90 : 0))
                         .padding(.top, 4)
@@ -597,7 +597,7 @@ struct PFProposalsRow: View {
         Button(action: onOpen) {
             HStack(spacing: 8) {
                 Image(systemName: "calendar.badge.exclamationmark")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(StrandFont.scaled(14, weight: .semibold))
                     .foregroundStyle(NoopLook.textSecondary)
                     .accessibilityHidden(true)
                 Text(PFWeekPlan.todayLine(count))
@@ -610,7 +610,7 @@ struct PFProposalsRow: View {
                     .foregroundStyle(StrandPalette.accent)
                     .fixedSize()
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(StrandFont.scaled(12, weight: .semibold))
                     .foregroundStyle(StrandPalette.textTertiary)
                     .accessibilityHidden(true)
             }

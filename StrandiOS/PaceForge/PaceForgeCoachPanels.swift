@@ -244,7 +244,7 @@ struct PFDualReadinessPanel: View {
         let agrees = agreement == .agree
         return HStack(spacing: 6) {
             Image(systemName: agrees ? "checkmark.circle.fill" : "arrow.triangle.branch")
-                .font(.system(size: 13, weight: .semibold))
+                .font(StrandFont.scaled(13, weight: .semibold))
                 .accessibilityHidden(true)
             Text(agrees ? "Garmin and WHOOP agree" : "Garmin and WHOOP split")
                 .font(StrandFont.caption.weight(.semibold))
@@ -328,7 +328,7 @@ struct PFSeasonPlanCard: View {
         case .race(let race):
             HStack(alignment: .top, spacing: 10) {
                 Image(systemName: "flag.checkered")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(StrandFont.scaled(14, weight: .semibold))
                     .foregroundStyle(PFColor.critical)
                     .frame(width: 20)
                     .accessibilityHidden(true)

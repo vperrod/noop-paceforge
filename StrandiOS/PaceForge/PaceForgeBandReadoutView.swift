@@ -177,7 +177,7 @@ private struct PFReadingInfoButton: View {
     var body: some View {
         Button { isShowing = true } label: {
             Image(systemName: "info.circle")
-                .font(.system(size: 15, weight: .regular))
+                .font(StrandFont.scaled(15, weight: .regular))
                 .foregroundStyle(StrandPalette.textTertiary)
                 .frame(width: 32, height: 32)
                 .contentShape(Rectangle())

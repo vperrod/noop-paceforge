@@ -202,7 +202,7 @@ struct PFCoachView: View {
                     HStack(alignment: .firstTextBaseline, spacing: 8) {
                         Image(systemName: s.completed ? "checkmark.circle.fill" : "xmark.circle")
                             .foregroundStyle(s.completed ? PFColor.positive : PFColor.critical)
-                            .font(.system(size: 14))
+                            .font(StrandFont.scaled(14))
                         Text(s.name)
                             .font(StrandFont.subhead)
                             .foregroundStyle(StrandPalette.textPrimary)

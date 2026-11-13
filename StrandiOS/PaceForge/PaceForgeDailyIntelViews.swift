@@ -103,7 +103,7 @@ private struct PFIntelLine: View {
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
             Image(systemName: icon)
-                .font(.system(size: 14, weight: .semibold))
+                .font(StrandFont.scaled(14, weight: .semibold))
                 .foregroundStyle(NoopLook.textSecondary)
                 .frame(width: 20)
                 .accessibilityHidden(true)
@@ -215,7 +215,7 @@ struct PFTodaysCallCard: View {
     private var header: some View {
         HStack(alignment: .firstTextBaseline, spacing: 8) {
             Image(systemName: "scope")
-                .font(.system(size: 14, weight: .semibold))
+                .font(StrandFont.scaled(14, weight: .semibold))
                 .foregroundStyle(NoopLook.textSecondary)
                 .accessibilityHidden(true)
             Text("Today's call")
@@ -327,7 +327,7 @@ struct PFDayReviewCard: View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 Image(systemName: "moon.stars")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(StrandFont.scaled(14, weight: .semibold))
                     .foregroundStyle(NoopLook.textSecondary)
                     .accessibilityHidden(true)
                 Text("Day in review")
@@ -588,7 +588,7 @@ struct PFHealthMonitorBody: View {
         let color = PFHealthStyle.color(for: tile)
         return HStack(spacing: 12) {
             Image(systemName: tile.state == .withinRange ? "checkmark" : "exclamationmark")
-                .font(.system(size: 16, weight: .bold))
+                .font(StrandFont.scaled(16, weight: .bold))
                 .foregroundStyle(color)
                 .frame(width: 32, height: 32)
                 .background(RoundedRectangle(cornerRadius: 6, style: .continuous).fill(tile.isRed ? NoopLook.alertWash : color.opacity(0.16)))
@@ -659,7 +659,7 @@ struct PFWhatMovedCard: View {
         InsightCardFrame {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 Image(systemName: "arrow.up.right.and.arrow.down.left")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(StrandFont.scaled(14, weight: .semibold))
                     .foregroundStyle(NoopLook.textSecondary)
                     .accessibilityHidden(true)
                 Text("What moved it")

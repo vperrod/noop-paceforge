@@ -103,7 +103,7 @@ struct PFBadgeIcon: View {
             Circle()
                 .strokeBorder(color.opacity(isDimmed ? 0.35 : 1), style: StrokeStyle(lineWidth: 1.6, dash: [3.5, 3]))
             Image(systemName: symbol)
-                .font(.system(size: size * 0.38, weight: .semibold))
+                .font(StrandFont.scaled(size * 0.38, weight: .semibold))
                 .foregroundStyle(color.opacity(isDimmed ? 0.45 : 1))
         }
         .frame(width: size, height: size)

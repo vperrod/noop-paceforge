@@ -209,7 +209,7 @@ struct PFStandingMetricRow: View {
                         }
                     }
                     Image(systemName: "chevron.right")
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(StrandFont.scaled(12, weight: .semibold))
                         .foregroundStyle(StrandPalette.textTertiary)
                 }
                 PFBandBar(band: metric.band)
@@ -344,7 +344,7 @@ struct PFStandingView: View {
                                 }
                                 Spacer(minLength: 8)
                                 Image(systemName: "chevron.right")
-                                    .font(.system(size: 12, weight: .semibold))
+                                    .font(StrandFont.scaled(12, weight: .semibold))
                                     .foregroundStyle(StrandPalette.textTertiary)
                             }
                             .contentShape(Rectangle())
@@ -490,7 +490,7 @@ struct PFStandingMetricSheet: View {
         PFCard("Trend", icon: "chart.line.uptrend.xyaxis") {
             HStack(spacing: 8) {
                 Image(systemName: trend.symbol)
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(StrandFont.scaled(16, weight: .semibold))
                     .foregroundStyle(trendColor(trend))
                 Text(trend.text)
                     .font(StrandFont.subhead)
@@ -711,7 +711,7 @@ struct PFStandingTodayCard: View {
         Button { openStanding() } label: {
             PFCard(title: "Where you stand", icon: "chart.bar.xaxis", trailing: {
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(StrandFont.scaled(12, weight: .semibold))
                     .foregroundStyle(StrandPalette.textTertiary)
             }) {
                 VStack(alignment: .leading, spacing: 8) {

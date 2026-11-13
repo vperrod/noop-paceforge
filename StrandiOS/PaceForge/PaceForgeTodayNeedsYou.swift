@@ -33,7 +33,7 @@ private struct PFNeedsYouRow: View {
         Button(action: onOpen) {
             HStack(spacing: 8) {
                 Image(systemName: "bell.badge")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(StrandFont.scaled(14, weight: .semibold))
                     .foregroundStyle(NoopLook.textSecondary)
                     .accessibilityHidden(true)
                 Text("Needs you")
@@ -52,7 +52,7 @@ private struct PFNeedsYouRow: View {
                 }
                 Spacer(minLength: 4)
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(StrandFont.scaled(12, weight: .semibold))
                     .foregroundStyle(StrandPalette.textTertiary)
                     .accessibilityHidden(true)
             }

@@ -113,7 +113,7 @@ struct PFInfoButton: View {
         if let explainer = explainers[id] ?? PFLocalExplainers.fallback[id] {
             Button { isShowing = true } label: {
                 Image(systemName: "info.circle")
-                    .font(.system(size: 15, weight: .regular))
+                    .font(StrandFont.scaled(15, weight: .regular))
                     .foregroundStyle(StrandPalette.textTertiary)
                     .frame(width: 32, height: 32)
                     .contentShape(Rectangle())
@@ -255,7 +255,7 @@ struct PFHowScoresWorkCard: View {
             }
             Spacer(minLength: 8)
             Image(systemName: "chevron.right")
-                .font(.system(size: 12, weight: .semibold))
+                .font(StrandFont.scaled(12, weight: .semibold))
                 .foregroundStyle(StrandPalette.textTertiary)
                 .padding(.top, 3)
         }

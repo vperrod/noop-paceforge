@@ -146,7 +146,7 @@ struct PFRaceWeekCard: View {
         let isTicked = ticked.contains(item.id)
         return HStack(alignment: .top, spacing: 10) {
             Image(systemName: isTicked ? "checkmark.circle.fill" : "circle")
-                .font(.system(size: 20))
+                .font(StrandFont.scaled(20))
                 .foregroundStyle(isTicked ? StrandPalette.accent : StrandPalette.textTertiary)
             VStack(alignment: .leading, spacing: 2) {
                 Text(item.text)

@@ -24,7 +24,7 @@ struct PFDailyReportRow: View {
             NavigationLink(value: TabRoute.reports(PFReportKind.daily.rawValue)) {
                 HStack(spacing: 12) {
                     Image(systemName: "text.book.closed")
-                        .font(.system(size: 18, weight: .semibold))
+                        .font(StrandFont.scaled(18, weight: .semibold))
                         .foregroundStyle(StrandPalette.accent)
                         .frame(width: 30, height: 30)
                         .accessibilityHidden(true)
@@ -37,7 +37,7 @@ struct PFDailyReportRow: View {
                     }
                     Spacer(minLength: 8)
                     Image(systemName: "chevron.right")
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(StrandFont.scaled(12, weight: .semibold))
                         .foregroundStyle(StrandPalette.textTertiary)
                         .accessibilityHidden(true)
                 }
@@ -79,7 +79,7 @@ struct PFExpertReadingCard: View {
                         Text(Self.openTitle)
                             .font(StrandFont.caption.weight(.semibold))
                         Image(systemName: "chevron.right")
-                            .font(.system(size: 11, weight: .semibold))
+                            .font(StrandFont.scaled(11, weight: .semibold))
                     }
                     .foregroundStyle(StrandPalette.accent)
                     .frame(minHeight: 44, alignment: .leading)

@@ -99,7 +99,7 @@ private struct PFAlertRow: View {
                     .font(StrandFont.caption.weight(.semibold))
                     .foregroundStyle(StrandPalette.accent)
                 Image(systemName: "chevron.down")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(StrandFont.scaled(12, weight: .semibold))
                     .foregroundStyle(StrandPalette.textTertiary)
             }
             .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
@@ -162,7 +162,7 @@ private struct PFAlertRow: View {
                     .font(StrandFont.caption.weight(.semibold))
                     .foregroundStyle(StrandPalette.accent)
                 Image(systemName: "chevron.up")
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(StrandFont.scaled(11, weight: .semibold))
                     .foregroundStyle(StrandPalette.textTertiary)
             }
             .frame(minHeight: 44, alignment: .leading)

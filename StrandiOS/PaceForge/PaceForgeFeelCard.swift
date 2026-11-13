@@ -264,7 +264,7 @@ struct PFWhatChangedCard: View {
         let color = PFNeutral.tone(metric.tone)
         HStack(spacing: 3) {
             Image(systemName: Self.arrow(metric.direction))
-                .font(.system(size: 10, weight: .bold))
+                .font(StrandFont.scaled(10, weight: .bold))
             if let delta = metric.delta, metric.direction == "up" || metric.direction == "down" {
                 Text(Self.number(abs(delta)))
             } else {
@@ -384,7 +384,7 @@ struct PFTrustNote: View {
         if let text = trust?.text {
             HStack(alignment: .top, spacing: 5) {
                 Image(systemName: "exclamationmark.circle")
-                    .font(.system(size: 11, weight: .semibold))
+                    .font(StrandFont.scaled(11, weight: .semibold))
                     .foregroundStyle(PFNeutral.other)
                 Text(text)
                     .font(StrandFont.caption)

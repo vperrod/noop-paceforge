@@ -69,7 +69,7 @@ struct PFRateRow: View {
         HStack(spacing: 4) {
             if let verdict {
                 Image(systemName: verdict == .up ? "hand.thumbsup.fill" : "hand.thumbsdown.fill")
-                    .font(.system(size: 13))
+                    .font(StrandFont.scaled(13))
                     .foregroundStyle(StrandPalette.textTertiary)
                 Text("Noted")
                     .font(StrandFont.caption)
@@ -96,7 +96,7 @@ struct PFRateRow: View {
             Task { await rate(value) }
         } label: {
             Image(systemName: value == .up ? "hand.thumbsup" : "hand.thumbsdown")
-                .font(.system(size: 15))
+                .font(StrandFont.scaled(15))
                 .foregroundStyle(StrandPalette.textSecondary)
                 .frame(width: 44, height: 44)
         }

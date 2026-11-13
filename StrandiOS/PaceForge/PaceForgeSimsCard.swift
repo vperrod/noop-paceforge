@@ -176,7 +176,7 @@ struct PFSimulationsCard: View {
                 HStack(spacing: 6) {
                     HStack(spacing: 6) {
                         Image(systemName: segment.isRun ? "figure.run" : "dumbbell")
-                            .font(.system(size: 11))
+                            .font(StrandFont.scaled(11))
                             .foregroundStyle(StrandPalette.textTertiary)
                             .frame(width: 14)
                         Text(segment.name)

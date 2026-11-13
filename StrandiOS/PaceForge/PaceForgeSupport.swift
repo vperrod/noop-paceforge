@@ -95,7 +95,7 @@ struct PFCard: View {
                 let _ = NoopDiag.body("PFCard")
                 if let icon {
                     Image(systemName: icon)
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(StrandFont.scaled(14, weight: .semibold))
                         .foregroundStyle(NoopLook.textSecondary)
                 }
                 Text(title)

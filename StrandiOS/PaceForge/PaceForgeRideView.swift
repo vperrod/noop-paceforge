@@ -96,7 +96,7 @@ struct PFRideRow: View {
                     VStack(alignment: .trailing, spacing: 6) {
                         PFChip(text: "ride", color: PFColor.sky)
                         Image(systemName: "chevron.right")
-                            .font(.system(size: 12, weight: .semibold))
+                            .font(StrandFont.scaled(12, weight: .semibold))
                             .foregroundStyle(StrandPalette.textTertiary)
                     }
                 }

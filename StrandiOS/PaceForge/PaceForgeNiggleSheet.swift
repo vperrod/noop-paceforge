@@ -12,7 +12,7 @@ struct PFNiggleEntryCard: View {
         } label: {
             HStack(spacing: 10) {
                 Image(systemName: "bandage")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(StrandFont.scaled(14, weight: .semibold))
                     .foregroundStyle(NoopLook.textSecondary)
                 Text("Niggles")
                     .lookCaps(12.5)
@@ -20,7 +20,7 @@ struct PFNiggleEntryCard: View {
                 Spacer(minLength: 8)
                 summary
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(StrandFont.scaled(12, weight: .semibold))
                     .foregroundStyle(NoopLook.textTertiary)
             }
             .padding(16)

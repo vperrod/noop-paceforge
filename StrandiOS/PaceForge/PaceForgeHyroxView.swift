@@ -206,7 +206,7 @@ struct PFOpenHyroxButton: View {
         Button { isShowing = true } label: {
             HStack(spacing: 6) {
                 Text("Open HYROX")
-                Image(systemName: "chevron.right").font(.system(size: 12, weight: .semibold))
+                Image(systemName: "chevron.right").font(StrandFont.scaled(12, weight: .semibold))
             }
             .font(StrandFont.caption.weight(.semibold))
             .foregroundStyle(StrandPalette.accent)
@@ -632,7 +632,7 @@ private struct PFHyroxResultRow: View {
                         Spacer(minLength: 8)
                         Text(race.finishText).font(LookFont.numeral(20)).foregroundStyle(NoopLook.textPrimary)
                         Image(systemName: "chevron.right")
-                            .font(.system(size: 12, weight: .semibold))
+                            .font(StrandFont.scaled(12, weight: .semibold))
                             .foregroundStyle(StrandPalette.textTertiary)
                             .rotationEffect(.degrees(isOpen ? 90 : 0))
                             .accessibilityHidden(true)

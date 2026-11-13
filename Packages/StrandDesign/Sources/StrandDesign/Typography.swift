@@ -90,6 +90,67 @@ public enum StrandFont {
         #endif
     }
 
+    /// A system font at an exact point size at the default content size that still follows Dynamic Type: the size is what the design
+    /// asks for at "Large", and it grows and shrinks with the user's setting like the named styles do. Use it where a named style
+    /// (`body`, `subhead`, `caption`) would change the size the design draws, in place of a fixed `.system(size:)`.
+    /// `relativeTo` names the text style whose scaling curve it follows; by default the one nearest to the size.
+    public static func scaled(_ size: CGFloat, weight: Font.Weight = .regular, relativeTo style: Font.TextStyle? = nil) -> Font {
+        let textStyle = style ?? nearestTextStyle(for: size)
+        #if canImport(UIKit)
+        let base = UIFont.systemFont(ofSize: size, weight: uiWeight(weight))
+        return Font(UIFontMetrics(forTextStyle: uiTextStyle(textStyle)).scaledFont(for: base))
+        #else
+        return .system(size: size, weight: weight)
+        #endif
+    }
+
+    /// The text style whose default size is nearest to `size`: 11 caption2, 12 caption, 13 footnote, 14 to 15 subheadline, 16 callout,
+    /// 17 to 19 body, 20 to 21 title3, 22 and over title2.
+    static func nearestTextStyle(for size: CGFloat) -> Font.TextStyle {
+        switch size {
+        case ..<11.5: return .caption2
+        case ..<12.5: return .caption
+        case ..<13.5: return .footnote
+        case ..<15.5: return .subheadline
+        case ..<16.5: return .callout
+        case ..<19.5: return .body
+        case ..<21.5: return .title3
+        default: return .title2
+        }
+    }
+
+    #if canImport(UIKit)
+    private static func uiTextStyle(_ style: Font.TextStyle) -> UIFont.TextStyle {
+        switch style {
+        case .largeTitle: return .largeTitle
+        case .title: return .title1
+        case .title2: return .title2
+        case .title3: return .title3
+        case .headline: return .headline
+        case .subheadline: return .subheadline
+        case .callout: return .callout
+        case .footnote: return .footnote
+        case .caption: return .caption1
+        case .caption2: return .caption2
+        default: return .body
+        }
+    }
+
+    private static func uiWeight(_ weight: Font.Weight) -> UIFont.Weight {
+        switch weight {
+        case .ultraLight: return .ultraLight
+        case .thin: return .thin
+        case .light: return .light
+        case .medium: return .medium
+        case .semibold: return .semibold
+        case .bold: return .bold
+        case .heavy: return .heavy
+        case .black: return .black
+        default: return .regular
+        }
+    }
+    #endif
+
     /// Mono 13 (SF Mono) — raw / log views. Tabular by nature.
     public static let mono = Font.system(size: 13, weight: .regular, design: .monospaced)
 

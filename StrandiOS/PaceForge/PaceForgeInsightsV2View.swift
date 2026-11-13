@@ -93,7 +93,7 @@ struct PFInsufficient: View {
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
             Image(systemName: "hourglass")
-                .font(.system(size: 14, weight: .semibold))
+                .font(StrandFont.scaled(14, weight: .semibold))
                 .foregroundStyle(StrandPalette.textTertiary)
             VStack(alignment: .leading, spacing: 4) {
                 Text(title)
@@ -231,7 +231,7 @@ struct PFInsightCard: View {
                     if let action = item.actions.first {
                         HStack(alignment: .firstTextBaseline, spacing: 6) {
                             Image(systemName: "arrow.turn.down.right")
-                                .font(.system(size: 11, weight: .semibold))
+                                .font(StrandFont.scaled(11, weight: .semibold))
                                 .foregroundStyle(StrandPalette.accent)
                             Text(hiding.text(action.text))
                                 .font(StrandFont.subhead.weight(.semibold))
@@ -245,7 +245,7 @@ struct PFInsightCard: View {
                             .font(StrandFont.caption.weight(.semibold))
                             .foregroundStyle(StrandPalette.accent)
                         Image(systemName: "chevron.right")
-                            .font(.system(size: 11, weight: .semibold))
+                            .font(StrandFont.scaled(11, weight: .semibold))
                             .foregroundStyle(StrandPalette.accent)
                     }
                 }
@@ -289,7 +289,7 @@ struct PFNextActionCard: View {
             InsightCardFrame {
                 HStack(alignment: .firstTextBaseline, spacing: 8) {
                     Image(systemName: PFInsightIcon.symbol(item.id))
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(StrandFont.scaled(14, weight: .semibold))
                         .foregroundStyle(NoopLook.textSecondary)
                     Text("Next best action")
                         .lookCaps(12.5)

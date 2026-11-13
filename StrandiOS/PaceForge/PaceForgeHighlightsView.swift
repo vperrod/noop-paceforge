@@ -19,7 +19,7 @@ struct PFStreakChipView: View {
                 NavigationLink(value: TabRoute.highlights) {
                     HStack(spacing: 4) {
                         Image(systemName: "flame.fill")
-                            .font(.system(size: 13, weight: .bold))
+                            .font(StrandFont.scaled(13, weight: .bold))
                             .foregroundStyle(Color(hex: "#FFA722"))
                         Text(chip.text)
                             .font(LookFont.numeral(15))

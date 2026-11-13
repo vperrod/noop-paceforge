@@ -162,7 +162,7 @@ private struct PFResultsHeader: View {
     private func heatRow(_ heat: PFHeat) -> some View {
         HStack(spacing: 6) {
             Image(systemName: heat.isHot ? "thermometer.sun" : "thermometer.medium")
-                .font(.system(size: 13))
+                .font(StrandFont.scaled(13))
                 .foregroundStyle(heat.isHot ? PFColor.warning : PFColor.sky)
             PFChip(text: heat.chipText, color: heat.isHot ? PFColor.warning : PFColor.sky)
                 .accessibilityIdentifier("pf-heat-chip")

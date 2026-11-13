@@ -51,7 +51,7 @@ struct PFMyPlanCard: View {
                             .minimumScaleFactor(0.7)
                     }
                     Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(StrandFont.scaled(12, weight: .semibold))
                         .foregroundStyle(NoopLook.textTertiary)
                         .accessibilityHidden(true)
                 }
@@ -168,7 +168,7 @@ struct PFMyPlanCard: View {
         let mark = symbol(row.status)
         return HStack(spacing: 12) {
             Image(systemName: mark.name)
-                .font(.system(size: 20, weight: .regular))
+                .font(StrandFont.scaled(20, weight: .regular))
                 .foregroundStyle(mark.color)
                 .frame(width: 24)
                 .accessibilityHidden(true)

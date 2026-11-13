@@ -299,7 +299,7 @@ struct PFDriverRow: View {
                         }
                     }
                     Image(systemName: "chevron.down")
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(StrandFont.scaled(12, weight: .semibold))
                         .foregroundStyle(NoopLook.textTertiary)
                         .rotationEffect(.degrees(isOpen ? 180 : 0))
                 }
@@ -498,7 +498,7 @@ struct PFHealthspanBody: View {
             shownWeek = (target == currentWeek) ? nil : target
         } label: {
             Image(systemName: symbol)
-                .font(.system(size: 14, weight: .bold))
+                .font(StrandFont.scaled(14, weight: .bold))
                 .foregroundStyle(target == nil ? NoopLook.textMuted : NoopLook.textPrimary)
                 .frame(width: 36, height: 32)
         }
