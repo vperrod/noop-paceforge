@@ -181,6 +181,11 @@ final class PaceForgeTodayCallTests: XCTestCase {
         XCTAssertFalse(PFTodayCard.present(call: call, needsYou: 0, hasFeel: true).contains(.needsYou))
     }
 
+    func testAnOpenLiveAlertDrawsTheNeedsYouSlotEvenWithNothingWaiting() throws {
+        let call = try XCTUnwrap(PFTodayCallParse.document(json(raceDay)))
+        XCTAssertTrue(PFTodayCard.present(call: call, needsYou: 0, hasFeel: true, hasLiveAlerts: true).contains(.needsYou))
+    }
+
     func testFeelIsLeftOutWhenTheServerServesNoSummary() throws {
         let call = try XCTUnwrap(PFTodayCallParse.document(json(raceDay)))
         XCTAssertFalse(PFTodayCard.present(call: call, needsYou: 1, hasFeel: false).contains(.feel))

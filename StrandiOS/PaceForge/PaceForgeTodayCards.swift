@@ -23,10 +23,16 @@ private struct PFTodayCardsColumn: View {
     let snapshot: PFSnapshot
     let onOpenNeedsYou: () -> Void
     let onReadWhy: () -> Void
+    @ObservedObject private var dismissals = PFDismissStore.shared
 
     var body: some View {
         let info = snapshot.todayCall ?? PFTodayCallParse.fallback(from: snapshot)
-        let cards = PFTodayCard.present(call: info, needsYou: snapshot.needsYou.count, hasFeel: snapshot.feel != nil)
+        let hasLiveAlerts = snapshot.alerts.contains { alert in
+            alert.isLive && !PFDismissLogic.isHidden(key: PFDismissKey.alertKey(alert), text: PFDismissKey.alertText(alert),
+                                                     today: snapshot.todayISO, local: dismissals.local, server: snapshot.dismissed)
+        }
+        let cards = PFTodayCard.present(call: info, needsYou: snapshot.needsYou.count, hasFeel: snapshot.feel != nil,
+                                        hasLiveAlerts: hasLiveAlerts)
         VStack(alignment: .leading, spacing: 12) {
             ForEach(cards, id: \.rawValue) { card in
                 cardView(card, info: info)
@@ -128,7 +134,7 @@ private struct PFCallSheet: View {
 
 // MARK: - 2. Needs you
 
-/// The existing Needs you row and proposals row, with the open live alerts under them; drawn only while something is open.
+/// The existing Needs you row and proposals row, with the open live alerts under them; drawn only while an item or a live alert is open.
 private struct PFNeedsYouSlot: View {
     let onOpen: () -> Void
     let onReadWhy: () -> Void

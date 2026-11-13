@@ -33,12 +33,13 @@ enum PFTodayCard: String, CaseIterable, Equatable {
     var identifier: String { "pf-today-card-" + rawValue }
 
     /// The cards that have something to show, in the fixed order. `needsYou` is the live count of open items, `hasFeel` whether the
-    /// server serves the feel summary. Today and the week strip always draw (a rest day says so); the rest are left out when empty.
-    static func present(call: PFTodayCall, needsYou: Int, hasFeel: Bool) -> [PFTodayCard] {
+    /// server serves the feel summary, `hasLiveAlerts` whether a live alert is open (it draws in the needs-you slot, with or without an
+    /// open item). Today and the week strip always draw (a rest day says so); the rest are left out when empty.
+    static func present(call: PFTodayCall, needsYou: Int, hasFeel: Bool, hasLiveAlerts: Bool = false) -> [PFTodayCard] {
         allCases.filter { card in
             switch card {
             case .theCall: return call.call != nil
-            case .needsYou: return needsYou > 0
+            case .needsYou: return needsYou > 0 || hasLiveAlerts
             case .today: return true
             case .howYouAre: return call.hasReadiness
             case .feel: return hasFeel
