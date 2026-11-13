@@ -186,6 +186,13 @@ final class PaceForgeTodayCallTests: XCTestCase {
         XCTAssertTrue(PFTodayCard.present(call: call, needsYou: 0, hasFeel: true, hasLiveAlerts: true).contains(.needsYou))
     }
 
+    func testTheFallbackNeverWritesPaceForgesOwnRecoveryIntoTheGarminColumn() {
+        var today = PFToday()
+        today.recovery = PFRecovery(score: 72, band: "green")
+        let snapshot = PFSnapshot(today: today, coach: PFCoach(), weeks: [], insights: PFInsights(ctl: 40, atl: 50, tsb: -10))
+        XCTAssertNil(PFTodayCallParse.fallback(from: snapshot).readiness.garmin.score)
+    }
+
     func testFeelIsLeftOutWhenTheServerServesNoSummary() throws {
         let call = try XCTUnwrap(PFTodayCallParse.document(json(raceDay)))
         XCTAssertFalse(PFTodayCard.present(call: call, needsYou: 1, hasFeel: false).contains(.feel))
