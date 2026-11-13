@@ -64,6 +64,23 @@ final class PaceForgeTodayCallTests: XCTestCase {
         XCTAssertEqual(call.week.map { $0.dow }, ["Mon", "Tue", "Sat"])
     }
 
+    func testARaceThatWasRunCarriesItsResultGapAndRecording() throws {
+        let doc = #"{"version":1,"date":"2026-11-13","week":[{"date":"2026-11-11","dow":"Wed","items":[{"kind":"race","title":"HYROX Dublin singles OPEN","status":"done","session_id":null,"activity_id":"25040533989","result":{"display":"1:08:13","seconds":4093,"source":"official","goal_delta_s":493}}]}]}"#
+        let call = try XCTUnwrap(PFTodayCallParse.document(json(doc)))
+        let item = try XCTUnwrap(call.week.first?.items.first)
+        XCTAssertEqual([item.result, item.goalGapLine, item.activityID, item.resultSource], ["1:08:13", "+8:13 vs goal", "25040533989", "official"])
+    }
+
+    func testAFasterThanGoalRaceReadsMinus() {
+        let item = PFTodayCall.WeekItem(kind: "race", title: "x", status: "done", sessionID: nil, result: "0:59:20", goalDeltaSeconds: -40)
+        XCTAssertEqual(item.goalGapLine, "-0:40 vs goal")
+    }
+
+    func testARaceStillAheadHasNoResult() throws {
+        let call = try XCTUnwrap(PFTodayCallParse.document(json(raceDay)))
+        XCTAssertNil(call.week.flatMap { $0.items }.first { $0.kind == "race" }?.result)
+    }
+
     func testSessionDayNamesTheSessionById() throws {
         let call = try XCTUnwrap(PFTodayCallParse.document(json(sessionDay)))
         XCTAssertEqual([call.today.kind, call.today.sessionID], ["session", "s42"])
