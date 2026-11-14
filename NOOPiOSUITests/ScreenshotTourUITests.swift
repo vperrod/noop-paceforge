@@ -64,6 +64,8 @@ final class ScreenshotTourUITests: XCTestCase {
         if !element(app, "pf-today-cards").waitForExistence(timeout: 30) { note("missing: pf-today-cards") }
         shoot(app, ["01-today-top", "02-today-scroll1", "03-today-scroll2", "04-today-scroll3", "05-today-scroll4"])
 
+        tourRings(app)
+
         // Plan
         app.shellTab("Plan").tap()
         XCTAssertTrue(element(app, "calendar-host").waitForExistence(timeout: 30), "The Plan screen should open.")
@@ -98,6 +100,52 @@ final class ScreenshotTourUITests: XCTestCase {
         for (index, chip) in ["read", "ask", "reports", "insights"].enumerated() {
             if tapIfThere(app, "coach-chip-\(chip)", timeout: 5) { attach(app, "4\(index + 1)-coach-\(chip)") }
         }
+    }
+
+    /// Today's six rings, one at a time: the ring opens its page (a pushed detail for NOOP's three, a sheet for PaceForge's three), a
+    /// screenshot, then back. Every step is optional: a ring or page that is not found is noted and the tour goes on.
+    private func tourRings(_ app: XCUIApplication) {
+        // (ring identifier from SixRingSpec, what its page marks itself with, screenshot name)
+        let rings: [(ring: String, page: String, shot: String)] = [
+            ("six-rings-noop-rest", "look-score-detail-rest", "06-ring-rest"),
+            ("six-rings-noop-charge", "look-score-detail-charge", "07-ring-charge"),
+            ("six-rings-noop-effort", "look-score-detail-effort", "08-ring-effort"),
+            ("six-rings-pf-recovery", "pf-ring-detail-recovery", "09a-ring-pf-recovery"),
+            ("six-rings-pf-sleep", "pf-ring-detail-sleep", "09b-ring-pf-sleep"),
+            ("six-rings-pf-strain", "pf-ring-detail-strain", "09c-ring-pf-strain"),
+        ]
+        for item in rings {
+            let cell = element(app, item.ring)
+            for _ in 0..<8 where !(cell.exists && cell.isHittable) { app.swipeDown() }
+            guard cell.exists, cell.isHittable else { note("missing: \(item.ring)"); continue }
+            // The ring is the cell's first button (its name, a second button, sits under it).
+            let ring = cell.buttons.firstMatch
+            if ring.exists, ring.isHittable {
+                ring.tap()
+            } else {
+                cell.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.3)).tap()
+            }
+            if !element(app, item.page).waitForExistence(timeout: 15) { note("missing: \(item.page)") }
+            attach(app, item.shot)
+            leaveRingPage(app)
+        }
+    }
+
+    /// Closes a ring's page: the PaceForge sheet's Done button, else the pushed page's back button. A tour that is still not on Today
+    /// after that taps the Today tab (or swipes a sheet away), so one miss cannot strand the rest of the tour.
+    private func leaveRingPage(_ app: XCUIApplication) {
+        let done = app.buttons["pf-ring-detail-done"]
+        let back = app.navigationBars.buttons.element(boundBy: 0)
+        if done.exists {
+            done.tap()
+        } else if back.exists {
+            back.tap()
+        }
+        if element(app, "today-six-rings").waitForExistence(timeout: 5) { return }
+        app.swipeDown()
+        let today = app.shellTab("Today")
+        if today.exists, today.isHittable { today.tap() }
+        if !element(app, "today-six-rings").waitForExistence(timeout: 5) { note("missing: way back to Today after a ring page") }
     }
 
     /// Plan > This week: the finished race row of the fixture's week opens the results sheet with the HYROX race layout.
