@@ -154,6 +154,8 @@ private struct TodayPFRingGroup: View {
     /// A wearer who takes the watch off at night has no PaceForge Recovery or Sleep score: those two rings leave, Strain stays.
     @ObservedObject private var reports = PFReportsStore.shared
     @State private var openRing: PFRingKind?
+    /// The scores as they were when the ring was tapped, so the sheet does not go blank if a refresh empties the store while it is open.
+    @State private var heldValues: PFScoresValues?
     private let hiding = PFHiding()
 
     private var values: PFScoresValues? { isToday ? store.values : nil }
@@ -181,12 +183,14 @@ private struct TodayPFRingGroup: View {
         .onAppear { crumb() }
         .onChangeCompat(of: crumbKey) { _ in crumb() }
         .sheet(item: $openRing) { kind in
-            if let values { PFRingDetailSheet(kind: kind, values: values, hidingScores: hiding.hides(.scores)) }
+            if let shown = heldValues ?? values { PFRingDetailSheet(kind: kind, values: shown, hidingScores: hiding.hides(.scores)) }
         }
     }
 
     private func open(_ kind: PFRingKind) {
-        if values != nil { openRing = kind }
+        guard let values else { return }
+        heldValues = values
+        openRing = kind
     }
 
     private func crumb() {

@@ -5,11 +5,14 @@ import StrandDesign
 extension PFResultsSheet {
     /// The `onAskCoach` closure for every place that presents the sheet outside the Coach: hands the session and a question to the
     /// Coach, then opens it on its Ask chip. The results sheet closes itself before calling this; a sheet cannot open over a sheet, so
-    /// the Coach opens after the dismissal has finished. `alsoDismiss` closes the sheet the caller itself sits in, when it is in one.
+    /// the Coach opens after the dismissal has finished. `alsoDismiss` closes the sheet or pushed page the caller itself sits in, when it
+    /// has to go for the Coach to show. The Coach's chip is set to Ask directly as well: when the Coach is already open, `openCoach()`
+    /// changes nothing and the pending prompt alone may not move it (it only reacts to a change).
     @MainActor static func askCoach(_ coach: AICoachEngine, _ router: NavRouter, alsoDismiss: (() -> Void)? = nil) -> (String) -> Void {
         { sessionID in
             coach.pendingSessionID = sessionID
             coach.pendingPrompt = "Explain this workout's review and what it means for my training plan."
+            UserDefaults.standard.set("ask", forKey: "noop.coach.chip")
             alsoDismiss?()
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { router.openCoach() }
         }

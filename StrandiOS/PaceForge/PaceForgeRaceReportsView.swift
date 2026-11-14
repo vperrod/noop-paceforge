@@ -88,6 +88,8 @@ struct PFRaceReportPage: View {
     @EnvironmentObject private var coach: AICoachEngine
     @EnvironmentObject private var router: NavRouter
     @State private var resultsWorkout: PFWorkout?
+    /// This page is pushed inside the Coach's stack: it goes back to the Coach root so the Ask chip shows.
+    @Environment(\.dismiss) private var dismissPage
 
     var body: some View {
         let row = PFRaceReportRows.current(snapshot: model.snapshot, hyroxPlan: store.plan).first { $0.date == date }
@@ -119,7 +121,7 @@ struct PFRaceReportPage: View {
         .task { await loadPack() }
         .sheet(item: $resultsWorkout) { workout in
             if let snapshot = model.snapshot {
-                PFResultsSheet(workout: workout, snapshot: snapshot, onAskCoach: PFResultsSheet.askCoach(coach, router))
+                PFResultsSheet(workout: workout, snapshot: snapshot, onAskCoach: PFResultsSheet.askCoach(coach, router, alsoDismiss: { dismissPage() }))
             }
         }
     }

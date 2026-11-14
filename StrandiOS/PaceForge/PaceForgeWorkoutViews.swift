@@ -7,9 +7,10 @@ import StrandDesign
 struct PFWorkoutRow: View {
     let workout: PFWorkout
     let snapshot: PFSnapshot
+    /// True from the HYROX sheet only: a sheet under the Coach blocks it, so the row closes that sheet first. A pushed page stays put.
+    var dismissesHost = false
     @EnvironmentObject private var coach: AICoachEngine
     @EnvironmentObject private var router: NavRouter
-    /// In the HYROX sheet this closes it, so the Coach can open; on a tab it does nothing.
     @Environment(\.dismiss) private var dismissHost
     @State private var isOpen = false
     @State private var showResults = false
@@ -39,7 +40,7 @@ struct PFWorkoutRow: View {
         .opacity(workout.status == "optional" ? 0.72 : 1)
         .sheet(isPresented: $showResults) {
             PFResultsSheet(workout: workout, snapshot: snapshot,
-                           onAskCoach: PFResultsSheet.askCoach(coach, router, alsoDismiss: { dismissHost() }))
+                           onAskCoach: PFResultsSheet.askCoach(coach, router, alsoDismiss: { if dismissesHost { dismissHost() } }))
         }
     }
 

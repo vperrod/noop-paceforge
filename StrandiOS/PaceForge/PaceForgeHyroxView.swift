@@ -803,7 +803,7 @@ private struct PFHyroxTrainingCard: View {
                         Text(PFFormat.dayTitle(workout.date) + " \u{00B7} " + PFHyroxTraining.kindLabel(workout))
                             .font(StrandFont.caption.weight(.semibold))
                             .foregroundStyle(StrandPalette.textTertiary)
-                        PFWorkoutRow(workout: workout, snapshot: snapshot)
+                        PFWorkoutRow(workout: workout, snapshot: snapshot, dismissesHost: true)
                     }
                 }
             }
