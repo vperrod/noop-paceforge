@@ -137,6 +137,7 @@ struct LookScoreDetailView: View {
                 LookTrendLineCard(title: card.title, unit: card.unit, decimals: card.decimals,
                                   points: lastDays(card.points, 30), identifier: "look-line-\(card.id)")
             }
+            askCoachRow
         }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("look-score-detail-\(kind.rawValue)")
@@ -350,6 +351,22 @@ struct LookScoreDetailView: View {
             // Sleep is a tab: switch to it rather than pushing a second Sleep screen over this tab's root.
             LookInsightCard(insightText, linkTitle: "Explore your sleep insights", action: { router.openSleep() })
                 .accessibilityIdentifier("look-score-insight")
+        }
+    }
+
+    // MARK: Ask the coach
+
+    /// "Why did this move": hands the Coach a question naming this score and today's value. The Coach's Ask chip takes it from
+    /// PFChatPrefill. This screen is pushed, not a sheet, so nothing has to be dismissed before the Coach opens.
+    @ViewBuilder private var askCoachRow: some View {
+        if PFAPI.isConfigured, let latest {
+            let value = kind == .effort ? UnitFormatter.effortDisplay(latest.value, scale: effortScale) : String(Safe.int(latest.value))
+            let unit = kind == .effort ? "" : "%"
+            LookInsightCard("Why is my \(kind.title) \(value)\(unit)?", linkTitle: "Ask the coach about this", action: {
+                PFChatPrefill.shared.text = "My \(kind.title) is \(value)\(unit) today. Why did it move, and what should I do about it?"
+                router.openCoach()
+            })
+            .accessibilityIdentifier("look-score-ask-coach")
         }
     }
 
