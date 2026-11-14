@@ -125,7 +125,7 @@ struct SelfHostedPushSettingsView: View {
                         .font(StrandFont.caption)
                         .foregroundStyle(StrandPalette.textTertiary)
                     Toggle(isOn: $lockPaceForge) {
-                        Text("Lock the PaceForge tab with Face ID")
+                        Text("Lock the PaceForge screens with Face ID")
                             .font(StrandFont.subhead)
                             .foregroundStyle(StrandPalette.textPrimary)
                     }

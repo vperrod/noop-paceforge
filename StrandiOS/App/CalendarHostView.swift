@@ -47,7 +47,7 @@ struct CalendarHostView: View {
     }
 
     var body: some View {
-        ScreenScaffold(title: "Plan", subtitle: "Your week, your calendar and your season.",
+        ScreenScaffold(title: "Plan",
                        onRefresh: {
             await PFUnified.model.refresh()
             if chip == .season { await PFCoachPanelsStore.shared.refresh() }

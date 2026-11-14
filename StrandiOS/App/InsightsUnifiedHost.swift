@@ -5,13 +5,13 @@ import StrandDesign
 // MARK: - Insights: the last chip of the Coach
 //
 // Chips at the top and ONE chip mounted below them: Overview (What moves you, Intelligence, PaceForge's "Where you stand" and
-// insight items, then the weekly review and the Monthly report, Highlights and Healthspan rows), Trends (the Trends screen, with
-// Compare and the Metric Explorer one tap away), Journal (the journal, with Journal impact) and Deep dives (PaceForge's fitness,
-// fatigue and form, load warnings, races and HYROX prognosis). Every chip is the content of a screen that already exists, unchanged.
+// insight items, then the weekly review and the Monthly report, Highlights and Healthspan rows) and Deep dives (PaceForge's fitness,
+// fatigue and form, load warnings, races and HYROX prognosis). Trends and Journal are chips of Health.
+// Every chip is the content of a screen that already exists, unchanged.
 // NOOP's and PaceForge's scores are never merged: each section says whose it is.
 
 enum InsightsChip: String, CaseIterable, Identifiable {
-    case overview, trends, journal, deepDives
+    case overview, deepDives
 
     /// The chip on show, shared with the shell so an old link can land on a chip. Reset to Overview at every launch.
     static let storageKey = "noop.insights.chip"
@@ -21,14 +21,13 @@ enum InsightsChip: String, CaseIterable, Identifiable {
     var title: String {
         switch self {
         case .overview: return "Overview"
-        case .trends: return "Trends"
-        case .journal: return "Journal"
         case .deepDives: return "Deep dives"
         }
     }
 }
 
-/// Insights as the last chip of the Coach: its own chips (Overview, Trends, Journal, Deep dives) and the chosen one.
+/// Insights as the last chip of the Coach: its own chips (Overview, Deep dives) and the chosen one. A stored trends or journal raw
+/// value (they moved to Health) falls back to Overview.
 struct InsightsEmbedded: View {
     @AppStorage(InsightsChip.storageKey) private var chipRaw = InsightsChip.overview.rawValue
 
@@ -78,8 +77,6 @@ private struct InsightsChipBody: View {
     private var content: AnyView {
         switch chip {
         case .overview: return AnyView(InsightsOverviewChip())
-        case .trends: return AnyView(InsightsTrendsChip())
-        case .journal: return AnyView(InsightsJournalChip())
         case .deepDives: return AnyView(InsightsDeepDivesChip())
         }
     }
@@ -135,20 +132,6 @@ private struct InsightsOverviewIntelligence: View {
     }
 }
 
-/// The Trends screen, under the two screens that sat beside it in More.
-private struct InsightsTrendsChip: View {
-    var body: some View {
-        VStack(alignment: .leading, spacing: NoopMetrics.sectionSpacing) {
-            IndexSection("Look closer") {
-                IndexRow("Compare", "rectangle.split.2x1.fill", TabRoute.compare, id: "insights-trends-compare")
-                IndexRow("Metric Explorer", "square.grid.2x2.fill", TabRoute.metricExplorer, id: "insights-trends-explorer")
-            }
-            TrendsView()
-        }
-        .containerIdentifier("insights-chip-content-trends")
-    }
-}
-
 /// The weekly review (the end of Overview, after the three report rows).
 private struct InsightsWeeklyReview: View {
     let snapshot: PFSnapshot
@@ -172,19 +155,6 @@ private struct InsightsReportRows: View {
             IndexRow("Highlights", "star.fill", TabRoute.highlights, id: "insights-report-highlights")
             IndexRow("Healthspan", "hourglass", TabRoute.healthspan, id: "insights-report-healthspan")
         }
-    }
-}
-
-/// The journal (and the experiments in it), with Journal impact one tap away.
-private struct InsightsJournalChip: View {
-    var body: some View {
-        VStack(alignment: .leading, spacing: NoopMetrics.sectionSpacing) {
-            IndexSection("Journal impact") {
-                IndexRow("Journal impact", "book.closed.fill", TabRoute.journalImpact, id: "insights-journal-impact")
-            }
-            InsightsView(embedded: true)
-        }
-        .containerIdentifier("insights-chip-content-journal")
     }
 }
 

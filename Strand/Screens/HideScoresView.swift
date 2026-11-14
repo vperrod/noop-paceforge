@@ -65,7 +65,7 @@ struct HideScoresSettingsCard: View {
                             .foregroundStyle(StrandPalette.textPrimary)
                     }
                 }
-                Text(verbatim: "For when someone else can see your screen. A hidden number reads \u{201C}Hidden\u{201D} on Today, in the PaceForge tab and on the widgets. Tap the eye in the PaceForge tab to show them for a moment. Nothing stored changes.")
+                Text(verbatim: "For when someone else can see your screen. A hidden number reads \u{201C}Hidden\u{201D} on Today, in Coach and Health, and on the widgets. Turn this off to show them again. Nothing stored changes.")
                     .font(StrandFont.subhead)
                     .foregroundStyle(StrandPalette.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)

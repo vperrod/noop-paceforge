@@ -112,7 +112,7 @@ final class ScreenCleanupUITests: XCTestCase {
         let app = try launch(fixture: true)
         openInsights(app)
         XCTAssertTrue(element(app, "insights-chip-content-overview").waitForExistence(timeout: 30), "Insights opens on Overview.")
-        for chip in ["trends", "journal", "deepDives"] {
+        for chip in ["deepDives"] {
             let button = element(app, "insights-chip-\(chip)")
             XCTAssertTrue(button.waitForExistence(timeout: 10), "Insights should have the \(chip) chip.")
             button.tap()

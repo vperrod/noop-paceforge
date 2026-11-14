@@ -145,7 +145,7 @@ final class DayReadingsStore: ObservableObject {
             return DayReadingsState(notice: "Reading the PaceForge numbers saved on this phone.")
         }
         guard let readings else {
-            return DayReadingsState(notice: "The readings file is not on this phone yet. Open the PaceForge tab once and it is fetched. NOOP's own numbers are below.")
+            return DayReadingsState(notice: "The readings file is not on this phone yet. It is fetched with the next refresh; pull down on Today to refresh now. NOOP's own numbers are below.")
         }
         guard readings.hasLabelled else {
             return DayReadingsState(notice: "This PaceForge server does not send the labelled readings yet, so nothing is compared. NOOP's own numbers are below.")

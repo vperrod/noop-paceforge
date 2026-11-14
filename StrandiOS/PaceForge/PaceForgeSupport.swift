@@ -208,7 +208,7 @@ struct PFNotSetUpView: View {
     var body: some View {
         PFCard("PaceForge sync not set up", icon: "link.badge.plus") {
             VStack(alignment: .leading, spacing: 10) {
-                PFParagraph("Add your PaceForge endpoint and bearer token in More \u{203A} PaceForge sync, then come back here. NOOP reads your plan, briefing, body scale and session results straight from your PaceForge server.")
+                PFParagraph("Add your PaceForge endpoint and bearer token in Settings \u{203A} Data \u{203A} PaceForge sync, then come back here. NOOP reads your plan, briefing, body scale and session results straight from your PaceForge server.")
             }
         }
         .accessibilityIdentifier("pf-not-set-up")

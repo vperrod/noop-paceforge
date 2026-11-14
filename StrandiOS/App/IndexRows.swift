@@ -72,8 +72,8 @@ struct IndexRow<Route: Hashable>: View {
     }
 }
 
-/// The sections of a screen as a wrapping grid of chips, one selected. Every chip is on screen at once (no sideways scroll to hunt
-/// for one) and carries `<prefix>-<id>` as its identifier.
+/// The sections of a screen as one row of chips that scrolls sideways, one selected and kept in view. Each chip carries
+/// `<prefix>-<id>` as its identifier.
 struct SectionChips<Option: Hashable>: View {
     let options: [Option]
     @Binding var selection: Option
@@ -82,24 +82,32 @@ struct SectionChips<Option: Hashable>: View {
     let title: (Option) -> String
 
     var body: some View {
-        LazyVGrid(columns: [GridItem(.adaptive(minimum: 104), spacing: 8)], alignment: .leading, spacing: 8) {
-            ForEach(options, id: \.self) { option in
-                let isOn = option == selection
-                Button { selection = option } label: {
-                    Text(title(option))
-                        .lookCaps(12)
-                        .foregroundStyle(isOn ? NoopLook.textPrimary : NoopLook.textSecondary)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.75)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 34)
-                        .background(RoundedRectangle(cornerRadius: 9, style: .continuous)
-                            .fill(isOn ? NoopLook.segmentOn : NoopLook.segmentOff))
-                        .contentShape(Rectangle())
+        ScrollViewReader { proxy in
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(options, id: \.self) { option in
+                        let isOn = option == selection
+                        Button { selection = option } label: {
+                            Text(title(option))
+                                .lookCaps(12)
+                                .foregroundStyle(isOn ? NoopLook.textPrimary : NoopLook.textSecondary)
+                                .lineLimit(1)
+                                .padding(.horizontal, 14)
+                                .frame(height: 34)
+                                .background(RoundedRectangle(cornerRadius: 9, style: .continuous)
+                                    .fill(isOn ? NoopLook.segmentOn : NoopLook.segmentOff))
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityAddTraits(isOn ? [.isButton, .isSelected] : .isButton)
+                        .accessibilityIdentifier("\(idPrefix)-\(id(option))")
+                        .id(option)
+                    }
                 }
-                .buttonStyle(.plain)
-                .accessibilityAddTraits(isOn ? [.isButton, .isSelected] : .isButton)
-                .accessibilityIdentifier("\(idPrefix)-\(id(option))")
+            }
+            .onAppear { proxy.scrollTo(selection, anchor: .center) }
+            .onChange(of: selection) { _, new in
+                withAnimation(.easeOut(duration: 0.2)) { proxy.scrollTo(new, anchor: .center) }
             }
         }
     }

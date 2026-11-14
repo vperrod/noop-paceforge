@@ -48,7 +48,7 @@ struct HealthHostView: View {
     }
 
     var body: some View {
-        ScreenScaffold(title: "Health", subtitle: "Your day, sleep, recovery, body, vitals, journal and trends.",
+        ScreenScaffold(title: "Health",
                        onRefresh: { await PFUnified.model.refresh() }, lazy: true, topBackground: liquidScaffoldSky()) {
             HealthColumn(selection: selection)
         }

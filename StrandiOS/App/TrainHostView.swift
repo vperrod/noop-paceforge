@@ -46,7 +46,7 @@ struct TrainHostView: View {
     }
 
     var body: some View {
-        ScreenScaffold(title: "Train", subtitle: "HYROX, running, strength, bike, your workouts and your athlete profile.",
+        ScreenScaffold(title: "Train",
                        onRefresh: {
             await PFUnified.model.refresh()
             if chip == .hyrox { await PFHyroxStore.shared.refresh() }

@@ -1007,7 +1007,11 @@ struct LiquidTodayView: View {
     private var lookTopBar: some View {
         VStack(alignment: .leading, spacing: 10) {
             lookTopBarRow
-            if phase4Store.streakChip != nil { PFStreakChipView() }
+            HStack(spacing: 6) {
+                if phase4Store.streakChip != nil { PFStreakChipView() }
+                Spacer(minLength: 0)
+                LiquidAddButton()
+            }
         }
     }
 
@@ -1032,7 +1036,6 @@ struct LiquidTodayView: View {
             Spacer(minLength: 0)
             lookDayPill
             Spacer(minLength: 0)
-            LiquidAddButton()
             LiquidBatteryButton()
             LiquidAlertsBellButton()
             Button { customizationDestination = .today } label: {

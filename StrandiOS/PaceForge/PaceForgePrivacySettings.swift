@@ -20,7 +20,7 @@ struct PFBodyPrivacyToggle: View {
             }
             .tint(StrandPalette.accent)
             .accessibilityIdentifier("pf-privacy-toggle")
-            Text("The body widget then reads \u{201C}Hidden \u{2014} open NOOP\u{201D} instead of your weight and body fat. The Body tab in the app is not affected. " + sourceText)
+            Text("The body widget then reads \u{201C}Hidden \u{2014} open NOOP\u{201D} instead of your weight and body fat. Health \u{203A} Body in the app is not affected. " + sourceText)
                 .font(StrandFont.caption)
                 .foregroundStyle(StrandPalette.textTertiary)
                 .fixedSize(horizontal: false, vertical: true)
