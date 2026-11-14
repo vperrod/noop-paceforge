@@ -60,6 +60,8 @@ struct SixRingNoopInput {
 struct TodaySixRings: View {
     let noop: [SixRingNoopInput]
     let isToday: Bool
+    /// "Effort target 52-71, NOOP": the target the Effort ring's arc draws and whose it is; nil when the ring has no target.
+    var effortTargetLine: String?
 
     private var noopCount: Int { noop.filter { $0.score != nil }.count }
 
@@ -71,7 +73,7 @@ struct TodaySixRings: View {
                 TodayPFRingGroup(noopCount: noopCount, isToday: isToday)
             }
             .frame(maxWidth: .infinity)
-            TodaySixRingsFooter(noopCount: noopCount, isToday: isToday)
+            TodaySixRingsFooter(noopCount: noopCount, isToday: isToday, effortTargetLine: effortTargetLine)
         }
         .containerIdentifier("today-six-rings")
     }
@@ -425,6 +427,7 @@ private struct SixRingCell: View {
 private struct TodaySixRingsFooter: View {
     let noopCount: Int
     let isToday: Bool
+    let effortTargetLine: String?
     @ObservedObject private var store = PFScoresStore.shared
     @State private var isAboutOpen = false
 
@@ -455,6 +458,13 @@ private struct TodaySixRingsFooter: View {
                 .tint(PFColor.sky)
                 .fixedSize(horizontal: false, vertical: true)
                 .accessibilityIdentifier("six-rings-note")
+            if let effortTargetLine {
+                Text(effortTargetLine)
+                    .font(LookFont.text(12, weight: .medium))
+                    .foregroundStyle(NoopLook.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier("six-rings-effort-target")
+            }
             ForEach(reasons, id: \.self) { reason in
                 Text(reason)
                     .font(LookFont.text(12, weight: .medium))

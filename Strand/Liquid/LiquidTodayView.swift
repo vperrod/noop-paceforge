@@ -936,6 +936,14 @@ struct LiquidTodayView: View {
         let band = effortReading?.progress
         let ownTarget = LookDial.targetArc(low: band?.lowFraction, high: band?.highFraction, max: 1)
         let target = ownTarget ?? (selectedDayOffset == 0 ? intelStore.current?.call?.effortTarget?.arc : nil)
+        // Same choice as `target`: the strap's own band, else PaceForge's (Garmin-based) one. The line names which one drew the arc.
+        let pfTarget = selectedDayOffset == 0 ? intelStore.current?.call?.effortTarget : nil
+        var targetLine: String?
+        if ownTarget != nil, let range = band?.rangeText {
+            targetLine = String(localized: "Effort target") + " \(range) \u{00B7} NOOP"
+        } else if let pfTarget, pfTarget.arc != nil {
+            targetLine = String(localized: "Effort target") + " \(pfTarget.rangeText) \u{00B7} PaceForge (Garmin)"
+        }
         let chargeColor = chargeDisplay.pct.map { NoopLook.chargeColor($0) } ?? NoopLook.chargeHigh
         let isWhoopScale = effortScale == .whoop
         let inputs = [
@@ -949,7 +957,7 @@ struct LiquidTodayView: View {
                              maxValue: isWhoopScale ? 21 : 100, decimals: isWhoopScale ? 1 : 0, tint: NoopLook.effort,
                              unit: nil, target: target, route: .metric(HeroRingMetric.effort), onGuide: { guideSection = .effort }),
         ]
-        return TodaySixRings(noop: inputs, isToday: selectedDayOffset == 0)
+        return TodaySixRings(noop: inputs, isToday: selectedDayOffset == 0, effortTargetLine: targetLine)
         // onGeometryChange, not a preference: the preference route never delivered a value from this scroll view. It reports the
         // Bool, so the action (and a re-render of the dashboard) runs only when the strip appears or goes, not every frame.
         .onGeometryChange(for: Bool.self) {
