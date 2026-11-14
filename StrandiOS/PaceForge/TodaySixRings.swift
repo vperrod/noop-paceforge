@@ -151,7 +151,7 @@ private struct TodayPFRingGroup: View {
     @ObservedObject private var store = PFScoresStore.shared
     /// A wearer who takes the watch off at night has no PaceForge Recovery or Sleep score: those two rings leave, Strain stays.
     @ObservedObject private var reports = PFReportsStore.shared
-    @State private var isWhyOpen = false
+    @State private var openRing: PFRingKind?
     private let hiding = PFHiding()
 
     private var values: PFScoresValues? { isToday ? store.values : nil }
@@ -169,22 +169,22 @@ private struct TodayPFRingGroup: View {
             SixRingsGroupLabel(chip: "PaceForge", color: PFColor.sky, text: String(localized: "from Garmin data"))
             HStack(spacing: 0) {
                 if reports.showsOvernight {
-                    SixRingCell(spec: recovery, route: nil, action: openWhy)
-                    SixRingCell(spec: sleep, route: nil, action: openWhy)
+                    SixRingCell(spec: recovery, route: nil, action: { open(.recovery) })
+                    SixRingCell(spec: sleep, route: nil, action: { open(.sleep) })
                 }
-                SixRingCell(spec: strain, route: nil, action: openWhy)
+                SixRingCell(spec: strain, route: nil, action: { open(.strain) })
             }
         }
         .task { await store.refreshIfStale() }
         .onAppear { crumb() }
         .onChangeCompat(of: crumbKey) { _ in crumb() }
-        .sheet(isPresented: $isWhyOpen) {
-            if let values { PFExplainerSheet(explainer: values.sheetExplainer(hidingScores: hiding.hides(.scores))) }
+        .sheet(item: $openRing) { kind in
+            if let values { PFRingDetailSheet(kind: kind, values: values, hidingScores: hiding.hides(.scores)) }
         }
     }
 
-    private func openWhy() {
-        if values != nil { isWhyOpen = true }
+    private func open(_ kind: PFRingKind) {
+        if values != nil { openRing = kind }
     }
 
     private func crumb() {
@@ -212,6 +212,113 @@ private struct TodayPFRingGroup: View {
         return SixRingSpec(name: String(localized: "Strain"), fraction: score.map { LookDial.fraction($0, max: 21) } ?? 0,
                            color: NoopLook.effort, valueText: score.map { PFFormat.oneDecimal($0) } ?? "\u{2013}",
                            unitText: nil, target: target, identifier: "six-rings-pf-strain")
+    }
+}
+
+// MARK: - The sheet behind a PaceForge ring
+
+enum PFRingKind: String, Identifiable {
+    case recovery, sleep, strain
+    var id: String { rawValue }
+    var title: String {
+        switch self {
+        case .recovery: return "Recovery"
+        case .sleep: return "Sleep"
+        case .strain: return "Strain"
+        }
+    }
+}
+
+/// A PaceForge ring's page: the score, then the server's readout for it (the signed bars and verdict lines `PFReadoutCard` draws,
+/// cut down to this ring), then the "why the scores differ" explainer. Labelled as Garmin data via PaceForge; under Hide numbers
+/// only the explainer shows.
+struct PFRingDetailSheet: View {
+    let kind: PFRingKind
+    let values: PFScoresValues
+    let hidingScores: Bool
+    @ObservedObject private var reports = PFReportsStore.shared
+    @Environment(\.dismiss) private var dismiss
+
+    private var scoreText: String {
+        switch kind {
+        case .recovery: return values.recovery.map { String(Safe.int($0)) + "%" } ?? "\u{2013}"
+        case .sleep: return values.sleep.map { String(Safe.int($0)) + "%" } ?? "\u{2013}"
+        case .strain: return values.strain.map { PFFormat.oneDecimal($0) + " of 21" } ?? "\u{2013}"
+        }
+    }
+
+    /// Lines the readout does not carry: the sleep line and Garmin's own sleep score, the Strain target.
+    private var factLines: [String] {
+        switch kind {
+        case .recovery: return []
+        case .sleep:
+            var out: [String] = []
+            if let line = values.sleepLine { out.append(line) }
+            if let own = values.garminSleep { out.append("Garmin's own sleep score \(Safe.int(own))") }
+            return out
+        case .strain:
+            guard let low = values.strainLow, let high = values.strainHigh else { return [] }
+            return ["Target \(Safe.int(low, .towardZero))\u{2013}\(Safe.int(high, .towardZero))"]
+        }
+    }
+
+    /// The readout for this ring only; nil when the server sent nothing for it.
+    private var readout: PFRecoveryReadout? {
+        guard !hidingScores, let all = values.readout?.visible(overnight: reports.showsOvernight) else { return nil }
+        var out = all
+        switch kind {
+        case .recovery:
+            out.sleep = nil
+            out.strain = nil
+        case .sleep:
+            out.bodySignals = nil
+            out.recovery = nil
+            out.strain = nil
+        case .strain:
+            out.bodySignals = nil
+            out.sleepSignal = nil
+            out.recovery = nil
+            out.sleep = nil
+        }
+        return out.hasContent ? out : nil
+    }
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    HStack(spacing: 6) {
+                        PFChip(text: "PaceForge", color: PFColor.sky)
+                        Text("Garmin data via PaceForge")
+                            .font(LookFont.text(11, weight: .medium))
+                            .foregroundStyle(NoopLook.textTertiary)
+                    }
+                    if !hidingScores {
+                        Text(scoreText)
+                            .font(LookFont.numeral(44))
+                            .foregroundStyle(NoopLook.textPrimary)
+                            .accessibilityIdentifier("pf-ring-detail-score")
+                        ForEach(factLines, id: \.self) { line in PFParagraph(line) }
+                    }
+                    if let readout { PFReadoutCard(readout: readout) }
+                    if let plain = values.why.plain { PFParagraph(plain) }
+                    if let how = values.why.how { PFParagraph(how) }
+                    if let caveat = values.why.caveat { PFParagraph(caveat) }
+                }
+                .padding(16)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .background(StrandPalette.surfaceBase.ignoresSafeArea())
+            .navigationTitle(kind.title)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }.accessibilityIdentifier("pf-ring-detail-done")
+                }
+            }
+        }
+        .presentationDetents([.medium, .large])
+        .accessibilityIdentifier("pf-ring-detail-\(kind.rawValue)")
     }
 }
 
