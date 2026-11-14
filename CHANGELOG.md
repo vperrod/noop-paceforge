@@ -17,6 +17,15 @@ approximate; downloads are on the [Releases](https://github.com/NoopApp/noop/rel
 
 ---
 
+## 12.0.12 build 525 (PaceForge iPhone build): four tabs and a Coach button, nothing hidden; every ring opens its page
+
+- The bar is Today · Plan · Train · Health, plus a round Coach button that opens over the screen you are on. Train holds HYROX, Running, Strength, Bike, Workouts and Athlete. Health holds Day, Sleep, Recovery, Body, Vitals, Journal and Trends. Nothing sits at the end of another page any more.
+- Coach: Read (today's read in full, expert reading, monthly review, workout reads), Ask (the whole chat, change my plan), Reports (day, week, month, race), Insights. "Explain this workout" works from every results sheet.
+- Plan: Next week (the week report and proposals) is always reachable; the season plan is back under Season.
+- Today: "+" quick actions, live alerts on their own, Day in review in the evening, The call can be restored after hiding, dead Customize rows removed or made real, the effort target stated under the rings with its source.
+- Rings: Rest opens its own page with rated rows; the three Garmin-side rings open a labelled detail sheet; Rest, Charge and Effort pages end with "Ask the coach about this".
+- Today's order is unchanged; that is the next build.
+
 ## 12.0.12 build 524 (PaceForge iPhone build): a HYROX race opens as a race, not as a run
 
 - A race recording's results: the official finish, goal gap, overall and age-group rank; every run, station and the roxzone by name with your field position and the gap to your own best station. The run blocks (pace per km, km splits, zones, the tempo explainer) no longer show for a race. The heart-rate chart stays, with a note when the watch reading is not usable.
