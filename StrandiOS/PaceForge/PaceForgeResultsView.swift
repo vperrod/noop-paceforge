@@ -2,6 +2,20 @@ import SwiftUI
 import Charts
 import StrandDesign
 
+extension PFResultsSheet {
+    /// The `onAskCoach` closure for every place that presents the sheet outside the Coach: hands the session and a question to the
+    /// Coach, then opens it on its Ask chip. The results sheet closes itself before calling this; a sheet cannot open over a sheet, so
+    /// the Coach opens after the dismissal has finished. `alsoDismiss` closes the sheet the caller itself sits in, when it is in one.
+    @MainActor static func askCoach(_ coach: AICoachEngine, _ router: NavRouter, alsoDismiss: (() -> Void)? = nil) -> (String) -> Void {
+        { sessionID in
+            coach.pendingSessionID = sessionID
+            coach.pendingPrompt = "Explain this workout's review and what it means for my training plan."
+            alsoDismiss?()
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { router.openCoach() }
+        }
+    }
+}
+
 /// A completed session's results, like the PaceForge web activity detail: summary, heart-rate and pace
 /// charts, zones, splits, effort, planned-versus-actual and the coach's review.
 struct PFResultsSheet: View {

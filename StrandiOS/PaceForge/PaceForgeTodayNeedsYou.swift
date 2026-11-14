@@ -133,6 +133,8 @@ struct PFNeedsYouArrival: View {
 /// `PFAlertLink`; it waits here for the snapshot to hold that activity, for a minute after the tap at most (`PFWantedActivity`).
 struct PFAlertActivityRouter: View {
     @ObservedObject private var model = PFUnified.model
+    @EnvironmentObject private var coach: AICoachEngine
+    @EnvironmentObject private var router: NavRouter
     @State private var wanted: PFWantedActivity?
     @State private var routedWorkout: PFWorkout?
 
@@ -143,7 +145,7 @@ struct PFAlertActivityRouter: View {
             .onChange(of: model.savedAt) { _, _ in openWanted() }
             .sheet(item: $routedWorkout) { workout in
                 if let snapshot = model.snapshot {
-                    PFResultsSheet(workout: workout, snapshot: snapshot)
+                    PFResultsSheet(workout: workout, snapshot: snapshot, onAskCoach: PFResultsSheet.askCoach(coach, router))
                         .environmentObject(model)
                 }
             }

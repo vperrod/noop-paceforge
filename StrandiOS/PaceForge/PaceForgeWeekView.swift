@@ -106,6 +106,8 @@ struct PFRaceDayRow: View {
     var outcome: PFTodayCall.WeekItem? = nil
     /// Needed to open the recording's results; without it a run race still opens the race plan.
     var snapshot: PFSnapshot? = nil
+    @EnvironmentObject private var coach: AICoachEngine
+    @EnvironmentObject private var router: NavRouter
     @State private var showPlan = false
     @State private var showResults = false
 
@@ -128,7 +130,9 @@ struct PFRaceDayRow: View {
         }
         .sheet(isPresented: $showPlan) { PFHyroxSheet() }
         .sheet(isPresented: $showResults) {
-            if let workout = resultsWorkout, let snapshot { PFResultsSheet(workout: workout, snapshot: snapshot) }
+            if let workout = resultsWorkout, let snapshot {
+                PFResultsSheet(workout: workout, snapshot: snapshot, onAskCoach: PFResultsSheet.askCoach(coach, router))
+            }
         }
         .accessibilityIdentifier("pf-week-race-\(race.date)")
     }

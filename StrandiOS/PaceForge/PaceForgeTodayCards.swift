@@ -154,6 +154,8 @@ private struct PFNeedsYouSlot: View {
 private struct PFTodaySlotCard: View {
     let snapshot: PFSnapshot
     let info: PFTodayCall
+    @EnvironmentObject private var coach: AICoachEngine
+    @EnvironmentObject private var router: NavRouter
     @State private var showRace = false
     @State private var sessionToOpen: PFWorkout?
     @State private var showRaceResults = false
@@ -176,7 +178,9 @@ private struct PFTodaySlotCard: View {
         .accessibilityIdentifier(PFTodayCard.today.identifier)
         .sheet(isPresented: $showRace) { PFHyroxSheet() }
         .sheet(isPresented: $showRaceResults) {
-            if let workout = raceResultsWorkout { PFResultsSheet(workout: workout, snapshot: snapshot) }
+            if let workout = raceResultsWorkout {
+                PFResultsSheet(workout: workout, snapshot: snapshot, onAskCoach: PFResultsSheet.askCoach(coach, router))
+            }
         }
         .sheet(item: $sessionToOpen) { workout in PFTodaySessionSheet(workout: workout, snapshot: snapshot) }
     }
@@ -263,11 +267,13 @@ private struct PFTodaySlotCard: View {
 struct PFTodaySessionSheet: View {
     let workout: PFWorkout
     let snapshot: PFSnapshot
+    @EnvironmentObject private var coach: AICoachEngine
+    @EnvironmentObject private var router: NavRouter
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         if workout.hasResults {
-            PFResultsSheet(workout: workout, snapshot: snapshot)
+            PFResultsSheet(workout: workout, snapshot: snapshot, onAskCoach: PFResultsSheet.askCoach(coach, router))
         } else {
             NavigationStack {
                 ScrollView {

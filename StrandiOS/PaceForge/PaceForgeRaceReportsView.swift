@@ -85,6 +85,8 @@ struct PFRaceReportPage: View {
     let date: String
     @ObservedObject private var model = PFUnified.model
     @ObservedObject private var store = PFHyroxStore.shared
+    @EnvironmentObject private var coach: AICoachEngine
+    @EnvironmentObject private var router: NavRouter
     @State private var resultsWorkout: PFWorkout?
 
     var body: some View {
@@ -116,7 +118,9 @@ struct PFRaceReportPage: View {
         .containerIdentifier("pf-race-report-page")
         .task { await loadPack() }
         .sheet(item: $resultsWorkout) { workout in
-            if let snapshot = model.snapshot { PFResultsSheet(workout: workout, snapshot: snapshot) }
+            if let snapshot = model.snapshot {
+                PFResultsSheet(workout: workout, snapshot: snapshot, onAskCoach: PFResultsSheet.askCoach(coach, router))
+            }
         }
     }
 
