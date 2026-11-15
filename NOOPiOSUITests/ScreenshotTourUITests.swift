@@ -62,6 +62,7 @@ final class ScreenshotTourUITests: XCTestCase {
             XCTAssertTrue(app.shellTab(title).exists, "The \(title) tab should be in the bar.")
         }
         if !element(app, "pf-today-cards").waitForExistence(timeout: 30) { note("missing: pf-today-cards") }
+        XCTAssertTrue(element(app, "today-daygraph").waitForExistence(timeout: 30), "The day graph (My Day) should sit on Today under the rings.")
         shoot(app, ["01-today-top", "02-today-scroll1", "03-today-scroll2", "04-today-scroll3", "05-today-scroll4"])
 
         // Plan

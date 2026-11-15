@@ -17,6 +17,10 @@ approximate; downloads are on the [Releases](https://github.com/NoopApp/noop/rel
 
 ---
 
+## 12.0.12 build 526 (PaceForge iPhone build): the day's graph is back on Today
+
+- Today: the My Day graph (heart rate, sleep, workouts, the plan and the overlays you switched on in My Day) sits directly under the three rings again. A tap opens the full My Day screen.
+
 ## 12.0.12 build 524 (PaceForge iPhone build): a HYROX race opens as a race, not as a run
 
 - A race recording's results: the official finish, goal gap, overall and age-group rank; every run, station and the roxzone by name with your field position and the gap to your own best station. The run blocks (pace per km, km splits, zones, the tempo explainer) no longer show for a race. The heart-rate chart stays, with a note when the watch reading is not usable.
