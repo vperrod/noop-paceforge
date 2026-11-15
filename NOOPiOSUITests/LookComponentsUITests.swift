@@ -1,13 +1,12 @@
 import XCTest
 
-/// Simulator checks for the dark look: Today's dials / monitor tiles / sticky mini dials, and PaceForge Today's
-/// outlook bar and Next best action (those two need porting to the unified Today, see `useClassicNavigation`). The component
-/// gallery (`--demo-screen looklab`) is gone. Like the other PaceForge UI tests they serve the synthetic
+/// Simulator checks for the dark look: Today's dials / monitor tiles / sticky mini dials, and the Daily Outlook bar
+/// in The call sheet. The component gallery (`--demo-screen looklab`) is gone, and so is the Next best action card on Today
+/// (removed with the classic PaceForge Today in 622ffedd; `PFNextActionCard` is no longer mounted anywhere). Like the other PaceForge UI tests they serve the synthetic
 /// PaceForgeFixture.json (made-up values only). Screenshot names start with "Look" so the run's attachments sort together.
 final class LookComponentsUITests: XCTestCase {
-    private func launch(screen: String? = nil, appearance: String = "dark", fixture: Bool = false, classic: Bool = false) throws -> XCUIApplication {
+    private func launch(screen: String? = nil, appearance: String = "dark", fixture: Bool = false) throws -> XCUIApplication {
         let app = XCUIApplication()
-        if classic { try app.useClassicNavigation() }
         app.launchArguments.append("--demo-seed")
         if let screen { app.launchArguments.append(contentsOf: ["--demo-screen", screen]) }
         app.launchArguments.append(contentsOf: ["-theme.appearance", appearance])
@@ -43,18 +42,6 @@ final class LookComponentsUITests: XCTestCase {
         return element.exists && element.isHittable
     }
 
-    private func openSegment(_ app: XCUIApplication, _ title: String) throws {
-        let tab = app.shellTab("PaceForge")
-        XCTAssertTrue(tab.waitForExistence(timeout: 20), "The PaceForge tab should be present.")
-        tab.tap()
-        let segments = app.segmentedControls["pf-segments"]
-        XCTAssertTrue(segments.waitForExistence(timeout: 15), "The PaceForge segmented control should load from the fixture.")
-        let button = segments.buttons[title]
-        // The segment is remembered between launches; a tap that lands while the previous one is restored is lost.
-        // A tap that lands while the remembered segment is still being restored is lost; look again before moving on.
-        for _ in 0..<3 where !button.isSelected { button.tap(); Thread.sleep(forTimeInterval: 1) }
-    }
-
     // MARK: Today
 
     func testTodayShowsDialsAndTiles() throws {
@@ -80,26 +67,20 @@ final class LookComponentsUITests: XCTestCase {
         attach(app, "Look 23 Today sticky mini dials")
     }
 
-    // MARK: PaceForge Today
+    // MARK: The call sheet
 
-    func testPaceForgeTodayOutlookBarFoldsTheBriefing() throws {
-        let app = try launch(fixture: true, classic: true)
-        try openSegment(app, "Today")
+    func testOutlookBarInTheCallSheetFoldsTheBriefing() throws {
+        let app = try launch(fixture: true)
+        let call = element(app, "pf-today-card-the-call")
+        XCTAssertTrue(reveal(call, in: app), "Today should show the call.")
+        call.tap()
+        XCTAssertTrue(element(app, "pf-the-call-sheet").waitForExistence(timeout: 15), "The call should open its sheet.")
         let bar = element(app, "pf-brief-outlook")
-        XCTAssertTrue(reveal(bar, in: app), "Today should show the Daily Outlook bar.")
-        attach(app, "Look 30 PaceForge Today outlook open")
+        XCTAssertTrue(reveal(bar, in: app), "The sheet should show the Daily Outlook bar.")
+        attach(app, "Look 30 The call sheet outlook open")
         bar.tap()
-        attach(app, "Look 31 PaceForge Today outlook closed")
+        attach(app, "Look 31 The call sheet outlook closed")
         bar.tap()
         XCTAssertTrue(element(app, "pf-brief-card").exists, "The briefing card stays in place.")
-    }
-
-    func testPaceForgeTodayDialsAndNextBestAction() throws {
-        let app = try launch(fixture: true, classic: true)
-        try openSegment(app, "Today")
-        attach(app, "Look 32 PaceForge Today top")
-        let card = element(app, "pf-next-action-card")
-        XCTAssertTrue(reveal(card, in: app), "Today should show the Next best action card.")
-        attach(app, "Look 33 PaceForge Next best action")
     }
 }

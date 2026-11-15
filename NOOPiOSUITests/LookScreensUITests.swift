@@ -7,9 +7,8 @@ import XCTest
 /// (made-up values only).
 final class LookScreensUITests: XCTestCase {
     private func launch(screen: String? = nil, appearance: String = "dark", fixture: Bool = false,
-                        extra: [String] = [], classic: Bool = false) throws -> XCUIApplication {
+                        extra: [String] = []) throws -> XCUIApplication {
         let app = XCUIApplication()
-        if classic { try app.useClassicNavigation() }
         app.launchArguments.append("--demo-seed")
         if let screen { app.launchArguments.append(contentsOf: ["--demo-screen", screen]) }
         app.launchArguments.append(contentsOf: ["-theme.appearance", appearance])
@@ -45,17 +44,6 @@ final class LookScreensUITests: XCTestCase {
             from.press(forDuration: 0.05, thenDragTo: to, withVelocity: .slow, thenHoldForDuration: 0.1)
         }
         return element.exists && element.isHittable
-    }
-
-    private func openSegment(_ app: XCUIApplication, _ title: String) throws {
-        let tab = app.shellTab("PaceForge")
-        XCTAssertTrue(tab.waitForExistence(timeout: 20), "The PaceForge tab should be present.")
-        tab.tap()
-        let segments = app.segmentedControls["pf-segments"]
-        XCTAssertTrue(segments.waitForExistence(timeout: 15), "The PaceForge segmented control should load from the fixture.")
-        let button = segments.buttons[title]
-        // A tap that lands while the remembered segment is still being restored is lost; look again before moving on.
-        for _ in 0..<3 where !button.isSelected { button.tap(); Thread.sleep(forTimeInterval: 1) }
     }
 
     // MARK: Charge, Effort, Rest
@@ -157,22 +145,22 @@ final class LookScreensUITests: XCTestCase {
 
     // MARK: PaceForge
 
-    func testPaceForgeBodyShowsTheTrendView() throws {
-        let app = try launch(fixture: true, classic: true)
-        try openSegment(app, "Body")
-        XCTAssertTrue(reveal(element(app, "pf-body-trend-chart"), in: app), "Body should show the trend view.")
+    func testHealthBodyChipShowsTheTrendView() throws {
+        let app = try launch(fixture: true)
+        app.openChip("Health", "body")
+        XCTAssertTrue(reveal(element(app, "pf-body-trend-chart"), in: app), "The Body chip should show the trend view.")
         attach(app, "Look A2 PaceForge Body trend")
         let menu = element(app, "look-trend-metric-menu")
-        XCTAssertTrue(reveal(menu, in: app), "Body should offer the metric menu.")
+        XCTAssertTrue(reveal(menu, in: app), "The Body chip should offer the metric menu.")
         menu.tap()
         attach(app, "Look A3 PaceForge Body metric menu")
     }
 
-    func testPaceForgeThisWeekAndSharedCoachUseTheCards() throws {
-        let app = try launch(fixture: true, classic: true)
-        try openSegment(app, "This week")
+    func testPlanThisWeekAndSharedCoachUseTheCards() throws {
+        let app = try launch(fixture: true)
+        app.openChip("Plan", "thisWeek")
         attach(app, "Look A4 PaceForge This week")
-        element(app, "look-coach").tap()
+        app.openCoach("read")
         XCTAssertTrue(element(app, "coach-full-brain").waitForExistence(timeout: 30))
         attach(app, "Look A5 Shared Coach")
     }
