@@ -8,11 +8,25 @@ struct PFInsightsView: View {
     /// False under the Insights tab's Deep dives chip (New navigation, beta), where "Where you stand" and the insight items are
     /// on the Overview chip instead.
     var includesOverview = true
+    /// True on Train > Athlete: only the fitness / fatigue / form card and the load and recovery warnings.
+    var loadOnly = false
     @State private var showOtherRaces = false
 
     private var insights: PFInsights { snapshot.insights }
 
     var body: some View {
+        if loadOnly {
+            VStack(alignment: .leading, spacing: 16) {
+                chartCard
+                warningsCard
+            }
+            .containerIdentifier("athlete-load-sections")
+        } else {
+            full
+        }
+    }
+
+    private var full: some View {
         VStack(alignment: .leading, spacing: 16) {
             if includesOverview, let standing = snapshot.standing, standing.hasContent {
                 PFDismissable(.standing, text: PFCardText.standing(standing), snapshot: snapshot) {

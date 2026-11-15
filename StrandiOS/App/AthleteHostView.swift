@@ -110,7 +110,11 @@ private struct AthleteColumn: View {
     var body: some View {
         PFSnapshotHost(content: { snapshot in
             AnyView(UnifiedChipMount(host: "athlete", name: "main", content: AnyView(
-                AthleteScreen(athlete: PFAthleteBuild.make(snapshot, maxHr: maxHr), standing: snapshot.standing, avatar: avatar)
+                VStack(alignment: .leading, spacing: 16) {
+                    AthleteScreen(athlete: PFAthleteBuild.make(snapshot, maxHr: maxHr), standing: snapshot.standing, avatar: avatar)
+                    // Fitness, fatigue and form and the load warnings; Coach > Insights > Deep dives keeps them too.
+                    PFInsightsView(snapshot: snapshot, includesOverview: false, loadOnly: true)
+                }
             )))
         })
         .containerIdentifier("athlete-host")
