@@ -90,3 +90,14 @@ private struct PFTodayWeightGoalCard: View {
         return "\(kind)\(date) \u{00B7} Hume scale, via PaceForge"
     }
 }
+
+// MARK: - Today so far (what was recorded today)
+
+/// My Day's list of what the watch recorded today, each row with its numbers and a tap to its results. Draws nothing when nothing was
+/// recorded today.
+struct PFTodayRecordedHost: View {
+    var body: some View {
+        PFSnapshotHost(drawsChrome: false, content: { snapshot in AnyView(PFTodaySoFarCard(snapshot: snapshot, isRecordedOnly: true)) })
+            .containerIdentifier("today-so-far")
+    }
+}

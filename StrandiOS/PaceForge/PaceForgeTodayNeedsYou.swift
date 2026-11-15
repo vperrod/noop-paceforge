@@ -169,7 +169,7 @@ struct PFAlertActivityRouter: View {
     }
 
     /// The same session shape the Coach screen builds for a finished activity.
-    private static func workout(for activity: PFActivity, in snapshot: PFSnapshot) -> PFWorkout {
+    static func workout(for activity: PFActivity, in snapshot: PFSnapshot) -> PFWorkout {
         let date = activity.startTime.map { String($0.prefix(10)) } ?? snapshot.todayISO
         var result = PFWorkout(id: "alert-\(activity.id)", date: date, status: "done",
                                name: activity.name ?? activity.type, kind: activity.type, sport: activity.type,

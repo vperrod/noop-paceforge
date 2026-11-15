@@ -66,26 +66,89 @@ struct PFTodaySoFar: Equatable {
 
 struct PFTodaySoFarCard: View {
     let snapshot: PFSnapshot
+    /// Today's version: no strip (the day graph above is the timeline) and no "Open My Day" button; the card draws only while something
+    /// was recorded today.
+    var isRecordedOnly = false
+    @EnvironmentObject private var coach: AICoachEngine
+    @EnvironmentObject private var router: NavRouter
+    @State private var opened: PFWorkout?
 
     private var model: PFTodaySoFar { PFTodaySoFar.make(from: snapshot) }
 
+    /// What the watch recorded today, in the order it started.
+    private var recorded: [PFActivity] {
+        snapshot.activities.values
+            .filter { $0.startTime?.hasPrefix(snapshot.todayISO) == true }
+            .sorted { ($0.startTime ?? "") < ($1.startTime ?? "") }
+    }
+
     var body: some View {
-        PFCard("Today so far", icon: "clock") {
-            PFTodaySoFarContent(model: model)
+        if !isRecordedOnly || !recorded.isEmpty {
+            PFCard("Today so far", icon: "clock") {
+                VStack(alignment: .leading, spacing: 10) {
+                    PFTodaySoFarContent(model: model, showsStrip: !isRecordedOnly)
+                    ForEach(recorded, id: \.id) { activity in recordedRow(activity) }
+                }
+            }
+            .accessibilityElement(children: .contain)
+            .containerIdentifier("pf-sofar-card")
+            .sheet(item: $opened) { workout in
+                PFResultsSheet(workout: workout, snapshot: snapshot, onAskCoach: PFResultsSheet.askCoach(coach, router))
+            }
         }
-        .accessibilityElement(children: .contain)
-        .containerIdentifier("pf-sofar-card")
+    }
+
+    /// One recording with its numbers; a tap opens its results, as a done session does in the plan.
+    private func recordedRow(_ activity: PFActivity) -> some View {
+        Button { opened = PFAlertActivityRouter.workout(for: activity, in: snapshot) } label: {
+            HStack(alignment: .center, spacing: 12) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(activity.name ?? PFFormat.words(activity.type ?? "Activity"))
+                        .font(StrandFont.subhead.weight(.semibold))
+                        .foregroundStyle(StrandPalette.textPrimary)
+                        .multilineTextAlignment(.leading)
+                    Text(metricsLine(activity))
+                        .font(StrandFont.caption)
+                        .foregroundStyle(StrandPalette.textSecondary)
+                        .multilineTextAlignment(.leading)
+                }
+                Spacer(minLength: 4)
+                Image(systemName: "chevron.right")
+                    .font(StrandFont.caption.weight(.semibold))
+                    .foregroundStyle(StrandPalette.textTertiary)
+                    .accessibilityHidden(true)
+            }
+            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("pf-sofar-activity-\(activity.id)")
+    }
+
+    /// "08:12, 10.2 km, 52:10, 5:07 /km, 148 bpm, Garmin" joined with middle dots.
+    private func metricsLine(_ activity: PFActivity) -> String {
+        var parts: [String] = []
+        if let time = PFFormat.timeOfDay(activity.startTime) { parts.append(time) }
+        if let meters = activity.distanceM, meters > 0 { parts.append("\(PFFormat.oneDecimal(meters / 1000)) km") }
+        if let seconds = activity.durationS, seconds > 0 { parts.append(PFFormat.clock(seconds)) }
+        if activity.isRun, let pace = activity.avgPaceSecPerKm, pace > 0 { parts.append("\(PFFormat.pace(pace)) /km") }
+        if let hr = activity.avgHr, hr > 0 { parts.append("\(Safe.int(hr)) bpm") }
+        parts.append("Garmin")
+        return parts.joined(separator: " \u{00B7} ")
     }
 }
 
 /// The card's contents, a type of its own so the card's generic type stays small.
 private struct PFTodaySoFarContent: View {
     let model: PFTodaySoFar
+    var showsStrip = true
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            PFMiniStrip(model: model)
-                .frame(height: 34)
+            if showsStrip {
+                PFMiniStrip(model: model)
+                    .frame(height: 34)
+            }
             Text(planLine)
                 .font(StrandFont.subhead.weight(.semibold))
                 .foregroundStyle(StrandPalette.textPrimary)
@@ -96,7 +159,7 @@ private struct PFTodaySoFarContent: View {
                     .foregroundStyle(StrandPalette.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
-            openMyDay
+            if showsStrip { openMyDay }
         }
     }
 

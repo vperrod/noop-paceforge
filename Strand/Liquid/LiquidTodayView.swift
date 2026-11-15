@@ -995,6 +995,8 @@ struct LiquidTodayView: View {
             if hasHero { MyDayTodayCard(day: selectedLogicalDay) }
             PFTodayCards(cards: [.today], drawsChrome: false, showsHiddenRow: false, containerID: "pf-today-cards-day",
                          onOpenNeedsYou: openNeedsYou, onReadWhy: readWhy)
+            // What the watch recorded today, with its results (nothing when nothing was recorded).
+            PFTodayRecordedHost()
             // Tonight's sleep: the sleep planner's own row (target hours, bedtime, wake), from the sleep need the Sleep screen uses.
             SleepPlannerEntryCard()
             if order.contains(.journal) { JournalReminderCard() }
