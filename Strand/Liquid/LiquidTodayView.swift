@@ -573,6 +573,8 @@ struct LiquidTodayView: View {
         .sheet(isPresented: $showNeedsYouSheet) {
             PFNeedsYouSheet(onReadWhy: {
                 showNeedsYouSheet = false
+                // The proposals are on the Coach's Read chip, whichever chip it was left on.
+                UserDefaults.standard.set(CoachChip.read.rawValue, forKey: CoachChip.storageKey)
                 router.openCoach()
             })
         }
@@ -976,7 +978,11 @@ struct LiquidTodayView: View {
     @ViewBuilder private func lookTodayColumn(_ order: [TodaySection]) -> some View {
         let hasHero = order.contains(.hero)
         let openNeedsYou = { showNeedsYouSheet = true }
-        let readWhy = { router.openCoach() }
+        let readWhy = {
+            // The proposals are on the Coach's Read chip, whichever chip it was left on.
+            UserDefaults.standard.set(CoachChip.read.rawValue, forKey: CoachChip.storageKey)
+            router.openCoach()
+        }
         if hasHero { heroCard }
         PFTodayCards(cards: [.theCall, .needsYou], showsHiddenRow: false, onOpenNeedsYou: openNeedsYou, onReadWhy: readWhy)
         PFProactiveTodayCard()
