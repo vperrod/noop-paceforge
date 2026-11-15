@@ -15,7 +15,7 @@ final class PaceForgeRideUITests: XCTestCase {
         app.launchArguments.append("-PaceForgeFixture")
         let url = try XCTUnwrap(Bundle(for: Self.self).url(forResource: "PaceForgeFixture", withExtension: "json"),
                                 "The synthetic fixture should be bundled with the UI tests.")
-        app.launchEnvironment["PF_FIXTURE_JSON"] = String(decoding: try Data(contentsOf: url), as: UTF8.self)
+        app.launchEnvironment["PF_FIXTURE_JSON"] = try Fixtures529.merged(Data(contentsOf: url))
         app.launch()
         return app
     }
@@ -48,7 +48,7 @@ final class PaceForgeRideUITests: XCTestCase {
     }
 
     private func openRide(_ app: XCUIApplication, _ id: String) throws {
-        app.openChip("Plan", "thisWeek")
+        app.openChip("Plan", "week")
         let row = app.buttons[id]
         XCTAssertTrue(reveal(row, in: app, maxSwipes: 20), "This week should list the ride.")
         row.tap()
@@ -59,7 +59,7 @@ final class PaceForgeRideUITests: XCTestCase {
 
     func testThisWeekAndTheBikeChipListBothRides() throws {
         let app = try launch()
-        app.openChip("Plan", "thisWeek")
+        app.openChip("Plan", "week")
         XCTAssertTrue(reveal(app.buttons[longRide], in: app, maxSwipes: 20))
         XCTAssertTrue(reveal(app.buttons[sampledRide], in: app, maxSwipes: 20))
         attach(app, "50 Ride rows in This week")
@@ -71,7 +71,7 @@ final class PaceForgeRideUITests: XCTestCase {
 
     func testWithoutRideMetricsNoRideRowShows() throws {
         let app = try launch(extraArguments: ["-PaceForgeRideNone"])
-        app.openChip("Plan", "thisWeek")
+        app.openChip("Plan", "week")
         XCTAssertTrue(reveal(label(app, "Wed 13 Mar"), in: app, maxSwipes: 20), "This week should list the day the ride was on.")
         XCTAssertFalse(app.buttons[longRide].exists, "Without ride-metrics.json there is no ride row.")
     }

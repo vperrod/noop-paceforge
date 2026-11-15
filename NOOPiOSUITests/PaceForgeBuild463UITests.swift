@@ -13,7 +13,7 @@ final class PaceForgeBuild463UITests: XCTestCase {
             app.launchArguments.append("-PaceForgeFixture")
             let url = try XCTUnwrap(Bundle(for: Self.self).url(forResource: "PaceForgeFixture", withExtension: "json"),
                                     "The synthetic fixture should be bundled with the UI tests.")
-            app.launchEnvironment["PF_FIXTURE_JSON"] = String(decoding: try Data(contentsOf: url), as: UTF8.self)
+            app.launchEnvironment["PF_FIXTURE_JSON"] = try Fixtures529.merged(Data(contentsOf: url))
         }
         app.launch()
         return app
@@ -87,7 +87,7 @@ final class PaceForgeBuild463UITests: XCTestCase {
     // MARK: Heart rate recovery
 
     private func openFirstResults(_ app: XCUIApplication) throws {
-        app.openChip("Plan", "thisWeek")
+        app.openChip("Plan", "week")
         let done = app.buttons["pf-workout-s-mon"]
         XCTAssertTrue(reveal(done, in: app, maxSwipes: 20), "The completed easy run should be listed.")
         done.tap()

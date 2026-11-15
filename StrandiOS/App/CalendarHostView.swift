@@ -4,15 +4,15 @@ import StrandDesign
 
 // MARK: - Plan: the second tab
 //
-// Chips at the top and ONE chip mounted below them: This week (My Plan and the week, Monday to Sunday), Next week (the week report and
-// the plan for next week with the coach's proposals, always reachable), Calendar (a month grid with the chosen day's sessions under it,
-// built from the PaceForge snapshot) and Season (the season plan, Events with the race-week card, then the weeks ahead and behind).
-// HYROX and Workouts are chips of Train. Each chip reuses views that exist elsewhere; a day tap shows that day's sessions, which open
-// the same results and session sheets as before. NOOP's and PaceForge's numbers are never merged: this tab is PaceForge's plan and
-// results.
+// Chips at the top and ONE chip mounted below them: Week (My Plan and the week, Monday to Sunday, then the week report and the plan for
+// next week with the coach's proposals), Season (the season plan, Events with the race-week card, then the weeks ahead and behind),
+// Calendar (a month grid with the chosen day's sessions under it, built from the PaceForge snapshot) and Reports (the Coach's reports
+// index). Each chip is a view of its own in StrandiOS/PaceForge/Plan529 (PFPlanWeekChip and so on), which for now mount what the old
+// chips showed. HYROX and Workouts are chips of Train. A day tap shows that day's sessions, which open the same results and session
+// sheets as before. NOOP's and PaceForge's numbers are never merged: this tab is PaceForge's plan and results.
 
 enum CalendarChip: String, CaseIterable, Identifiable {
-    case thisWeek, nextWeek, calendar, season
+    case week, season, calendar, reports
 
     /// The chip on show, shared with the shell so a PaceForge link can land on a chip. Kept between launches.
     static let storageKey = "noop.calendar.chip"
@@ -21,19 +21,26 @@ enum CalendarChip: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .thisWeek: return "This week"
-        case .nextWeek: return "Next week"
-        case .calendar: return "Calendar"
+        case .week: return "Week"
         case .season: return "Season"
+        case .calendar: return "Calendar"
+        case .reports: return "Reports"
         }
+    }
+
+    /// The chip a stored value names. The old This week and Next week chips (`thisWeek`, `nextWeek`) are the Week chip now.
+    init?(stored: String?) {
+        guard let stored else { return nil }
+        self.init(rawValue: stored == "thisWeek" || stored == "nextWeek" ? Self.week.rawValue : stored)
     }
 }
 
 /// The Plan tab's root.
 struct CalendarHostView: View {
-    @AppStorage(CalendarChip.storageKey) private var chipRaw = CalendarChip.thisWeek.rawValue
+    @AppStorage(CalendarChip.storageKey) private var chipRaw = CalendarChip.week.rawValue
+    @ObservedObject private var router = PFPlan529Router.shared
 
-    private var chip: CalendarChip { CalendarChip(rawValue: chipRaw) ?? .thisWeek }
+    private var chip: CalendarChip { CalendarChip(stored: chipRaw) ?? .week }
 
     private var selection: Binding<CalendarChip> {
         Binding(
@@ -51,10 +58,20 @@ struct CalendarHostView: View {
                        onRefresh: {
             await PFUnified.model.refresh()
             if chip == .season { await PFCoachPanelsStore.shared.refresh() }
-            if chip == .nextWeek { await PFWeekPlanStore.shared.refresh() }
+            if chip == .week { await PFWeekPlanStore.shared.refresh() }
         }, lazy: true, topBackground: liquidScaffoldSky()) {
             CalendarColumn(selection: selection)
         }
+        // A deep link (PFDeepLink529) asks for a chip; `initial` covers the tab being built only after the request.
+        .onChange(of: router.chipRequest, initial: true) { _, request in
+            guard let request else { return }
+            chipRaw = request.rawValue
+            router.chipRequest = nil
+        }
+        .modifier(PFPlan529Sheets())
+        #if DEBUG
+        .task { PFDeepLink529.openFromLaunchArguments() }
+        #endif
     }
 }
 
@@ -75,29 +92,22 @@ private struct CalendarColumn: View {
     }
 }
 
-/// The PaceForge snapshot around one chip.
+/// One chip's view. Each chip wraps the PaceForge snapshot itself where it needs it (the lock, loading and failed states).
 private struct CalendarChipHost: View {
     let chip: CalendarChip
 
     var body: some View {
-        // Next week reads its own store, so the snapshot's lock, loading and failed states must not stand in front of it.
-        if chip == .nextWeek {
-            UnifiedChipMount(host: "calendar", name: chip.rawValue, content: AnyView(CalendarNextWeekChip()))
-        } else {
-            PFSnapshotHost(content: { snapshot in
-                AnyView(UnifiedChipMount(host: "calendar", name: chip.rawValue, content: CalendarChipBody.content(chip, snapshot)))
-            })
-        }
+        UnifiedChipMount(host: "calendar", name: chip.rawValue, content: CalendarChipBody.content(chip))
     }
 }
 
 private enum CalendarChipBody {
-    static func content(_ chip: CalendarChip, _ snapshot: PFSnapshot) -> AnyView {
+    static func content(_ chip: CalendarChip) -> AnyView {
         switch chip {
-        case .thisWeek: return AnyView(CalendarPlanChip(snapshot: snapshot))
-        case .nextWeek: return AnyView(CalendarNextWeekChip())
-        case .calendar: return AnyView(CalendarMonthChip(snapshot: snapshot))
-        case .season: return AnyView(CalendarSeasonChip(snapshot: snapshot))
+        case .week: return AnyView(PFPlanWeekChip())
+        case .season: return AnyView(PFPlanSeasonChip())
+        case .calendar: return AnyView(PFPlanCalendarChip())
+        case .reports: return AnyView(PFPlanReportsChip())
         }
     }
 }
@@ -151,7 +161,7 @@ private enum CalendarMath {
     static func dayNumber(_ iso: String) -> String { String(Int(iso.suffix(2)) ?? 0) }
 }
 
-private struct CalendarMonthChip: View {
+struct CalendarMonthChip: View {
     let snapshot: PFSnapshot
     @State private var selected: String
     @State private var monthStart: String
@@ -401,7 +411,7 @@ private struct CalendarSessionRow: View {
 // MARK: - This week, Next week, Season, Events
 
 /// This week (Monday to Sunday, every session expandable) under My Plan.
-private struct CalendarPlanChip: View {
+struct CalendarPlanChip: View {
     let snapshot: PFSnapshot
 
     var body: some View {
@@ -432,7 +442,7 @@ private struct CalendarAdjustHost: View {
 
 /// Next week: the week report and the plan for next week, day by day, with each proposal's Accept and Reject. "Ask the coach about this"
 /// puts the question in the Coach's chat box and opens the Coach sheet.
-private struct CalendarNextWeekChip: View {
+struct CalendarNextWeekChip: View {
     @EnvironmentObject private var router: NavRouter
 
     var body: some View {
@@ -494,7 +504,7 @@ private struct CalendarEasyModeRow: View {
 }
 
 /// The Season chip: the season plan, Events, then one row per week the snapshot holds: its dates, phase, focus and tally.
-private struct CalendarSeasonChip: View {
+struct CalendarSeasonChip: View {
     let snapshot: PFSnapshot
 
     var body: some View {

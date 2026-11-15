@@ -13,7 +13,7 @@ final class UnifiedNavUITests: XCTestCase {
             app.launchArguments.append("-PaceForgeFixture")
             let url = try XCTUnwrap(Bundle(for: Self.self).url(forResource: "PaceForgeFixture", withExtension: "json"),
                                     "The synthetic fixture should be bundled with the UI tests.")
-            app.launchEnvironment["PF_FIXTURE_JSON"] = String(decoding: try Data(contentsOf: url), as: UTF8.self)
+            app.launchEnvironment["PF_FIXTURE_JSON"] = try Fixtures529.merged(Data(contentsOf: url))
         }
         app.launch()
         dumpHierarchyOnFailure(app)
@@ -83,22 +83,23 @@ final class UnifiedNavUITests: XCTestCase {
 
     // MARK: Plan
 
-    func testPlanThisWeekChipMounts() throws {
+    func testPlanWeekChipMounts() throws {
         let app = try launch()
         open("Plan", host: "calendar-host", in: app)
         // The tab reopens on the chip it was left on, so the chip is chosen rather than assumed.
-        choose("thisWeek", prefix: "calendar", in: app)
+        choose("week", prefix: "calendar", in: app)
         XCTAssertTrue(element(app, "calendar-chip-content-plan").waitForExistence(timeout: 30), "This week should mount.")
+        XCTAssertTrue(element(app, "calendar-chip-content-nextWeek").waitForExistence(timeout: 30), "Next week's card should follow it.")
     }
 
     func testPlanHasFourChipsAndEachMounts() throws {
         let app = try launch()
         open("Plan", host: "calendar-host", in: app)
-        for chip in ["nextWeek", "calendar", "season"] {
+        for chip in ["week", "season", "calendar", "reports"] {
             choose(chip, prefix: "calendar", in: app)
             XCTAssertTrue(element(app, "calendar-chip-content-\(chip)").waitForExistence(timeout: 30), "The \(chip) chip should mount.")
         }
-        for gone in ["workouts", "events", "hyrox"] {
+        for gone in ["thisWeek", "nextWeek", "workouts", "events", "hyrox"] {
             XCTAssertFalse(element(app, "calendar-chip-\(gone)").exists, "\(gone) is not a Plan chip.")
         }
     }

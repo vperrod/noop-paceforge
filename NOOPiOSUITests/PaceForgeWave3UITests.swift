@@ -14,7 +14,7 @@ final class PaceForgeWave3UITests: XCTestCase {
         app.launchArguments.append("-PaceForgeFixture")
         let url = try XCTUnwrap(Bundle(for: Self.self).url(forResource: "PaceForgeFixture", withExtension: "json"),
                                 "The synthetic fixture should be bundled with the UI tests.")
-        app.launchEnvironment["PF_FIXTURE_JSON"] = String(decoding: try Data(contentsOf: url), as: UTF8.self)
+        app.launchEnvironment["PF_FIXTURE_JSON"] = try Fixtures529.merged(Data(contentsOf: url))
         app.launch()
         return app
     }
@@ -115,7 +115,7 @@ final class PaceForgeWave3UITests: XCTestCase {
 
     /// Plan > This week, with the Easy mode row opened: the row is closed by default.
     private func openEasyMode(_ app: XCUIApplication) -> XCUIElement {
-        app.openChip("Plan", "thisWeek")
+        app.openChip("Plan", "week")
         let toggle = element(app, "pf-easy-toggle")
         XCTAssertTrue(reveal(toggle, in: app, maxSwipes: 20), "Plan > This week should show the Easy mode row.")
         return toggle
@@ -210,7 +210,7 @@ final class PaceForgeWave3UITests: XCTestCase {
 
     func testHeatChipShowsInSessionResultsAndAThermometerInTheWeek() throws {
         let app = try launch()
-        app.openChip("Plan", "thisWeek")
+        app.openChip("Plan", "week")
         XCTAssertTrue(reveal(element(app, "pf-heat-glyph-s-mon"), in: app, maxSwipes: 20), "A hot day should carry a thermometer in the week.")
         attach(app, "40 Hot day thermometer")
         let done = app.buttons["pf-workout-s-mon"]

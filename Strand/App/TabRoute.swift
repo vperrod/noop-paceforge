@@ -54,6 +54,28 @@ enum TabRoute: Hashable {
     case compare
     /// One day of the plan on its own page (a changed day the Coach lists after "Change my plan"). iPhone only; elsewhere Workouts.
     case planDay(String)
+    /// A destination of the Plan section (build 529): a session, a change, a race, a report, the settings or the inbox. iPhone only; elsewhere Workouts.
+    case plan529(Plan529Route)
+}
+
+/// The Plan section's destinations. They ride `TabRoute.plan529` as pushes and `PFPlan529Router` as sheets; `PFPlan529Destination` draws each.
+enum Plan529Route: Hashable {
+    /// One session of a week (ISO week "2026-W47", session id).
+    case session(week: String, id: String)
+    /// One proposed change, by change id.
+    case change(id: String)
+    /// The changes waiting for today.
+    case changeToday
+    /// A race, by its date ("2026-12-16").
+    case race(date: String)
+    /// A daily report, by date ("2026-11-15").
+    case dailyReport(date: String)
+    /// The monthly report, by key ("2026-10").
+    case monthReport(key: String)
+    case planSettings
+    case inbox
+    /// A week of the Week chip, by ISO week.
+    case week(String)
 }
 
 extension View {
@@ -142,6 +164,12 @@ extension View {
             case .planDay(let day):
                 #if os(iOS)
                 PFPlanDayScreen(day: day)
+                #else
+                WorkoutsView()
+                #endif
+            case .plan529(let route):
+                #if os(iOS)
+                PFPlan529Destination(route: route)
                 #else
                 WorkoutsView()
                 #endif

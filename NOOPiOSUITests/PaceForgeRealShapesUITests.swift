@@ -70,7 +70,7 @@ final class PaceForgeRealShapesUITests: XCTestCase {
         let app = try launch()
         app.openTab("Today")
         visit(app, "Today")
-        app.openChip("Plan", "thisWeek")
+        app.openChip("Plan", "week")
         visit(app, "This week")
         app.openChip("Health", "body")
         visit(app, "Body")

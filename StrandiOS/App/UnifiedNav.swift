@@ -52,7 +52,7 @@ enum UnifiedNav {
         switch segment {
         case .today: return .today
         case .coach: return .coach
-        case .week: return .calendar(.thisWeek)
+        case .week: return .calendar(.week)
         case .insights: return .coach
         case .body: return .health(.body)
         }

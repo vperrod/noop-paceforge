@@ -18,7 +18,7 @@ final class MyDayCoachReviewUITests: XCTestCase {
         app.launchArguments += ["--demo-seed", "-MyDayFixture", "full", "-PaceForgeFixture", "-PaceForgeMyDayRun"]
         let url = try XCTUnwrap(Bundle(for: Self.self).url(forResource: "PaceForgeFixture", withExtension: "json"),
                                 "The synthetic PaceForge fixture should be bundled with the UI tests.")
-        app.launchEnvironment["PF_FIXTURE_JSON"] = String(decoding: try Data(contentsOf: url), as: UTF8.self)
+        app.launchEnvironment["PF_FIXTURE_JSON"] = try Fixtures529.merged(Data(contentsOf: url))
         app.launch()
         dumpHierarchyOnFailure(app)
 

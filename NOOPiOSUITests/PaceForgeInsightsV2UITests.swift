@@ -13,7 +13,7 @@ final class PaceForgeInsightsV2UITests: XCTestCase {
         app.launchArguments.append("-PaceForgeFixture")
         let url = try XCTUnwrap(Bundle(for: Self.self).url(forResource: "PaceForgeFixture", withExtension: "json"),
                                 "The synthetic fixture should be bundled with the UI tests.")
-        app.launchEnvironment["PF_FIXTURE_JSON"] = String(decoding: try Data(contentsOf: url), as: UTF8.self)
+        app.launchEnvironment["PF_FIXTURE_JSON"] = try Fixtures529.merged(Data(contentsOf: url))
         app.launch()
         return app
     }

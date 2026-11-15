@@ -11,7 +11,7 @@ final class PaceForgeNativeTabUITests: XCTestCase {
             app.launchArguments.append("-PaceForgeFixture")
             let url = try XCTUnwrap(Bundle(for: Self.self).url(forResource: "PaceForgeFixture", withExtension: "json"),
                                     "The synthetic fixture should be bundled with the UI tests.")
-            app.launchEnvironment["PF_FIXTURE_JSON"] = String(decoding: try Data(contentsOf: url), as: UTF8.self)
+            app.launchEnvironment["PF_FIXTURE_JSON"] = try Fixtures529.merged(Data(contentsOf: url))
         }
         app.launch()
         return app
@@ -65,7 +65,7 @@ final class PaceForgeNativeTabUITests: XCTestCase {
     /// Opens the planned session `id` on Plan > This week.
     @discardableResult
     private func openWeekSession(_ app: XCUIApplication, _ id: String) -> XCUIElement {
-        app.openChip("Plan", "thisWeek")
+        app.openChip("Plan", "week")
         let row = app.buttons["pf-workout-\(id)"]
         XCTAssertTrue(reveal(row, in: app, maxSwipes: 20), "The session \(id) should be listed on This week.")
         row.tap()
@@ -100,7 +100,7 @@ final class PaceForgeNativeTabUITests: XCTestCase {
         app.openTab("Today")
         capture("01 Today")
 
-        app.openChip("Plan", "thisWeek")
+        app.openChip("Plan", "week")
         XCTAssertTrue(reveal(label(app, "Mon 11 Mar"), in: app, maxSwipes: 20), "This week should show \"Mon 11 Mar\".")
         capture("03 This week")
 

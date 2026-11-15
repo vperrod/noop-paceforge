@@ -16,7 +16,7 @@ final class WhoopGapsUITests: XCTestCase {
             app.launchArguments.append("-PaceForgeFixture")
             if let url = Bundle(for: Self.self).url(forResource: "PaceForgeFixture", withExtension: "json"),
                let json = try? Data(contentsOf: url) {
-                app.launchEnvironment["PF_FIXTURE_JSON"] = String(decoding: json, as: UTF8.self)
+                app.launchEnvironment["PF_FIXTURE_JSON"] = (try? Fixtures529.merged(json)) ?? String(decoding: json, as: UTF8.self)
             }
         }
         app.launch()

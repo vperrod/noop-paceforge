@@ -16,7 +16,7 @@ final class Phase4UITests: XCTestCase {
         app.launchArguments.append("-PaceForgeFixture")
         let url = try XCTUnwrap(Bundle(for: Self.self).url(forResource: "PaceForgeFixture", withExtension: "json"),
                                 "The synthetic fixture should be bundled with the UI tests.")
-        app.launchEnvironment["PF_FIXTURE_JSON"] = String(decoding: try Data(contentsOf: url), as: UTF8.self)
+        app.launchEnvironment["PF_FIXTURE_JSON"] = try Fixtures529.merged(Data(contentsOf: url))
         app.launch()
         dumpHierarchyOnFailure(app)
         return app
@@ -242,7 +242,7 @@ final class Phase4UITests: XCTestCase {
 
     func testMyPlanCardOnThePlanTab() throws {
         let app = try launch()
-        app.openChip("Plan", "thisWeek")
+        app.openChip("Plan", "week")
         XCTAssertTrue(reveal(element(app, "pf-my-plan"), in: app), "Plan > This week should carry My Plan.")
         // On the Plan tab the card is folded to one line; opening it shows the days left and the next session.
         let toggle = element(app, "pf-plan-toggle")
@@ -255,7 +255,7 @@ final class Phase4UITests: XCTestCase {
 
     func testNoPlanMeansNoCard() throws {
         let app = try launch(extra: ["-PaceForgePhase4Unavailable"])
-        app.openChip("Plan", "thisWeek")
+        app.openChip("Plan", "week")
         XCTAssertFalse(element(app, "pf-my-plan").waitForExistence(timeout: 5), "With no plan published there is no card.")
         attach(app, "Phase4 63 Plan without a plan")
     }

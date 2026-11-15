@@ -11,7 +11,7 @@ final class ScreenshotTourUITests: XCTestCase {
         app.launchArguments.append("-PaceForgeFixture")
         let url = try XCTUnwrap(Bundle(for: Self.self).url(forResource: "PaceForgeFixture", withExtension: "json"),
                                 "The synthetic fixture should be bundled with the UI tests.")
-        app.launchEnvironment["PF_FIXTURE_JSON"] = String(decoding: try Data(contentsOf: url), as: UTF8.self)
+        app.launchEnvironment["PF_FIXTURE_JSON"] = try Fixtures529.merged(Data(contentsOf: url))
         app.launch()
         dumpHierarchyOnFailure(app)
         return app
@@ -78,9 +78,9 @@ final class ScreenshotTourUITests: XCTestCase {
         // Plan
         app.shellTab("Plan").tap()
         XCTAssertTrue(element(app, "calendar-host").waitForExistence(timeout: 30), "The Plan screen should open.")
-        if tapIfThere(app, "calendar-chip-thisWeek") { attach(app, "10-plan-this-week") }
+        if tapIfThere(app, "calendar-chip-week") { attach(app, "10-plan-this-week") }
         openRace(app)
-        if tapIfThere(app, "calendar-chip-nextWeek") { attach(app, "11-plan-next-week") }
+        if tapIfThere(app, "calendar-chip-reports") { attach(app, "11-plan-reports") }
         if tapIfThere(app, "calendar-chip-calendar") { attach(app, "12-plan-calendar") }
         if tapIfThere(app, "calendar-chip-season") {
             shoot(app, ["13-plan-season", "13-plan-season-scrolled"])

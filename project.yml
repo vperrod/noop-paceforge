@@ -267,6 +267,8 @@ targets:
       # The Where you stand / Garmin recovery / ride widget glances and the code that cuts them from the files.
       - StrandiOSShared/PaceForgeGlance.swift
       - StrandiOS/PaceForge/PaceForgeGlanceBuilder.swift
+      # The Plan section's documents (build 529): Foundation-only models, decoded in Plan529ModelsTests.
+      - StrandiOS/PaceForge/Plan529/Models
     # Same wrapper as the app target, so the OURA_CLOUD_IMPORT-gated Oura tests compile exactly
     # when the app's Oura lane does (flag + creds both come from the untracked OuraSecrets.xcconfig).
     configFiles:
@@ -468,7 +470,13 @@ targets:
     platform: iOS
     deploymentTarget: "17.0"
     sources:
-      - NOOPiOSUITests
+      - path: NOOPiOSUITests
+        excludes:
+          - Fixtures529
+      # One more fixture object per file (served path -> document), merged over PaceForgeFixture.json by Fixtures529.merged.
+      - path: NOOPiOSUITests/Fixtures529
+        type: folder
+        buildPhase: resources
       # The live documents' shapes with every value replaced (PaceForgeRealShapesUITests).
       - StrandTests/LiveShapes/PaceForgeRealShapes.json
     settings:

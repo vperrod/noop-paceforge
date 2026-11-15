@@ -63,8 +63,8 @@ final class SavedStateUITests: XCTestCase {
     private func walkScreens(_ app: XCUIApplication, _ name: String) {
         app.openTab("Today")
         visit(app, name, "Today", top: "today-six-rings")
-        app.openChip("Plan", "thisWeek")
-        visit(app, name, "This week", top: "calendar-chip-thisWeek")
+        app.openChip("Plan", "week")
+        visit(app, name, "This week", top: "calendar-chip-week")
         app.openChip("Health", "body")
         visit(app, name, "Body", top: "health-chip-body")
         app.openCoach("read")

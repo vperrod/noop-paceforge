@@ -1,0 +1,394 @@
+{
+  "_about": "Build 529 data contract. Keys are the served paths (under the PaceForge site root). Values are real examples from Victor's data on 15 Nov 2026. The server must write these shapes; the app reads only these for the new Plan section. Field names are stable. Texts are examples of the required plain wording. Optional fields may be null or absent; lists may be empty.",
+
+  "data/plan-week/index.json": {
+    "version": 1,
+    "generated_at": "2026-11-15T19:05:00+00:00",
+    "current": "2026-W47",
+    "weeks": [
+      {"week": "2026-W45", "from": "2026-11-02", "to": "2026-11-08", "state": "finished", "phase": "taper", "phase_label": "Taper week", "label": "Week 45 · 2–8 Nov", "report_ready": true, "verdict": "Taper week done as planned."},
+      {"week": "2026-W46", "from": "2026-11-09", "to": "2026-11-15", "state": "finished", "phase": "race", "phase_label": "Race week", "label": "Week 46 · 9–15 Nov", "report_ready": true, "verdict": "Two races in four days. The doubles beat its goal by 6 minutes; the singles was 8 minutes over."},
+      {"week": "2026-W47", "from": "2026-11-16", "to": "2026-11-22", "state": "coming", "phase": "recover", "phase_label": "Recovery week", "label": "Week 47 · 16–22 Nov", "report_ready": false, "verdict": null},
+      {"week": "2026-W48", "from": "2026-11-23", "to": "2026-11-29", "state": "coming", "phase": "build", "phase_label": "Build week", "label": "Week 48 · 23–29 Nov", "report_ready": false, "verdict": null}
+    ],
+    "_note": "Covers 8 finished weeks back and every week forward to the end of the last race block's recovery. state: finished | current | coming. 'current' = the week containing today."
+  },
+
+  "data/plan-week/2026-W47.json": {
+    "version": 1,
+    "week": "2026-W47",
+    "from": "2026-11-16",
+    "to": "2026-11-22",
+    "label": "Week 47 · 16–22 Nov",
+    "generated_at": "2026-11-15T19:05:00+00:00",
+    "state": "coming",
+    "phase": {"key": "recover", "label": "Recovery", "pill": "Recovery · days 2 to 8 of 10"},
+    "next_race": {"name": "HYROX Sampleville singles OPEN", "short": "Sampleville", "date": "2026-12-16", "days_out": 31, "pill": "31 days to Sampleville"},
+    "why": "You raced twice last week and it shows: Garmin readiness 14, WHOOP recovery 31 %. Nothing hard before Wednesday, then your usual classes.",
+    "hours": {
+      "firm": 3.0, "optional": 2.0, "planned": 5.0, "aim": 6.25, "target": 7.0, "typical": 5.4, "done": null,
+      "firm_label": "3 h", "optional_label": "+2 h", "aim_label": "6 h 15", "target_label": "7 h",
+      "note": "The limit is 15 % above your typical week. Your typical week is 5 h 24."
+    },
+    "strip": [
+      {"date": "2026-11-16", "dow": "M", "today": true, "label": "rest", "bars": []},
+      {"date": "2026-11-17", "dow": "T", "label": "45", "bars": [{"minutes": 45, "effort": "hard", "state": "planned"}, {"minutes": 45, "effort": "hard", "state": "optional"}]},
+      {"date": "2026-11-18", "dow": "W", "label": "45", "bars": [{"minutes": 45, "effort": "hard", "state": "planned"}]},
+      {"date": "2026-11-19", "dow": "T", "label": "45", "bars": [{"minutes": 45, "effort": "moderate", "state": "planned"}]},
+      {"date": "2026-11-20", "dow": "F", "label": "optional", "bars": [{"minutes": 45, "effort": "hard", "state": "optional"}, {"minutes": 27, "effort": "easy", "state": "optional"}]},
+      {"date": "2026-11-21", "dow": "S", "label": "45", "bars": [{"minutes": 45, "effort": "moderate", "state": "planned"}]},
+      {"date": "2026-11-22", "dow": "S", "label": "rest", "bars": []}
+    ],
+    "changes": [
+      {
+        "id": "0dfc53f2", "day": "2026-11-17", "session_ids": ["c10def6f"],
+        "title": "Tue · Cardio class, shorter and easy",
+        "sheet_title": "Tuesday's class, shorter and easy",
+        "one_line": "45 min hard → 27 min easy. It is day 3 after the race.",
+        "before": {"label": "45 min", "sub": "hard · 8 of 10"},
+        "after": {"label": "27 min", "sub": "easy · 4 of 10 · under 131 bpm"},
+        "data_says": "Tuesday is day 3 after the doubles race. Resting heart rate is 55 on Garmin and 60 on WHOOP. Your usual is 50 to 51.",
+        "why": "The coach's rule: nothing hard within 3 days of a race.",
+        "if_keep": "A hard class on day 3, then three more classes Wednesday, Thursday and Saturday.",
+        "accept_label": "Accept", "keep_label": "Keep 45 min",
+        "footnote": "Accept changes the session itself: its length, its effort and what your watch shows. Keep holds for 7 days."
+      },
+      {
+        "id": "1299335d", "day": null, "session_ids": ["1629495d", "db60edec"],
+        "title": "Tue and Fri · Drop Pull and Legs",
+        "sheet_title": "Drop Pull and Legs this week",
+        "one_line": "Generic strength makes way for HYROX strength from 25 Nov.",
+        "before": {"label": "2 sessions", "sub": "Pull Tue · Legs Fri · optional"},
+        "after": {"label": "Removed", "sub": "HYROX strength from 25 Nov"},
+        "data_says": "Both are optional sessions of the generic strength block. Your goal is HYROX.",
+        "why": "For a HYROX goal the coach replaces generic Push, Pull and Legs with HYROX strength, which trains what the race asks for.",
+        "if_keep": "Bodybuilding volume on top of four classes in a recovery week.",
+        "accept_label": "Accept", "keep_label": "Keep",
+        "footnote": "Keep holds for 7 days."
+      },
+      {
+        "id": "1ebaa945", "day": "2026-11-20", "session_ids": ["c8d45c5b"],
+        "title": "Fri · Add an easy run, 27 min",
+        "sheet_title": "Add an easy run on Friday",
+        "one_line": "Optional. First run after the race, 5.4 km at 5:00 to 5:30.",
+        "before": {"label": "Nothing", "sub": "no run this week"},
+        "after": {"label": "27 min", "sub": "easy · 5.4 km · under 131 bpm"},
+        "data_says": "Friday is day 6 after the race. The recovery plan allows half your usual running from day 4.",
+        "why": "Every recovery week gets one easy run to get your running rhythm back without load.",
+        "if_keep": "No running this week. That is fine if your legs feel heavy.",
+        "accept_label": "Accept", "keep_label": "No",
+        "footnote": "Accepted runs go to your watch."
+      }
+    ],
+    "decided": ["Kept by you on 15 Nov: Wed, Thu and Sat classes at full effort. The coach will not ask again before 22 Nov."],
+    "days": [
+      {"date": "2026-11-16", "dow": "Mon", "title": "Mon 16", "tag": "Day 2 after the race", "items": [
+        {"kind": "rest", "title": "Rest", "why": "Both devices are low after two races. Nothing structured, so your heart rate and HRV can come back.", "do": "A 20 to 30 minute walk or mobility if you want. Sleep 8 to 9 hours."}
+      ]},
+      {"date": "2026-11-17", "dow": "Tue", "title": "Tue 17", "tag": null, "items": [
+        {"kind": "session", "session_id": "c10def6f", "title": "Cardio class", "minutes": 45, "km": null, "effort": "hard", "effort_label": "Hard · 45 min", "rpe": 8, "fixed": true, "optional": false, "status": "planned",
+         "pills": ["Booked class"], "change_ids": ["0dfc53f2"], "change_pill": "Change waiting: 27 min, easy",
+         "why": "It is a booked class, so it stays on its day. It falls 3 days after the race, so the coach wants it short and easy.",
+         "how_hard": "As booked: 8 of 10. As proposed: 4 of 10, heart rate under 131.",
+         "do": "5 min easy warm-up, 22 min very light, 5 min walk and stretch.",
+         "if_red": "Skip it. 20 min walk and mobility instead.",
+         "after": "Sleep 8 to 9 hours.",
+         "where": "Day 3 of 10 after the race.",
+         "actions": ["more", "move", "skip"], "done": null, "review": null, "activity_id": null},
+        {"kind": "session", "session_id": "1629495d", "title": "Pull", "minutes": 45, "km": null, "effort": "hard", "effort_label": "Optional · 45 min", "rpe": 9, "fixed": false, "optional": true, "status": "optional",
+         "pills": [], "change_ids": ["1299335d"], "change_pill": "Change waiting: drop it",
+         "why": "A generic strength session from the old block. The coach proposes dropping it for HYROX strength.", "how_hard": null, "do": null, "if_red": null, "after": null, "where": null,
+         "actions": ["more", "move", "skip"], "done": null, "review": null, "activity_id": null}
+      ]},
+      {"date": "2026-11-18", "dow": "Wed", "title": "Wed 18", "tag": null, "items": [
+        {"kind": "session", "session_id": "448dbb84", "title": "Studio HYROX", "minutes": 45, "km": null, "effort": "hard", "effort_label": "Hard · 45 min", "rpe": 8, "fixed": true, "optional": false, "status": "planned",
+         "pills": ["Booked class", "Kept at full effort by you"], "change_ids": [], "change_pill": null,
+         "why": "Your first hard session back. Stations under fatigue: sled, lunges, row, wall balls. That is what this block trains.",
+         "how_hard": "8 of 10. Heart rate 132 to 168 in the work.",
+         "do": "5 min easy row or jog and leg swings, the class, 5 min walk and foam roll.",
+         "if_red": "Cap it at 5 of 10, or 30 min easy bike.",
+         "after": "Sleep 8 to 9 hours.",
+         "where": "Day 4 of 10 after the race. The coach suggested doing it lighter; you kept it at full effort on 15 Nov.",
+         "actions": ["more", "easier", "skip"], "done": null, "review": null, "activity_id": null}
+      ]},
+      {"date": "2026-11-19", "dow": "Thu", "title": "Thu 19", "tag": null, "items": [
+        {"kind": "session", "session_id": "4d229cf4", "title": "Studio class", "minutes": 45, "km": null, "effort": "moderate", "effort_label": "Moderate · 45 min", "rpe": 7, "fixed": true, "optional": false, "status": "planned",
+         "pills": ["Booked class"], "change_ids": [], "change_pill": null,
+         "why": "Keeps you moving well without digging deeper. Day 5 after the race.",
+         "how_hard": "7 of 10. Heart rate 132 to 149.",
+         "do": "5 min mobility, the class, 5 min stretch.",
+         "if_red": "Go, cap at 5 of 10, skip the hard intervals.",
+         "after": "Sleep 8 to 9 hours.", "where": "Day 5 of 10 after the race.",
+         "actions": ["more", "easier", "skip"], "done": null, "review": null, "activity_id": null}
+      ]},
+      {"date": "2026-11-20", "dow": "Fri", "title": "Fri 20", "tag": null, "items": [
+        {"kind": "session", "session_id": "db60edec", "title": "Legs", "minutes": 45, "km": null, "effort": "hard", "effort_label": "Optional · 45 min", "rpe": 9, "fixed": false, "optional": true, "status": "optional",
+         "pills": [], "change_ids": ["1299335d", "1ebaa945"], "change_pill": "Change waiting: easy run instead",
+         "why": "Generic leg strength the day before Saturday's class costs more than it gives this week. The coach proposes your first easy run after the race instead.",
+         "how_hard": null,
+         "do": "The run, if you accept: 27 min, 5.4 km at 5:00 to 5:30, heart rate under 131. Skip it if your legs feel heavy.",
+         "if_red": "Skip the run. 20 min easy bike or a brisk walk.", "after": null, "where": "Day 6 of 10 after the race.",
+         "actions": ["more", "move", "skip"], "done": null, "review": null, "activity_id": null}
+      ]},
+      {"date": "2026-11-21", "dow": "Sat", "title": "Sat 21", "tag": null, "items": [
+        {"kind": "session", "session_id": "da5119f9", "title": "Studio class", "minutes": 45, "km": null, "effort": "moderate", "effort_label": "Moderate · 45 min", "rpe": 7, "fixed": true, "optional": false, "status": "planned",
+         "pills": ["Booked class"], "change_ids": [], "change_pill": null,
+         "why": "Last session of the week, before volume steps up to three quarters on Sunday.",
+         "how_hard": "7 of 10. Heart rate 132 to 149.",
+         "do": "5 min mobility, the class, 5 min stretch and foam roll.",
+         "if_red": "Go at 5 of 10 and work on technique.",
+         "after": "Sleep 8 to 9 hours.", "where": "Day 7 of 10 after the race.",
+         "actions": ["more", "easier", "skip"], "done": null, "review": null, "activity_id": null}
+      ]},
+      {"date": "2026-11-22", "dow": "Sun", "title": "Sun 22", "tag": "Day 8 after the race", "items": [
+        {"kind": "rest", "title": "Rest", "why": "No session booked. An easy 30 to 45 minutes is allowed, but only if the week's readings are back to normal.", "do": null}
+      ]}
+    ],
+    "report": null
+  },
+
+  "data/plan-week/2026-W46.json": {
+    "version": 1,
+    "week": "2026-W46",
+    "from": "2026-11-09",
+    "to": "2026-11-15",
+    "label": "Week 46 · 9–15 Nov",
+    "generated_at": "2026-11-15T19:05:00+00:00",
+    "state": "finished",
+    "phase": {"key": "race", "label": "Race week", "pill": "Race week"},
+    "next_race": null,
+    "why": null,
+    "hours": {"firm": 1.17, "optional": 0, "planned": 1.17, "aim": null, "target": 3.8, "typical": 5.4, "done": 3.42, "done_label": "3 h 25", "note": "Races are not counted in planned hours."},
+    "strip": [
+      {"date": "2026-11-09", "dow": "M", "label": "28", "bars": [{"minutes": 28, "effort": "easy", "state": "done"}]},
+      {"date": "2026-11-10", "dow": "T", "label": "43", "bars": [{"minutes": 43, "effort": "hard", "state": "done"}]},
+      {"date": "2026-11-11", "dow": "W", "label": "race", "bars": [{"minutes": 68, "effort": "race", "state": "done"}]},
+      {"date": "2026-11-12", "dow": "T", "label": "–", "bars": []},
+      {"date": "2026-11-13", "dow": "F", "label": "–", "bars": []},
+      {"date": "2026-11-14", "dow": "S", "label": "race", "bars": [{"minutes": 66, "effort": "race", "state": "done"}]},
+      {"date": "2026-11-15", "dow": "S", "label": "–", "bars": []}
+    ],
+    "changes": [],
+    "decided": [],
+    "days": [
+      {"date": "2026-11-09", "dow": "Mon", "title": "Mon 9", "tag": null, "items": [
+        {"kind": "session", "session_id": "858a201b", "title": "Openers", "minutes": 25, "km": null, "effort": "easy", "effort_label": "Easy · 25 min", "rpe": null, "fixed": false, "optional": false, "status": "done",
+         "pills": [], "change_ids": [], "change_pill": null,
+         "why": "Race-week openers: a short run with a few strides to keep your legs sharp for Wednesday.",
+         "how_hard": null, "do": null, "if_red": null, "after": null, "where": null, "actions": ["more"],
+         "done": {"line": "Done: 28 min · 5.6 km · 5:00 /km · heart rate 128", "minutes": 28, "km": 5.6, "avg_hr": 128},
+         "review": {"state": "ready", "verdict": "On plan."}, "activity_id": "24990000001"}
+      ]},
+      {"date": "2026-11-10", "dow": "Tue", "title": "Tue 10", "tag": null, "items": [
+        {"kind": "session", "session_id": "afc2819b", "title": "Cardio class", "minutes": 45, "km": null, "effort": "hard", "effort_label": "Hard · 45 min", "rpe": 8, "fixed": true, "optional": false, "status": "done",
+         "pills": ["Booked class"], "change_ids": [], "change_pill": null,
+         "why": "A booked class the day before the singles race. The coach flagged it as close to the race; you kept it.",
+         "how_hard": null, "do": null, "if_red": null, "after": null, "where": null, "actions": ["more"],
+         "done": {"line": "Done: 43 min · heart rate 134", "minutes": 43, "km": null, "avg_hr": 134},
+         "review": {"state": "ready", "verdict": "Done as booked."}, "activity_id": "24990000002"}
+      ]},
+      {"date": "2026-11-11", "dow": "Wed", "title": "Wed 11", "tag": null, "items": [
+        {"kind": "race", "title": "HYROX Testtown singles", "race_date": "2026-11-11", "status": "done", "effort": "race", "effort_label": "Race",
+         "why": "Your A race of this block.",
+         "result": {"time": "1:07:41", "goal": "1:00:00", "delta": "7:41 over goal", "delta_s": 461, "source": "official"},
+         "review": {"state": "ready", "verdict": "8 minutes over goal."}, "activity_id": "9100000002", "actions": ["more"]}
+      ]},
+      {"date": "2026-11-12", "dow": "Thu", "title": "Thu 12", "tag": null, "items": [{"kind": "rest", "title": "Rest", "why": "The day after the singles.", "do": null}]},
+      {"date": "2026-11-13", "dow": "Fri", "title": "Fri 13", "tag": null, "items": [{"kind": "rest", "title": "Rest", "why": "The day before the doubles.", "do": null}]},
+      {"date": "2026-11-14", "dow": "Sat", "title": "Sat 14", "tag": null, "items": [
+        {"kind": "race", "title": "HYROX Testtown doubles", "race_date": "2026-11-14", "status": "done", "effort": "race", "effort_label": "Race",
+         "why": "Your B race, three days after the singles.",
+         "result": {"time": "1:04:12", "goal": "1:10:00", "delta": "5:48 inside goal", "delta_s": -348, "source": "official"},
+         "review": {"state": "ready", "verdict": "6 minutes inside goal."}, "activity_id": "9100000001", "actions": ["more"]}
+      ]},
+      {"date": "2026-11-15", "dow": "Sun", "title": "Sun 15", "tag": null, "items": [{"kind": "rest", "title": "Rest", "why": "Day 1 after the doubles.", "do": null}]}
+    ],
+    "report": {
+      "ready_at": "2026-11-15T19:00:22+00:00",
+      "verdict": "Two races in four days. The doubles beat its goal by 6 minutes; the singles was 8 minutes over.",
+      "races": [
+        {"date": "2026-11-11", "day": "Wed 11", "name": "HYROX Testtown singles", "time": "1:07:41", "sub": "Goal 1:00:00 · 7:41 over", "activity_id": "9100000002"},
+        {"date": "2026-11-14", "day": "Sat 14", "name": "HYROX Testtown doubles", "time": "1:04:12", "sub": "Goal 1:10:00 · 5:48 inside", "activity_id": "9100000001"}
+      ],
+      "planned_done": {"line": "4 of 4 planned, done", "facts": ["3 h 25 training", "22.4 km run"], "vs_prev": "Against week 45: 4 h 26 and 12.3 km. Less time, more running, because of the races."},
+      "nights": {
+        "labels": ["M", "T", "W", "T", "F", "S", "S"],
+        "series": [
+          {"source": "WHOOP", "title": "Recovery, night by night · WHOOP", "max": 100, "values": [72, 70, 88, 25, 63, 40, 31], "bands": ["green", "green", "green", "red", "amber", "amber", "red"]},
+          {"source": "Garmin", "title": "Readiness, morning by morning · Garmin", "max": 100, "values": [74, 78, 58, 52, 50, 57, 14], "bands": ["green", "green", "amber", "amber", "amber", "green", "red"]}
+        ],
+        "note": "Sleep averaged 7 h 18. The night after the doubles was 6 h 41: the race ended 2.7 hours before bed."
+      },
+      "went_well": ["Everything planned was done. The doubles came in 6 minutes inside its goal."],
+      "held_back": ["The singles ran 8 minutes over goal. Two red nights. Resting heart rate is still raised: 55 (Garmin), 60 (WHOOP)."],
+      "not_to_do": "Anything hard before Wednesday.",
+      "next_week": {"week": "2026-W47", "summary": "Recovery week: four classes, 3 hours firm. Three changes proposed.", "changes": 3},
+      "detail": {"numbers_title": "The numbers, session by session", "experts_title": "What each expert read", "expert_report": "data/reports/weekly/2026-W46.json"}
+    }
+  },
+
+  "data/season.json": {
+    "version": 1,
+    "generated_at": "2026-11-15T19:05:00+00:00",
+    "today": "2026-11-15",
+    "end": "2027-06-09",
+    "title": "Today to 30 May 2027",
+    "now": {"phase": "recover", "line": "Now: recovery, day 1 of 10.", "detail": "Walks and mobility for three days, half your usual from Wednesday, three quarters from next Sunday."},
+    "bar": [
+      {"phase": "recover", "days": 10}, {"phase": "build", "days": 14}, {"phase": "taper", "days": 7}, {"phase": "race", "days": 1},
+      {"phase": "recover", "days": 10}, {"phase": "build", "days": 48}, {"phase": "taper", "days": 7}, {"phase": "race", "days": 1},
+      {"phase": "recover", "days": 10}, {"phase": "build", "days": 16}, {"phase": "taper", "days": 7}, {"phase": "race", "days": 1},
+      {"phase": "recover", "days": 10}, {"phase": "build", "days": 40}, {"phase": "sharpen", "days": 7}, {"phase": "taper", "days": 7}, {"phase": "race", "days": 1}
+    ],
+    "races": [
+      {
+        "date": "2026-12-16", "name": "HYROX Sampleville singles OPEN", "short": "HYROX Sampleville", "days_out": 31, "day_label": "Wed 16 Dec", "format": "singles open",
+        "goal": "1:00:00", "goal_sub": "your goal · Testtown was 1:07:41", "sub": "31 days · goal 1:00:00 · singles open",
+        "priority": "B", "priority_set": false,
+        "priority_note": "The coach assumes B. With B the build does not aim at Sampleville and the week before it is not lighter yet.",
+        "priority_options": [
+          {"key": "A", "title": "the one you peak for", "sub": "Build aimed at it, 10-day taper, 10 days recovery"},
+          {"key": "B", "title": "important, not the peak", "sub": "7-day taper, 10 days recovery"},
+          {"key": "C", "title": "a training race", "sub": "No taper, 3 days recovery"}
+        ],
+        "bar": [{"phase": "recover", "days": 10}, {"phase": "build", "days": 14}, {"phase": "taper", "days": 7}, {"phase": "race", "days": 1}],
+        "phase_lines": ["Recover to 24 Nov", "Build 25 Nov–8 Dec", "Taper 9–15 Dec"],
+        "aim": "Stations under fatigue: sandbag lunges, row, wall balls. They were your three weakest in Testtown against your division.",
+        "timeline": [
+          {"when": "to 24 Nov", "title": "Recover", "sub": "From Testtown"},
+          {"when": "25 Nov", "title": "Build, 2 weeks", "sub": "One quality run a week, HYROX strength back"},
+          {"when": "9 Dec", "title": "Taper", "sub": "40 to 60 % less, intensity kept"},
+          {"when": "11 Dec", "title": "Race pack arrives", "sub": "Pacing for 8 runs and 8 stations"},
+          {"when": "16 Dec", "title": "Race", "sub": null, "race": true}
+        ],
+        "result": null, "activity_id": null, "pack_ready": false, "debrief_ready": false, "is_hyrox": true
+      },
+      {"date": "2027-02-20", "name": "HYROX Katowice singles OPEN", "short": "HYROX Katowice", "days_out": 97, "day_label": "20 Feb", "sub": "Build 27 Dec–12 Feb · taper 13–19 Feb", "goal": "1:00:00", "priority": "B", "priority_set": false, "is_hyrox": true},
+      {"date": "2027-03-26", "name": "HYROX Copenhagen singles OPEN", "short": "HYROX Copenhagen", "days_out": 131, "day_label": "26 Mar", "sub": "Build 3–18 Mar · taper 19–25 Mar", "goal": "1:00:00", "priority": "B", "priority_set": false, "is_hyrox": true},
+      {"date": "2027-05-30", "name": "Lough Cutra Castle Multisport", "short": "Lough Cutra, half iron", "days_out": 196, "day_label": "30 May", "sub": "Build 6 Apr–15 May · sharpen · taper 23–29 May", "goal": null, "priority": "A", "priority_set": false, "is_hyrox": false}
+    ],
+    "past_races": [
+      {"date": "2026-11-14", "name": "HYROX Testtown doubles", "result": {"time": "1:04:12", "delta": "5:48 inside goal"}, "activity_id": "9100000001", "priority": "B", "priority_set": true, "is_hyrox": true},
+      {"date": "2026-11-11", "name": "HYROX Testtown singles", "result": {"time": "1:07:41", "delta": "7:41 over goal"}, "activity_id": "9100000002", "priority": "A", "priority_set": true, "is_hyrox": true}
+    ],
+    "hours": {
+      "max": 11,
+      "weeks": [
+        {"week": "2026-W39", "label": "39", "planned": 0.75, "done": 1.6}, {"week": "2026-W40", "label": "40", "planned": 2.2, "done": 3.17},
+        {"week": "2026-W41", "label": "41", "planned": 7.49, "done": 6.38}, {"week": "2026-W42", "label": "42", "planned": 4.08, "done": 4.98},
+        {"week": "2026-W43", "label": "43", "planned": 6.7, "done": 7.66}, {"week": "2026-W44", "label": "44", "planned": 9.92, "done": 7.05},
+        {"week": "2026-W45", "label": "45", "planned": 4.97, "done": 5.37}, {"week": "2026-W46", "label": "46", "planned": 1.17, "done": 3.42, "race": true},
+        {"week": "2026-W47", "label": "47", "planned": 3.0, "done": null}, {"week": "2026-W48", "label": "48", "planned": 3.0, "done": null}
+      ],
+      "note": "Outline = planned, solid = done. Best week: 7 h 40 in week 43. Week 44 planned 9 h 55, done 7 h 03. Weeks 47 and 48 show the firm 3 h."
+    },
+    "programmes": {"line": "Strength block running · start or change one on the web", "web_route": "#/training/plan"}
+  },
+
+  "data/plan-settings.json": {
+    "version": 1,
+    "generated_at": "2026-11-15T19:05:00+00:00",
+    "you_decide": [
+      {"key": "hours", "title": "Hours a week", "sub": "7 h · up to 11 h at the top of a build", "value": 7.0, "editable": "hours"},
+      {"key": "run_days", "title": "Run days", "sub": "Mon, Wed, Fri at 07:00 · Friday optional", "editable": null},
+      {"key": "classes", "title": "Booked classes", "sub": "Cardio Tue · Studio HYROX Wed · Studio Thu, Sat", "editable": null},
+      {"key": "days_off", "title": "Days off", "sub": "None set", "value": [], "editable": "days_off"},
+      {"key": "priorities", "title": "Race priorities", "sub": "4 not set", "editable": "priorities"}
+    ],
+    "coach_follows": [
+      {"text": "At most 3 hard days a week", "sub": "Your classes count as hard"},
+      {"text": "Nothing hard within 3 days of a race", "sub": null},
+      {"text": "Leg work 48 hours before a key run or race", "sub": null},
+      {"text": "Never more than 15 % above your typical week", "sub": null},
+      {"text": "The taper week is 40 to 60 % lighter", "sub": null},
+      {"text": "After a race: 3 days rest, 4 days at half, 3 days at three quarters", "sub": null},
+      {"text": "A morning reading can lighten a day, never add to it", "sub": null},
+      {"text": "No class above moderate inside 48 hours before a race", "sub": null},
+      {"text": "No two hard days in a row right before a race or key run", "sub": null},
+      {"text": "Races 3 days or less apart: easy only between them", "sub": null},
+      {"text": "Strength and a hard run on the same day need 3 hours between them", "sub": null},
+      {"text": "For a HYROX goal, HYROX strength replaces generic Push, Pull and Legs", "sub": null}
+    ],
+    "paces": "Easy 5:00–5:30 · threshold 4:18–4:25 · HYROX run 4:00–4:15. Heart-rate zones from Garmin."
+  },
+
+  "data/reports/list.json": {
+    "version": 1,
+    "generated_at": "2026-11-15T19:05:00+00:00",
+    "today": {"key": "2026-11-15", "day": "Sun 15", "verdict": "Rest today", "sub": "Both devices low after the doubles", "ts": "2026-11-15T06:33:31+00:00"},
+    "weeks": [
+      {"key": "2026-W46", "day": "W46", "verdict": "Two races in four days", "sub": "Doubles 6 minutes inside goal", "ts": "2026-11-15T19:00:22+00:00"},
+      {"key": "2026-W45", "day": "W45", "verdict": "Taper week", "sub": "5 h 22", "ts": "2026-11-09T06:43:00+00:00"}
+    ],
+    "months": [{"key": "2026-10", "day": "Oct", "verdict": "Less volume, more intensity", "sub": "19 hard days in 28", "ts": "2026-11-01T07:30:00+00:00"}],
+    "races": [
+      {"date": "2026-11-14", "day": "14 Nov", "name": "HYROX Testtown doubles", "sub": "1:04:12 · 5:48 inside goal", "activity_id": "9100000001", "ts": "2026-11-15T10:00:00+00:00"},
+      {"date": "2026-11-11", "day": "11 Nov", "name": "HYROX Testtown singles", "sub": "1:07:41 · 7:41 over goal", "activity_id": "9100000002", "ts": "2026-11-12T10:00:00+00:00"}
+    ],
+    "workouts": [
+      {"activity_id": "24990000002", "day": "Tue 10", "name": "Cardio class", "sub": "Done as booked.", "state": "ready", "ts": "2026-11-10T09:00:00+00:00"},
+      {"activity_id": "24990000001", "day": "Mon 9", "name": "Openers, 5.6 km", "sub": "On plan.", "state": "ready", "ts": "2026-11-09T10:00:00+00:00"}
+    ]
+  },
+
+  "data/reports/daily/2026-11-15.json#short": {
+    "_note": "Added as key `short` inside the existing daily report document. Everything else in that document stays.",
+    "title": "Sunday 15 Nov",
+    "verdict": "Rest today.",
+    "cause": "The doubles ended at 21:05, 2.7 hours before bed. Your body has not come down yet.",
+    "devices_title": "This morning, each device on its own",
+    "devices": [
+      {"source": "Garmin", "value": "14", "label": "readiness, red", "lines": ["HRV 29 ms · usual 32–45", "resting HR 55 · usual 51", "slept 5 h 49"]},
+      {"source": "WHOOP", "value": "31 %", "label": "recovery, low", "lines": ["HRV 49 ms · usual 48", "resting HR 60 · usual 50", "slept 6 h 36"]}
+    ],
+    "devices_note": "They agree on heart rate. They differ on HRV.",
+    "blocks": [
+      {"title": "Today", "text": "No training. A 20 to 30 minute walk is fine."},
+      {"title": "Tonight", "text": "In bed by 22:07. You need about 8 h 26."},
+      {"title": "Tomorrow", "text": "Rest day as planned. If resting heart rate is under 53, a 30 to 45 minute walk."},
+      {"title": "What would change this", "text": "Resting heart rate still 55 or more on Wednesday: skip Wednesday's hard class."}
+    ]
+  },
+
+  "data/reports/monthly/2026-10.json#short": {
+    "_note": "Added as key `short` inside the one monthly report document (written on the 1st for the full month).",
+    "title": "October 2026",
+    "verdict": "October traded volume for intensity.",
+    "summary": "Less time and half the running, but 19 hard days in 28. Fitness held. Sleep paid for it.",
+    "held": ["VO2max flat at 54.1. Plan 88 % done: 19 of 25 sessions."],
+    "slipped": ["Sleep, 6 h 20 a night in the middle. Running, 9.6 km a week against 17.8. Resting heart rate up 4 % to 51.9."],
+    "compare_title": "Against September",
+    "tiles": [
+      {"value": "4 h 38", "label": "training a week", "sub": "was 6 h 46"},
+      {"value": "4.8", "label": "hard days a week", "sub": "up 9 %"},
+      {"value": "40 ms", "label": "HRV, Garmin", "sub": "up 5 %"},
+      {"value": "91.0 kg", "label": "weight, 6 readings", "sub": "stable 90.8–91.4"}
+    ],
+    "trend": {"title": "Training load, week by week · Garmin", "points": [{"label": "W40", "value": 420}, {"label": "W41", "value": 508}, {"label": "W42", "value": 553}, {"label": "W43", "value": 620}, {"label": "W44", "value": 660}]},
+    "focus_title": "For November",
+    "focus": "Cut volume into Testtown, keep two race-pace efforts, protect sleep."
+  },
+
+  "race results document #losses": {
+    "_note": "Two keys added to the race results payload the app already reads for the results sheet (PFResultsSheet race card).",
+    "losses": [
+      {"segment": "Sandbag lunges", "delta": "+1:05", "note": "against your pacing plan"},
+      {"segment": "Row 1000 m", "delta": "+0:52", "note": "against your pacing plan"},
+      {"segment": "Wall balls", "delta": "+0:37", "note": "against your pacing plan"}
+    ],
+    "next_block": "Stations under fatigue: lunges, row, wall balls."
+  },
+
+  "data/inbox.json": {
+    "version": 1,
+    "generated_at": "2026-11-15T19:32:00+00:00",
+    "_note": "Everything the athlete is told, newest first, kept 14 days. kind: today | workout | health | coach | report | plan | problem. notify=true items raise a phone notification once. link.route is one of: week, changes, report_daily, report_month, race, workout, coach_noticed, stress, heart_rate, effort, needs_you, today.",
+    "items": [
+      {"id": "report:week:2026-W46", "ts": "2026-11-15T19:00:22+00:00", "kind": "report", "notify": true, "title": "Week 46: two races in four days", "body": "Doubles 6 minutes inside goal. Your report is ready.", "list_title": "Week 46 report is ready", "list_sub": "Report · opens the week", "link": {"route": "week", "week": "2026-W46"}},
+      {"id": "plan:changes:2026-W47", "ts": "2026-11-15T18:31:00+00:00", "kind": "plan", "notify": true, "title": "3 changes proposed for next week", "body": "Tuesday easier, no Pull or Legs, an easy run Friday.", "list_title": "3 changes proposed for next week", "list_sub": "Plan · opens the changes", "link": {"route": "changes", "week": "2026-W47"}},
+      {"id": "coach:a3_resting_hr_up:2026-11-15", "ts": "2026-11-15T14:10:00+00:00", "kind": "coach", "notify": true, "title": "Resting heart rate still raised", "body": "55 (Garmin), 60 (WHOOP), the day after the doubles. Expected.", "list_title": "Resting heart rate still raised", "list_sub": "Coach noticed", "link": {"route": "coach_noticed", "id": "a3_resting_hr_up:2026-11-15"}},
+      {"id": "today:2026-11-15", "ts": "2026-11-15T06:33:31+00:00", "kind": "today", "notify": true, "title": "Rest today", "body": "Garmin readiness 14, WHOOP recovery 31 %.", "list_title": "Rest today", "list_sub": "Today's report", "link": {"route": "report_daily", "date": "2026-11-15"}},
+      {"id": "workout:9100000001", "ts": "2026-11-15T10:00:00+00:00", "kind": "workout", "notify": true, "title": "The coach reviewed HYROX Testtown doubles", "body": "1:04:12, 5:48 inside goal.", "list_title": "The coach reviewed HYROX Testtown doubles", "list_sub": "Workout · opens the review", "link": {"route": "race", "date": "2026-11-14", "activity_id": "9100000001"}}
+    ]
+  }
+}

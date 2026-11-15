@@ -27,12 +27,12 @@ extension XCUIApplication {
     }
 
     /// Opens a tab and picks one of its chips (a tab reopens on the chip it was left on, so the chip is always chosen). `chip` is the
-    /// chip's raw value: Plan `thisWeek`, `nextWeek`, `calendar`, `season`; Train `hyrox`, `running`, `strength`, `bike`, `workouts`,
+    /// chip's raw value: Plan `week`, `season`, `calendar`, `reports`; Train `hyrox`, `running`, `strength`, `bike`, `workouts`,
     /// `athlete`; Health `day`, `sleep`, `recovery`, `body`, `vitals`, `journal`, `trends`. Waits for the chip's content to mount.
     func openChip(_ tab: String, _ chip: String) {
         openTab(tab)
         let prefix = Self.chipHosts[tab] ?? tab.lowercased()
-        pickChip(prefix: prefix, chip: chip, content: "\(prefix)-chip-content-\(chip == "thisWeek" ? "plan" : chip)")
+        pickChip(prefix: prefix, chip: chip, content: "\(prefix)-chip-content-\(chip)")
     }
 
     /// Opens the Coach sheet over the screen on show and picks one of its chips: `read`, `ask`, `reports` or `insights`.

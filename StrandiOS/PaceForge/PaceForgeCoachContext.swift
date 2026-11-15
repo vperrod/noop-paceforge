@@ -14,7 +14,7 @@ final class PFCoachContext: ObservableObject {
         let defaults = UserDefaults.standard
         switch tab {
         case 1:
-            let chip = CalendarChip(rawValue: defaults.string(forKey: CalendarChip.storageKey) ?? "") ?? .thisWeek
+            let chip = CalendarChip(stored: defaults.string(forKey: CalendarChip.storageKey)) ?? .week
             return "Plan > \(chip.title)"
         case 2:
             let chip = TrainChip(rawValue: defaults.string(forKey: TrainChip.storageKey) ?? "") ?? .hyrox

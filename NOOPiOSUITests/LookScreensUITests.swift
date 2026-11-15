@@ -17,7 +17,7 @@ final class LookScreensUITests: XCTestCase {
             app.launchArguments.append("-PaceForgeFixture")
             let url = try XCTUnwrap(Bundle(for: Self.self).url(forResource: "PaceForgeFixture", withExtension: "json"),
                                     "The synthetic fixture should be bundled with the UI tests.")
-            app.launchEnvironment["PF_FIXTURE_JSON"] = String(decoding: try Data(contentsOf: url), as: UTF8.self)
+            app.launchEnvironment["PF_FIXTURE_JSON"] = try Fixtures529.merged(Data(contentsOf: url))
         }
         app.launch()
         dumpHierarchyOnFailure(app)
@@ -158,7 +158,7 @@ final class LookScreensUITests: XCTestCase {
 
     func testPlanThisWeekAndSharedCoachUseTheCards() throws {
         let app = try launch(fixture: true)
-        app.openChip("Plan", "thisWeek")
+        app.openChip("Plan", "week")
         attach(app, "Look A4 PaceForge This week")
         app.openCoach("read")
         XCTAssertTrue(element(app, "coach-full-brain").waitForExistence(timeout: 30))
