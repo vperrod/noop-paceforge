@@ -2185,6 +2185,8 @@ struct LiquidTodayView: View {
                         case .todaysCall:
                             #if os(iOS)
                             if selectedDayOffset == 0 {
+                                // Without an endpoint and token the six PaceForge cards are not mounted (see `body`), so Today says why here.
+                                if !PFAPI.isConfigured { PFNotSetUpView() }
                                 PFTodaysCallStoreHost(compact: true)
                                 PFDailyReportRow()
                             }

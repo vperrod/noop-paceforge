@@ -77,8 +77,10 @@ final class PaceForgeNativeTabUITests: XCTestCase {
         let tab = app.shellTab("Today")
         XCTAssertTrue(tab.waitForExistence(timeout: 20))
         tab.tap()
-        XCTAssertTrue(label(app, "PaceForge sync not set up").waitForExistence(timeout: 10),
-                      "Without an endpoint and token Today should say sync is not set up.")
+        // The day graph now sits above The call, so the card is below the first screen: scroll to it.
+        let notSetUp = label(app, "PaceForge sync not set up")
+        for _ in 0..<6 where !notSetUp.waitForExistence(timeout: 5) { app.swipeUp() }
+        XCTAssertTrue(notSetUp.exists, "Without an endpoint and token Today should say sync is not set up.")
         attach(app, "00b Not set up")
     }
 
