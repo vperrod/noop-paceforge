@@ -67,7 +67,7 @@ final class PaceForgeNativeTabUITests: XCTestCase {
     private func openWeekSession(_ app: XCUIApplication, _ id: String) -> XCUIElement {
         app.openChip("Plan", "week")
         let row = app.buttons["pf-workout-\(id)"]
-        XCTAssertTrue(reveal(row, in: app, maxSwipes: 20), "The session \(id) should be listed on This week.")
+        XCTAssertTrue(reveal(row, in: app, maxSwipes: 20), "The session \(id) should be written out on the Week page.")
         row.tap()
         return row
     }
@@ -190,6 +190,10 @@ final class PaceForgeNativeTabUITests: XCTestCase {
     func testPlannedSessionStillExpandsToPlanDetail() throws {
         let app = try launch(fixture: true)
         openWeekSession(app, "s-wed")
+        // A planned session opens its sheet; the step breakdown sits behind "More about this session".
+        let more = element(app, "plan529-session-more")
+        XCTAssertTrue(more.waitForExistence(timeout: 15), "A planned session's sheet should offer more about the session.")
+        more.tap()
         XCTAssertTrue(label(app, "Session breakdown").waitForExistence(timeout: 5),
                       "Opening a planned session should show its step breakdown.")
         attach(app, "07 Planned session expanded")
