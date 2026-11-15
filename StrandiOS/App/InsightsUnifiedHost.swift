@@ -56,6 +56,7 @@ private struct InsightsUnifiedColumn: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             PFPageNote(key: "insights")
+            PFProactiveInsightsSection()
             SectionChips(options: InsightsChip.allCases, selection: $selection, idPrefix: "insights-chip",
                          id: { $0.rawValue }, title: { $0.title })
             InsightsChipBody(chip: selection)

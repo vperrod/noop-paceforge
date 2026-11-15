@@ -99,7 +99,12 @@ final class ScreenshotTourUITests: XCTestCase {
         if !element(app, "coach-host").waitForExistence(timeout: 30) { note("missing: coach-host") }
         attach(app, "40-coach")
         for (index, chip) in ["read", "ask", "reports", "insights"].enumerated() {
-            if tapIfThere(app, "coach-chip-\(chip)", timeout: 5) { attach(app, "4\(index + 1)-coach-\(chip)") }
+            if tapIfThere(app, "coach-chip-\(chip)", timeout: 5) {
+                attach(app, "4\(index + 1)-coach-\(chip)")
+                if chip == "insights" {
+                    XCTAssertTrue(element(app, "coach-proactive").waitForExistence(timeout: 10), "Coach > Insights should list what the coach noticed.")
+                }
+            }
         }
     }
 
@@ -107,7 +112,7 @@ final class ScreenshotTourUITests: XCTestCase {
     /// to the bottom in steps, writes down which blocks it met after each step and asserts that every block of the fixed top was met.
     private func tourToday(_ app: XCUIApplication) {
         let required: [String] = [
-            "today-six-rings", "pf-today-card-the-call", "look-health-tile", "look-stress-tile", "pf-today-card-how-you-are",
+            "today-six-rings", "pf-today-card-the-call", "today-proactive", "look-health-tile", "look-stress-tile", "pf-today-card-how-you-are",
             "today-my-day-header", "today-daygraph", "pf-today-card-today", "sleep-planner-entry", "today-my-plan-header",
             "pf-today-card-this-week", "today-training-row", "today-my-dashboard-header",
         ]

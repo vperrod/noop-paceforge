@@ -480,6 +480,8 @@ struct LiquidTodayView: View {
         // And the reports capabilities (a day-only watch has no PaceForge Recovery or Sleep ring) with the latest daily reading, which the
         // Coach's Expert reading card draws nothing without.
         .task { await PFReportsStore.shared.refreshLatestIfStale() }
+        // The coach's proactive messages: the Coach noticed card draws nothing until the store has a file, so Today starts this load too.
+        .task { await PFProactiveStore.shared.refreshIfStale() }
         // The same for Today's call (the NOOP Charge, PaceForge readiness and Effort target dials): its host draws nothing until the
         // store has a file, so its own .task never runs. With New navigation (beta) on there is no PaceForge tab to fill the store
         // either, so Today starts this load itself, and says in the breadcrumbs what it ended with.
@@ -977,6 +979,7 @@ struct LiquidTodayView: View {
         let readWhy = { router.openCoach() }
         if hasHero { heroCard }
         PFTodayCards(cards: [.theCall, .needsYou], showsHiddenRow: false, onOpenNeedsYou: openNeedsYou, onReadWhy: readWhy)
+        PFProactiveTodayCard()
         if mountStage >= 1 {
             if hasHero {
                 lookMonitorRow

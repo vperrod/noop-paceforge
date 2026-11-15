@@ -187,6 +187,8 @@ targets:
       - StrandiOS/PaceForge/PaceForgeFormat.swift
       # The rows on a PaceForge ring page (contributors, each with its source).
       - StrandiOS/PaceForge/PaceForgeRingRows.swift
+      # The coach's proactive messages (decoding, today's pick, the Insights groups).
+      - StrandiOS/PaceForge/PaceForgeProactive.swift
       # The builder and its models: the crash-guard tests build a whole snapshot from the live documents' shapes.
       - StrandiOS/PaceForge/PaceForgeModels.swift
       - StrandiOS/PaceForge/PaceForgeBuilder.swift
