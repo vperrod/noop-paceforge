@@ -83,9 +83,9 @@ private struct TrainChipBody: View {
         switch chip {
         case .hyrox: return AnyView(TrainHyroxChip())
         case .running: return AnyView(TrainRunningChip())
-        case .strength: return AnyView(LiftLogView().containerIdentifier("train-chip-content-strength"))
+        case .strength: return AnyView(TrainStrengthChip())
         case .bike: return AnyView(TrainBikeChip())
-        case .workouts: return AnyView(WorkoutsView().containerIdentifier("train-chip-content-workouts"))
+        case .workouts: return AnyView(TrainWorkoutsChip())
         case .athlete: return AnyView(AthleteHostView().containerIdentifier("train-chip-content-athlete"))
         }
     }
@@ -108,9 +108,55 @@ private struct TrainHyroxContent: View {
             IndexSection("Race reports") {
                 IndexRow("Race reports", "flag.checkered", TabRoute.reports("race"), id: "train-hyrox-race-reports")
             }
-            PFHyroxScreen(snapshot: snapshot)
+            PFHyroxScreen(snapshot: snapshot, showsPrediction: true)
         }
         .containerIdentifier("train-chip-content-hyrox")
+    }
+}
+
+/// Strength: the strength programme (web only) one tap away, then the Lift Log.
+private struct TrainStrengthChip: View {
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            IndexSection("On the web") {
+                PFWebPageRow(title: "Strength programme", detail: "Opens the PaceForge website in your browser.",
+                             icon: "dumbbell", route: PFWebPage.strength, identifier: "train-strength-programme")
+            }
+            LiftLogView()
+        }
+        .containerIdentifier("train-chip-content-strength")
+    }
+}
+
+/// Workouts: PaceForge's latest recordings with their coach-review status on top (each opens the results sheet with the review and "Ask
+/// Coach about this workout"), then NOOP's own list. NOOP's rows are not matched to PaceForge recordings, so the two lists stay apart.
+private struct TrainWorkoutsChip: View {
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            // No chrome: while PaceForge is locked, loading or offline the card is simply absent and the list below stays usable.
+            PFSnapshotHost(drawsChrome: false, content: { snapshot in AnyView(TrainCoachReviewsCard(snapshot: snapshot)) })
+            WorkoutsView()
+        }
+        .containerIdentifier("train-chip-content-workouts")
+    }
+}
+
+private struct TrainCoachReviewsCard: View {
+    let snapshot: PFSnapshot
+
+    var body: some View {
+        let recent = PFRecording.latest(snapshot, runsOnly: false, limit: 5)
+        if !recent.isEmpty {
+            PFCard("Coach reviews", icon: "text.bubble") {
+                VStack(spacing: 0) {
+                    ForEach(Array(recent.enumerated()), id: \.element.id) { index, activity in
+                        PFRecordingRow(activity: activity, snapshot: snapshot, showsReview: true)
+                        if index < recent.count - 1 { Divider().overlay(StrandPalette.hairline) }
+                    }
+                }
+            }
+            .containerIdentifier("train-workouts-coach-reviews")
+        }
     }
 }
 
@@ -129,6 +175,11 @@ private struct TrainBikeContent: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
+            TrainFtpCard(snapshot: snapshot)
+            IndexSection("On the web") {
+                PFWebPageRow(title: "Ride library", detail: "Opens the PaceForge website in your browser.",
+                             icon: "books.vertical", route: PFWebPage.bike, identifier: "train-bike-ride-library")
+            }
             if snapshot.rides.isEmpty {
                 PFCard("No rides yet", icon: "bicycle") {
                     PFParagraph("Rides PaceForge has analysed show here, newest first. Planned rides are on the Plan tab.")

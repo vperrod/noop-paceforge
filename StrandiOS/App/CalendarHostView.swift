@@ -409,8 +409,24 @@ private struct CalendarPlanChip: View {
             PFMyPlanStoreHost(isOnPlanTab: true)
             if let easy = snapshot.easyMode { CalendarEasyModeRow(easy: easy) }
             if !snapshot.weeks.isEmpty { PFWeekView(snapshot: snapshot) }
+            CalendarAdjustHost()
         }
         .containerIdentifier("calendar-chip-content-plan")
+    }
+}
+
+/// Adjust today (while a session is planned for today) and the Niggles entry, under the week. They sat in a Today section that is gone.
+private struct CalendarAdjustHost: View {
+    @ObservedObject private var store = PFPhase4Store.shared
+
+    var body: some View {
+        VStack(spacing: 12) {
+            if store.docs.myPlan.value?.items.contains(where: { $0.status == "today" }) == true {
+                PFAdjustTodayCard()
+            }
+            PFNiggleEntryCard()
+        }
+        .containerIdentifier("calendar-adjust-niggles")
     }
 }
 
@@ -485,6 +501,10 @@ private struct CalendarSeasonChip: View {
         let currentKey = snapshot.weeks.indices.contains(snapshot.currentWeekIndex) ? snapshot.weeks[snapshot.currentWeekIndex].key : ""
         return VStack(alignment: .leading, spacing: 16) {
             PFSeasonPlanCard()
+            IndexSection("On the web") {
+                PFWebPageRow(title: "Start a programme", detail: "Opens the PaceForge website in your browser.",
+                             icon: "calendar.badge.plus", route: PFWebPage.plan, identifier: "calendar-season-start-programme")
+            }
             Text("Events").strandOverline()
             CalendarEventsSection(snapshot: snapshot)
             Text("Weeks").strandOverline()

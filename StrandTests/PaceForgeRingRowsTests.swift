@@ -33,4 +33,27 @@ final class PaceForgeRingRowsTests: XCTestCase {
     func testNoFactsGiveNoRows() {
         XCTAssertEqual(PFRingRows.recovery(PFRingFacts()), [])
     }
+
+    private let strainJSON = Data("""
+    {"strain_parts": [{"label": "Morning run", "value": 120.0, "unit": "load", "share": 0.5},
+                      {"label": "Evening ride", "value": 90.4, "unit": "load", "share": 0.38},
+                      {"value": 5}]}
+    """.utf8)
+
+    func testStrainPartsAreReadBiggestFirstAndSkipOneWithoutALabel() {
+        XCTAssertEqual(PFRingRows.strainParts(PFJ(data: strainJSON)).map(\.label), ["Morning run", "Evening ride"])
+    }
+
+    func testStrainRowsShowLoadAndShareUnderTheDerivedSource() {
+        let row = PFRingRows.strain(PFRingRows.strainParts(PFJ(data: strainJSON)))[0]
+        XCTAssertEqual([row.value, row.note, row.source], ["120 load", "50 % of the day", "PaceForge, from Garmin data"])
+    }
+
+    func testStrainRowCarriesItsShareForTheBar() {
+        XCTAssertEqual(PFRingRows.strain(PFRingRows.strainParts(PFJ(data: strainJSON)))[1].share, 0.38)
+    }
+
+    func testAbsentStrainPartsGiveNoRows() {
+        XCTAssertEqual(PFRingRows.strainParts(PFJ(data: Data("{}".utf8))), [])
+    }
 }

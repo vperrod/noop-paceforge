@@ -141,6 +141,7 @@ struct RootTabView: View {
 
     /// The Coach opens as a sheet over whatever screen is showing, from the round button beside the bar and from every Coach link.
     private func presentCoach() {
+        PFCoachContext.shared.set(fromTab: selectedTab)
         routedPillar = .coach
     }
 
