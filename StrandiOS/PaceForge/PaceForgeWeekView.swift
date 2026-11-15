@@ -89,7 +89,7 @@ private struct PFDaySection: View {
                     .foregroundStyle(StrandPalette.textTertiary)
                     .padding(.vertical, 2)
             } else {
-                ForEach(races, id: \.name) { PFRaceDayRow(race: $0, outcome: snapshot.raceOutcome(on: day.date, name: $0.name), snapshot: snapshot) }
+                ForEach(races, id: \.name) { PFRaceDayRow(race: $0, outcome: snapshot.raceItem(on: day.date, name: $0.name), snapshot: snapshot) }
                 ForEach(workouts) { PFWorkoutRow(workout: $0, snapshot: snapshot) }
                 ForEach(rides) { PFRideRow(ride: $0, snapshot: snapshot) }
             }
@@ -104,24 +104,36 @@ struct PFRaceDayRow: View {
     let race: PFNextRace
     /// The week strip's entry for this race when it has been run (result, gap to goal, recording).
     var outcome: PFTodayCall.WeekItem? = nil
-    /// Needed to open the recording's results; without it a run race still opens the race plan.
+    /// Needed to open the recording's results; without it the row opens the race plan.
     var snapshot: PFSnapshot? = nil
     @EnvironmentObject private var coach: AICoachEngine
     @EnvironmentObject private var router: NavRouter
     @State private var showPlan = false
     @State private var showResults = false
 
-    /// A race that was run opens its metrics and the coach's review; one still ahead opens the race plan.
+    /// The recording of a race that is today or past: the strip's `activity_id`, else a recording of that day named like the race.
     private var resultsWorkout: PFWorkout? {
-        guard let id = outcome?.activityID, snapshot != nil else { return nil }
+        guard let snapshot, isDayReached, let id = snapshot.raceRecordingID(on: race.date, name: race.name) else { return nil }
         return PFWorkout(id: id, date: race.date, status: "done", name: race.name, kind: "race", activityId: id)
+    }
+
+    /// Race day is today or already behind us (ISO dates compare as text).
+    private var isDayReached: Bool {
+        guard let today = snapshot?.todayISO, !today.isEmpty else { return race.daysOut <= 0 }
+        return race.date <= today
+    }
+
+    /// A past race with no recording at all: nothing to open, and the plan for it would only mislead.
+    private var isPastWithoutRecording: Bool {
+        guard let today = snapshot?.todayISO, !today.isEmpty else { return false }
+        return race.date < today && resultsWorkout == nil
     }
 
     private var isHyrox: Bool { race.name.localizedCaseInsensitiveContains("hyrox") }
 
     var body: some View {
         Group {
-            if isHyrox || resultsWorkout != nil {
+            if resultsWorkout != nil || (isHyrox && !isPastWithoutRecording) {
                 Button { if resultsWorkout != nil { showResults = true } else { showPlan = true } } label: { card }
                     .buttonStyle(.plain)
             } else {
@@ -159,6 +171,12 @@ struct PFRaceDayRow: View {
                     Text(race.goalTime.map { "Race \u{00B7} goal \($0)" } ?? "Race")
                         .font(StrandFont.caption)
                         .foregroundStyle(StrandPalette.textSecondary)
+                    if isPastWithoutRecording {
+                        Text("No recording for this race")
+                            .font(StrandFont.caption)
+                            .foregroundStyle(StrandPalette.textTertiary)
+                            .accessibilityIdentifier("pf-week-race-norecording-\(race.date)")
+                    }
                 }
                 Spacer(minLength: 0)
                 if outcome != nil {
