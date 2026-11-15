@@ -132,6 +132,8 @@ final class ScreenCleanupUITests: XCTestCase {
             alive(app, "opening the \(report.entry) report")
             attach(app, "Cleanup 4 report \(report.entry)")
             app.navigationBars.buttons.element(boundBy: 0).tap()
+            // Wait for the pop to finish: the next entry is hittable while the list still slides back, and a tap then is dropped.
+            XCTAssertTrue(element(app, report.body).waitForNonExistence(timeout: 10), "The \(report.entry) report should close.")
         }
     }
 

@@ -145,6 +145,9 @@ final class PaceForgeBuild463UITests: XCTestCase {
         XCTAssertTrue(name.waitForExistence(timeout: 10), "The program editor should open.")
         name.tap()
         name.typeText("Push day")
+        // Close the keyboard before the exercise sheet opens: presented over it, the sheet's form comes up scrolled by the keyboard's height.
+        let nameReturn = app.keyboards.buttons.matching(NSPredicate(format: "label ==[c] 'return'")).firstMatch
+        if nameReturn.exists { nameReturn.tap() }
         let addFirst = app.buttons["Add exercise"]
         XCTAssertTrue(reveal(addFirst, in: app, maxSwipes: 6), "The editor should offer Add exercise.")
         addFirst.tap()
@@ -152,7 +155,8 @@ final class PaceForgeBuild463UITests: XCTestCase {
         XCTAssertTrue(exercise.waitForExistence(timeout: 10), "The exercise sheet should open.")
         // The sheet can open already scrolled (the program editor's keyboard was up), with the field above the screen where an AX
         // scroll-to-visible fails: drag the form down until the field is back in view.
-        for _ in 0..<4 where exercise.frame.minY < 100 { app.swipeDown(velocity: .slow) }
+        for _ in 0..<5 where exercise.frame.minY < 100 { app.swipeDown(velocity: .fast) }
+        XCTAssertGreaterThan(exercise.frame.minY, 0, "The exercise field should be back on screen before it is tapped.")
         exercise.tap()
         exercise.typeText("Bench press")
         let returnKey = app.keyboards.buttons["Return"]
