@@ -1087,7 +1087,7 @@ struct LiquidTodayView: View {
 
     /// The newest workout the Last workouts card draws, as the training row's compact card prints it.
     private var trainingLastWorkout: PFTrainingLastWorkout? {
-        workouts.first.map { PFTrainingLastWorkout(title: WorkoutSource.displaySport($0.sport), detail: workoutSub($0)) }
+        workouts.first.map { PFTrainingLastWorkout(title: WorkoutSource.displaySport($0.sport), detail: workoutSub($0), startTs: $0.startTs) }
     }
 
     /// "My Dashboard" with CUSTOMIZE, which opens the same Customize sheet as the header's button.
@@ -2061,8 +2061,14 @@ struct LiquidTodayView: View {
         VStack(spacing: 8) {
             sectionHead("LAST WORKOUTS", trailing: "\(workouts.count) total")
             if let w = workouts.first {
+                #if os(iOS)
+                // Opens that workout's results when a PaceForge recording matches it, else the Workouts list.
+                PFWorkoutResultsLink(startTs: w.startTs) { workoutCard(w) }
+                    .buttonStyle(LiquidPressStyle())
+                #else
                 NavigationLink(value: TabRoute.workouts) { workoutCard(w) }
                     .buttonStyle(LiquidPressStyle())
+                #endif
             } else {
                 card {
                     Text("No workouts yet")

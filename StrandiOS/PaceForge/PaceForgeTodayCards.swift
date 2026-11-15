@@ -57,7 +57,10 @@ private struct PFTodayCardsColumn: View {
                 // The Today card lists the next race on every day but race day, so the row repeats it only on race day.
                 let race = info.today.kind == "race" ? info.nextRace : nil
                 if race != nil || trainingRow.lastWorkout != nil {
-                    PFTrainingRow(nextRace: race, lastWorkout: trainingRow.lastWorkout)
+                    // A race that was run today opens its results, as the Today card's race row does; the tile is only that race when the dates agree.
+                    let todayRace = PFWorkoutMatch.todayRaceWorkout(info: info, snapshot: snapshot)
+                    PFTrainingRow(nextRace: race, lastWorkout: trainingRow.lastWorkout, snapshot: snapshot,
+                                  raceResults: race?.date == todayRace?.date ? todayRace : nil)
                 }
             }
             if showsHiddenRow { PFHiddenCardsRow(snapshot: snapshot) }
@@ -195,11 +198,10 @@ private struct PFTodaySlotCard: View {
     @State private var sessionToOpen: PFWorkout?
     @State private var showRaceResults = false
 
-    /// The recording of a race that was run today (as `PFRaceDayRow` does); nil while the race is still ahead.
+    /// The recording of a race that was run today (as `PFRaceDayRow` does): the week strip's `activity_id`, else the recording of the day with
+    /// the race in its name; nil while no recording is known, when the plan sheet opens instead.
     private var raceResultsWorkout: PFWorkout? {
-        guard info.today.kind == "race", let date = info.today.raceDate, let name = info.today.title,
-              let id = snapshot.raceOutcome(on: date, name: name)?.activityID else { return nil }
-        return PFWorkout(id: id, date: date, status: "done", name: name, kind: "race", activityId: id)
+        PFWorkoutMatch.todayRaceWorkout(info: info, snapshot: snapshot)
     }
 
     var body: some View {
@@ -498,6 +500,8 @@ private struct PFThisWeekCard: View {
 struct PFTrainingLastWorkout {
     let title: String
     let detail: String
+    /// The strap workout's start (unix seconds), to find the PaceForge recording behind it.
+    var startTs: Int? = nil
 }
 
 /// Marks the slot that closes with the training row.
@@ -510,7 +514,13 @@ struct PFTrainingSlot {
 private struct PFTrainingRow: View {
     let nextRace: PFTodayCall.Race?
     let lastWorkout: PFTrainingLastWorkout?
+    let snapshot: PFSnapshot
+    /// The recording of the race when it was run today; nil for a race still ahead.
+    var raceResults: PFWorkout?
+    @EnvironmentObject private var coach: AICoachEngine
+    @EnvironmentObject private var router: NavRouter
     @State private var showRace = false
+    @State private var showRaceResults = false
 
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
@@ -520,12 +530,17 @@ private struct PFTrainingRow: View {
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("today-training-row")
         .sheet(isPresented: $showRace) { PFHyroxSheet() }
+        .sheet(isPresented: $showRaceResults) {
+            if let raceResults {
+                PFResultsSheet(workout: raceResults, snapshot: snapshot, onAskCoach: PFResultsSheet.askCoach(coach, router))
+            }
+        }
     }
 
     private func raceTile(_ race: PFTodayCall.Race) -> some View {
         let when = race.daysOut == 1 ? "tomorrow" : "in \(race.daysOut) days"
         let goal = race.goalTime.map { "Goal \($0)" }
-        return Button { showRace = true } label: {
+        return Button { if raceResults != nil { showRaceResults = true } else { showRace = true } } label: {
             tile(title: "NEXT RACE", headline: race.name, lines: [when, PFFormat.dayTitle(race.date)] + (goal.map { [$0] } ?? []))
         }
         .buttonStyle(.plain)
@@ -533,8 +548,15 @@ private struct PFTrainingRow: View {
     }
 
     private func workoutTile(_ workout: PFTrainingLastWorkout) -> some View {
-        NavigationLink(value: TabRoute.workouts) {
-            tile(title: "LAST WORKOUT", headline: workout.title, lines: [workout.detail])
+        Group {
+            if let startTs = workout.startTs {
+                // Opens that workout's results when a PaceForge recording matches it, else the Workouts list.
+                PFWorkoutResultsLink(startTs: startTs) { tile(title: "LAST WORKOUT", headline: workout.title, lines: [workout.detail]) }
+            } else {
+                NavigationLink(value: TabRoute.workouts) {
+                    tile(title: "LAST WORKOUT", headline: workout.title, lines: [workout.detail])
+                }
+            }
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier("today-training-last-workout")
