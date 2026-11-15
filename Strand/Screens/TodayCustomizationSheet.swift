@@ -320,7 +320,7 @@ private struct TodaySectionsCustomizationPage: View {
                     .foregroundStyle(StrandPalette.textTertiary)
             }
             Section {
-                Text("My Plan is now the My Plan group on Today and Plan > This week. My Dashboard is the My Dashboard group on Today, made of the sections listed above. Start session is a beta and is not drawn on the iPhone's Today.")
+                Text("My Plan is now the My Plan group on Today and Plan > This week. My Dashboard is the My Dashboard group on Today, made of the sections listed above. Start session is a beta and is not drawn on the iPhone's Today. Synthesis, Recovery Vitals, Day in review and Workouts are not separate sections any more: the call and How you are, the Key Metrics tiles (each with a mark against your 30-day usual), the Day in review row in My Day and Today's workouts carry them.")
                     .font(StrandFont.footnote)
                     .foregroundStyle(StrandPalette.textTertiary)
                     .accessibilityIdentifier("today-customize-retired-note")

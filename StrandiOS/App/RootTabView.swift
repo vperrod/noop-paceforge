@@ -208,7 +208,7 @@ struct RootTabView: View {
         .toolbar(lookTabBar ? .hidden : .automatic, for: .tabBar)
         .overlay(alignment: .bottom) {
             if lookTabBar {
-                FloatingTabBar(items: Self.lookTabs, selection: lookTabSelection, onCoach: { presentCoach() })
+                PFInboxTabBar529(items: Self.lookTabs, selection: lookTabSelection, onCoach: { presentCoach() })
                     .padding(.bottom, 6)
             }
         }

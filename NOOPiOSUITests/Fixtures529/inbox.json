@@ -1,0 +1,118 @@
+{
+ "data/inbox.json": {
+  "version": 1,
+  "generated_at": "2030-03-13T19:32:00+00:00",
+  "items": [
+   {
+    "id": "report:week:2030-W10",
+    "ts": "2030-03-13T19:00:22+00:00",
+    "kind": "report",
+    "notify": true,
+    "title": "Week 10: a steady build",
+    "body": "Four sessions done, one easy. Your report is ready.",
+    "list_title": "Week 10 report is ready",
+    "list_sub": "Report · opens the week",
+    "link": {
+     "route": "week",
+     "week": "2030-W10"
+    }
+   },
+   {
+    "id": "plan:changes:2030-W11",
+    "ts": "2030-03-13T18:31:00+00:00",
+    "kind": "plan",
+    "notify": true,
+    "title": "2 changes proposed for next week",
+    "body": "Tuesday easier, an easy run Friday.",
+    "list_title": "2 changes proposed for next week",
+    "list_sub": "Plan · opens the changes",
+    "link": {
+     "route": "changes",
+     "week": "2030-W11"
+    }
+   },
+   {
+    "id": "workout:9000000003",
+    "ts": "2030-03-13T16:00:00+00:00",
+    "kind": "workout",
+    "notify": true,
+    "title": "The coach reviewed Synthetic walk",
+    "body": "31 min, easy.",
+    "list_title": "The coach reviewed Synthetic walk",
+    "list_sub": "Workout · opens the review",
+    "link": {
+     "route": "workout",
+     "date": "2030-03-13",
+     "activity_id": "9000000003"
+    }
+   },
+   {
+    "id": "coach:synthetic_note:2030-03-13",
+    "ts": "2030-03-13T14:10:00+00:00",
+    "kind": "coach",
+    "notify": true,
+    "title": "Resting heart rate still raised",
+    "body": "58 (Garmin), 61 (WHOOP). Expected after a hard week.",
+    "list_title": "Resting heart rate still raised",
+    "list_sub": "Coach noticed",
+    "link": {
+     "route": "coach_noticed",
+     "id": "synthetic_note:2030-03-13"
+    }
+   },
+   {
+    "id": "health:effort:2030-03-13",
+    "ts": "2030-03-13T12:20:00+00:00",
+    "kind": "health",
+    "notify": true,
+    "title": "Effort target reached",
+    "body": "You are inside today's target.",
+    "list_title": "Effort target reached",
+    "list_sub": "Health · opens Effort",
+    "link": {
+     "route": "effort"
+    }
+   },
+   {
+    "id": "health:stress:2030-03-13",
+    "ts": "2030-03-13T11:05:00+00:00",
+    "kind": "health",
+    "notify": true,
+    "title": "Stress high for 45 minutes",
+    "body": "The longest stretch was around 10:30.",
+    "list_title": "Stress high for 45 minutes",
+    "list_sub": "Health · opens Stress",
+    "link": {
+     "route": "stress"
+    }
+   },
+   {
+    "id": "today:2030-03-13",
+    "ts": "2030-03-13T06:33:31+00:00",
+    "kind": "today",
+    "notify": true,
+    "title": "Keep the plan",
+    "body": "Garmin readiness 62, WHOOP recovery 58 %.",
+    "list_title": "Keep the plan",
+    "list_sub": "Today's report",
+    "link": {
+     "route": "report_daily",
+     "date": "2030-03-13"
+    }
+   },
+   {
+    "id": "problem:synthetic-signin",
+    "ts": "2030-03-12T21:00:00+00:00",
+    "kind": "problem",
+    "notify": true,
+    "title": "Synthetic service needs you to sign in again",
+    "body": "Sign in on the web to restart the sync.",
+    "list_title": "Synthetic service needs you to sign in again",
+    "list_sub": "Only you can fix this",
+    "link": {
+     "route": "today"
+    }
+   }
+  ]
+ }
+}

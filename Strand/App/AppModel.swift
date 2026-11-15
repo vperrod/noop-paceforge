@@ -449,6 +449,8 @@ final class AppModel: ObservableObject {
                     self.ble.syncWantsImmediatePush = false
                     await self.refreshAfterCompletedBackfill()
                     await self.pushAfterStrapSync(immediate: immediate)
+                    // The server push above is held to once an hour; the inbox check is not (build 529, at most every 10 minutes).
+                    await SelfHostedPushClient.checkInboxAfterContact()
                 }
             }
             .store(in: &hrCancellables)

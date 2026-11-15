@@ -176,6 +176,20 @@ enum SelfHostedPushClient {
         guard UserDefaults.standard.bool(forKey: enabledKey) else { return }
         do { _ = try await push(repo: repo) }
         catch { NSLog("NOOP self-hosted sync deferred: %@", error.localizedDescription) }
+        await checkInboxAfterContact()
+    }
+
+    /// Build 529: after a contact with the server, the inbox is checked for notifications (`PFInboxNotifier529`): one small GET, at most
+    /// every ten minutes whoever calls, and it never throws (an answer that does not come is skipped). The two-way change-journal exchange
+    /// (`api/noop/db/changes`, `replicateChanges`) runs only inside `performPush`, so the end of `pushIfEnabled` is the completion of every
+    /// such pass in the background, whatever triggers it (strap sync, the rescore resume, a scene change). The sink that ends each completed
+    /// strap sync (`AppModel`) calls it too. The background refresh (`PaceForgeBackground`) calls the same function as the fallback. A no-op
+    /// on the Mac.
+    @MainActor
+    static func checkInboxAfterContact() async {
+        #if os(iOS)
+        await PFInboxNotifier529.checkIfDue()
+        #endif
     }
 
     @MainActor

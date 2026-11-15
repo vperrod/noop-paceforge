@@ -15,8 +15,12 @@ struct LookStressMonitorSection: View {
     /// Today's compact card: only the day line under a "STRESS MONITOR" title and its source, one tap from the Stress screen (the reading,
     /// the summary and the explanations stay there).
     var chartOnly = false
+    /// Today's stress score (0 to 3) for the compact card's header, where the Stress tile near the top of Today used to carry it. nil
+    /// while the baseline is still building: the header then says nothing.
+    var todayScore: Double?
 
     @EnvironmentObject private var repo: Repository
+    @AppStorage(HideScoresPrefs.scoresKey) private var hideScores = false
 
     @State private var result: DaytimeStress.Result?
     @State private var loaded = false
@@ -107,6 +111,13 @@ struct LookStressMonitorSection: View {
                     .foregroundStyle(NoopLook.textSecondary)
                 if chartOnly {
                     Spacer(minLength: 8)
+                    if let score = todayScore {
+                        let level = LookStressLevel.forScore(score)
+                        Text((hideScores ? HideScoresPrefs.placeholder : String(format: "%.1f", locale: AppLanguage.activeLocale, score)) + " " + level.label)
+                            .font(LookFont.text(12, weight: .bold))
+                            .foregroundStyle(NoopLook.color(for: level))
+                            .accessibilityIdentifier("today-stress-score")
+                    }
                     Text("NOOP strap \u{00B7} hourly")
                         .font(LookFont.text(12, weight: .medium))
                         .foregroundStyle(NoopLook.textTertiary)

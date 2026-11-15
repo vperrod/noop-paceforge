@@ -54,7 +54,7 @@ enum TodaySection: String, CaseIterable, Identifiable {
     /// The section's display label in the Arrange sheet — matches the Android `TodaySection.title`.
     var title: String {
         switch self {
-        case .todaysCall:     return String(localized: "Today's call and daily report")
+        case .todaysCall:     return String(localized: "Today's call")
         case .dayInReview:    return String(localized: "Day in review")
         case .hero:           return String(localized: "Charge / Effort / Rest")
         #if os(iOS)
@@ -77,6 +77,11 @@ enum TodaySection: String, CaseIterable, Identifiable {
         }
     }
 
+    /// Build 529 took four more off the iPhone's Today, each a duplicate of something that stays: Synthesis (the call and How you are say
+    /// it), Recovery Vitals (the Key Metrics tiles carry HRV and resting heart rate, each with its mark against the 30-day usual and the
+    /// breathing rate is a tile too), Day in review (the evening row in My Day opens it) and Workouts (Today's workouts is the one list). A
+    /// phone that hid or reordered them keeps its saved keys: they stay in the wire format, and are ignored here.
+    ///
     /// Sections the iPhone's Today does not draw: Start session (a gated beta), My Plan (the six PaceForge cards carry "This week", and
     /// Today stopped drawing this section on 21 Oct, so its row controlled nothing) and My Dashboard (its content is drawn as the My Dashboard
     /// group of sections, each with its own row). Recovery Vitals and Your Cards were retired in build 502 and came back on 15 Nov: with
@@ -89,7 +94,7 @@ enum TodaySection: String, CaseIterable, Identifiable {
     /// Today keeps every section.
     static let retired: Set<TodaySection> = {
         #if os(iOS)
-        return [.liveSession, .myDashboard, .myPlan]
+        return [.liveSession, .myDashboard, .myPlan, .synthesis, .recoveryVitals, .dayInReview, .workouts]
         #else
         return []
         #endif
@@ -216,13 +221,13 @@ enum TodayLayoutPrefs {
 /// One block of the iPhone's Today that has its own visibility switch in Customize. The rawValue is the stable persisted id.
 enum TodayBlock: String, CaseIterable, Identifiable {
     case call = "call"
-    case pageNote = "page-note"
     case coachNoticed = "coach-noticed"
     case howYouAre = "how-you-are"
     case dayGraph = "day-graph"
     case bookend = "bookend"
     case todayCard = "today-card"
     case todaySoFar = "today-so-far"
+    case todaysWorkouts = "todays-workouts"
     case tonightsSleep = "tonights-sleep"
     case feel = "feel"
     case thisWeek = "this-week"
@@ -238,13 +243,13 @@ enum TodayBlock: String, CaseIterable, Identifiable {
     var title: String {
         switch self {
         case .call:          return String(localized: "The call and Needs you")
-        case .pageNote:      return String(localized: "Page note")
         case .coachNoticed:  return String(localized: "Coach noticed")
         case .howYouAre:     return String(localized: "How you are")
         case .dayGraph:      return String(localized: "Day graph, under the rings")
         case .bookend:       return String(localized: "Morning read and Day in review row")
         case .todayCard:     return String(localized: "Today card")
         case .todaySoFar:    return String(localized: "Today so far")
+        case .todaysWorkouts: return String(localized: "Today's workouts")
         case .tonightsSleep: return String(localized: "Tonight's sleep")
         case .feel:          return String(localized: "How do you feel")
         case .thisWeek:      return String(localized: "This week")

@@ -89,15 +89,11 @@ private struct PFTheCallCard: View {
     @ObservedObject private var intel = PFDailyIntelStore.shared
     private let hiding = PFHiding()
 
-    /// The call's detail from daily-intel.json, drawn on the banner so Today states the call once: the chip with PaceForge's Effort
-    /// target, and today's planned session. Nothing while that document is not from today.
+    /// The call's detail from daily-intel.json, drawn on the banner: the chip. Nothing while that document is not from today. The Effort
+    /// target is on its own card (both targets, each named) and today's planned session on the Today card, so the banner states neither.
     private var detailLines: [String] {
         guard let current = intel.intel, current.isCurrent(for: snapshot.todayISO), let detail = current.call else { return [] }
-        var head = [detail.call.spokenText]
-        if let target = detail.effortTarget { head.append("Effort target \(target.rangeText) \u{00B7} PaceForge (Garmin)") }
-        var lines = [head.joined(separator: " \u{00B7} ")]
-        if let session = detail.plannedSession { lines.append("Planned today: \(session.lineText)") }
-        return lines
+        return [detail.call.spokenText]
     }
 
     /// WHOOP's banner: a rounded bar on the warm-to-cool gradient of the Daily Outlook row, white text, a chevron at the end.
@@ -483,7 +479,7 @@ private struct PFThisWeekCard: View {
     let todayISO: String
 
     var body: some View {
-        Button { PFDeepLink.open(.week) } label: {
+        Button { PFDeepLink529.open(.chip(.week)) } label: {
             PFCard("This week", icon: "calendar") {
                 HStack(spacing: 4) {
                     ForEach(days, id: \.date) { day in

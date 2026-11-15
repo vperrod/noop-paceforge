@@ -56,6 +56,11 @@ enum PFAlertLink {
     private static var pendingActivity: PFWantedActivity?
 
     static func open(userInfo: [AnyHashable: Any]) {
+        // An inbox notification (build 529) carries its own link: it opens what the inbox row opens.
+        if let link = PFInboxPayload529.link(from: userInfo) {
+            PFInboxRouter529.open(link: link)
+            return
+        }
         guard let route = PFAlertRoute(userInfo: userInfo) else { return }
         PFDeepLink.openToday()
         switch route {
@@ -85,8 +90,10 @@ enum PaceForgeBackground {
     private static let lastBriefKey = "noop.paceforge.lastNotifiedBrief"
     private static let askedKey = "noop.paceforge.notificationsAsked"
     private static let lastBriefUpdateKey = "noop.paceforge.lastNotifiedBriefUpdate"
-    private static let notifiedAlertsKey = "noop.paceforge.notifiedAlerts"
-    private static let notifiedNeedsKey = "noop.paceforge.notifiedNeedsYou"
+    /// The ids the alert and Needs you paths below have announced. The inbox notifier (`PFInboxNotifier529`) reads and adds to them, so an
+    /// item is not announced twice.
+    static let notifiedAlertsKey = "noop.paceforge.notifiedAlerts"
+    static let notifiedNeedsKey = "noop.paceforge.notifiedNeedsYou"
 
     /// Register before launch finishes; the identifier is listed in BGTaskSchedulerPermittedIdentifiers.
     static func register() {
@@ -143,6 +150,9 @@ enum PaceForgeBackground {
         }
         await notifyNewAlerts(snapshot.alerts)
         await notifyNewNeedsYou(snapshot.needsYou)
+        // The inbox (build 529) is checked on every background contact with the server (the end of the sync); this refresh is the
+        // fallback for when that does not run. After the two paths above, so an alert they announced is not announced again.
+        await PFInboxNotifier529.checkIfDue()
         return true
     }
 
@@ -151,7 +161,8 @@ enum PaceForgeBackground {
         let defaults = UserDefaults.standard
         guard PFAPI.isConfigured, !PFAPI.isFixture, !defaults.bool(forKey: askedKey) else { return }
         defaults.set(true, forKey: askedKey)
-        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { _, _ in }
+        // Badges too: the app icon shows how many inbox lines are unread. (A phone that already answered keeps its earlier answer.)
+        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { _, _ in }
     }
 
     private static func canNotify() async -> Bool {
