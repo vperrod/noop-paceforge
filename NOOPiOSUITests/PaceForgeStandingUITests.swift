@@ -1,14 +1,12 @@
 import XCTest
 
-/// Simulator checks for "Where you stand": the summary on Insights and Today, the scorecard, a metric sheet,
+/// Simulator checks for "Where you stand": the summary on Coach > Insights > Overview, the scorecard, a metric sheet,
 /// a plan, the test-day card and the not-applicable state. Like the other PaceForge UI tests they serve the
 /// synthetic PaceForgeFixture.json (made-up values only); `-PaceForgeStandingNotApplicable` swaps in the
 /// second state.
 final class PaceForgeStandingUITests: XCTestCase {
     private func launch(extraArguments: [String] = []) throws -> XCUIApplication {
         let app = XCUIApplication()
-        // These tests drive the classic PaceForge tab and its segments, which the unified bar (the default) does not have.
-        try app.useClassicNavigation()
         app.launchArguments.append("--demo-seed")
         app.launchArguments.append(contentsOf: extraArguments)
         app.launchArguments.append("-PaceForgeFixture")
@@ -30,18 +28,6 @@ final class PaceForgeStandingUITests: XCTestCase {
         app.descendants(matching: .any).matching(identifier: id).firstMatch
     }
 
-    private func openSegment(_ app: XCUIApplication, _ title: String) throws {
-        let tab = app.shellTab("PaceForge")
-        XCTAssertTrue(tab.waitForExistence(timeout: 20), "The PaceForge tab should be present.")
-        tab.tap()
-        let segments = app.segmentedControls["pf-segments"]
-        XCTAssertTrue(segments.waitForExistence(timeout: 15), "The PaceForge segmented control should load from the fixture.")
-        let button = segments.buttons[title]
-        button.tap()
-        // The segment is remembered between launches; a tap that lands while the previous one is restored is lost.
-        if !button.isSelected { button.tap() }
-    }
-
     /// Scrolls down until the element can be tapped.
     @discardableResult
     private func reveal(_ element: XCUIElement, in app: XCUIApplication, maxSwipes: Int = 14) -> Bool {
@@ -55,22 +41,24 @@ final class PaceForgeStandingUITests: XCTestCase {
     }
 
     private func openScorecard(_ app: XCUIApplication) throws {
-        try openSegment(app, "Insights")
+        app.openCoachInsights("overview")
         let open = app.buttons["pf-standing-open"]
-        XCTAssertTrue(open.waitForExistence(timeout: 10), "Insights should lead with the Where you stand card.")
+        XCTAssertTrue(reveal(open, in: app, maxSwipes: 20), "Insights should show the Where you stand card.")
         open.tap()
         XCTAssertTrue(element(app, "pf-standing-screen").waitForExistence(timeout: 10), "The scorecard should open.")
     }
 
     func testInsightsShowsTheSummaryAndOpensTheScorecard() throws {
         let app = try launch()
-        try openSegment(app, "Insights")
+        app.openCoachInsights("overview")
         let card = element(app, "pf-standing-insights-card")
-        XCTAssertTrue(card.waitForExistence(timeout: 10), "Insights should show the Where you stand card.")
+        XCTAssertTrue(reveal(card, in: app, maxSwipes: 20), "Insights should show the Where you stand card.")
         XCTAssertTrue(element(app, "pf-standing-strip").exists, "The card should show the counts as a strip.")
         XCTAssertTrue(element(app, "pf-standing-chip-strongest-grip").exists, "The strongest metrics should show as chips.")
         attach(app, "40 Where you stand on Insights")
-        app.buttons["pf-standing-open"].tap()
+        let open = app.buttons["pf-standing-open"]
+        XCTAssertTrue(reveal(open, in: app), "The card should offer the scorecard.")
+        open.tap()
         XCTAssertTrue(element(app, "pf-standing-screen").waitForExistence(timeout: 10))
         XCTAssertTrue(element(app, "pf-standing-metric-resting_hr").waitForExistence(timeout: 5),
                       "The scorecard should list the metrics with their band bars.")
@@ -149,16 +137,6 @@ final class PaceForgeStandingUITests: XCTestCase {
         XCTAssertEqual(element(app, "pf-test-hint-grip").label, "Log it in Telegram: grip 52 kg")
         XCTAssertTrue(element(app, "pf-test-logged-squat").label.contains("Not logged yet"))
         attach(app, "43 Test day")
-    }
-
-    func testTodayShowsTheCompactCardAndItOpensTheScorecard() throws {
-        let app = try launch()
-        try openSegment(app, "Today")
-        let card = element(app, "pf-standing-today-card")
-        XCTAssertTrue(reveal(card, in: app, maxSwipes: 20), "Today should show the compact Where you stand card.")
-        attach(app, "44 Where you stand on Today")
-        card.tap()
-        XCTAssertTrue(element(app, "pf-standing-screen").waitForExistence(timeout: 10))
     }
 
     func testNotApplicableShowsTheProfileNote() throws {
