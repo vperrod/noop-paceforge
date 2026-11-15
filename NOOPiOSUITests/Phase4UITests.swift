@@ -1,15 +1,14 @@
 import XCTest
 
 /// Simulator checks for the Phase 4 screens: Highlights and the streak chip, Healthspan, Journal impact, the monthly report,
-/// the My Plan card on NOOP Today and PaceForge Today, My Dashboard with its editor, the journal flow and the Stress monitor.
+/// the My Plan card on Today and Plan > This week, My Dashboard with its editor, the journal flow and the Stress monitor.
 /// They run on `--demo-seed` data and the synthetic PaceForgeFixture.json (made-up numbers; its day is 2030-03-13, a Wednesday,
 /// ISO week 2030-W11). `-PaceForgePhase4Unavailable` and `-PaceForgePhase4Missing` swap in the unavailable and the not-served
 /// documents, `-PaceForgeNoStreak` a highlights file with nothing alive and `-PaceForgeJournalImpactEmpty` a journal impact
 /// with no clear effect. Screenshot names start with "Phase4" and a two-digit step, so a run's attachments sort in screen order.
 final class Phase4UITests: XCTestCase {
-    private func launch(screen: String? = nil, appearance: String = "dark", extra: [String] = [], classic: Bool = false) throws -> XCUIApplication {
+    private func launch(screen: String? = nil, appearance: String = "dark", extra: [String] = []) throws -> XCUIApplication {
         let app = XCUIApplication()
-        if classic { try app.useClassicNavigation() }
         app.launchArguments.append("--demo-seed")
         if let screen { app.launchArguments.append(contentsOf: ["--demo-screen", screen]) }
         app.launchArguments.append(contentsOf: ["-theme.appearance", appearance])
@@ -54,17 +53,6 @@ final class Phase4UITests: XCTestCase {
         let frame = element.frame
         XCTAssertGreaterThanOrEqual(frame.minX, -1, "\(what) should not start left of the screen.")
         XCTAssertLessThanOrEqual(frame.maxX, app.frame.width + 1, "\(what) should not run past the right edge.")
-    }
-
-    private func openPaceForgeToday(_ app: XCUIApplication) throws {
-        let tab = app.shellTab("PaceForge")
-        XCTAssertTrue(tab.waitForExistence(timeout: 20), "The PaceForge tab should be present.")
-        tab.tap()
-        let segments = app.segmentedControls["pf-segments"]
-        XCTAssertTrue(segments.waitForExistence(timeout: 15), "The PaceForge segmented control should load from the fixture.")
-        let button = segments.buttons["Today"]
-        // A tap that lands while the remembered segment is still being restored is lost; look again before moving on.
-        for _ in 0..<3 where !button.isSelected { button.tap(); Thread.sleep(forTimeInterval: 1) }
     }
 
     // MARK: Highlights
@@ -251,11 +239,11 @@ final class Phase4UITests: XCTestCase {
         attach(app, "Phase4 61 Plan, opened from My Plan")
     }
 
-    func testMyPlanCardOnPaceForgeToday() throws {
-        let app = try launch(classic: true)
-        try openPaceForgeToday(app)
-        XCTAssertTrue(reveal(element(app, "pf-my-plan"), in: app), "PaceForge Today should carry My Plan too.")
-        attach(app, "Phase4 62 PaceForge Today, My Plan")
+    func testMyPlanCardOnThePlanTab() throws {
+        let app = try launch()
+        app.openChip("Plan", "thisWeek")
+        XCTAssertTrue(reveal(element(app, "pf-my-plan"), in: app), "Plan > This week should carry My Plan too.")
+        attach(app, "Phase4 62 Plan, My Plan")
     }
 
     func testNoPlanMeansNoCard() throws {
@@ -268,19 +256,19 @@ final class Phase4UITests: XCTestCase {
     // MARK: My Dashboard
 
     func testMyDashboardRowsOnToday() throws {
-        throw XCTSkip("My Dashboard is off Today since build 504 (Key Metrics took its place); it needs another way in before this runs.")
         let app = try launch()
-        let section = element(app, "look-my-dashboard")
-        XCTAssertTrue(reveal(section, in: app), "Today should carry My Dashboard.")
+        XCTAssertTrue(reveal(element(app, "today-my-dashboard-header"), in: app, maxSwipes: 20), "Today should carry the My Dashboard header.")
+        // The rows sit under the key metrics, as the "Today vs 30 days" card.
+        let section = element(app, "today-vs30")
+        XCTAssertTrue(reveal(section, in: app, maxSwipes: 20), "Today should carry My Dashboard's Today vs 30 days rows.")
         attach(app, "Phase4 70 NOOP Today, My Dashboard")
         assertFits(section, in: app, "My Dashboard")
     }
 
     func testMyDashboardEditorAddsAMetricAndSaves() throws {
-        throw XCTSkip("My Dashboard is off Today since build 504 (Key Metrics took its place); it needs another way in before this runs.")
         let app = try launch()
         let customize = element(app, "look-dashboard-customize")
-        XCTAssertTrue(reveal(customize, in: app), "My Dashboard should offer CUSTOMIZE.")
+        XCTAssertTrue(reveal(customize, in: app, maxSwipes: 20), "My Dashboard's Today vs 30 days card should offer CUSTOMIZE.")
         customize.tap()
         XCTAssertTrue(element(app, "look-dashboard-list").waitForExistence(timeout: 10), "The editor should open.")
         attach(app, "Phase4 71 My Dashboard editor, drag handles")
@@ -289,7 +277,7 @@ final class Phase4UITests: XCTestCase {
         add.tap()
         attach(app, "Phase4 72 My Dashboard editor after adding Steps")
         element(app, "look-dashboard-save").tap()
-        XCTAssertTrue(element(app, "look-my-dashboard").waitForExistence(timeout: 10), "SAVE should return to Today.")
+        XCTAssertTrue(element(app, "today-vs30").waitForExistence(timeout: 10), "SAVE should return to Today.")
         attach(app, "Phase4 73 My Dashboard after saving")
     }
 
