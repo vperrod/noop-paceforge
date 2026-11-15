@@ -3,14 +3,13 @@ import XCTest
 /// The PaceForge tab crashed on a real iPhone (build 465) while these UI tests passed on made-up documents. This suite
 /// serves the same screens the shape of the LIVE documents instead (`PaceForgeRealShapes.json`: every key, null, empty
 /// list, zero, negative number, one-point series and low-above-high range of the real files, every value replaced) and
-/// walks the tab, its detail sheets and the Phase 4 screens. Each step only checks that the app is still running, so a
+/// walks the screens that hold PaceForge's documents (Today, Plan > This week, Health > Body, the Coach sheet), their detail sheets and
+/// the Phase 4 screens. Each step only checks that the app is still running, so a
 /// crash names the step that caused it; the CI step after the run prints the crash report.
 final class PaceForgeRealShapesUITests: XCTestCase {
 
     private func launch(screen: String? = nil, extra: [String] = []) throws -> XCUIApplication {
         let app = XCUIApplication()
-        // These tests drive the classic PaceForge tab and its segments, which the unified bar (the default) does not have.
-        try app.useClassicNavigation()
         app.launchArguments.append("--demo-seed")
         if let screen { app.launchArguments.append(contentsOf: ["--demo-screen", screen]) }
         app.launchArguments.append(contentsOf: extra)
@@ -46,46 +45,55 @@ final class PaceForgeRealShapesUITests: XCTestCase {
         app.descendants(matching: .any).matching(NSPredicate(format: "identifier BEGINSWITH %@", prefix)).firstMatch
     }
 
-    private func openPaceForge(_ app: XCUIApplication) throws -> XCUIElement {
-        let tab = app.shellTab("PaceForge")
-        XCTAssertTrue(tab.waitForExistence(timeout: 30), "The PaceForge tab should be present.")
-        tab.tap()
-        let segments = app.segmentedControls["pf-segments"]
-        XCTAssertTrue(segments.waitForExistence(timeout: 30), "The PaceForge segmented control should load from the fixture.")
-        return segments
-    }
-
-    private func scrollThrough(_ app: XCUIApplication, _ name: String, swipes: Int = 8) {
+    /// Scrolls to the bottom and back. `returns: false` for a sheet (the Coach, a detail): a swipe down at its top would dismiss it.
+    private func scrollThrough(_ app: XCUIApplication, _ name: String, swipes: Int = 8, returns: Bool = true) {
         for step in 0..<swipes {
             app.swipeUp()
             alive(app, "\(name): scroll down \(step + 1)")
         }
         attach(app, "\(name) bottom")
+        guard returns else { return }
         for _ in 0..<swipes { app.swipeDown() }
         alive(app, "\(name): scroll back up")
     }
 
-    // MARK: The five segments
+    private func visit(_ app: XCUIApplication, _ name: String, returns: Bool = true) {
+        Thread.sleep(forTimeInterval: 2)
+        alive(app, "opening \(name)")
+        attach(app, "RealShapes \(name)")
+        scrollThrough(app, "RealShapes \(name)", returns: returns)
+    }
 
-    func testEverySegmentOfTheTabSurvivesRealShapedDocuments() throws {
+    // MARK: The screens
+
+    func testTheTabsSurviveRealShapedDocuments() throws {
         let app = try launch()
-        let segments = try openPaceForge(app)
-        for title in ["Today", "Coach", "This week", "Insights", "Body"] {
-            let button = segments.buttons[title]
-            XCTAssertTrue(button.waitForExistence(timeout: 10), "The \(title) segment should exist.")
-            button.tap()
-            if !button.isSelected { button.tap() }
-            Thread.sleep(forTimeInterval: 2)
-            alive(app, "opening \(title)")
-            attach(app, "RealShapes \(title)")
-            scrollThrough(app, "RealShapes \(title)")
+        app.openTab("Today")
+        visit(app, "Today")
+        app.openChip("Plan", "thisWeek")
+        visit(app, "This week")
+        app.openChip("Health", "body")
+        visit(app, "Body")
+    }
+
+    func testTheCoachSurvivesRealShapedDocuments() throws {
+        let app = try launch()
+        app.openCoach("read")
+        visit(app, "Coach Read", returns: false)
+    }
+
+    func testCoachInsightsSurvivesRealShapedDocuments() throws {
+        for chip in ["overview", "deepDives"] {
+            let app = try launch()
+            app.openCoachInsights(chip)
+            visit(app, "Coach Insights \(chip)", returns: false)
+            app.terminate()
         }
     }
 
     func testTodayInTheEveningSurvivesRealShapedDocuments() throws {
         let app = try launch(extra: ["-PaceForgeEvening"])
-        let segments = try openPaceForge(app)
-        segments.buttons["Today"].tap()
+        app.openTab("Today")
         Thread.sleep(forTimeInterval: 2)
         alive(app, "opening Today in the evening")
         scrollThrough(app, "RealShapes Today evening")
@@ -95,8 +103,7 @@ final class PaceForgeRealShapesUITests: XCTestCase {
 
     func testEveryInsightDetailOpensOnRealShapedDocuments() throws {
         let app = try launch()
-        let segments = try openPaceForge(app)
-        segments.buttons["Insights"].tap()
+        app.openCoachInsights("overview")
         Thread.sleep(forTimeInterval: 2)
         let cards = app.descendants(matching: .any).matching(NSPredicate(format: "identifier BEGINSWITH %@", "pf-insight-card-"))
         let count = min(cards.count, 8)
@@ -108,8 +115,9 @@ final class PaceForgeRealShapesUITests: XCTestCase {
             Thread.sleep(forTimeInterval: 2)
             alive(app, "opening insight detail \(index)")
             attach(app, "RealShapes insight detail \(index)")
-            scrollThrough(app, "RealShapes insight detail \(index)", swipes: 6)
-            app.swipeDown(velocity: .fast)
+            scrollThrough(app, "RealShapes insight detail \(index)", swipes: 6, returns: false)
+            let done = element(app, "pf-insight-done")
+            if done.exists { done.tap() }
             Thread.sleep(forTimeInterval: 1)
             alive(app, "closing insight detail \(index)")
         }
@@ -119,8 +127,7 @@ final class PaceForgeRealShapesUITests: XCTestCase {
 
     func testBodyTrendRangesAndMetricsSurviveRealShapedSeries() throws {
         let app = try launch()
-        let segments = try openPaceForge(app)
-        segments.buttons["Body"].tap()
+        app.openChip("Health", "body")
         Thread.sleep(forTimeInterval: 2)
         let chart = element(app, "pf-body-trend-chart")
         for _ in 0..<12 where !(chart.exists && chart.isHittable) { app.swipeUp() }
