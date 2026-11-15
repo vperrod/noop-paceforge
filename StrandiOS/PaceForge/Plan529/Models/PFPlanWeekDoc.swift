@@ -81,6 +81,27 @@ struct PFPlanWeekDoc: Codable, Equatable {
         var acceptLabel: String?
         var keepLabel: String?
         var footnote: String?
+        /// Change workout (build 529 addition): the athlete asked for it by type; the built workout, warnings and the "Try another" label.
+        var requested: Bool?
+        var afterDetail: AfterDetail?
+        var warnings: [String]?
+        var againLabel: String?
+    }
+
+    /// The workout a requested change would put in place: title, effort pill and the written-out lines.
+    struct AfterDetail: Codable, Equatable {
+        var title: String?
+        var effortLabel: String?
+        var why: String?
+        var howHard: String?
+        var `do`: String?
+    }
+
+    /// The previous matching activity of a session, when the server names it (the session sheet falls back to a match on the phone).
+    struct LastTime: Codable, Equatable {
+        var activityId: String?
+        var date: String?
+        var title: String?
     }
 
     /// One side of a change: a big label with a line under it.
@@ -128,6 +149,7 @@ struct PFPlanWeekDoc: Codable, Equatable {
         var activityId: String?
         var raceDate: String?
         var result: RaceResult?
+        var lastTime: LastTime?
     }
 
     struct Done: Codable, Equatable {

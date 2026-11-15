@@ -236,21 +236,20 @@ final class Phase4UITests: XCTestCase {
         XCTAssertTrue(reveal(card, in: app, maxSwipes: 20), "Today should carry the This week card.")
         card.tap()
         XCTAssertTrue(element(app, "calendar-host").waitForExistence(timeout: 20), "The This week card should open the Plan tab.")
-        XCTAssertTrue(element(app, "calendar-chip-content-plan").waitForExistence(timeout: 20), "It should land on the Plan chip.")
+        XCTAssertTrue(element(app, "calendar-chip-content-week").waitForExistence(timeout: 20), "It should land on the Week chip.")
         attach(app, "Phase4 61 Plan, opened from This week")
     }
 
-    func testMyPlanCardOnThePlanTab() throws {
+    /// My Plan's job (how far through the week you are, what is done, what is next) is the Week page's now: the seven days with their
+    /// done bars, the hours done so far, and each workout's status. The folded My Plan card is not mounted on the Plan tab any more.
+    func testWeekPageCarriesWhatMyPlanCarried() throws {
         let app = try launch()
         app.openChip("Plan", "week")
-        XCTAssertTrue(reveal(element(app, "pf-my-plan"), in: app), "Plan > This week should carry My Plan.")
-        // On the Plan tab the card is folded to one line; opening it shows the days left and the next session.
-        let toggle = element(app, "pf-plan-toggle")
-        XCTAssertTrue(reveal(toggle, in: app), "The My Plan card should fold and unfold.")
-        toggle.tap()
-        XCTAssertEqual(element(app, "pf-plan-header").label, "5 DAYS LEFT \u{00B7} 62 % ACCOMPLISHED", "The header states days left and percent.")
-        XCTAssertTrue(element(app, "pf-plan-next").exists, "The next session should be named.")
-        attach(app, "Phase4 62 Plan, My Plan")
+        XCTAssertTrue(element(app, "plan529-strip-day-2030-03-11").waitForExistence(timeout: 30), "Plan > Week should show the seven days.")
+        XCTAssertTrue(reveal(element(app, "plan529-hours-title"), in: app), "Plan > Week should show the hours, with what is done so far.")
+        XCTAssertTrue(reveal(element(app, "plan529-done-s-mon"), in: app, maxSwipes: 20), "A finished workout should carry its done line.")
+        XCTAssertFalse(element(app, "pf-my-plan").exists, "The folded My Plan card is replaced by the week itself.")
+        attach(app, "Phase4 62 Plan, week carries My Plan's job")
     }
 
     func testNoPlanMeansNoCard() throws {

@@ -113,28 +113,29 @@ final class PaceForgeWave3UITests: XCTestCase {
 
     // MARK: Easy mode
 
-    /// Plan > This week, with the Easy mode row opened: the row is closed by default.
-    private func openEasyMode(_ app: XCUIApplication) -> XCUIElement {
+    /// Plan > Week. While a mode is on or proposed the Week page carries one line for it (`plan529-easy-banner`) that opens Change today;
+    /// with none on, "Not feeling 100 %" opens the same sheet. The sheet holds the card, the start controls and End easy mode.
+    private func openEasyMode(_ app: XCUIApplication, banner: Bool = true) -> XCUIElement {
         app.openChip("Plan", "week")
-        let toggle = element(app, "pf-easy-toggle")
-        XCTAssertTrue(reveal(toggle, in: app, maxSwipes: 20), "Plan > This week should show the Easy mode row.")
-        return toggle
+        let entry = element(app, banner ? "plan529-easy-banner" : "plan529-not-100")
+        XCTAssertTrue(reveal(entry, in: app, maxSwipes: 20), "Plan > Week should show how to reach easy mode.")
+        return entry
     }
 
     func testEasyModeActiveShowsItsStateTheCardAndTheChangedSession() throws {
         let app = try launch()
-        let toggle = openEasyMode(app)
-        XCTAssertTrue(toggle.label.localizedCaseInsensitiveContains("Level"), "An active mode should show its level on the row: \(toggle.label)")
+        let banner = openEasyMode(app)
+        XCTAssertTrue(banner.label.localizedCaseInsensitiveContains("Level"), "An active mode should show its level on the Week page: \(banner.label)")
         attach(app, "33 Easy mode row")
-        toggle.tap()
+        XCTAssertTrue(reveal(element(app, "pf-easy-changed-s-wed"), in: app, maxSwipes: 20),
+                      "A session the mode changed should be marked in the Week page.")
+        attach(app, "33 Easy mode changed session")
+        banner.tap()
         let card = element(app, "pf-easy-card")
-        XCTAssertTrue(reveal(card, in: app), "An active mode should show its card.")
+        XCTAssertTrue(reveal(card, in: app), "An active mode should show its card in Change today.")
         XCTAssertTrue(element(app, "pf-easy-days").exists, "The card should say day N of M and when it returns.")
         XCTAssertTrue(element(app, "pf-easy-restorable").exists, "A restorable mode should say so.")
         attach(app, "33 Easy mode card")
-        XCTAssertTrue(reveal(element(app, "pf-easy-changed-s-wed"), in: app, maxSwipes: 20),
-                      "A session the mode changed should be marked in This week.")
-        attach(app, "33 Easy mode changed session")
     }
 
     func testEasyModePendingProposalSaysToAcceptInNeedsYou() throws {
@@ -150,9 +151,9 @@ final class PaceForgeWave3UITests: XCTestCase {
 
     func testEasyModeStartCardShowsWhenNothingIsOn() throws {
         let app = try launch(extraArguments: ["-PaceForgeEasyIdle"])
-        openEasyMode(app).tap()
+        openEasyMode(app, banner: false).tap()
         let start = element(app, "pf-easy-start")
-        XCTAssertTrue(reveal(start, in: app), "With no mode on, the Easy mode row should offer to start one.")
+        XCTAssertTrue(reveal(start, in: app), "With no mode on, Change today should offer to start one.")
         XCTAssertFalse(element(app, "pf-easy-card").exists, "There should be no active-mode card when no mode is on.")
         attach(app, "35 Easy mode start")
     }

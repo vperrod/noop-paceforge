@@ -1,0 +1,2190 @@
+{
+ "data/plan-week/index.json": {
+  "version": 1,
+  "generated_at": "2026-11-15T19:05:00+00:00",
+  "current": "2030-W11",
+  "weeks": [
+   {
+    "week": "2026-W45",
+    "from": "2026-11-02",
+    "to": "2026-11-08",
+    "state": "finished",
+    "phase": "taper",
+    "phase_label": "Taper week",
+    "label": "Week 45 · 2–8 Nov",
+    "report_ready": true,
+    "verdict": "Taper week done as planned."
+   },
+   {
+    "week": "2026-W46",
+    "from": "2026-11-09",
+    "to": "2026-11-15",
+    "state": "finished",
+    "phase": "race",
+    "phase_label": "Race week",
+    "label": "Week 46 · 9–15 Nov",
+    "report_ready": true,
+    "verdict": "Two races in four days. The doubles beat its goal by 6 minutes; the singles was 8 minutes over."
+   },
+   {
+    "week": "2026-W47",
+    "from": "2026-11-16",
+    "to": "2026-11-22",
+    "state": "coming",
+    "phase": "recover",
+    "phase_label": "Recovery week",
+    "label": "Week 47 · 16–22 Nov",
+    "report_ready": false,
+    "verdict": null
+   },
+   {
+    "week": "2026-W48",
+    "from": "2026-11-23",
+    "to": "2026-11-29",
+    "state": "coming",
+    "phase": "build",
+    "phase_label": "Build week",
+    "label": "Week 48 · 23–29 Nov",
+    "report_ready": false,
+    "verdict": null
+   },
+   {
+    "week": "2030-W11",
+    "from": "2030-03-11",
+    "to": "2030-03-17",
+    "state": "current",
+    "phase": "build",
+    "phase_label": "Build week",
+    "label": "Week 11 · 11–17 Mar",
+    "report_ready": false,
+    "verdict": null
+   }
+  ]
+ },
+ "data/plan-week/2026-W47.json": {
+  "version": 1,
+  "week": "2026-W47",
+  "from": "2026-11-16",
+  "to": "2026-11-22",
+  "label": "Week 47 · 16–22 Nov",
+  "generated_at": "2026-11-15T19:05:00+00:00",
+  "state": "coming",
+  "phase": {
+   "key": "recover",
+   "label": "Recovery",
+   "pill": "Recovery · days 2 to 8 of 10"
+  },
+  "next_race": {
+   "name": "HYROX Sampleville singles OPEN",
+   "short": "Sampleville",
+   "date": "2026-12-16",
+   "days_out": 31,
+   "pill": "31 days to Sampleville"
+  },
+  "why": "You raced twice last week and it shows: Garmin readiness 14, WHOOP recovery 31 %. Nothing hard before Wednesday, then your usual classes.",
+  "hours": {
+   "firm": 3.0,
+   "optional": 2.0,
+   "planned": 5.0,
+   "aim": 6.25,
+   "target": 7.0,
+   "typical": 5.4,
+   "done": null,
+   "firm_label": "3 h",
+   "optional_label": "+2 h",
+   "aim_label": "6 h 15",
+   "target_label": "7 h",
+   "note": "The limit is 15 % above your typical week. Your typical week is 5 h 24."
+  },
+  "strip": [
+   {
+    "date": "2026-11-16",
+    "dow": "M",
+    "today": true,
+    "label": "rest",
+    "bars": []
+   },
+   {
+    "date": "2026-11-17",
+    "dow": "T",
+    "label": "45",
+    "bars": [
+     {
+      "minutes": 45,
+      "effort": "hard",
+      "state": "planned"
+     },
+     {
+      "minutes": 45,
+      "effort": "hard",
+      "state": "optional"
+     }
+    ]
+   },
+   {
+    "date": "2026-11-18",
+    "dow": "W",
+    "label": "45",
+    "bars": [
+     {
+      "minutes": 45,
+      "effort": "hard",
+      "state": "planned"
+     }
+    ]
+   },
+   {
+    "date": "2026-11-19",
+    "dow": "T",
+    "label": "45",
+    "bars": [
+     {
+      "minutes": 45,
+      "effort": "moderate",
+      "state": "planned"
+     }
+    ]
+   },
+   {
+    "date": "2026-11-20",
+    "dow": "F",
+    "label": "optional",
+    "bars": [
+     {
+      "minutes": 45,
+      "effort": "hard",
+      "state": "optional"
+     },
+     {
+      "minutes": 27,
+      "effort": "easy",
+      "state": "optional"
+     }
+    ]
+   },
+   {
+    "date": "2026-11-21",
+    "dow": "S",
+    "label": "45",
+    "bars": [
+     {
+      "minutes": 45,
+      "effort": "moderate",
+      "state": "planned"
+     }
+    ]
+   },
+   {
+    "date": "2026-11-22",
+    "dow": "S",
+    "label": "rest",
+    "bars": []
+   }
+  ],
+  "changes": [
+   {
+    "id": "0dfc53f2",
+    "day": "2026-11-17",
+    "session_ids": [
+     "c10def6f"
+    ],
+    "title": "Tue · Cardio class, shorter and easy",
+    "sheet_title": "Tuesday's class, shorter and easy",
+    "one_line": "45 min hard → 27 min easy. It is day 3 after the race.",
+    "before": {
+     "label": "45 min",
+     "sub": "hard · 8 of 10"
+    },
+    "after": {
+     "label": "27 min",
+     "sub": "easy · 4 of 10 · under 131 bpm"
+    },
+    "data_says": "Tuesday is day 3 after the doubles race. Resting heart rate is 55 on Garmin and 60 on WHOOP. Your usual is 50 to 51.",
+    "why": "The coach's rule: nothing hard within 3 days of a race.",
+    "if_keep": "A hard class on day 3, then three more classes Wednesday, Thursday and Saturday.",
+    "accept_label": "Accept",
+    "keep_label": "Keep 45 min",
+    "footnote": "Accept changes the session itself: its length, its effort and what your watch shows. Keep holds for 7 days."
+   },
+   {
+    "id": "1299335d",
+    "day": null,
+    "session_ids": [
+     "1629495d",
+     "db60edec"
+    ],
+    "title": "Tue and Fri · Drop Pull and Legs",
+    "sheet_title": "Drop Pull and Legs this week",
+    "one_line": "Generic strength makes way for HYROX strength from 25 Nov.",
+    "before": {
+     "label": "2 sessions",
+     "sub": "Pull Tue · Legs Fri · optional"
+    },
+    "after": {
+     "label": "Removed",
+     "sub": "HYROX strength from 25 Nov"
+    },
+    "data_says": "Both are optional sessions of the generic strength block. Your goal is HYROX.",
+    "why": "For a HYROX goal the coach replaces generic Push, Pull and Legs with HYROX strength, which trains what the race asks for.",
+    "if_keep": "Bodybuilding volume on top of four classes in a recovery week.",
+    "accept_label": "Accept",
+    "keep_label": "Keep",
+    "footnote": "Keep holds for 7 days."
+   },
+   {
+    "id": "1ebaa945",
+    "day": "2026-11-20",
+    "session_ids": [
+     "c8d45c5b"
+    ],
+    "title": "Fri · Add an easy run, 27 min",
+    "sheet_title": "Add an easy run on Friday",
+    "one_line": "Optional. First run after the race, 5.4 km at 5:00 to 5:30.",
+    "before": {
+     "label": "Nothing",
+     "sub": "no run this week"
+    },
+    "after": {
+     "label": "27 min",
+     "sub": "easy · 5.4 km · under 131 bpm"
+    },
+    "data_says": "Friday is day 6 after the race. The recovery plan allows half your usual running from day 4.",
+    "why": "Every recovery week gets one easy run to get your running rhythm back without load.",
+    "if_keep": "No running this week. That is fine if your legs feel heavy.",
+    "accept_label": "Accept",
+    "keep_label": "No",
+    "footnote": "Accepted runs go to your watch."
+   }
+  ],
+  "decided": [
+   "Kept by you on 15 Nov: Wed, Thu and Sat classes at full effort. The coach will not ask again before 22 Nov."
+  ],
+  "days": [
+   {
+    "date": "2026-11-16",
+    "dow": "Mon",
+    "title": "Mon 16",
+    "tag": "Day 2 after the race",
+    "items": [
+     {
+      "kind": "rest",
+      "title": "Rest",
+      "why": "Both devices are low after two races. Nothing structured, so your heart rate and HRV can come back.",
+      "do": "A 20 to 30 minute walk or mobility if you want. Sleep 8 to 9 hours."
+     }
+    ]
+   },
+   {
+    "date": "2026-11-17",
+    "dow": "Tue",
+    "title": "Tue 17",
+    "tag": null,
+    "items": [
+     {
+      "kind": "session",
+      "session_id": "c10def6f",
+      "title": "Cardio class",
+      "minutes": 45,
+      "km": null,
+      "effort": "hard",
+      "effort_label": "Hard · 45 min",
+      "rpe": 8,
+      "fixed": true,
+      "optional": false,
+      "status": "planned",
+      "pills": [
+       "Booked class"
+      ],
+      "change_ids": [
+       "0dfc53f2"
+      ],
+      "change_pill": "Change waiting: 27 min, easy",
+      "why": "It is a booked class, so it stays on its day. It falls 3 days after the race, so the coach wants it short and easy.",
+      "how_hard": "As booked: 8 of 10. As proposed: 4 of 10, heart rate under 131.",
+      "do": "5 min easy warm-up, 22 min very light, 5 min walk and stretch.",
+      "if_red": "Skip it. 20 min walk and mobility instead.",
+      "after": "Sleep 8 to 9 hours.",
+      "where": "Day 3 of 10 after the race.",
+      "actions": [
+       "more",
+       "move",
+       "skip"
+      ],
+      "done": null,
+      "review": null,
+      "activity_id": null
+     },
+     {
+      "kind": "session",
+      "session_id": "1629495d",
+      "title": "Pull",
+      "minutes": 45,
+      "km": null,
+      "effort": "hard",
+      "effort_label": "Optional · 45 min",
+      "rpe": 9,
+      "fixed": false,
+      "optional": true,
+      "status": "optional",
+      "pills": [],
+      "change_ids": [
+       "1299335d"
+      ],
+      "change_pill": "Change waiting: drop it",
+      "why": "A generic strength session from the old block. The coach proposes dropping it for HYROX strength.",
+      "how_hard": null,
+      "do": null,
+      "if_red": null,
+      "after": null,
+      "where": null,
+      "actions": [
+       "more",
+       "move",
+       "skip"
+      ],
+      "done": null,
+      "review": null,
+      "activity_id": null
+     }
+    ]
+   },
+   {
+    "date": "2026-11-18",
+    "dow": "Wed",
+    "title": "Wed 18",
+    "tag": null,
+    "items": [
+     {
+      "kind": "session",
+      "session_id": "448dbb84",
+      "title": "Studio HYROX",
+      "minutes": 45,
+      "km": null,
+      "effort": "hard",
+      "effort_label": "Hard · 45 min",
+      "rpe": 8,
+      "fixed": true,
+      "optional": false,
+      "status": "planned",
+      "pills": [
+       "Booked class",
+       "Kept at full effort by you"
+      ],
+      "change_ids": [],
+      "change_pill": null,
+      "why": "Your first hard session back. Stations under fatigue: sled, lunges, row, wall balls. That is what this block trains.",
+      "how_hard": "8 of 10. Heart rate 132 to 168 in the work.",
+      "do": "5 min easy row or jog and leg swings, the class, 5 min walk and foam roll.",
+      "if_red": "Cap it at 5 of 10, or 30 min easy bike.",
+      "after": "Sleep 8 to 9 hours.",
+      "where": "Day 4 of 10 after the race. The coach suggested doing it lighter; you kept it at full effort on 15 Nov.",
+      "actions": [
+       "more",
+       "easier",
+       "skip"
+      ],
+      "done": null,
+      "review": null,
+      "activity_id": null
+     }
+    ]
+   },
+   {
+    "date": "2026-11-19",
+    "dow": "Thu",
+    "title": "Thu 19",
+    "tag": null,
+    "items": [
+     {
+      "kind": "session",
+      "session_id": "4d229cf4",
+      "title": "Studio class",
+      "minutes": 45,
+      "km": null,
+      "effort": "moderate",
+      "effort_label": "Moderate · 45 min",
+      "rpe": 7,
+      "fixed": true,
+      "optional": false,
+      "status": "planned",
+      "pills": [
+       "Booked class"
+      ],
+      "change_ids": [],
+      "change_pill": null,
+      "why": "Keeps you moving well without digging deeper. Day 5 after the race.",
+      "how_hard": "7 of 10. Heart rate 132 to 149.",
+      "do": "5 min mobility, the class, 5 min stretch.",
+      "if_red": "Go, cap at 5 of 10, skip the hard intervals.",
+      "after": "Sleep 8 to 9 hours.",
+      "where": "Day 5 of 10 after the race.",
+      "actions": [
+       "more",
+       "easier",
+       "skip"
+      ],
+      "done": null,
+      "review": null,
+      "activity_id": null
+     }
+    ]
+   },
+   {
+    "date": "2026-11-20",
+    "dow": "Fri",
+    "title": "Fri 20",
+    "tag": null,
+    "items": [
+     {
+      "kind": "session",
+      "session_id": "db60edec",
+      "title": "Legs",
+      "minutes": 45,
+      "km": null,
+      "effort": "hard",
+      "effort_label": "Optional · 45 min",
+      "rpe": 9,
+      "fixed": false,
+      "optional": true,
+      "status": "optional",
+      "pills": [],
+      "change_ids": [
+       "1299335d",
+       "1ebaa945"
+      ],
+      "change_pill": "Change waiting: easy run instead",
+      "why": "Generic leg strength the day before Saturday's class costs more than it gives this week. The coach proposes your first easy run after the race instead.",
+      "how_hard": null,
+      "do": "The run, if you accept: 27 min, 5.4 km at 5:00 to 5:30, heart rate under 131. Skip it if your legs feel heavy.",
+      "if_red": "Skip the run. 20 min easy bike or a brisk walk.",
+      "after": null,
+      "where": "Day 6 of 10 after the race.",
+      "actions": [
+       "more",
+       "move",
+       "skip"
+      ],
+      "done": null,
+      "review": null,
+      "activity_id": null
+     }
+    ]
+   },
+   {
+    "date": "2026-11-21",
+    "dow": "Sat",
+    "title": "Sat 21",
+    "tag": null,
+    "items": [
+     {
+      "kind": "session",
+      "session_id": "da5119f9",
+      "title": "Studio class",
+      "minutes": 45,
+      "km": null,
+      "effort": "moderate",
+      "effort_label": "Moderate · 45 min",
+      "rpe": 7,
+      "fixed": true,
+      "optional": false,
+      "status": "planned",
+      "pills": [
+       "Booked class"
+      ],
+      "change_ids": [],
+      "change_pill": null,
+      "why": "Last session of the week, before volume steps up to three quarters on Sunday.",
+      "how_hard": "7 of 10. Heart rate 132 to 149.",
+      "do": "5 min mobility, the class, 5 min stretch and foam roll.",
+      "if_red": "Go at 5 of 10 and work on technique.",
+      "after": "Sleep 8 to 9 hours.",
+      "where": "Day 7 of 10 after the race.",
+      "actions": [
+       "more",
+       "easier",
+       "skip"
+      ],
+      "done": null,
+      "review": null,
+      "activity_id": null
+     }
+    ]
+   },
+   {
+    "date": "2026-11-22",
+    "dow": "Sun",
+    "title": "Sun 22",
+    "tag": "Day 8 after the race",
+    "items": [
+     {
+      "kind": "rest",
+      "title": "Rest",
+      "why": "No session booked. An easy 30 to 45 minutes is allowed, but only if the week's readings are back to normal.",
+      "do": null
+     }
+    ]
+   }
+  ],
+  "report": null
+ },
+ "data/plan-week/2026-W46.json": {
+  "version": 1,
+  "week": "2026-W46",
+  "from": "2026-11-09",
+  "to": "2026-11-15",
+  "label": "Week 46 · 9–15 Nov",
+  "generated_at": "2026-11-15T19:05:00+00:00",
+  "state": "finished",
+  "phase": {
+   "key": "race",
+   "label": "Race week",
+   "pill": "Race week"
+  },
+  "next_race": null,
+  "why": null,
+  "hours": {
+   "firm": 1.17,
+   "optional": 0,
+   "planned": 1.17,
+   "aim": null,
+   "target": 3.8,
+   "typical": 5.4,
+   "done": 3.42,
+   "done_label": "3 h 25",
+   "note": "Races are not counted in planned hours."
+  },
+  "strip": [
+   {
+    "date": "2026-11-09",
+    "dow": "M",
+    "label": "28",
+    "bars": [
+     {
+      "minutes": 28,
+      "effort": "easy",
+      "state": "done"
+     }
+    ]
+   },
+   {
+    "date": "2026-11-10",
+    "dow": "T",
+    "label": "43",
+    "bars": [
+     {
+      "minutes": 43,
+      "effort": "hard",
+      "state": "done"
+     }
+    ]
+   },
+   {
+    "date": "2026-11-11",
+    "dow": "W",
+    "label": "race",
+    "bars": [
+     {
+      "minutes": 68,
+      "effort": "race",
+      "state": "done"
+     }
+    ]
+   },
+   {
+    "date": "2026-11-12",
+    "dow": "T",
+    "label": "–",
+    "bars": []
+   },
+   {
+    "date": "2026-11-13",
+    "dow": "F",
+    "label": "–",
+    "bars": []
+   },
+   {
+    "date": "2026-11-14",
+    "dow": "S",
+    "label": "race",
+    "bars": [
+     {
+      "minutes": 66,
+      "effort": "race",
+      "state": "done"
+     }
+    ]
+   },
+   {
+    "date": "2026-11-15",
+    "dow": "S",
+    "label": "–",
+    "bars": []
+   }
+  ],
+  "changes": [],
+  "decided": [],
+  "days": [
+   {
+    "date": "2026-11-09",
+    "dow": "Mon",
+    "title": "Mon 9",
+    "tag": null,
+    "items": [
+     {
+      "kind": "session",
+      "session_id": "858a201b",
+      "title": "Openers",
+      "minutes": 25,
+      "km": null,
+      "effort": "easy",
+      "effort_label": "Easy · 25 min",
+      "rpe": null,
+      "fixed": false,
+      "optional": false,
+      "status": "done",
+      "pills": [],
+      "change_ids": [],
+      "change_pill": null,
+      "why": "Race-week openers: a short run with a few strides to keep your legs sharp for Wednesday.",
+      "how_hard": null,
+      "do": null,
+      "if_red": null,
+      "after": null,
+      "where": null,
+      "actions": [
+       "more"
+      ],
+      "done": {
+       "line": "Done: 28 min · 5.6 km · 5:00 /km · heart rate 128",
+       "minutes": 28,
+       "km": 5.6,
+       "avg_hr": 128
+      },
+      "review": {
+       "state": "ready",
+       "verdict": "On plan."
+      },
+      "activity_id": "24990000001"
+     }
+    ]
+   },
+   {
+    "date": "2026-11-10",
+    "dow": "Tue",
+    "title": "Tue 10",
+    "tag": null,
+    "items": [
+     {
+      "kind": "session",
+      "session_id": "afc2819b",
+      "title": "Cardio class",
+      "minutes": 45,
+      "km": null,
+      "effort": "hard",
+      "effort_label": "Hard · 45 min",
+      "rpe": 8,
+      "fixed": true,
+      "optional": false,
+      "status": "done",
+      "pills": [
+       "Booked class"
+      ],
+      "change_ids": [],
+      "change_pill": null,
+      "why": "A booked class the day before the singles race. The coach flagged it as close to the race; you kept it.",
+      "how_hard": null,
+      "do": null,
+      "if_red": null,
+      "after": null,
+      "where": null,
+      "actions": [
+       "more"
+      ],
+      "done": {
+       "line": "Done: 43 min · heart rate 134",
+       "minutes": 43,
+       "km": null,
+       "avg_hr": 134
+      },
+      "review": {
+       "state": "ready",
+       "verdict": "Done as booked."
+      },
+      "activity_id": "24990000002"
+     }
+    ]
+   },
+   {
+    "date": "2026-11-11",
+    "dow": "Wed",
+    "title": "Wed 11",
+    "tag": null,
+    "items": [
+     {
+      "kind": "race",
+      "title": "HYROX Testtown singles",
+      "race_date": "2026-11-11",
+      "status": "done",
+      "effort": "race",
+      "effort_label": "Race",
+      "why": "Your A race of this block.",
+      "result": {
+       "time": "1:07:41",
+       "goal": "1:00:00",
+       "delta": "7:41 over goal",
+       "delta_s": 461,
+       "source": "official"
+      },
+      "review": {
+       "state": "ready",
+       "verdict": "8 minutes over goal."
+      },
+      "activity_id": "9100000002",
+      "actions": [
+       "more"
+      ]
+     }
+    ]
+   },
+   {
+    "date": "2026-11-12",
+    "dow": "Thu",
+    "title": "Thu 12",
+    "tag": null,
+    "items": [
+     {
+      "kind": "rest",
+      "title": "Rest",
+      "why": "The day after the singles.",
+      "do": null
+     }
+    ]
+   },
+   {
+    "date": "2026-11-13",
+    "dow": "Fri",
+    "title": "Fri 13",
+    "tag": null,
+    "items": [
+     {
+      "kind": "rest",
+      "title": "Rest",
+      "why": "The day before the doubles.",
+      "do": null
+     }
+    ]
+   },
+   {
+    "date": "2026-11-14",
+    "dow": "Sat",
+    "title": "Sat 14",
+    "tag": null,
+    "items": [
+     {
+      "kind": "race",
+      "title": "HYROX Testtown doubles",
+      "race_date": "2026-11-14",
+      "status": "done",
+      "effort": "race",
+      "effort_label": "Race",
+      "why": "Your B race, three days after the singles.",
+      "result": {
+       "time": "1:04:12",
+       "goal": "1:10:00",
+       "delta": "5:48 inside goal",
+       "delta_s": -348,
+       "source": "official"
+      },
+      "review": {
+       "state": "ready",
+       "verdict": "6 minutes inside goal."
+      },
+      "activity_id": "9100000001",
+      "actions": [
+       "more"
+      ]
+     }
+    ]
+   },
+   {
+    "date": "2026-11-15",
+    "dow": "Sun",
+    "title": "Sun 15",
+    "tag": null,
+    "items": [
+     {
+      "kind": "rest",
+      "title": "Rest",
+      "why": "Day 1 after the doubles.",
+      "do": null
+     }
+    ]
+   }
+  ],
+  "report": {
+   "ready_at": "2026-11-15T19:00:22+00:00",
+   "verdict": "Two races in four days. The doubles beat its goal by 6 minutes; the singles was 8 minutes over.",
+   "races": [
+    {
+     "date": "2026-11-11",
+     "day": "Wed 11",
+     "name": "HYROX Testtown singles",
+     "time": "1:07:41",
+     "sub": "Goal 1:00:00 · 7:41 over",
+     "activity_id": "9100000002"
+    },
+    {
+     "date": "2026-11-14",
+     "day": "Sat 14",
+     "name": "HYROX Testtown doubles",
+     "time": "1:04:12",
+     "sub": "Goal 1:10:00 · 5:48 inside",
+     "activity_id": "9100000001"
+    }
+   ],
+   "planned_done": {
+    "line": "4 of 4 planned, done",
+    "facts": [
+     "3 h 25 training",
+     "22.4 km run"
+    ],
+    "vs_prev": "Against week 45: 4 h 26 and 12.3 km. Less time, more running, because of the races."
+   },
+   "nights": {
+    "labels": [
+     "M",
+     "T",
+     "W",
+     "T",
+     "F",
+     "S",
+     "S"
+    ],
+    "series": [
+     {
+      "source": "WHOOP",
+      "title": "Recovery, night by night · WHOOP",
+      "max": 100,
+      "values": [
+       72,
+       70,
+       88,
+       25,
+       63,
+       40,
+       31
+      ],
+      "bands": [
+       "green",
+       "green",
+       "green",
+       "red",
+       "amber",
+       "amber",
+       "red"
+      ]
+     },
+     {
+      "source": "Garmin",
+      "title": "Readiness, morning by morning · Garmin",
+      "max": 100,
+      "values": [
+       74,
+       78,
+       58,
+       52,
+       50,
+       57,
+       14
+      ],
+      "bands": [
+       "green",
+       "green",
+       "amber",
+       "amber",
+       "amber",
+       "green",
+       "red"
+      ]
+     }
+    ],
+    "note": "Sleep averaged 7 h 18. The night after the doubles was 6 h 41: the race ended 2.7 hours before bed."
+   },
+   "went_well": [
+    "Everything planned was done. The doubles came in 6 minutes inside its goal."
+   ],
+   "held_back": [
+    "The singles ran 8 minutes over goal. Two red nights. Resting heart rate is still raised: 55 (Garmin), 60 (WHOOP)."
+   ],
+   "not_to_do": "Anything hard before Wednesday.",
+   "next_week": {
+    "week": "2026-W47",
+    "summary": "Recovery week: four classes, 3 hours firm. Three changes proposed.",
+    "changes": 3
+   },
+   "detail": {
+    "numbers_title": "The numbers, session by session",
+    "experts_title": "What each expert read",
+    "expert_report": "data/reports/weekly/2026-W46.json"
+   }
+  }
+ },
+ "data/plan-week/2026-W48.json": {
+  "version": 1,
+  "week": "2026-W48",
+  "from": "2026-11-23",
+  "to": "2026-11-29",
+  "label": "Week 48 · 23–29 Nov",
+  "generated_at": "2026-11-15T19:05:00+00:00",
+  "state": "coming",
+  "phase": {
+   "key": "build",
+   "label": "Build",
+   "pill": "Build · week 1 of 4"
+  },
+  "next_race": {
+   "name": "HYROX Sampleville singles OPEN",
+   "short": "Sampleville",
+   "date": "2026-12-16",
+   "days_out": 31,
+   "pill": "31 days to Sampleville"
+  },
+  "why": "The race is behind you and your readings are back. A normal build week: three classes and one run.",
+  "hours": {
+   "firm": 4.5,
+   "optional": 1.0,
+   "planned": 5.5,
+   "aim": 6.25,
+   "target": 7.0,
+   "typical": 5.4,
+   "done": null,
+   "firm_label": "4 h 30",
+   "optional_label": "+1 h",
+   "aim_label": "6 h 15",
+   "target_label": "7 h",
+   "note": "The limit is 15 % above your typical week. Your typical week is 5 h 24."
+  },
+  "strip": [
+   {
+    "date": "2026-11-23",
+    "dow": "M",
+    "label": "rest",
+    "bars": []
+   },
+   {
+    "date": "2026-11-24",
+    "dow": "T",
+    "label": "45",
+    "bars": [
+     {
+      "minutes": 45,
+      "effort": "hard",
+      "state": "planned"
+     },
+     {
+      "minutes": 45,
+      "effort": "hard",
+      "state": "optional"
+     }
+    ]
+   },
+   {
+    "date": "2026-11-25",
+    "dow": "W",
+    "label": "45",
+    "bars": [
+     {
+      "minutes": 45,
+      "effort": "hard",
+      "state": "planned"
+     }
+    ]
+   },
+   {
+    "date": "2026-11-26",
+    "dow": "T",
+    "label": "45",
+    "bars": [
+     {
+      "minutes": 45,
+      "effort": "moderate",
+      "state": "planned"
+     }
+    ]
+   },
+   {
+    "date": "2026-11-27",
+    "dow": "F",
+    "label": "optional",
+    "bars": [
+     {
+      "minutes": 45,
+      "effort": "hard",
+      "state": "optional"
+     },
+     {
+      "minutes": 27,
+      "effort": "easy",
+      "state": "optional"
+     }
+    ]
+   },
+   {
+    "date": "2026-11-28",
+    "dow": "S",
+    "label": "45",
+    "bars": [
+     {
+      "minutes": 45,
+      "effort": "moderate",
+      "state": "planned"
+     }
+    ]
+   },
+   {
+    "date": "2026-11-29",
+    "dow": "S",
+    "label": "rest",
+    "bars": []
+   }
+  ],
+  "changes": [],
+  "decided": [],
+  "days": [
+   {
+    "date": "2026-11-23",
+    "dow": "Mon",
+    "title": "Mon 23",
+    "tag": null,
+    "items": [
+     {
+      "kind": "rest",
+      "title": "Rest",
+      "why": "Both devices are low after two races. Nothing structured, so your heart rate and HRV can come back.",
+      "do": "A 20 to 30 minute walk or mobility if you want. Sleep 8 to 9 hours.",
+      "change_ids": [],
+      "change_pill": null
+     }
+    ]
+   },
+   {
+    "date": "2026-11-24",
+    "dow": "Tue",
+    "title": "Tue 24",
+    "tag": null,
+    "items": [
+     {
+      "kind": "session",
+      "session_id": "c10def6f",
+      "title": "Cardio class",
+      "minutes": 45,
+      "km": null,
+      "effort": "hard",
+      "effort_label": "Hard · 45 min",
+      "rpe": 8,
+      "fixed": true,
+      "optional": false,
+      "status": "planned",
+      "pills": [
+       "Booked class"
+      ],
+      "change_ids": [],
+      "change_pill": null,
+      "why": "It is a booked class, so it stays on its day. It falls 3 days after the race, so the coach wants it short and easy.",
+      "how_hard": "As booked: 8 of 10. As proposed: 4 of 10, heart rate under 131.",
+      "do": "5 min easy warm-up, 22 min very light, 5 min walk and stretch.",
+      "if_red": "Skip it. 20 min walk and mobility instead.",
+      "after": "Sleep 8 to 9 hours.",
+      "where": "Day 3 of 10 after the race.",
+      "actions": [
+       "more",
+       "move",
+       "skip"
+      ],
+      "done": null,
+      "review": null,
+      "activity_id": null
+     },
+     {
+      "kind": "session",
+      "session_id": "1629495d",
+      "title": "Pull",
+      "minutes": 45,
+      "km": null,
+      "effort": "hard",
+      "effort_label": "Optional · 45 min",
+      "rpe": 9,
+      "fixed": false,
+      "optional": true,
+      "status": "optional",
+      "pills": [],
+      "change_ids": [],
+      "change_pill": null,
+      "why": "A generic strength session from the old block. The coach proposes dropping it for HYROX strength.",
+      "how_hard": null,
+      "do": null,
+      "if_red": null,
+      "after": null,
+      "where": null,
+      "actions": [
+       "more",
+       "move",
+       "skip"
+      ],
+      "done": null,
+      "review": null,
+      "activity_id": null
+     }
+    ]
+   },
+   {
+    "date": "2026-11-25",
+    "dow": "Wed",
+    "title": "Wed 25",
+    "tag": null,
+    "items": [
+     {
+      "kind": "session",
+      "session_id": "448dbb84",
+      "title": "Studio HYROX",
+      "minutes": 45,
+      "km": null,
+      "effort": "hard",
+      "effort_label": "Hard · 45 min",
+      "rpe": 8,
+      "fixed": true,
+      "optional": false,
+      "status": "planned",
+      "pills": [
+       "Booked class",
+       "Kept at full effort by you"
+      ],
+      "change_ids": [],
+      "change_pill": null,
+      "why": "Your first hard session back. Stations under fatigue: sled, lunges, row, wall balls. That is what this block trains.",
+      "how_hard": "8 of 10. Heart rate 132 to 168 in the work.",
+      "do": "5 min easy row or jog and leg swings, the class, 5 min walk and foam roll.",
+      "if_red": "Cap it at 5 of 10, or 30 min easy bike.",
+      "after": "Sleep 8 to 9 hours.",
+      "where": "Day 4 of 10 after the race. The coach suggested doing it lighter; you kept it at full effort on 15 Nov.",
+      "actions": [
+       "more",
+       "easier",
+       "skip"
+      ],
+      "done": null,
+      "review": null,
+      "activity_id": null
+     }
+    ]
+   },
+   {
+    "date": "2026-11-26",
+    "dow": "Thu",
+    "title": "Thu 26",
+    "tag": null,
+    "items": [
+     {
+      "kind": "session",
+      "session_id": "4d229cf4",
+      "title": "Studio class",
+      "minutes": 45,
+      "km": null,
+      "effort": "moderate",
+      "effort_label": "Moderate · 45 min",
+      "rpe": 7,
+      "fixed": true,
+      "optional": false,
+      "status": "planned",
+      "pills": [
+       "Booked class"
+      ],
+      "change_ids": [],
+      "change_pill": null,
+      "why": "Keeps you moving well without digging deeper. Day 5 after the race.",
+      "how_hard": "7 of 10. Heart rate 132 to 149.",
+      "do": "5 min mobility, the class, 5 min stretch.",
+      "if_red": "Go, cap at 5 of 10, skip the hard intervals.",
+      "after": "Sleep 8 to 9 hours.",
+      "where": "Day 5 of 10 after the race.",
+      "actions": [
+       "more",
+       "easier",
+       "skip"
+      ],
+      "done": null,
+      "review": null,
+      "activity_id": null
+     }
+    ]
+   },
+   {
+    "date": "2026-11-27",
+    "dow": "Fri",
+    "title": "Fri 27",
+    "tag": null,
+    "items": [
+     {
+      "kind": "session",
+      "session_id": "db60edec",
+      "title": "Legs",
+      "minutes": 45,
+      "km": null,
+      "effort": "hard",
+      "effort_label": "Optional · 45 min",
+      "rpe": 9,
+      "fixed": false,
+      "optional": true,
+      "status": "optional",
+      "pills": [],
+      "change_ids": [],
+      "change_pill": null,
+      "why": "Generic leg strength the day before Saturday's class costs more than it gives this week. The coach proposes your first easy run after the race instead.",
+      "how_hard": null,
+      "do": "The run, if you accept: 27 min, 5.4 km at 5:00 to 5:30, heart rate under 131. Skip it if your legs feel heavy.",
+      "if_red": "Skip the run. 20 min easy bike or a brisk walk.",
+      "after": null,
+      "where": "Day 6 of 10 after the race.",
+      "actions": [
+       "more",
+       "move",
+       "skip"
+      ],
+      "done": null,
+      "review": null,
+      "activity_id": null
+     }
+    ]
+   },
+   {
+    "date": "2026-11-28",
+    "dow": "Sat",
+    "title": "Sat 28",
+    "tag": null,
+    "items": [
+     {
+      "kind": "session",
+      "session_id": "da5119f9",
+      "title": "Studio class",
+      "minutes": 45,
+      "km": null,
+      "effort": "moderate",
+      "effort_label": "Moderate · 45 min",
+      "rpe": 7,
+      "fixed": true,
+      "optional": false,
+      "status": "planned",
+      "pills": [
+       "Booked class"
+      ],
+      "change_ids": [],
+      "change_pill": null,
+      "why": "Last session of the week, before volume steps up to three quarters on Sunday.",
+      "how_hard": "7 of 10. Heart rate 132 to 149.",
+      "do": "5 min mobility, the class, 5 min stretch and foam roll.",
+      "if_red": "Go at 5 of 10 and work on technique.",
+      "after": "Sleep 8 to 9 hours.",
+      "where": "Day 7 of 10 after the race.",
+      "actions": [
+       "more",
+       "easier",
+       "skip"
+      ],
+      "done": null,
+      "review": null,
+      "activity_id": null
+     }
+    ]
+   },
+   {
+    "date": "2026-11-29",
+    "dow": "Sun",
+    "title": "Sun 29",
+    "tag": null,
+    "items": [
+     {
+      "kind": "rest",
+      "title": "Rest",
+      "why": "No session booked. An easy 30 to 45 minutes is allowed, but only if the week's readings are back to normal.",
+      "do": null,
+      "change_ids": [],
+      "change_pill": null
+     }
+    ]
+   }
+  ],
+  "report": null
+ },
+ "data/plan-week/2026-W49.json": {
+  "version": 1,
+  "week": "2026-W49",
+  "from": "2026-11-30",
+  "to": "2026-12-06",
+  "label": "Week 49 · 30 Nov–6 Dec",
+  "generated_at": "2026-11-15T19:05:00+00:00",
+  "state": "coming",
+  "phase": {
+   "key": "build",
+   "label": "Build",
+   "pill": "Build · week 1 of 4"
+  },
+  "next_race": {
+   "name": "HYROX Sampleville singles OPEN",
+   "short": "Sampleville",
+   "date": "2026-12-16",
+   "days_out": 31,
+   "pill": "31 days to Sampleville"
+  },
+  "why": "The race is behind you and your readings are back. A normal build week: three classes and one run.",
+  "hours": {
+   "firm": 4.5,
+   "optional": 1.0,
+   "planned": 5.5,
+   "aim": 6.25,
+   "target": 7.0,
+   "typical": 5.4,
+   "done": null,
+   "firm_label": "4 h 30",
+   "optional_label": "+1 h",
+   "aim_label": "6 h 15",
+   "target_label": "7 h",
+   "note": "The limit is 15 % above your typical week. Your typical week is 5 h 24."
+  },
+  "strip": [
+   {
+    "date": "2026-11-23",
+    "dow": "M",
+    "label": "rest",
+    "bars": []
+   },
+   {
+    "date": "2026-11-24",
+    "dow": "T",
+    "label": "45",
+    "bars": [
+     {
+      "minutes": 45,
+      "effort": "hard",
+      "state": "planned"
+     },
+     {
+      "minutes": 45,
+      "effort": "hard",
+      "state": "optional"
+     }
+    ]
+   },
+   {
+    "date": "2026-11-25",
+    "dow": "W",
+    "label": "45",
+    "bars": [
+     {
+      "minutes": 45,
+      "effort": "hard",
+      "state": "planned"
+     }
+    ]
+   },
+   {
+    "date": "2026-11-26",
+    "dow": "T",
+    "label": "45",
+    "bars": [
+     {
+      "minutes": 45,
+      "effort": "moderate",
+      "state": "planned"
+     }
+    ]
+   },
+   {
+    "date": "2026-11-27",
+    "dow": "F",
+    "label": "optional",
+    "bars": [
+     {
+      "minutes": 45,
+      "effort": "hard",
+      "state": "optional"
+     },
+     {
+      "minutes": 27,
+      "effort": "easy",
+      "state": "optional"
+     }
+    ]
+   },
+   {
+    "date": "2026-11-28",
+    "dow": "S",
+    "label": "45",
+    "bars": [
+     {
+      "minutes": 45,
+      "effort": "moderate",
+      "state": "planned"
+     }
+    ]
+   },
+   {
+    "date": "2026-11-29",
+    "dow": "S",
+    "label": "rest",
+    "bars": []
+   }
+  ],
+  "changes": [
+   {
+    "id": "swap-4d229cf4-1",
+    "requested": true,
+    "day": "2026-11-19",
+    "session_ids": [
+     "4d229cf4"
+    ],
+    "title": "Thu · Easy run instead of the studio class",
+    "sheet_title": "Thursday: a run instead",
+    "one_line": "45 min moderate class → 30 min easy run.",
+    "before": {
+     "label": "Studio class",
+     "sub": "45 min · moderate · 7 of 10"
+    },
+    "after": {
+     "label": "Easy run",
+     "sub": "30 min · 5.6 km · easy"
+    },
+    "after_detail": {
+     "title": "Easy run",
+     "effort_label": "Easy · 30 min",
+     "why": "You asked for running. Thursday is day 5 after the race, so the coach gives easy running only, at half your usual length.",
+     "how_hard": "3 of 10. Pace 5:00 to 5:30, heart rate under 131.",
+     "do": "5 min walk and leg swings, 22 min easy, 3 min walk."
+    },
+    "warnings": [
+     "This makes 4 hard days this week."
+    ],
+    "data_says": "This is a recovery week: no quality running before your readings are back to normal.",
+    "why": "You asked to change this workout to running.",
+    "if_keep": "The studio class stays as booked.",
+    "accept_label": "Accept",
+    "keep_label": "Keep the original",
+    "again_label": "Try another",
+    "footnote": "Accepting marks this week's class as skipped and puts the run on your watch."
+   }
+  ],
+  "decided": [],
+  "days": [
+   {
+    "date": "2026-11-23",
+    "dow": "Mon",
+    "title": "Mon 23",
+    "tag": null,
+    "items": [
+     {
+      "kind": "rest",
+      "title": "Rest",
+      "why": "Both devices are low after two races. Nothing structured, so your heart rate and HRV can come back.",
+      "do": "A 20 to 30 minute walk or mobility if you want. Sleep 8 to 9 hours.",
+      "change_ids": [],
+      "change_pill": null
+     }
+    ]
+   },
+   {
+    "date": "2026-11-24",
+    "dow": "Tue",
+    "title": "Tue 24",
+    "tag": null,
+    "items": [
+     {
+      "kind": "session",
+      "session_id": "c10def6f",
+      "title": "Cardio class",
+      "minutes": 45,
+      "km": null,
+      "effort": "hard",
+      "effort_label": "Hard · 45 min",
+      "rpe": 8,
+      "fixed": true,
+      "optional": false,
+      "status": "planned",
+      "pills": [
+       "Booked class"
+      ],
+      "change_ids": [],
+      "change_pill": null,
+      "why": "It is a booked class, so it stays on its day. It falls 3 days after the race, so the coach wants it short and easy.",
+      "how_hard": "As booked: 8 of 10. As proposed: 4 of 10, heart rate under 131.",
+      "do": "5 min easy warm-up, 22 min very light, 5 min walk and stretch.",
+      "if_red": "Skip it. 20 min walk and mobility instead.",
+      "after": "Sleep 8 to 9 hours.",
+      "where": "Day 3 of 10 after the race.",
+      "actions": [
+       "more",
+       "move",
+       "skip"
+      ],
+      "done": null,
+      "review": null,
+      "activity_id": null
+     },
+     {
+      "kind": "session",
+      "session_id": "1629495d",
+      "title": "Pull",
+      "minutes": 45,
+      "km": null,
+      "effort": "hard",
+      "effort_label": "Optional · 45 min",
+      "rpe": 9,
+      "fixed": false,
+      "optional": true,
+      "status": "optional",
+      "pills": [],
+      "change_ids": [],
+      "change_pill": null,
+      "why": "A generic strength session from the old block. The coach proposes dropping it for HYROX strength.",
+      "how_hard": null,
+      "do": null,
+      "if_red": null,
+      "after": null,
+      "where": null,
+      "actions": [
+       "more",
+       "move",
+       "skip"
+      ],
+      "done": null,
+      "review": null,
+      "activity_id": null
+     }
+    ]
+   },
+   {
+    "date": "2026-11-25",
+    "dow": "Wed",
+    "title": "Wed 25",
+    "tag": null,
+    "items": [
+     {
+      "kind": "session",
+      "session_id": "448dbb84",
+      "title": "Studio HYROX",
+      "minutes": 45,
+      "km": null,
+      "effort": "hard",
+      "effort_label": "Hard · 45 min",
+      "rpe": 8,
+      "fixed": true,
+      "optional": false,
+      "status": "planned",
+      "pills": [
+       "Booked class",
+       "Kept at full effort by you"
+      ],
+      "change_ids": [],
+      "change_pill": null,
+      "why": "Your first hard session back. Stations under fatigue: sled, lunges, row, wall balls. That is what this block trains.",
+      "how_hard": "8 of 10. Heart rate 132 to 168 in the work.",
+      "do": "5 min easy row or jog and leg swings, the class, 5 min walk and foam roll.",
+      "if_red": "Cap it at 5 of 10, or 30 min easy bike.",
+      "after": "Sleep 8 to 9 hours.",
+      "where": "Day 4 of 10 after the race. The coach suggested doing it lighter; you kept it at full effort on 15 Nov.",
+      "actions": [
+       "more",
+       "easier",
+       "skip"
+      ],
+      "done": null,
+      "review": null,
+      "activity_id": null
+     }
+    ]
+   },
+   {
+    "date": "2026-11-26",
+    "dow": "Thu",
+    "title": "Thu 26",
+    "tag": null,
+    "items": [
+     {
+      "kind": "session",
+      "session_id": "4d229cf4",
+      "title": "Studio class",
+      "minutes": 45,
+      "km": null,
+      "effort": "moderate",
+      "effort_label": "Moderate · 45 min",
+      "rpe": 7,
+      "fixed": true,
+      "optional": false,
+      "status": "planned",
+      "pills": [
+       "Booked class"
+      ],
+      "change_ids": [],
+      "change_pill": null,
+      "why": "Keeps you moving well without digging deeper. Day 5 after the race.",
+      "how_hard": "7 of 10. Heart rate 132 to 149.",
+      "do": "5 min mobility, the class, 5 min stretch.",
+      "if_red": "Go, cap at 5 of 10, skip the hard intervals.",
+      "after": "Sleep 8 to 9 hours.",
+      "where": "Day 5 of 10 after the race.",
+      "actions": [
+       "more",
+       "easier",
+       "skip"
+      ],
+      "done": null,
+      "review": null,
+      "activity_id": null
+     }
+    ]
+   },
+   {
+    "date": "2026-11-27",
+    "dow": "Fri",
+    "title": "Fri 27",
+    "tag": null,
+    "items": [
+     {
+      "kind": "session",
+      "session_id": "db60edec",
+      "title": "Legs",
+      "minutes": 45,
+      "km": null,
+      "effort": "hard",
+      "effort_label": "Optional · 45 min",
+      "rpe": 9,
+      "fixed": false,
+      "optional": true,
+      "status": "optional",
+      "pills": [],
+      "change_ids": [],
+      "change_pill": null,
+      "why": "Generic leg strength the day before Saturday's class costs more than it gives this week. The coach proposes your first easy run after the race instead.",
+      "how_hard": null,
+      "do": "The run, if you accept: 27 min, 5.4 km at 5:00 to 5:30, heart rate under 131. Skip it if your legs feel heavy.",
+      "if_red": "Skip the run. 20 min easy bike or a brisk walk.",
+      "after": null,
+      "where": "Day 6 of 10 after the race.",
+      "actions": [
+       "more",
+       "move",
+       "skip"
+      ],
+      "done": null,
+      "review": null,
+      "activity_id": null
+     }
+    ]
+   },
+   {
+    "date": "2026-11-28",
+    "dow": "Sat",
+    "title": "Sat 28",
+    "tag": null,
+    "items": [
+     {
+      "kind": "session",
+      "session_id": "da5119f9",
+      "title": "Studio class",
+      "minutes": 45,
+      "km": null,
+      "effort": "moderate",
+      "effort_label": "Moderate · 45 min",
+      "rpe": 7,
+      "fixed": true,
+      "optional": false,
+      "status": "planned",
+      "pills": [
+       "Booked class"
+      ],
+      "change_ids": [],
+      "change_pill": null,
+      "why": "Last session of the week, before volume steps up to three quarters on Sunday.",
+      "how_hard": "7 of 10. Heart rate 132 to 149.",
+      "do": "5 min mobility, the class, 5 min stretch and foam roll.",
+      "if_red": "Go at 5 of 10 and work on technique.",
+      "after": "Sleep 8 to 9 hours.",
+      "where": "Day 7 of 10 after the race.",
+      "actions": [
+       "more",
+       "easier",
+       "skip"
+      ],
+      "done": null,
+      "review": null,
+      "activity_id": null
+     }
+    ]
+   },
+   {
+    "date": "2026-11-29",
+    "dow": "Sun",
+    "title": "Sun 29",
+    "tag": null,
+    "items": [
+     {
+      "kind": "rest",
+      "title": "Rest",
+      "why": "No session booked. An easy 30 to 45 minutes is allowed, but only if the week's readings are back to normal.",
+      "do": null,
+      "change_ids": [],
+      "change_pill": null
+     }
+    ]
+   }
+  ],
+  "report": null
+ },
+ "data/plan-week/2030-W11.json": {
+  "version": 1,
+  "week": "2030-W11",
+  "from": "2030-03-11",
+  "to": "2030-03-17",
+  "label": "Week 11 · 11–17 Mar",
+  "generated_at": "2030-03-13T08:00:00+00:00",
+  "state": "current",
+  "phase": {
+   "key": "build",
+   "label": "Build",
+   "pill": "Build · week 2 of 4"
+  },
+  "next_race": {
+   "name": "Example 10K",
+   "short": "Example",
+   "date": "2030-04-03",
+   "days_out": 21,
+   "pill": "21 days to Example"
+  },
+  "why": "A normal build week: one hard session on Wednesday, a tempo on Friday and the long run on Saturday.",
+  "hours": {
+   "firm": 4.5,
+   "optional": 0.5,
+   "planned": 5.0,
+   "aim": 6.0,
+   "target": 6.5,
+   "typical": 5.0,
+   "done": 1.8,
+   "firm_label": "4 h 30",
+   "optional_label": "+30 min",
+   "aim_label": "6 h",
+   "target_label": "6 h 30",
+   "done_label": "1 h 48",
+   "note": "The limit is 20 % above your typical week."
+  },
+  "strip": [
+   {
+    "date": "2030-03-11",
+    "dow": "M",
+    "label": "37",
+    "bars": [
+     {
+      "minutes": 37,
+      "effort": "easy",
+      "state": "done"
+     }
+    ]
+   },
+   {
+    "date": "2030-03-12",
+    "dow": "T",
+    "label": "36",
+    "bars": [
+     {
+      "minutes": 36,
+      "effort": "moderate",
+      "state": "done"
+     },
+     {
+      "minutes": 68,
+      "effort": "race",
+      "state": "done"
+     }
+    ]
+   },
+   {
+    "date": "2030-03-13",
+    "dow": "W",
+    "today": true,
+    "label": "55",
+    "bars": [
+     {
+      "minutes": 55,
+      "effort": "hard",
+      "state": "planned"
+     },
+     {
+      "minutes": 30,
+      "effort": "easy",
+      "state": "optional"
+     }
+    ]
+   },
+   {
+    "date": "2030-03-14",
+    "dow": "T",
+    "label": "rest",
+    "bars": []
+   },
+   {
+    "date": "2030-03-15",
+    "dow": "F",
+    "label": "50",
+    "bars": [
+     {
+      "minutes": 50,
+      "effort": "moderate",
+      "state": "planned"
+     }
+    ]
+   },
+   {
+    "date": "2030-03-16",
+    "dow": "S",
+    "label": "90",
+    "bars": [
+     {
+      "minutes": 90,
+      "effort": "easy",
+      "state": "planned"
+     }
+    ]
+   },
+   {
+    "date": "2030-03-17",
+    "dow": "S",
+    "label": "30",
+    "bars": [
+     {
+      "minutes": 30,
+      "effort": "easy",
+      "state": "planned"
+     }
+    ]
+   }
+  ],
+  "changes": [],
+  "decided": [],
+  "days": [
+   {
+    "date": "2030-03-11",
+    "dow": "Mon",
+    "title": "Mon 11 Mar",
+    "tag": null,
+    "items": [
+     {
+      "kind": "session",
+      "session_id": "s-mon",
+      "title": "Synthetic easy run",
+      "minutes": 37,
+      "km": 6.1,
+      "effort": "easy",
+      "effort_label": "Easy · 37 min",
+      "rpe": 5,
+      "fixed": false,
+      "optional": false,
+      "status": "done",
+      "pills": [],
+      "change_ids": [],
+      "change_pill": null,
+      "why": "Synthetic example session for layout checks.",
+      "how_hard": "4 of 10. Comfortable and controlled.",
+      "do": "6 km easy.",
+      "if_red": "Cut it short.",
+      "after": null,
+      "where": null,
+      "actions": [
+       "more"
+      ],
+      "done": {
+       "line": "Done: 6.1 km in 37 min",
+       "minutes": 37,
+       "km": 6.1,
+       "avg_hr": 141
+      },
+      "review": {
+       "state": "ready",
+       "verdict": "On plan."
+      },
+      "activity_id": "9000000001"
+     }
+    ]
+   },
+   {
+    "date": "2030-03-12",
+    "dow": "Tue",
+    "title": "Tue 12 Mar",
+    "tag": null,
+    "items": [
+     {
+      "kind": "session",
+      "session_id": "s-tue",
+      "title": "Synthetic strength A",
+      "minutes": 36,
+      "km": null,
+      "effort": "moderate",
+      "effort_label": "Moderate · 36 min",
+      "rpe": 6,
+      "fixed": false,
+      "optional": false,
+      "status": "done",
+      "pills": [],
+      "change_ids": [],
+      "change_pill": null,
+      "why": "Synthetic example session for layout checks.",
+      "how_hard": null,
+      "do": null,
+      "if_red": null,
+      "after": null,
+      "where": null,
+      "actions": [
+       "more"
+      ],
+      "done": {
+       "line": "Done: 36 of 45 min",
+       "minutes": 36,
+       "km": null,
+       "avg_hr": null
+      },
+      "review": {
+       "state": "pending",
+       "verdict": null
+      },
+      "activity_id": "9000000002"
+     },
+     {
+      "kind": "race",
+      "title": "Synthetic city race",
+      "race_date": "2030-03-12",
+      "status": "done",
+      "effort": "race",
+      "effort_label": "Race",
+      "why": "Your race of this block.",
+      "result": {
+       "time": "1:08:13",
+       "goal": "1:00:00",
+       "delta": "8:13 over goal",
+       "delta_s": 493,
+       "source": "official"
+      },
+      "review": {
+       "state": "ready",
+       "verdict": "8 minutes over goal."
+      },
+      "activity_id": "9000000002",
+      "actions": [
+       "more"
+      ]
+     }
+    ]
+   },
+   {
+    "date": "2030-03-13",
+    "dow": "Wed",
+    "title": "Wed 13 Mar",
+    "tag": null,
+    "items": [
+     {
+      "kind": "session",
+      "session_id": "s-wed",
+      "title": "Synthetic 4 x 800 m",
+      "minutes": 55,
+      "effort": "hard",
+      "effort_label": "Hard · 55 min",
+      "rpe": 8,
+      "fixed": false,
+      "optional": false,
+      "status": "planned",
+      "pills": [
+       "Key session"
+      ],
+      "change_ids": [],
+      "change_pill": null,
+      "why": "The week's quality session: speed with full recoveries.",
+      "how_hard": "8 of 10 in the work, 3 of 10 between.",
+      "do": "15 min easy, 4 x 800 m with 400 m jog, 10 min easy.",
+      "if_red": "Make it 3 x 800 m at an easy pace.",
+      "after": "Sleep 8 hours.",
+      "where": "Day 3 of the build week.",
+      "actions": [
+       "more",
+       "easier",
+       "skip"
+      ]
+     },
+     {
+      "kind": "session",
+      "session_id": "s-wed2",
+      "title": "Synthetic mobility",
+      "minutes": 30,
+      "effort": "easy",
+      "effort_label": "Optional · 30 min",
+      "rpe": 2,
+      "fixed": false,
+      "optional": true,
+      "status": "optional",
+      "pills": [],
+      "change_ids": [],
+      "change_pill": null,
+      "why": "Loosens the hips before the hard day.",
+      "how_hard": "2 of 10.",
+      "do": "30 min of mobility.",
+      "if_red": null,
+      "after": null,
+      "where": null,
+      "actions": [
+       "more",
+       "move",
+       "skip"
+      ]
+     }
+    ]
+   },
+   {
+    "date": "2030-03-14",
+    "dow": "Thu",
+    "title": "Thu 14 Mar",
+    "tag": null,
+    "items": [
+     {
+      "kind": "rest",
+      "title": "Rest",
+      "why": "A day off between the hard and the long sessions.",
+      "do": "A short walk if you like."
+     }
+    ]
+   },
+   {
+    "date": "2030-03-15",
+    "dow": "Fri",
+    "title": "Fri 15 Mar",
+    "tag": null,
+    "items": [
+     {
+      "kind": "session",
+      "session_id": "s-fri",
+      "title": "Synthetic tempo",
+      "minutes": 50,
+      "effort": "moderate",
+      "effort_label": "Moderate · 50 min",
+      "rpe": 7,
+      "fixed": false,
+      "optional": false,
+      "status": "planned",
+      "pills": [],
+      "change_ids": [],
+      "change_pill": null,
+      "why": "Holds a steady effort to raise the pace you can keep.",
+      "how_hard": "7 of 10.",
+      "do": "10 min easy, 30 min steady, 10 min easy.",
+      "if_red": "Run it easy.",
+      "after": null,
+      "where": null,
+      "actions": [
+       "more",
+       "move",
+       "skip"
+      ]
+     }
+    ]
+   },
+   {
+    "date": "2030-03-16",
+    "dow": "Sat",
+    "title": "Sat 16 Mar",
+    "tag": null,
+    "items": [
+     {
+      "kind": "session",
+      "session_id": "s-sat",
+      "title": "Synthetic long run",
+      "minutes": 90,
+      "effort": "easy",
+      "effort_label": "Easy · 90 min",
+      "rpe": 4,
+      "fixed": false,
+      "optional": false,
+      "status": "planned",
+      "pills": [],
+      "change_ids": [],
+      "change_pill": null,
+      "why": "The long run of the week, all easy.",
+      "how_hard": "4 of 10.",
+      "do": "90 min easy.",
+      "if_red": "Cut it to 60 min.",
+      "after": null,
+      "where": null,
+      "actions": [
+       "more",
+       "move",
+       "skip"
+      ]
+     }
+    ]
+   },
+   {
+    "date": "2030-03-17",
+    "dow": "Sun",
+    "title": "Sun 17 Mar",
+    "tag": null,
+    "items": [
+     {
+      "kind": "session",
+      "session_id": "s-sun",
+      "title": "Synthetic recovery jog",
+      "minutes": 30,
+      "effort": "easy",
+      "effort_label": "Easy · 30 min",
+      "rpe": 3,
+      "fixed": false,
+      "optional": false,
+      "status": "planned",
+      "pills": [],
+      "change_ids": [],
+      "change_pill": null,
+      "why": "Shakes the legs out after the long run.",
+      "how_hard": "3 of 10.",
+      "do": "30 min very easy.",
+      "if_red": "Walk instead.",
+      "after": null,
+      "where": null,
+      "actions": [
+       "more",
+       "move",
+       "skip"
+      ]
+     }
+    ]
+   }
+  ],
+  "report": null
+ },
+ "api/app/job": {
+  "ok": true,
+  "job": "fixture",
+  "id": "1001",
+  "state": "done",
+  "result": {
+   "adjusted": true,
+   "summary": "Today's session is shortened to 37 minutes, easy.",
+   "ok": true,
+   "week": "2026-W49",
+   "change_id": "swap-4d229cf4-1",
+   "note": "Proposed. Accept it to start."
+  }
+ },
+ "data/niggles.json": [
+  {
+   "id": "a1b2c3d4",
+   "date": "2030-03-10",
+   "site": "calf",
+   "side": "left",
+   "severity": 2,
+   "movements": null,
+   "note": null,
+   "resolved": null
+  }
+ ]
+}

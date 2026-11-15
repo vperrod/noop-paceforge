@@ -25,6 +25,8 @@ enum PFJobName: String, Equatable {
     case easyModeEnd = "easy-mode-end"
     case saveEvents = "save-events"
     case hyroxSimAdd = "hyrox-sim-add"
+    /// Change workout by type (build 529): the coach builds a workout of the asked type and files it as a change. Server pending.
+    case sessionSwap = "session-swap"
 
     /// How long a job is expected to take from the request to "done", in seconds, from the contract: a photo read is 5 s to about 4.5 min
     /// (the local vision model is shared), a Garmin sync about 8 s and a minute or more behind a Garmin rate limit, the rest run inline.
@@ -34,6 +36,7 @@ enum PFJobName: String, Equatable {
         case .coach: return 300
         case .sync: return 120
         case .saveRpe, .adjustToday, .coachFeedback, .niggleAdd, .niggleResolve, .calendarEdit, .sessionState, .sessionDrop, .easyMode, .easyModeEnd, .saveEvents, .hyroxSimAdd: return 30
+        case .sessionSwap: return 60
         }
     }
 

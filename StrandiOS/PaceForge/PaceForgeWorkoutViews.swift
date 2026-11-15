@@ -95,6 +95,8 @@ struct PFWorkoutRow: View {
 
 struct PFWorkoutDetail: View {
     let workout: PFWorkout
+    /// False where the edits live elsewhere (the session sheet of the Plan section has them at the top).
+    var showsEdits = true
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -159,7 +161,7 @@ struct PFWorkoutDetail: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
 
-            PFPlanEdits(workout: workout)
+            if showsEdits { PFPlanEdits(workout: workout) }
         }
     }
 }
