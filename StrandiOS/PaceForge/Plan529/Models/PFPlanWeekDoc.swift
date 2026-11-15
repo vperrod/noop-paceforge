@@ -163,6 +163,8 @@ struct PFPlanWeekDoc: Codable, Equatable {
         /// ready | pending | silent
         var state: String?
         var verdict: String?
+        /// One sentence on what the review means for the athlete (optional, build 529 addition).
+        var meaning: String?
     }
 
     struct RaceResult: Codable, Equatable {
@@ -177,6 +179,10 @@ struct PFPlanWeekDoc: Codable, Equatable {
     struct Report: Codable, Equatable {
         var readyAt: String?
         var verdict: String?
+        /// The week told in 4 to 8 sentences, under the verdict (optional, build 529 addition).
+        var story: String?
+        /// Up to three titled findings under the story (optional, build 529 addition).
+        var insights: [Insight]?
         var races: [Race]?
         var plannedDone: PlannedDone?
         var nights: Nights?
@@ -185,6 +191,11 @@ struct PFPlanWeekDoc: Codable, Equatable {
         var notToDo: String?
         var nextWeek: NextWeek?
         var detail: Detail?
+    }
+
+    struct Insight: Codable, Equatable {
+        var title: String?
+        var text: String?
     }
 
     struct Race: Codable, Equatable {

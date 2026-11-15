@@ -41,8 +41,27 @@ struct PFWeekReport529: View {
                     .fixedSize(horizontal: false, vertical: true)
                     .accessibilityIdentifier("plan529-verdict")
             }
+            if let story = report?.story, !story.isEmpty {
+                PFWeekBody529(text: story).accessibilityIdentifier("plan529-story")
+            }
+            ForEach((report?.insights ?? []).indices, id: \.self) { index in
+                insight((report?.insights ?? [])[index], index: index)
+            }
         }
         .pfWeekCard()
+    }
+
+    private func insight(_ item: PFPlanWeekDoc.Insight, index: Int) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            if let title = item.title, !title.isEmpty {
+                Text(title)
+                    .font(LookFont.text(15, weight: .semibold))
+                    .foregroundStyle(NoopLook.textPrimary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            if let text = item.text, !text.isEmpty { PFWeekBody529(text: text) }
+        }
+        .accessibilityIdentifier("plan529-insight-\(index)")
     }
 
     private var pills: [(text: String, color: Color)] {

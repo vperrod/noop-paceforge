@@ -183,6 +183,9 @@ struct PFWeekItemCard529: View {
                 .font(LookFont.text(13, weight: .medium))
                 .foregroundStyle(NoopLook.textSecondary)
                 .accessibilityIdentifier("plan529-review-\(key)")
+            if let meaning = item.review?.meaning, !meaning.isEmpty {
+                PFWeekSub529(text: meaning).accessibilityIdentifier("plan529-review-meaning-\(key)")
+            }
         case "pending":
             Text("Coach review: on its way")
                 .font(LookFont.text(13, weight: .regular))

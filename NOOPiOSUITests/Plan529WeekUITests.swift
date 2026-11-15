@@ -108,6 +108,8 @@ final class Plan529WeekUITests: XCTestCase {
         XCTAssertTrue(app.element("plan529-verdict").waitForExistence(timeout: 20), "A finished week should be its report.")
         XCTAssertEqual(app.element("plan529-week-label").label, "Week 46 \u{00B7} 9\u{2013}15 Nov")
         XCTAssertTrue(app.element("plan529-verdict").label.hasPrefix("Two races in four days"), "The verdict leads with the races.")
+        XCTAssertTrue(app.element("plan529-story").exists, "The story should sit under the verdict.")
+        XCTAssertTrue(app.element("plan529-insight-0").exists, "The insights should sit under the story.")
         attach(app, "R1 week report")
     }
 

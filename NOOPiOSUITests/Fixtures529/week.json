@@ -662,7 +662,8 @@
       },
       "review": {
        "state": "ready",
-       "verdict": "On plan."
+       "verdict": "On plan.",
+       "meaning": "It tells you the pacing, not the fitness, was the problem."
       },
       "activity_id": "24990000001"
      }
@@ -708,7 +709,8 @@
       },
       "review": {
        "state": "ready",
-       "verdict": "Done as booked."
+       "verdict": "Done as booked.",
+       "meaning": "It tells you the pacing, not the fitness, was the problem."
       },
       "activity_id": "24990000002"
      }
@@ -737,7 +739,8 @@
       },
       "review": {
        "state": "ready",
-       "verdict": "8 minutes over goal."
+       "verdict": "8 minutes over goal.",
+       "meaning": "It tells you the pacing, not the fitness, was the problem."
       },
       "activity_id": "9100000002",
       "actions": [
@@ -797,7 +800,8 @@
       },
       "review": {
        "state": "ready",
-       "verdict": "6 minutes inside goal."
+       "verdict": "6 minutes inside goal.",
+       "meaning": "It tells you the pacing, not the fitness, was the problem."
       },
       "activity_id": "9100000001",
       "actions": [
@@ -926,7 +930,18 @@
     "numbers_title": "The numbers, session by session",
     "experts_title": "What each expert read",
     "expert_report": "data/reports/weekly/2026-W46.json"
-   }
+   },
+   "story": "Two races in four days is a lot, and the week shows it. The singles on Wednesday came in over goal, which is normal when the legs are still carrying Monday and Tuesday. Three days later the doubles went better than planned, with a steadier first half. Garmin's readiness fell to its lowest on the last morning, and WHOOP's recovery had two red nights in the second half. Everything planned was done, so the next days are about letting both numbers come back before any hard work.",
+   "insights": [
+    {
+     "title": "Why the singles was slow",
+     "text": "The first half was run at the doubles pace you had planned for Saturday. That cost the second half."
+    },
+    {
+     "title": "What the red nights have in common",
+     "text": "Both followed an evening race or class that ended less than three hours before bed."
+    }
+   ]
   }
  },
  "data/plan-week/2026-W48.json": {
