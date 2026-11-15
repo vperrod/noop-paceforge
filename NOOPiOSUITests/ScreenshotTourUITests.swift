@@ -204,6 +204,14 @@ final class ScreenshotTourUITests: XCTestCase {
         let done = app.buttons["Done"]
         guard done.waitForExistence(timeout: 15) else { note("missing: results sheet Done button"); return }
         attach(app, "15-race-results")
+        // A finished race opens its results (the race card), never the HYROX plan.
+        XCTAssertTrue(element(app, "pf-race-result").waitForExistence(timeout: 10), "A finished race should open the race result card.")
+        XCTAssertFalse(element(app, "hyrox-plan-total").exists, "A finished race must not open the HYROX plan.")
+        // Race numbers name their source: official time leads, the watch time and Garmin calories are labelled.
+        func label(_ text: String) -> XCUIElement { app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", text)).firstMatch }
+        XCTAssertTrue(label("Official").waitForExistence(timeout: 10), "The race summary should label the official time.")
+        XCTAssertTrue(label("Watch").exists, "The race summary should keep the watch time, labelled Watch.")
+        XCTAssertTrue(label("Wrist HR avg").exists, "The race heart-rate header should say it is the wrist average.")
         app.swipeUp()
         attach(app, "16-race-results-scrolled")
         done.tap()

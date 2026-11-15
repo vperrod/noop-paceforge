@@ -95,9 +95,9 @@ struct PFResultsSheet: View {
             .tint(StrandPalette.accent)
             .accessibilityIdentifier("pf-ask-coach-workout")
         }
-        if let activity { PFStatTiles(activity: activity, hidesHeartRate: race != nil) }
+        if let activity { PFStatTiles(activity: activity, hidesHeartRate: race != nil, race: race) }
         if let detail {
-            PFHeartRateCard(samples: detail.samples, splits: race == nil ? detail.splits : [], avgHr: activity?.avgHr, hrNote: race?.hrNote)
+            PFHeartRateCard(samples: detail.samples, splits: race == nil ? detail.splits : [], avgHr: activity?.avgHr, hrNote: race?.hrNote, isRace: race != nil)
             if race == nil, !detail.zones.isEmpty { PFZonesCard(zones: detail.zones) }
             if race == nil, let split = detail.ltSplit { PFLtSplitCard(split: split) }
         } else {
@@ -252,6 +252,13 @@ private struct PFStatTiles: View {
     let activity: PFActivity
     /// A race: the watch heart rate is not shown as a plain fact (the heart-rate card carries the server's note).
     var hidesHeartRate = false
+    /// A race with an official time: that time leads as "Official", the watch's moving time stays beside it as "Watch".
+    var race: PFRaceResult? = nil
+
+    private var officialTime: String? {
+        guard let race, race.official else { return nil }
+        return race.timeDisplay ?? race.timeSeconds.map { PFFormat.clock(Double($0)) }
+    }
 
     private var tiles: [PFStatTile] {
         let a = activity
@@ -266,14 +273,19 @@ private struct PFStatTiles: View {
         func put(_ key: String, _ label: String, _ value: String?, _ unit: String? = nil) {
             if let value { all[key] = PFStatTile(label: label, value: value, unit: unit) }
         }
-        put("time", "Time", positive(a.durationS).map { PFFormat.clock($0) })
+        if let officialTime {
+            put("time", "Official", officialTime)
+            put("watch", "Watch", positive(a.durationS).map { PFFormat.clock($0) })
+        } else {
+            put("time", "Time", positive(a.durationS).map { PFFormat.clock($0) })
+        }
         put("pace", "Pace", positive(pace).map { PFFormat.pace($0) }, "/km")
         put("avgHr", a.hasCorrectedHr ? String(localized: "Avg HR (corrected)") : "Avg HR", whole(positive(a.avgHr)), "bpm")
         put("maxHr", a.hasCorrectedHr ? String(localized: "Max HR (corrected)") : "Max HR", whole(positive(a.maxHr)), "bpm")
         put("dist", "Distance", km.map { String(format: "%.2f", $0) }, "km")
         put("ate", "Aerobic TE", positive(a.teAerobic).map { PFFormat.oneDecimal($0) })
         put("ane", "Anaerobic TE", positive(a.teAnaerobic).map { PFFormat.oneDecimal($0) })
-        put("kcal", "Calories", whole(positive(a.calories)), "kcal")
+        put("kcal", race == nil ? "Calories" : "Calories (Garmin)", whole(positive(a.calories)), "kcal")
         put("cad", "Cadence", whole(positive(a.cadence)), a.isBike ? "rpm" : "spm")
         put("stride", "Stride", positive(a.strideCm).map { String(format: "%.2f", $0 / 100) }, "m")
         put("gct", "Ground contact", whole(positive(a.groundContactMs)), "ms")
@@ -289,7 +301,8 @@ private struct PFStatTiles: View {
             order = ["time", "avgHr", "maxHr", "kcal", "ate", "ane", "dist", "pace", "elev"]
         }
         let heartRateKeys: Set<String> = ["avgHr", "maxHr", "ate", "ane"]
-        return order.filter { !hidesHeartRate || !heartRateKeys.contains($0) }.compactMap { all[$0] }
+        return order.flatMap { $0 == "time" ? ["time", "watch"] : [$0] }
+            .filter { !hidesHeartRate || !heartRateKeys.contains($0) }.compactMap { all[$0] }
     }
 
     var body: some View {
@@ -325,6 +338,8 @@ private struct PFHeartRateCard: View {
     let splits: [PFSplit]
     let avgHr: Double?
     var hrNote: String? = nil
+    /// A race: the average is the wrist sensor's, and the label says so.
+    var isRace = false
 
     private var points: [(minutes: Double, hr: Double)] {
         samples.compactMap { s in s.hr.map { (minutes: s.t / 60, hr: $0) } }
@@ -337,7 +352,7 @@ private struct PFHeartRateCard: View {
     var body: some View {
         PFCard(title: "Heart rate", icon: "heart.fill", trailing: {
             if let avgHr {
-                Text("avg \(Safe.int(avgHr))")
+                Text("\(isRace ? "Wrist HR avg" : "avg") \(Safe.int(avgHr))")
                     .font(StrandFont.caption)
                     .foregroundStyle(StrandPalette.textTertiary)
             }
