@@ -72,10 +72,6 @@ final class PFInboxLogic529Tests: XCTestCase {
         XCTAssertEqual(decide([item("alert:12", kind: "health")], legacy: ["12"]).toNotify, [])
     }
 
-    func testANeedsYouItemTheEarlierPathAnnouncedIsNotAnnouncedAgain() {
-        XCTAssertEqual(decide([item("needs_you:treadmill_pace:99", kind: "coach")], legacy: ["treadmill_pace:99"]).toNotify, [])
-    }
-
     func testAnAlertTheEarlierPathDidNotAnnounceIsAnnounced() {
         XCTAssertEqual(decide([item("alert:13", kind: "health")], legacy: ["12"]).toNotify.map(\.id), ["alert:13"])
     }

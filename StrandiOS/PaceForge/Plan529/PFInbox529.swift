@@ -216,10 +216,12 @@ struct PFInbox529: View {
 /// how late the newest notification was (the real delay, for measuring after the build).
 struct PFInboxSettings529: View {
     @ObservedObject private var store = PFInboxStore529.shared
+    @State private var badgesOff = false
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
+                if badgesOff { badgesRow }
                 VStack(spacing: 0) {
                     ForEach(PFInboxKind529.allCases) { kind in
                         Toggle(isOn: Binding(get: { store.isOn(kind) }, set: { store.set(kind, on: $0) })) {
@@ -258,6 +260,25 @@ struct PFInboxSettings529: View {
         .navigationTitle("What you are told about")
         .navigationBarTitleDisplayMode(.inline)
         .containerIdentifier("plan529-inbox-settings-screen")
+        .task { badgesOff = await PFBadgePermission529.badgesAreOff() }
+    }
+
+    /// Notifications are allowed but the app icon cannot show the unread count: iOS badges are off for NOOP.
+    private var badgesRow: some View {
+        HStack(spacing: 12) {
+            Text("Badges are off in iOS Settings")
+                .font(LookFont.text(14, weight: .semibold))
+                .foregroundStyle(NoopLook.textPrimary)
+            Spacer(minLength: 4)
+            Button("Open settings") { PFBadgePermission529.openNotificationSettings() }
+                .font(LookFont.text(14, weight: .semibold))
+                .foregroundStyle(StrandPalette.accent)
+                .accessibilityIdentifier("plan529-inbox-badges-open")
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: NoopLook.Metric.tileRadius, style: .continuous).fill(NoopLook.card))
+        .accessibilityIdentifier("plan529-inbox-badges-off")
     }
 
     private var diagnostics: some View {

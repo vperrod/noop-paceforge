@@ -181,14 +181,12 @@ enum PFInboxLogic529 {
         return NotifyDecision(toNotify: fresh, notified: remembered)
     }
 
-    /// The earlier alert path remembers an alert by its own id and a Needs you item by its own id. An inbox id that wraps one of them
-    /// ("alert:<id>", "needs_you:<id>") counts as announced when that path has it.
+    /// The earlier alert path remembers an alert by its own id. An inbox id "alert:<id>" counts as announced when that path has the bare
+    /// id. (Needs you items are not in the inbox: they stay on their own path.)
     static func isAnnouncedByEarlierPath(id: String, legacyNotified: Set<String>) -> Bool {
         if legacyNotified.contains(id) { return true }
-        guard let colon = id.firstIndex(of: ":") else { return false }
-        let prefix = String(id[id.startIndex..<colon])
-        guard ["alert", "needs_you", "needsyou", "need"].contains(prefix) else { return false }
-        return legacyNotified.contains(String(id[id.index(after: colon)...]))
+        guard id.hasPrefix("alert:") else { return false }
+        return legacyNotified.contains(String(id.dropFirst("alert:".count)))
     }
 
     /// How long after the server wrote an item the phone first saw it; nil when the item has no readable time.

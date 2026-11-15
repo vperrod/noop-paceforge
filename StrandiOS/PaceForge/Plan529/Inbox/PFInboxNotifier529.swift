@@ -60,22 +60,16 @@ enum PFInboxNotifier529 {
 
     // MARK: Not twice
 
-    /// The ids the earlier alert and Needs you paths remember as announced.
+    /// The ids the earlier alert path remembers as announced.
     private static func legacyNotified(_ defaults: UserDefaults) -> Set<String> {
         Set(defaults.stringArray(forKey: PaceForgeBackground.notifiedAlertsKey) ?? [])
-            .union(defaults.stringArray(forKey: PaceForgeBackground.notifiedNeedsKey) ?? [])
     }
 
-    /// An alert or Needs you item announced here is entered in the earlier path's list, so that path does not announce it again.
+    /// An alert announced here is entered in the earlier path's list, so that path does not announce it again.
     private static func rememberForEarlierPath(id: String, defaults: UserDefaults) {
-        for (prefix, key) in [("alert:", PaceForgeBackground.notifiedAlertsKey), ("needs_you:", PaceForgeBackground.notifiedNeedsKey)]
-        where id.hasPrefix(prefix) {
-            let earlierID = String(id.dropFirst(prefix.count))
-            let stored = defaults.stringArray(forKey: key)
-            // The Needs you path takes the first list it finds as its baseline and announces nothing from it, so it is never started here.
-            if stored == nil, key == PaceForgeBackground.notifiedNeedsKey { continue }
-            let list = stored ?? []
-            if !list.contains(earlierID) { defaults.set(Array((list + [earlierID]).suffix(200)), forKey: key) }
-        }
+        guard id.hasPrefix("alert:") else { return }
+        let earlierID = String(id.dropFirst("alert:".count))
+        let list = defaults.stringArray(forKey: PaceForgeBackground.notifiedAlertsKey) ?? []
+        if !list.contains(earlierID) { defaults.set(Array((list + [earlierID]).suffix(200)), forKey: PaceForgeBackground.notifiedAlertsKey) }
     }
 }

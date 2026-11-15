@@ -180,10 +180,11 @@ enum SelfHostedPushClient {
     }
 
     /// Build 529: after a contact with the server, the inbox is checked for notifications (`PFInboxNotifier529`): one small GET, at most
-    /// every ten minutes whoever calls, and it never throws (an answer that does not come is skipped). Called from the end of the sync
-    /// above and from the sink that ends each completed strap sync (`AppModel`), which is the background contact that comes about every
-    /// 30 minutes (15 at the floor): the push above is held to once an hour. The background refresh (`PaceForgeBackground`) calls the same function as the
-    /// fallback. A no-op on the Mac.
+    /// every ten minutes whoever calls, and it never throws (an answer that does not come is skipped). The two-way change-journal exchange
+    /// (`api/noop/db/changes`, `replicateChanges`) runs only inside `performPush`, so the end of `pushIfEnabled` is the completion of every
+    /// such pass in the background, whatever triggers it (strap sync, the rescore resume, a scene change). The sink that ends each completed
+    /// strap sync (`AppModel`) calls it too. The background refresh (`PaceForgeBackground`) calls the same function as the fallback. A no-op
+    /// on the Mac.
     @MainActor
     static func checkInboxAfterContact() async {
         #if os(iOS)

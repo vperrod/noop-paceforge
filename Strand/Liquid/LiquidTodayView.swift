@@ -4014,7 +4014,10 @@ private struct LiquidAlertsBellButton: View {
             }
             .onAppear { history.adopt(model.snapshot) }
             .onChange(of: model.savedAt) { _, _ in history.adopt(model.snapshot) }
-            .task { await inbox.refreshIfStale() }
+            .task {
+                await PFBadgePermission529.migrateOnce()
+                await inbox.refreshIfStale()
+            }
         }
     }
 
