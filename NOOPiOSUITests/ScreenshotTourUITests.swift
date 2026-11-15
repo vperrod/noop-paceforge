@@ -120,15 +120,15 @@ final class ScreenshotTourUITests: XCTestCase {
     /// to the bottom in steps, writes down which blocks it met after each step and asserts that every block of the fixed top was met.
     private func tourToday(_ app: XCUIApplication) {
         let required: [String] = [
-            "today-six-rings", "pf-today-card-the-call", "today-proactive", "look-health-tile", "look-stress-tile", "pf-today-card-how-you-are",
-            "today-my-day-header", "today-daygraph", "pf-today-card-today", "sleep-planner-entry", "today-my-plan-header",
+            "today-six-rings", "pf-today-card-the-call", "today-proactive", "look-health-tile", "pf-today-card-how-you-are",
+            "today-my-day-header", "today-daygraph", "pf-today-card-today", "today-stress-monitor", "sleep-planner-entry", "today-my-plan-header",
             "pf-today-card-this-week", "today-my-dashboard-header",
         ]
         // Shown only when there is something to show (an open item, a journal switched on, a feel summary): noted, not asserted.
         // The training row now shows the next race only on race day, so it needs a recorded workout; the five blocks after it draw only with
         // their data (a weight goal, a recording today, a daily report or review, a baseline), which the fixture may lack.
         let conditional: [String] = ["pf-today-card-needs-you", "today-journal", "pf-today-card-feel", "today-training-row", "today-weight-goal",
-                                     "today-so-far", "today-bookend", "today-vs30"]
+                                     "today-so-far", "today-workouts", "today-bookend", "today-vs30"]
         // A container that wraps buttons is not always exposed under its own identifier (the Today card sits in the slot's own container), so
         // a block is also met when one of its rows is on screen.
         let aliases: [String: [String]] = [

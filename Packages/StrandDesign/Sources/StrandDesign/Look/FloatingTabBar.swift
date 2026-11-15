@@ -25,15 +25,22 @@ public struct FloatingTabBar: View {
     @Binding public var selection: String
     /// nil draws no coach button. The iPhone shell passes one: the Coach opens as a sheet over the screen on show.
     public var onCoach: (() -> Void)?
+    /// The ids of the tabs that carry a small "new" dot.
+    public var dotIDs: Set<String>
+    /// A small "new" dot on the coach button.
+    public var coachDot: Bool
 
     /// The narrowest a tab gets before the bar starts to scroll.
     private static let minItemWidth: CGFloat = 56
     private static let stripPadding: CGFloat = 4
 
-    public init(items: [LookTabItem], selection: Binding<String>, onCoach: (() -> Void)? = nil) {
+    public init(items: [LookTabItem], selection: Binding<String>, onCoach: (() -> Void)? = nil,
+                dotIDs: Set<String> = [], coachDot: Bool = false) {
         self.items = items
         self._selection = selection
         self.onCoach = onCoach
+        self.dotIDs = dotIDs
+        self.coachDot = coachDot
     }
 
     public var body: some View {
@@ -75,6 +82,7 @@ public struct FloatingTabBar: View {
             VStack(spacing: 3) {
                 Image(systemName: item.symbol)
                     .font(.system(size: 17, weight: .regular))
+                    .overlay(alignment: .topTrailing) { newDot(show: dotIDs.contains(item.id)) }
                 Text(item.title)
                     .font(LookFont.text(10, weight: .medium))
                     .lineLimit(1)
@@ -87,8 +95,20 @@ public struct FloatingTabBar: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel(item.title)
+        .accessibilityValue(dotIDs.contains(item.id) ? Text("New") : Text(verbatim: ""))
         .accessibilityAddTraits(isOn ? [.isButton, .isSelected] : .isButton)
         .accessibilityIdentifier("look-tab-\(item.id)")
+    }
+
+    /// The small "new" dot: a filled circle in the alert colour, drawn only while `show`.
+    @ViewBuilder private func newDot(show: Bool) -> some View {
+        if show {
+            Circle()
+                .fill(NoopLook.alert)
+                .frame(width: 8, height: 8)
+                .offset(x: 5, y: -2)
+                .accessibilityHidden(true)
+        }
     }
 
     private func coachButton(_ onCoach: @escaping () -> Void) -> some View {
@@ -106,9 +126,11 @@ public struct FloatingTabBar: View {
                     .foregroundStyle(Color(hex: "#DFE4FF"))
             }
             .frame(width: 64, height: NoopLook.Metric.tabBarHeight)
+            .overlay(alignment: .topTrailing) { newDot(show: coachDot).padding(.top, 8).padding(.trailing, 8) }
         }
         .buttonStyle(.plain)
         // NOOP's own Coach, so it is told apart from PaceForge's Coach segment in the PaceForge tab.
+        .accessibilityValue(coachDot ? Text("New") : Text(verbatim: ""))
         .accessibilityLabel("NOOP Coach")
         .accessibilityIdentifier("look-coach")
     }

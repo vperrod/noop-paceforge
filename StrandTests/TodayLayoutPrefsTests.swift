@@ -184,6 +184,11 @@ final class TodayLayoutPrefsTests: XCTestCase {
         XCTAssertNotEqual(TodayBlockPrefs.hiddenKey, TodayLayoutPrefs.hiddenKey)
     }
 
+    /// Build 529 took the Page note block off Today: a phone that hid it keeps the id in its saved list, and it is ignored.
+    func testTheHiddenIdOfARemovedBlockIsIgnored() {
+        XCTAssertEqual(TodayBlockPrefs.decodeHidden("page-note,call"), [.call])
+    }
+
     func testBlockSwitchesRoundTripInStableOrderAndIgnoreUnknownIds() {
         let encoded = TodayBlockPrefs.encodeHidden([.vsThirtyDays, .call])
         XCTAssertEqual(encoded, "call,vs-30")

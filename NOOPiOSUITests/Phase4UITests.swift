@@ -324,13 +324,16 @@ final class Phase4UITests: XCTestCase {
 
     // MARK: Stress (the monitor is the top of the one Stress screen)
 
-    func testStressTileOpensTheOneStressScreenWithTheMonitorOnTop() throws {
+    /// With PaceForge set up the Stress tile near the top is gone (build 529): the Stress Monitor chart in My Day, with today's score in its
+    /// header, is the way in.
+    func testStressMonitorChartOpensTheOneStressScreenWithTheMonitorOnTop() throws {
         let app = try launch()
-        let tile = element(app, "look-stress-tile")
-        XCTAssertTrue(reveal(tile, in: app), "Today should show the Stress monitor tile.")
-        attach(app, "Phase4 90 Today, Stress monitor tile")
+        XCTAssertFalse(element(app, "look-stress-tile").exists, "The Stress tile should be gone from Today.")
+        let tile = element(app, "today-stress-monitor")
+        XCTAssertTrue(reveal(tile, in: app), "Today should show the Stress Monitor chart.")
+        attach(app, "Phase4 90 Today, Stress monitor chart")
         tile.tap()
-        XCTAssertTrue(element(app, "look-stress-monitor").waitForExistence(timeout: 20), "The tile should open the Stress screen with the monitor on top.")
+        XCTAssertTrue(element(app, "look-stress-monitor").waitForExistence(timeout: 20), "The chart should open the Stress screen with the monitor on top.")
         let hasReading = element(app, "look-stress-reading").waitForExistence(timeout: 10)
         let hasEmpty = element(app, "look-stress-empty").exists
         XCTAssertTrue(hasReading || hasEmpty, "The monitor shows either a real reading or the honest no-data state, never a made-up one.")

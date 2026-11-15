@@ -622,7 +622,7 @@ struct PFProposalsRow: View {
         .buttonStyle(.plain)
         .background(RoundedRectangle(cornerRadius: NoopLook.Metric.tileRadius, style: .continuous).fill(NoopLook.card))
         .accessibilityLabel(Text("\(PFWeekPlan.todayLine(count)). Read why"))
-        .accessibilityHint(Text("Opens the Coach"))
+        .accessibilityHint(Text("Opens the Plan, on the week with the changes"))
         .accessibilityIdentifier("pf-proposals-row")
     }
 }

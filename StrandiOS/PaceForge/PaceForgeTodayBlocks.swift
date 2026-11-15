@@ -108,8 +108,7 @@ private struct PFTodayWeightGoalCard: View {
 
 // MARK: - Today so far (what was recorded today)
 
-/// My Day's Today so far card: the plan line, the mini strip and Open My Day, then what the watch recorded today, each row with its
-/// numbers and a tap to its results.
+/// My Day's Today so far card: the plan line. What was recorded today is Today's workouts, the list under it (`PFTodaysWorkoutsHost`).
 struct PFTodayRecordedHost: View {
     var body: some View {
         PFSnapshotHost(drawsChrome: false, content: { snapshot in AnyView(PFTodaySoFarCard(snapshot: snapshot)) })
@@ -120,8 +119,8 @@ struct PFTodayRecordedHost: View {
 // MARK: - Bookend row (morning read, evening review)
 
 /// One row at the top of My Day: in the evening the Day in review summary (when today's review exists), otherwise the morning read, which
-/// is the daily report row. Each opens what its own block opens: the review's full card, or the daily report. The two blocks lower on
-/// Today stay where they are. Draws nothing when neither exists.
+/// is the daily report row. Each opens what its own block opens: the review's full card, or the daily report. This is the one Day in
+/// review on Today (build 529 took the block lower down off it). Draws nothing when neither exists.
 struct PFTodayBookendRow: View {
     @ObservedObject private var intel = PFDailyIntelStore.shared
     @ObservedObject private var reports = PFReportsStore.shared

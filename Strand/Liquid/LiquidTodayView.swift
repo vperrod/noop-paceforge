@@ -458,7 +458,11 @@ struct LiquidTodayView: View {
                     // so it renders nothing by default.
                     if mountStage == Self.allMounted {
                         AutoWorkoutCard()
+                        // The Data sources block at the bottom is off the iPhone's Today (build 529): the top bar carries the battery
+                        // and the sync, and Data sources opens from the avatar > Settings > Data.
+                        #if !os(iOS)
                         dataSourcesSection
+                        #endif
                     }
                     Color.clear.frame(height: 90) // floating tab-bar clearance
                 }
@@ -585,9 +589,8 @@ struct LiquidTodayView: View {
         .sheet(isPresented: $showNeedsYouSheet) {
             PFNeedsYouSheet(onReadWhy: {
                 showNeedsYouSheet = false
-                // The proposals are on the Coach's Read chip, whichever chip it was left on.
-                UserDefaults.standard.set(CoachChip.read.rawValue, forKey: CoachChip.storageKey)
-                router.openCoach()
+                // The proposals are on Plan > Week, on the week the changes are about (build 529).
+                PFProposalWeek529.openWeekWithChanges()
             })
         }
         #endif
@@ -983,11 +986,8 @@ struct LiquidTodayView: View {
     @ViewBuilder private func lookTodayColumn(_ order: [TodaySection]) -> some View {
         let hasHero = order.contains(.hero)
         let openNeedsYou = { showNeedsYouSheet = true }
-        let readWhy = {
-            // The proposals are on the Coach's Read chip, whichever chip it was left on.
-            UserDefaults.standard.set(CoachChip.read.rawValue, forKey: CoachChip.storageKey)
-            router.openCoach()
-        }
+        // The proposals row opens Plan > Week, on the week the changes are about, with the changes at the top.
+        let readWhy = { PFProposalWeek529.openWeekWithChanges() }
         if hasHero { heroCard }
         // The day graph directly under the dials and their caption lines (source labels, the Effort target line), above the call. It
         // mounts at stage 1, so the first frame is still the dials and the call.
@@ -998,9 +998,6 @@ struct LiquidTodayView: View {
         // The journal is the morning prompt: until today's is logged it sits right under the call with a one-tap way in, and it folds to a
         // "Journal logged" row that opens Journal impact afterwards.
         if order.contains(.journal) { JournalReminderCard() }
-        // PaceForge's one assessment of the day as a line under the call. Its recovery bars (TodayPFReadout) stay off Today: they carry
-        // PaceForge's own recovery numbers, a third score beside Garmin's and the strap's.
-        if shows(.pageNote) { PFPageNote(key: "today") }
         if shows(.coachNoticed) { PFProactiveTodayCard() }
         if mountStage >= 1 {
             if hasHero {
@@ -1017,7 +1014,7 @@ struct LiquidTodayView: View {
             LookSectionHeader(String(localized: "My Day"))
                 .padding(.top, 8)
                 .accessibilityIdentifier("today-my-day-header")
-            // One row for the morning read and, in the evening, the day in review (the two blocks lower on Today stay).
+            // One row for the morning read and, in the evening, the day in review.
             if shows(.bookend) { PFTodayBookendRow() }
         }
         // Stage 2: the My Day cards.
@@ -1028,8 +1025,11 @@ struct LiquidTodayView: View {
             }
             // What the watch recorded today, with its results (nothing when nothing was recorded).
             if shows(.todaySoFar) { PFTodayRecordedHost() }
-            // WHOOP's Stress Monitor card: the day's stress curve from the strap, one tap from the Stress screen. Today only.
-            if selectedDayOffset == 0 && shows(.stressMonitor) { LookStressMonitorSection(chartOnly: true) }
+            // Today's workouts: one list, one row per workout, the strap's and Garmin's versions together.
+            if shows(.todaysWorkouts) { PFTodaysWorkoutsHost(strap: workouts) }
+            // WHOOP's Stress Monitor card: the day's stress curve from the strap, one tap from the Stress screen. Today only. Its header
+            // carries today's score (the Stress tile near the top is gone).
+            if selectedDayOffset == 0 && shows(.stressMonitor) { LookStressMonitorSection(chartOnly: true, todayScore: stress) }
             // Tonight's sleep: the sleep planner's own row (target hours, bedtime, wake), from the sleep need the Sleep screen uses.
             if shows(.tonightsSleep) { PFSleepPlannerSlot() }
             if shows(.feel) {
@@ -1044,7 +1044,7 @@ struct LiquidTodayView: View {
                 .accessibilityIdentifier("today-my-plan-header")
             // The last slot also closes Today's PaceForge cards with the Hidden cards row, so it mounts even when the week card and the
             // training row are both turned off in Customize: a card closed with its X can always be brought back.
-            // The last workout is listed once, under My Dashboard (Last workouts); this row only carries a race that is today.
+            // The day's workouts are listed once, in Today's workouts under Today so far; this row only carries a race that is today.
             PFTodayCards(cards: shows(.thisWeek) ? [.thisWeek] : [], drawsChrome: false, showsTrainingRow: shows(.trainingRow),
                          lastWorkout: nil, containerID: "pf-today-cards-week",
                          onOpenNeedsYou: openNeedsYou, onReadWhy: readWhy)
@@ -1116,8 +1116,12 @@ struct LiquidTodayView: View {
         HStack(spacing: 12) {
             // The illness early-warning describes now, so it sits on today only.
             if selectedDayOffset == 0 { LookHealthTile() }
-            LookStressTile(score: stress)
-                .hiddenWhenPrivate(.scores, name: String(localized: "Stress"))
+            // With PaceForge set up, today's Stress is a score in the header of the Stress Monitor chart in My Day, so the tile goes.
+            // Without it, and on an earlier day, there is no such chart and the tile stays.
+            if !(PFAPI.isConfigured && selectedDayOffset == 0) {
+                LookStressTile(score: stress)
+                    .hiddenWhenPrivate(.scores, name: String(localized: "Stress"))
+            }
         }
     }
 
@@ -2027,11 +2031,19 @@ struct LiquidTodayView: View {
                     .lineLimit(1)
                     .minimumScaleFactor(0.82)
             }
-            Text(verbatim: displayValue)
-                .font(StrandFont.number(24))
-                .foregroundStyle(StrandPalette.textPrimary)
-                .lineLimit(1)
-                .minimumScaleFactor(0.75)
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Text(verbatim: displayValue)
+                    .font(StrandFont.number(24))
+                    .foregroundStyle(StrandPalette.textPrimary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
+                #if os(iOS)
+                // Build 529: a small mark against the 30-day usual (the rule the Today vs 30 days rows use).
+                if !hides, let markMetric = detailMetric ?? key.flatMap({ key in MetricCatalog.all.first(where: { $0.key == key }) }) {
+                    KeyTileMark(metric: markMetric, day: selectedLogicalDay, effortScale: effortScale)
+                }
+                #endif
+            }
             // Optional sub-value caveat (queue 11a): only ever set for an unvalidated candidate fallback
             // (e.g. the SpO₂ strap estimate), so every other `ktile` call site — no `caption` argument —
             // renders byte-identical to before this parameter existed.
@@ -2216,22 +2228,17 @@ struct LiquidTodayView: View {
                             if selectedDayOffset == 0 {
                                 // Without an endpoint and token the six PaceForge cards are not mounted (see `body`), so Today says why here.
                                 if !PFAPI.isConfigured { PFNotSetUpView() }
-                                // The call's detail (chip, PaceForge's Effort target, the planned session) is on the call banner above;
-                                // without PaceForge set up the banner is not drawn, so the card stays there.
+                                // The call's chip is on the call banner above; without PaceForge set up the banner is not drawn, so the
+                                // card stays there.
                                 if !PFAPI.isConfigured { PFTodaysCallStoreHost(compact: true) }
-                                PFDailyReportRow()
+                                // The Daily report row that was here is gone (build 529): the Morning read row in My Day opens it.
                             }
                             #else
                             EmptyView()
                             #endif
-                        // The evening wrap: today only, and only when the server's daily-intel.json carries it (the host holds the gate:
-                        // evening, a current document, a day_in_review item); nothing otherwise.
                         case .dayInReview:
-                            #if os(iOS)
-                            if selectedDayOffset == 0 { PFDayReviewStoreHost() }
-                            #else
+                            // The evening wrap is the Day in review row in My Day (build 529); this second copy is off the iPhone's Today.
                             EmptyView()
-                            #endif
                         // This week's plan progress and the user's own metrics. Today only; each draws nothing when it has nothing to say.
                         case .myPlan:
                             #if os(iOS)
@@ -2281,7 +2288,7 @@ struct LiquidTodayView: View {
                             // direction mark), then weight against its goal.
                             if shows(.vsThirtyDays) {
                                 LookMyDashboardSection(day: selectedLogicalDay, title: "Today vs 30 days", identifier: "today-vs30",
-                                                       drawsEmptyState: false, excludesWeight: true)
+                                                       drawsEmptyState: false, excludesWeight: true, excludesVitals: true)
                             }
                             if selectedDayOffset == 0 && PFAPI.isConfigured && shows(.weightGoal) { PFTodayWeightGoalHost(newest: weightReading) }
                             #endif
@@ -3948,20 +3955,23 @@ private struct LiquidBatteryButton: View {
 }
 
 #if os(iOS)
-/// The bell in Today's top bar: opens the Alerts history, with a small red count of the lines not seen yet (nothing at 0, "9+" above 9).
-/// Drawn only while PaceForge is set up on the phone. Its own view, so the sheet and the stores it watches stay off Today's body.
+/// The bell in Today's top bar: opens the Inbox (build 529), with a small red count of the lines not read yet (nothing at 0, "9+" above 9).
+/// The inbox holds what `data/inbox.json` lists and the earlier Alerts history. Drawn only while PaceForge is set up on the phone. Its own
+/// view, so the sheets and the stores it watches stay off Today's body.
 private struct LiquidAlertsBellButton: View {
     @ObservedObject private var model = PFUnified.model
     @ObservedObject private var history = PFAlertHistoryStore.shared
+    @ObservedObject private var inbox = PFInboxStore529.shared
+    @ObservedObject private var landing = PFInboxLanding529.shared
     @ObservedObject private var liveStore = LiveSnapshotStore.shared
-    @State private var showAlerts = false
-    /// What a tapped Alerts line opens, held until the sheet has gone so the 495 activity sheet cannot race its dismissal.
-    @State private var pendingOpen: [AnyHashable: Any]?
+    @State private var showInbox = false
+    /// What a tapped inbox line opens, held until the sheet has gone so the 495 activity sheet cannot race its dismissal.
+    @State private var pendingOpen: PFInboxRow529?
     /// The strap-sync capsule is open (the same debounced signal the battery button uses). It widens leftward into the header's spare
     /// room, so the bell steps aside until it closes.
     @State private var syncing = false
 
-    private var unread: Int { history.unreadCount(for: model.snapshot) }
+    private var unread: Int { inbox.unreadCount }
 
     var body: some View {
         if PFAPI.isConfigured {
@@ -3971,7 +3981,7 @@ private struct LiquidAlertsBellButton: View {
                 if syncing {
                     Color.clear.frame(width: 0, height: NoopMetrics.compactControlSize)
                 } else {
-                    Button { showAlerts = true } label: {
+                    Button { showInbox = true } label: {
                         Image(systemName: "bell")
                             .font(.system(size: 14, weight: .bold))
                             .foregroundStyle(StrandPalette.textPrimary)
@@ -3979,23 +3989,39 @@ private struct LiquidAlertsBellButton: View {
                     }
                     .nativeLiquidGlassHeaderButton()
                     .overlay(alignment: .topTrailing) { badge }
-                    .accessibilityLabel(unread > 0 ? String(localized: "Alerts, \(unread) unread") : String(localized: "Alerts"))
+                    .accessibilityLabel(unread > 0 ? String(localized: "Inbox, \(unread) unread") : String(localized: "Inbox"))
                     .accessibilityIdentifier("today-alerts")
                 }
             }
             .debouncedSyncSignal(liveStore.snapshot.backfilling, into: $syncing)
-            .sheet(isPresented: $showAlerts, onDismiss: openPending) {
-                PFAlertsHistoryView { pendingOpen = $0 }
+            .sheet(isPresented: $showInbox, onDismiss: openPending) {
+                NavigationStack {
+                    PFInbox529 { row in
+                        pendingOpen = row
+                        showInbox = false
+                    }
+                    .toolbar {
+                        ToolbarItem(placement: .topBarTrailing) {
+                            Button("Done") { showInbox = false }
+                                .accessibilityIdentifier("today-inbox-done")
+                        }
+                    }
+                }
+            }
+            // Stress, heart rate and effort open here as a sheet, wherever the link came from (the inbox, a notification).
+            .background {
+                Color.clear.sheet(item: $landing.destination) { PFInboxLandingSheet529(destination: $0) }
             }
             .onAppear { history.adopt(model.snapshot) }
             .onChange(of: model.savedAt) { _, _ in history.adopt(model.snapshot) }
+            .task { await inbox.refreshIfStale() }
         }
     }
 
     private func openPending() {
-        guard let info = pendingOpen else { return }
+        guard let row = pendingOpen else { return }
         pendingOpen = nil
-        PFAlertLink.open(userInfo: info)
+        PFInboxRouter529.open(row)
     }
 
     @ViewBuilder private var badge: some View {

@@ -161,6 +161,13 @@ struct EffortTargetCard: View {
                                       identifier: "effort-target-info")
                 }
                 if let reading {
+                    #if os(iOS)
+                    // Two targets sit on this card (build 529), so each is named: this one is the strap's.
+                    Text("NOOP STRAP")
+                        .font(StrandFont.overlineScaled(11))
+                        .tracking(1.0)
+                        .foregroundStyle(StrandPalette.textTertiary)
+                    #endif
                     Text(verbatim: reading.progress.text)
                         .font(StrandFont.subhead.weight(.semibold))
                         .foregroundStyle(StrandPalette.textPrimary)
@@ -168,6 +175,9 @@ struct EffortTargetCard: View {
                         .accessibilityIdentifier("effort-target-text")
                     EffortTargetBar(progress: reading.progress)
                     TrainingStateLine(reading: reading)
+                    #if os(iOS)
+                    PFEffortTargetGarmin529()
+                    #endif
                 } else {
                     Text("Reading your day").font(StrandFont.subhead)
                         .foregroundStyle(StrandPalette.textTertiary)

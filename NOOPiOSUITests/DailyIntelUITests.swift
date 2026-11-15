@@ -54,8 +54,8 @@ final class DailyIntelUITests: XCTestCase {
 
     // MARK: Today's call on NOOP Today
 
-    /// Today states the call once: the banner under the dials carries the verdict, the chip, PaceForge's Effort target and the planned
-    /// session; tapping it opens the rest (why the scores differ, the action) in the call sheet.
+    /// Today states the call once: the banner under the dials carries the verdict and the chip; tapping it opens the rest (why the scores
+    /// differ, the action) in the call sheet. The Effort target is on its own card and today's session on the Today card (build 529).
     private func callBanner(_ app: XCUIApplication) -> XCUIElement { element(app, "pf-today-card-the-call") }
 
     private func openCallSheet(_ app: XCUIApplication) {
@@ -71,8 +71,8 @@ final class DailyIntelUITests: XCTestCase {
         XCTAssertTrue(reveal(banner, in: app), "NOOP Today should show the call.")
         attach(app, "Intel 10 NOOP Today, the call")
         XCTAssertTrue(banner.label.contains("Keep the plan"), "The banner should carry the verdict chip.")
-        XCTAssertTrue(banner.label.contains("Effort target"), "The banner should carry PaceForge's Effort target.")
-        XCTAssertTrue(banner.label.contains("Planned today"), "The banner should carry the planned session.")
+        XCTAssertFalse(banner.label.contains("Effort target"), "The Effort target is on its own card, not on the banner.")
+        XCTAssertFalse(banner.label.contains("Planned today"), "Today's session is on the Today card, not on the banner.")
         XCTAssertFalse(element(app, "pf-todays-call").exists, "Today does not draw the call a second time.")
         banner.tap()
         XCTAssertTrue(element(app, "pf-call-disagreement").waitForExistence(timeout: 15),
@@ -90,12 +90,13 @@ final class DailyIntelUITests: XCTestCase {
         attach(app, "Intel 12 Today's call, action card opened to its reason")
     }
 
-    func testCallBannerCarriesTheEffortTargetLine() throws {
+    /// PaceForge's Effort target (from Garmin) is named on the Effort target card, next to the strap's own band.
+    func testEffortTargetCardCarriesPaceForgesTargetNamed() throws {
         let app = try launch()
-        let banner = callBanner(app)
-        XCTAssertTrue(reveal(banner, in: app), "The call should load first.")
-        XCTAssertTrue(banner.label.contains("Effort target"), "The Effort target line should show on the banner.")
-        attach(app, "Intel 13 Today's call, Effort target line")
+        let line = element(app, "effort-target-garmin")
+        XCTAssertTrue(reveal(line, in: app), "The Effort target card should carry PaceForge's target.")
+        XCTAssertTrue(line.label.contains("Effort target"), "The line should say what it is.")
+        attach(app, "Intel 13 Effort target card, Garmin via PaceForge")
     }
 
     func testTodaysCallSaysWhenItIsUnavailable() throws {
@@ -112,6 +113,7 @@ final class DailyIntelUITests: XCTestCase {
         XCTAssertFalse(element(app, "pf-todays-call").waitForExistence(timeout: 5), "Without the file there is no call card.")
         let banner = callBanner(app)
         if banner.exists { XCTAssertFalse(banner.label.contains("Effort target"), "Without the file the banner has no detail.") }
+        XCTAssertFalse(element(app, "effort-target-garmin").exists, "Without the file the Effort target card has no PaceForge target.")
         attach(app, "Intel 15 NOOP Today without the daily file")
     }
 
@@ -212,8 +214,12 @@ final class DailyIntelUITests: XCTestCase {
 
     func testDayInReviewShowsInTheEvening() throws {
         let app = try launch(extra: ["-PaceForgeEvening"])
+        // The one Day in review on Today is the row at the top of My Day; it opens the card (build 529 took the second copy off Today).
+        let row = element(app, "today-bookend")
+        XCTAssertTrue(reveal(row, in: app), "After 18:00 My Day should show the Day in review row.")
+        row.tap()
         let card = element(app, "pf-day-review")
-        XCTAssertTrue(reveal(card, in: app), "After 18:00 Today should show Day in review.")
+        XCTAssertTrue(card.waitForExistence(timeout: 15), "The row should open Day in review.")
         XCTAssertTrue(element(app, "pf-review-outcome").exists, "It should say whether the target was met.")
         XCTAssertTrue(element(app, "pf-review-tonight").exists, "It should give tonight's need and bedtime.")
         XCTAssertTrue(element(app, "pf-review-tomorrow").exists, "It should name tomorrow's session.")
@@ -235,11 +241,12 @@ final class DailyIntelUITests: XCTestCase {
 
     // MARK: Journal prompt
 
-    /// Until today's journal is logged it is the morning prompt under the call; one tap per question and Save; then it folds to a row.
+    /// Until yesterday's journal is logged it is the morning prompt under the call ("What happened yesterday?"); one tap per question and
+    /// Save; then it folds to a row.
     func testJournalPromptOpensTheFlowAndFoldsOnceLogged() throws {
         let app = try launch()
         let card = element(app, "today-journal")
-        XCTAssertTrue(reveal(card, in: app), "Until today's journal is logged, Today should show the journal prompt.")
+        XCTAssertTrue(reveal(card, in: app), "Until yesterday's journal is logged, Today should show the journal prompt.")
         attach(app, "Intel 80 Today journal prompt")
         card.buttons["Journal"].firstMatch.tap()
         let yes = app.descendants(matching: .any).matching(NSPredicate(format: "identifier BEGINSWITH 'look-journal-yes-'")).firstMatch

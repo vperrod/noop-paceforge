@@ -176,6 +176,19 @@ enum SelfHostedPushClient {
         guard UserDefaults.standard.bool(forKey: enabledKey) else { return }
         do { _ = try await push(repo: repo) }
         catch { NSLog("NOOP self-hosted sync deferred: %@", error.localizedDescription) }
+        await checkInboxAfterContact()
+    }
+
+    /// Build 529: after a contact with the server, the inbox is checked for notifications (`PFInboxNotifier529`): one small GET, at most
+    /// every ten minutes whoever calls, and it never throws (an answer that does not come is skipped). Called from the end of the sync
+    /// above and from the sink that ends each completed strap sync (`AppModel`), which is the background contact that comes about every
+    /// 30 minutes (15 at the floor): the push above is held to once an hour. The background refresh (`PaceForgeBackground`) calls the same function as the
+    /// fallback. A no-op on the Mac.
+    @MainActor
+    static func checkInboxAfterContact() async {
+        #if os(iOS)
+        await PFInboxNotifier529.checkIfDue()
+        #endif
     }
 
     @MainActor

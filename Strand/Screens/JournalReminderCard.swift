@@ -10,6 +10,9 @@ import StrandDesign
 // prompt is the once-a-morning sleep sheet — missed on any day you don't open Sleep. This surfaces it on
 // Today where it can't be missed, and doubles as the "direct link to Insights" the report (#627) asked for.
 //
+// Build 529: the card asks about YESTERDAY. You answer in the morning about last night, and the server pairs each day's answers with the
+// next morning's recovery, so a day's answers belong to that day. It opens the journal on yesterday, and folds once yesterday is logged.
+//
 // Opt-out via `PuffinExperiment.journalReminderKey` (default ON — the same key also gates the Android
 // morning sleep sheet twin). Read-only: it never writes a journal entry. Twin of Android
 // `JournalReminderCard` (android/.../ui/JournalReminder.kt). Design-Reset compliant — a flat accent-tinted
@@ -33,8 +36,8 @@ struct JournalReminderCard: View {
         Group {
             if reminderEnabled, let logged = loggedDays {
                 #if os(iOS)
-                // Once today's journal is in, the card folds to one row that opens what helps and hurts recovery.
-                if logged.contains(Self.dayKeys().last ?? "") {
+                // Once yesterday's journal is in, the card folds to one row that opens what helps and hurts recovery.
+                if logged.contains(Self.yesterdayKey()) {
                     loggedRow
                 } else {
                     card(logged)
@@ -87,13 +90,14 @@ struct JournalReminderCard: View {
     private func card(_ logged: Set<String>) -> some View {
         let keys = Self.dayKeys()
         let todayKey = keys.last ?? ""
-        let todayLogged = logged.contains(todayKey)
-        // A recent PAST day with no entry — surfaces the tap-a-bar-to-backfill interaction once today is
-        // done (#656). Accent while anything is actionable; calm secondary once fully caught up.
+        let yesterdayKey = Self.yesterdayKey()
+        let yesterdayLogged = logged.contains(yesterdayKey)
+        // A recent PAST day with no entry — surfaces the tap-a-bar-to-backfill interaction once yesterday is
+        // done (#656). Accent while anything is actionable; calm secondary once fully caught up. Today is not due yet.
         let hasMissed = keys.contains { $0 != todayKey && !logged.contains($0) }
-        let subtitle: String = !todayLogged ? String(localized: "Log today's journal")
+        let subtitle: String = !yesterdayLogged ? String(localized: "What happened yesterday?")
             : hasMissed ? String(localized: "Tap a day to catch up")
-            : String(localized: "Logged today")
+            : String(localized: "Logged yesterday")
         // No outer Button: each bar is its own tap target that deep-links the journal to THAT day (#656),
         // and nested SwiftUI buttons don't work — so header + subtitle carry their own onTapGesture (→
         // today) and the bars carry theirs. The regions are non-overlapping in the VStack, so a tap lands
@@ -120,7 +124,7 @@ struct JournalReminderCard: View {
                         .accessibilityHidden(true)
                 }
                 .contentShape(Rectangle())
-                .onTapGesture { router.openJournal() }
+                .onTapGesture { router.openJournal(day: 1) }
                 .accessibilityElement(children: .combine)
                 .accessibilityAddTraits(.isButton)
                 .accessibilityLabel(Text(String(localized: "Journal")))
@@ -140,7 +144,7 @@ struct JournalReminderCard: View {
                                     .fill(isLogged ? StrandPalette.accent : StrandPalette.textTertiary.opacity(0.22))
                                     .frame(height: 10)
                                     .overlay {
-                                        if off == 0, !isLogged {
+                                        if off == 1, !isLogged {
                                             RoundedRectangle(cornerRadius: 3)
                                                 .strokeBorder(StrandPalette.accent, lineWidth: 1)
                                         }
@@ -154,9 +158,9 @@ struct JournalReminderCard: View {
                 }
                 Text(subtitle)
                     .font(StrandFont.footnote)
-                    .foregroundStyle((!todayLogged || hasMissed) ? StrandPalette.accent : StrandPalette.textSecondary)
+                    .foregroundStyle((!yesterdayLogged || hasMissed) ? StrandPalette.accent : StrandPalette.textSecondary)
                     .contentShape(Rectangle())
-                    .onTapGesture { router.openJournal() }
+                    .onTapGesture { router.openJournal(day: 1) }
                     .accessibilityAddTraits(.isButton)   // it opens the journal — announce it as one
             }
         }
@@ -188,6 +192,11 @@ struct JournalReminderCard: View {
         guard reminderEnabled else { loggedDays = nil; return }
         let keys = Self.dayKeys()
         loggedDays = await repo.nativeJournalDays(from: keys.first ?? "", to: keys.last ?? "")
+    }
+
+    /// Yesterday's local-day key: the one before the last of `dayKeys()`.
+    private static func yesterdayKey() -> String {
+        dayKeys().dropLast().last ?? ""
     }
 
     /// The `stripDays` local-day keys (yyyy-MM-dd), oldest → today, matching Android's `journalDayKey`

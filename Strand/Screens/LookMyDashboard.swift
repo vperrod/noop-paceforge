@@ -18,6 +18,9 @@ struct LookMyDashboardSection: View {
     var drawsEmptyState = true
     /// Today lists body weight once (its Weight tile and Weight vs goal), so its 30-day rows leave it out.
     var excludesWeight = false
+    /// Today shows HRV and resting heart rate once, as Key Metrics tiles with their own mark against the 30-day usual, so its rows leave
+    /// them out (its sleep rows stay).
+    var excludesVitals = false
 
     @EnvironmentObject private var repo: Repository
     @AppStorage(MyDashboardPrefs.storageKey) private var raw = MyDashboardPrefs.defaultCSV
@@ -117,6 +120,7 @@ struct LookMyDashboardSection: View {
             let parts = id.split(separator: ":", maxSplits: 1).map(String.init)
             guard parts.count == 2, let metric = MetricCatalog.metric(key: parts[1], source: parts[0]) else { continue }
             if excludesWeight && metric.key == "weight" { continue }
+            if excludesVitals && (metric.key == "hrv" || metric.key == "rhr") { continue }
             // Steps resolve across Apple Health, the Garmin mirror and the strap, so the row never goes empty while
             // any of them has a count, and it names the source of the latest day.
             var rowLabel = metric.title

@@ -75,8 +75,8 @@ final class PaceForgeNeedsYouUITests: XCTestCase {
         let done = app.keyboards.buttons["return"]
         if done.exists { done.tap() }
 
-        // A plan proposal is not answered here: since build 512 (e08110f81) the sheet holds one row that opens the Coach, where the
-        // proposal is explained and accepted or dismissed.
+        // A plan proposal is not answered here: since build 512 (e08110f81) the sheet holds one row that opens Plan > Week (the Coach
+        // until build 529), where the proposal is explained and accepted or dismissed.
         let proposals = element(app, "pf-proposals-row")
         XCTAssertTrue(reveal(proposals, in: app), "The sheet should carry the proposals row.")
         XCTAssertFalse(element(app, "pf-needs-accept-proposal:synth01").exists, "Proposals are answered on the Coach, not in this sheet.")

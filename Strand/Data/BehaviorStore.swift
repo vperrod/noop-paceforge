@@ -101,7 +101,8 @@ final class BehaviorStore: ObservableObject {
         illnessWatch = d.object(forKey: K.illness) as? Bool ?? false
         batteryAlerts = d.object(forKey: K.batteryAlerts) as? Bool ?? true
         batteryPredictiveAlerts = d.object(forKey: K.batteryPredictiveAlerts) as? Bool ?? true
-        strainTargetNudge = d.object(forKey: K.strainTargetNudge) as? Bool ?? false
+        // On unless the athlete switched it off (build 529): an existing phone that never touched the switch gets the notification.
+        strainTargetNudge = d.object(forKey: K.strainTargetNudge) as? Bool ?? true
     }
 
     // MARK: Charge baseline recalibration
