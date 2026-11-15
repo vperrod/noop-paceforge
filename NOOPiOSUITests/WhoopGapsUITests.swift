@@ -156,65 +156,26 @@ final class WhoopGapsUITests: XCTestCase {
 
     // MARK: Coach
 
-    func testCoachHistoryListsPastConversationsAndStartsANewOne() {
-        let app = launch(extraArguments: ["-CoachFixture"])
-        let history = element(app, "coach-history")
-        XCTAssertTrue(history.waitForExistence(timeout: 40), "The made-up Coach should open.")
-        attach(app, "75 Coach")
-        element(app, "coach-new-conversation").tap()
-        history.tap()
-        XCTAssertTrue(element(app, "coach-history-sheet").waitForExistence(timeout: 10))
-        XCTAssertTrue(element(app, "coach-history-row-fixture-1").waitForExistence(timeout: 5), "The earlier conversations are listed.")
-        attach(app, "75 Coach history")
-        element(app, "coach-history-row-fixture-1").tap()
-        XCTAssertTrue(element(app, "coach-history-continue").waitForExistence(timeout: 10))
-        attach(app, "75 Coach past conversation")
-    }
-
-    func testThumbsDownAsksWhy() {
-        let app = launch(extraArguments: ["-CoachFixture"])
-        let down = element(app, "coach-thumbs-down")
-        XCTAssertTrue(down.waitForExistence(timeout: 40))
-        down.tap()
-        for reason in ["Inaccurate", "Unhelpful", "Off-topic", "Unsafe"] {
-            XCTAssertTrue(app.buttons[reason].waitForExistence(timeout: 5), "The thumbs-down menu should offer \(reason).")
-        }
-        attach(app, "76 Coach feedback reasons")
-        app.buttons["Unhelpful"].tap()
-        XCTAssertEqual(element(app, "coach-feedback-reason").label, "Unhelpful")
-        attach(app, "76 Coach feedback saved")
-    }
-
-    func testResponseLengthIsInCoachSettings() {
-        let app = launch(extraArguments: ["-CoachFixture"])
-        let settings = app.buttons["Coach settings"]
-        XCTAssertTrue(settings.waitForExistence(timeout: 40))
-        settings.tap()
-        let picker = element(app, "coach-response-length")
-        XCTAssertTrue(picker.waitForExistence(timeout: 10), "Coach settings should have the response length.")
-        XCTAssertTrue(app.buttons["Condensed"].exists)
-        app.buttons["Condensed"].tap()
-        attach(app, "77 Coach response length")
-        app.buttons["Default"].tap()
-    }
+    // The NOOP chat's history, thumbs-down reasons and Response length were tested here. On the iPhone that chat (CoachView) has not been
+    // mounted since dcfe459c6 (24 Oct, "unify NOOP and PaceForge coaching") removed its chip from CoachUnifiedView; CoachView is the
+    // macOS Coach only (RootView.swift), so those three tests had nothing to open and were removed.
 
     func testAskAboutThisFromAScoreInfoSheetPutsTheQuestionInCoach() {
         let app = launch(extraArguments: ["-CoachFixture"])
-        // Coach opens over Today at launch; close it, then open a score's guide from Today.
-        let history = element(app, "coach-history")
-        XCTAssertTrue(history.waitForExistence(timeout: 40))
+        // The Coach sheet opens over Today at launch; close it, then open a score's guide from Today.
+        XCTAssertTrue(element(app, "coach-host").waitForExistence(timeout: 40), "The Coach should open at launch.")
         app.buttons["Done"].firstMatch.tap()
-        // The label under the ring ("Charge, 49. See how it is scored.") opens the guide; the ring itself opens the trend.
-        let guide = app.buttons.matching(NSPredicate(
-            format: "label BEGINSWITH[c] %@ AND label CONTAINS[c] %@", "Charge", "See how it is scored")).firstMatch
+        // The ring itself opens the trend; the name under it (the second button of the dial's cell) opens the guide.
+        let guide = element(app, "six-rings-noop-charge").buttons.matching(NSPredicate(format: "label BEGINSWITH[c] %@", "Charge")).element(boundBy: 1)
         XCTAssertTrue(guide.waitForExistence(timeout: 20), "Today should show the Charge label.")
         guide.tap()
         let ask = element(app, "ask-coach-button")
         XCTAssertTrue(ask.waitForExistence(timeout: 10), "A score's info sheet should offer Ask about this.")
         attach(app, "78 Ask about this")
         ask.tap()
-        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS[c] %@", "explain my Charge")).firstMatch
-            .waitForExistence(timeout: 20), "Coach should show the question that was handed to it.")
+        XCTAssertTrue(element(app, "coach-chip-content-ask").waitForExistence(timeout: 20), "The question should open the Coach on its Ask chip.")
+        let question = app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS[c] %@ OR value CONTAINS[c] %@", "explain my Charge", "explain my Charge")).firstMatch
+        XCTAssertTrue(question.waitForExistence(timeout: 20), "Coach should show the question that was handed to it.")
         attach(app, "78 Coach with the question")
     }
 }

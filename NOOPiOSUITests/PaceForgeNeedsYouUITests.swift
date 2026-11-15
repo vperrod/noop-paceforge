@@ -75,17 +75,15 @@ final class PaceForgeNeedsYouUITests: XCTestCase {
         let done = app.keyboards.buttons["return"]
         if done.exists { done.tap() }
 
-        // A proposal is one line with Accept and Dismiss; accepting it removes it and keeps the rest.
-        let accept = element(app, "pf-needs-accept-proposal:synth01")
-        XCTAssertTrue(reveal(accept, in: app), "The proposal has an Accept button.")
-        accept.tap()
-        let gone = NSPredicate(format: "exists == false")
-        expectation(for: gone, evaluatedWith: accept)
-        waitForExpectations(timeout: 10)
-        XCTAssertTrue(element(app, "pf-needs-card").exists, "The other items are still waiting.")
-        attach(app, "After accepting the proposal")
+        // A plan proposal is not answered here: since build 512 (e08110f81) the sheet holds one row that opens the Coach, where the
+        // proposal is explained and accepted or dismissed.
+        let proposals = element(app, "pf-proposals-row")
+        XCTAssertTrue(reveal(proposals, in: app), "The sheet should carry the proposals row.")
+        XCTAssertFalse(element(app, "pf-needs-accept-proposal:synth01").exists, "Proposals are answered on the Coach, not in this sheet.")
+        attach(app, "Needs you sheet with the proposals row")
 
-        // Effort 1-10 and feel 1-5 are one tap each; Don't know answers the treadmill run. The last answer closes the sheet.
+        let gone = NSPredicate(format: "exists == false")
+        // Effort 1-10 and feel 1-5 are one tap each; Don't know answers the treadmill run. The last answer removes the card.
         let rpe = element(app, "pf-needs-rpe-7-rpe:9100000002")
         XCTAssertTrue(reveal(rpe, in: app), "The effort row has a 7.")
         rpe.tap()
@@ -95,21 +93,22 @@ final class PaceForgeNeedsYouUITests: XCTestCase {
         let unknown = element(app, "pf-needs-unknown-treadmill_pace:9100000001")
         XCTAssertTrue(reveal(unknown, in: app), "The treadmill row has Don't know.")
         unknown.tap()
-        expectation(for: gone, evaluatedWith: element(app, "pf-needs-sheet-done"))
+        // The proposal still waits on the Coach, so the sheet stays with its row; the answered card and the Today row are gone.
+        expectation(for: gone, evaluatedWith: element(app, "pf-needs-card"))
         waitForExpectations(timeout: 10)
-        XCTAssertFalse(element(app, "pf-needs-row").exists, "With everything answered the row is gone too.")
+        XCTAssertTrue(element(app, "pf-proposals-row").exists, "The proposal is still waiting for the Coach.")
         attach(app, "After the last answer")
     }
 
     func testFailedAnswerBringsTheRowBackWithAReason() throws {
         let app = try launch(["-PaceForgeNeedsYou", "-PaceForgeAnswerFails"])
         openSheet(app)
-        let dismiss = element(app, "pf-needs-dismiss-proposal:synth01")
-        XCTAssertTrue(reveal(dismiss, in: app), "The proposal has a Dismiss button.")
-        dismiss.tap()
-        XCTAssertTrue(element(app, "pf-needs-error-proposal:synth01").waitForExistence(timeout: 10),
+        let unknown = element(app, "pf-needs-unknown-treadmill_pace:9100000001")
+        XCTAssertTrue(reveal(unknown, in: app), "The treadmill row has Don't know.")
+        unknown.tap()
+        XCTAssertTrue(element(app, "pf-needs-error-treadmill_pace:9100000001").waitForExistence(timeout: 10),
                       "A failed answer says why.")
-        XCTAssertTrue(element(app, "pf-needs-dismiss-proposal:synth01").exists, "The proposal is back to answer again.")
+        XCTAssertTrue(element(app, "pf-needs-unknown-treadmill_pace:9100000001").exists, "The question is back to answer again.")
         attach(app, "After a failed answer")
     }
 }
