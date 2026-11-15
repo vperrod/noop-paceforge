@@ -4,15 +4,15 @@ import StrandDesign
 
 // MARK: - Coach: one surface for the shared PaceForge brain
 //
-// Four chips, one mounted at a time: Read (the plan changes waiting, today's read in full, the Expert reading, what waits on the athlete,
-// the Monthly coach review, the workout reviews and reads, the Coach log), Ask (the whole chat and the composer: Question or Change my
-// plan), Reports (Day, Week, Month and Race, and the week plan page) and Insights (Overview, Trends, Journal, Deep dives). Daily
+// Three chips, one mounted at a time: Read (the plan changes waiting, today's read in full, the Expert reading, what waits on the athlete,
+// the Monthly coach review, the workout reviews and reads, the Coach log, and one row that opens Plan > Reports), Ask (the whole chat and
+// the composer: Question or Change my plan) and Insights (Overview, Trends, Journal, Deep dives). The reports live in Plan now. Daily
 // interpretation, the weekly review and the conversation all use PaceForge's server-side coach job, which builds its context from the
 // synced NOOP and PaceForge records. The Season plan and "Your numbers" cards are mounted elsewhere; the status of the morning briefing
 // is under Settings > Briefing.
 
 enum CoachChip: String, CaseIterable, Identifiable {
-    case read, ask, reports, insights
+    case read, ask, insights
 
     /// The chip on show, remembered between launches.
     static let storageKey = "noop.coach.chip"
@@ -23,7 +23,6 @@ enum CoachChip: String, CaseIterable, Identifiable {
         switch self {
         case .read: return "Read"
         case .ask: return "Ask"
-        case .reports: return "Reports"
         case .insights: return "Insights"
         }
     }
@@ -144,8 +143,6 @@ private struct CoachChipBody: View {
             return AnyView(CoachReadChip(onOpenProposals: onOpenProposals, onOpenNeedsYou: onOpenNeedsYou, onAsk: onAsk))
         case .ask:
             return AnyView(CoachAskChip())
-        case .reports:
-            return AnyView(CoachReportsChip())
         case .insights:
             return AnyView(InsightsEmbedded())
         }
@@ -166,6 +163,7 @@ private struct CoachReadChip: View {
                                     onOpenNeedsYou: onOpenNeedsYou, onAsk: onAsk))
             })
             .containerIdentifier("coach-full-brain")
+            CoachReportsRow()
             PFCoachLogCard()
         }
         .containerIdentifier("coach-chip-content-read")
@@ -179,16 +177,48 @@ private struct CoachAskChip: View {
     }
 }
 
-/// What the Reports tab's first chip showed (Day, Week, Month and Race), and the week plan page, which has no report row of its own.
-private struct CoachReportsChip: View {
+/// The reports moved to Plan (the Reports chip): one row here closes the Coach and opens it.
+private struct CoachReportsRow: View {
+    @Environment(\.dismiss) private var dismiss
+
     var body: some View {
-        VStack(alignment: .leading, spacing: NoopMetrics.sectionSpacing) {
-            PFReportsIndexContent()
-            IndexSection("Plan") {
-                IndexRow("This week", "calendar", TabRoute.reports("week"), id: "coach-week-plan-row")
+        Button {
+            dismiss()
+            // The Plan tab sits under the Coach sheet; it opens on Reports once the sheet has gone.
+            Task { @MainActor in
+                try? await Task.sleep(nanoseconds: 400_000_000)
+                PFDeepLink529.open(.chip(.reports))
             }
+        } label: {
+            HStack(spacing: 14) {
+                Image(systemName: "doc.text")
+                    .font(.system(size: 17, weight: .regular))
+                    .foregroundStyle(StrandPalette.accent)
+                    .frame(width: 26, alignment: .center)
+                    .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Reports")
+                        .font(StrandFont.body)
+                        .foregroundStyle(StrandPalette.textPrimary)
+                    Text("Today, weeks, months, races and workouts, in Plan")
+                        .font(StrandFont.caption)
+                        .foregroundStyle(StrandPalette.textTertiary)
+                }
+                Spacer(minLength: 8)
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(StrandPalette.textTertiary)
+                    .accessibilityHidden(true)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 8)
+            .frame(minHeight: 44)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(RoundedRectangle(cornerRadius: NoopLook.Metric.tileRadius, style: .continuous).fill(NoopLook.card))
+            .contentShape(Rectangle())
         }
-        .containerIdentifier("coach-chip-content-reports")
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("coach-reports-row")
     }
 }
 

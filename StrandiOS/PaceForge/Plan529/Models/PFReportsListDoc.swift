@@ -33,6 +33,8 @@ struct PFReportsListDoc: Codable, Equatable {
         var day: String?
         var name: String?
         var sub: String?
+        /// Optional: one sentence on what the workout means, shown as a second line.
+        var meaning: String?
         /// ready | pending
         var state: String?
         var ts: String?

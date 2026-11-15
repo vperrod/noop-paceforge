@@ -8,9 +8,11 @@ final class Plan529FoundationUITests: XCTestCase {
                       "The synthetic fixture should be bundled with the UI tests.")
     }
 
-    private func launch(open target: String? = nil) throws -> XCUIApplication {
+    /// `chip` sets the Plan tab's remembered chip (an argument-domain default for `noop.calendar.chip`), because the tab keeps its last chip.
+    private func launch(open target: String? = nil, chip: String? = nil) throws -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments.append(contentsOf: ["--demo-seed", "-theme.appearance", "dark", "-PaceForgeFixture"])
+        if let chip { app.launchArguments.append(contentsOf: ["-noop.calendar.chip", chip]) }
         if let target { app.launchArguments.append(contentsOf: ["-Plan529Open", target]) }
         app.launchEnvironment["PF_FIXTURE_JSON"] = try Fixtures529.merged(Data(contentsOf: fixtureURL()))
         app.launch()
@@ -44,14 +46,13 @@ final class Plan529FoundationUITests: XCTestCase {
     }
 
     func testSessionSheetOpensOverThePlanTab() throws {
-        let app = try launch(open: "session:2026-W47:c10def6f")
+        let app = try launch(open: "session:2026-W47:c10def6f", chip: "week")
         app.openTab("Plan")
         XCTAssertTrue(app.element("plan529-session").waitForExistence(timeout: 30), "The session sheet should open.")
         attach(app, "Plan529 01 session sheet")
         app.element("plan529-sheet-done").tap()
-        // The Plan tab keeps its chip between launches, so the sheet closing is what is checked, not which chip is under it.
-        XCTAssertTrue(app.element("plan529-session").waitForNonExistence(timeout: 30), "Done should close the sheet.")
-        XCTAssertTrue(app.element("calendar-host").exists, "The Plan tab should be under the sheet.")
+        XCTAssertTrue(app.element("plan529-session").waitForNonExistence(timeout: 30), "Done should close the sheet over the Plan tab.")
+        XCTAssertTrue(app.element("calendar-chip-content-week").waitForExistence(timeout: 30), "Done should return to the Week chip the test started on.")
     }
 
     func testInboxOpensOverThePlanTab() throws {
@@ -67,10 +68,10 @@ final class Plan529FoundationUITests: XCTestCase {
         attach(app, "Plan529 02 season chip")
     }
 
-    func testReportsChipShowsTheReportsIndex() throws {
+    func testReportsChipListsTheReports() throws {
         let app = try launch()
         app.openChip("Plan", "reports")
-        XCTAssertTrue(app.element("pf-reports-index-daily").waitForExistence(timeout: 30), "The Reports chip should show the reports index.")
+        XCTAssertTrue(app.element("reports-row-today:2026-11-15").waitForExistence(timeout: 30), "The Reports chip should list the reports.")
         attach(app, "Plan529 03 reports chip")
     }
 }

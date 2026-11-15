@@ -35,7 +35,7 @@ extension XCUIApplication {
         pickChip(prefix: prefix, chip: chip, content: "\(prefix)-chip-content-\(chip)")
     }
 
-    /// Opens the Coach sheet over the screen on show and picks one of its chips: `read`, `ask`, `reports` or `insights`.
+    /// Opens the Coach sheet over the screen on show and picks one of its chips: `read`, `ask` or `insights`.
     func openCoach(_ chip: String) {
         XCTAssertTrue(coachButton.waitForExistence(timeout: 30), "The Coach button should be beside the bar.")
         coachButton.tap()

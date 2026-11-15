@@ -122,7 +122,9 @@ final class ScreenCleanupUITests: XCTestCase {
         }
         element(app, "insights-chip-overview").tap()
         let reports: [(entry: String, body: String)] = [
-            ("highlights", "pf-highlights-body"), ("healthspan", "pf-healthspan-body"), ("monthly", "pf-monthly-body"),
+            ("highlights", "pf-highlights-body"), ("healthspan", "pf-healthspan-body"), ("monthly-scores", "pf-monthly-body"),
+            // The month in a few lines; the fixture has none for last month, so the existing reading screen opens in its place.
+            ("monthly", "pf-reports"),
         ]
         for report in reports {
             let entry = element(app, "insights-report-\(report.entry)")

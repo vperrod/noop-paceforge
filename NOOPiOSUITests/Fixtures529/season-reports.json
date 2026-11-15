@@ -1,0 +1,953 @@
+{
+ "_synthetic": "Synthetic. Build 529 Season, Calendar, Reports and plan-settings fixture: made-up races, weeks and times. Adds the weeks the Calendar pages through and the answer to an app job.",
+ "api/app/job": {
+  "ok": true,
+  "job": "plan-edit",
+  "id": "1",
+  "state": "done",
+  "result": {}
+ },
+ "data/plan-week/index.json": {
+  "version": 1,
+  "generated_at": "2026-11-15T19:05:00+00:00",
+  "current": "2026-W47",
+  "weeks": [
+   {
+    "week": "2026-W45",
+    "from": "2026-11-02",
+    "to": "2026-11-08",
+    "state": "finished",
+    "phase": "taper",
+    "phase_label": "Taper week",
+    "label": "Week 45 · 2–8 Nov",
+    "report_ready": true,
+    "verdict": "Taper week done as planned."
+   },
+   {
+    "week": "2026-W46",
+    "from": "2026-11-09",
+    "to": "2026-11-15",
+    "state": "finished",
+    "phase": "race",
+    "phase_label": "Race week",
+    "label": "Week 46 · 9–15 Nov",
+    "report_ready": true,
+    "verdict": "Two races in four days. The doubles beat its goal by 6 minutes; the singles was 8 minutes over."
+   },
+   {
+    "week": "2026-W47",
+    "from": "2026-11-16",
+    "to": "2026-11-22",
+    "state": "coming",
+    "phase": "recover",
+    "phase_label": "Recovery week",
+    "label": "Week 47 · 16–22 Nov",
+    "report_ready": false,
+    "verdict": null
+   },
+   {
+    "week": "2026-W48",
+    "from": "2026-11-23",
+    "to": "2026-11-29",
+    "state": "coming",
+    "phase": "build",
+    "phase_label": "Build week",
+    "label": "Week 48 · 23–29 Nov",
+    "report_ready": false,
+    "verdict": null
+   },
+   {
+    "week": "2026-W49",
+    "from": "2026-11-30",
+    "to": "2026-12-06",
+    "state": "coming",
+    "phase": "build",
+    "phase_label": "Build week",
+    "label": "Week 49 · 30 Nov–6 Dec",
+    "report_ready": false,
+    "verdict": null
+   },
+   {
+    "week": "2026-W50",
+    "from": "2026-12-07",
+    "to": "2026-12-13",
+    "state": "coming",
+    "phase": "taper",
+    "phase_label": "Taper week",
+    "label": "Week 50 · 7–13 Dec",
+    "report_ready": false,
+    "verdict": null
+   },
+   {
+    "week": "2026-W51",
+    "from": "2026-12-14",
+    "to": "2026-12-20",
+    "state": "coming",
+    "phase": "race",
+    "phase_label": "Race week",
+    "label": "Week 51 · 14–20 Dec",
+    "report_ready": false,
+    "verdict": null
+   },
+   {
+    "week": "2026-W52",
+    "from": "2026-12-21",
+    "to": "2026-12-27",
+    "state": "coming",
+    "phase": "recover",
+    "phase_label": "Recovery week",
+    "label": "Week 52 · 21–27 Dec",
+    "report_ready": false,
+    "verdict": null
+   }
+  ]
+ },
+ "data/plan-week/2026-W45.json": {
+  "version": 1,
+  "week": "2026-W45",
+  "from": "2026-11-02",
+  "to": "2026-11-08",
+  "label": "Week 45 · 2–8 Nov",
+  "generated_at": "2026-11-15T19:05:00+00:00",
+  "state": "finished",
+  "phase": {
+   "key": "taper",
+   "label": "Taper",
+   "pill": "Taper week"
+  },
+  "next_race": null,
+  "why": "Synthetic taper week.",
+  "hours": {
+   "firm": 3.0,
+   "optional": 0.0,
+   "planned": 4.97,
+   "aim": null,
+   "target": 7.0,
+   "typical": 5.4,
+   "done": 5.37,
+   "firm_label": "3 h",
+   "optional_label": null,
+   "aim_label": null,
+   "target_label": "7 h",
+   "done_label": "5 h 22",
+   "note": null
+  },
+  "strip": [
+   {
+    "date": "2026-11-02",
+    "dow": "M",
+    "label": "rest",
+    "bars": []
+   },
+   {
+    "date": "2026-11-03",
+    "dow": "T",
+    "label": "45",
+    "bars": [
+     {
+      "minutes": 45,
+      "effort": "moderate",
+      "state": "done"
+     }
+    ]
+   },
+   {
+    "date": "2026-11-04",
+    "dow": "W",
+    "label": "45",
+    "bars": [
+     {
+      "minutes": 45,
+      "effort": "hard",
+      "state": "done"
+     }
+    ]
+   },
+   {
+    "date": "2026-11-05",
+    "dow": "T",
+    "label": "45",
+    "bars": [
+     {
+      "minutes": 45,
+      "effort": "moderate",
+      "state": "done"
+     }
+    ]
+   },
+   {
+    "date": "2026-11-06",
+    "dow": "F",
+    "label": "60",
+    "bars": [
+     {
+      "minutes": 60,
+      "effort": "easy",
+      "state": "done"
+     }
+    ]
+   },
+   {
+    "date": "2026-11-07",
+    "dow": "S",
+    "label": "45",
+    "bars": [
+     {
+      "minutes": 45,
+      "effort": "moderate",
+      "state": "done"
+     }
+    ]
+   },
+   {
+    "date": "2026-11-08",
+    "dow": "S",
+    "label": "rest",
+    "bars": []
+   }
+  ],
+  "changes": [],
+  "decided": [],
+  "days": [
+   {
+    "date": "2026-11-02",
+    "dow": "Mon",
+    "title": "Mon 2",
+    "tag": null,
+    "items": [
+     {
+      "kind": "rest",
+      "title": "Rest",
+      "why": "Synthetic rest day.",
+      "do": null
+     }
+    ]
+   },
+   {
+    "date": "2026-11-03",
+    "dow": "Tue",
+    "title": "Tue 3",
+    "tag": null,
+    "items": [
+     {
+      "kind": "session",
+      "session_id": "w45tue",
+      "title": "Cardio class",
+      "minutes": 45,
+      "km": null,
+      "effort": "moderate",
+      "effort_label": "Moderate · 45 min",
+      "rpe": 7,
+      "fixed": true,
+      "optional": false,
+      "status": "done",
+      "pills": [],
+      "change_ids": [],
+      "change_pill": null,
+      "why": "Synthetic reason for the layout check.",
+      "how_hard": null,
+      "do": null,
+      "if_red": null,
+      "after": null,
+      "where": null,
+      "actions": [
+       "more"
+      ],
+      "done": {
+       "line": "45 min, as booked.",
+       "minutes": 45,
+       "km": null,
+       "avg_hr": null
+      },
+      "review": null,
+      "activity_id": "24990000011"
+     }
+    ]
+   },
+   {
+    "date": "2026-11-04",
+    "dow": "Wed",
+    "title": "Wed 4",
+    "tag": null,
+    "items": [
+     {
+      "kind": "session",
+      "session_id": "w45wed",
+      "title": "Studio HYROX",
+      "minutes": 45,
+      "km": null,
+      "effort": "hard",
+      "effort_label": "Hard · 45 min",
+      "rpe": 8,
+      "fixed": true,
+      "optional": false,
+      "status": "done",
+      "pills": [],
+      "change_ids": [],
+      "change_pill": null,
+      "why": "Synthetic reason for the layout check.",
+      "how_hard": null,
+      "do": null,
+      "if_red": null,
+      "after": null,
+      "where": null,
+      "actions": [
+       "more"
+      ],
+      "done": {
+       "line": "43 min.",
+       "minutes": 43,
+       "km": null,
+       "avg_hr": null
+      },
+      "review": null,
+      "activity_id": "24990000012"
+     }
+    ]
+   },
+   {
+    "date": "2026-11-05",
+    "dow": "Thu",
+    "title": "Thu 5",
+    "tag": null,
+    "items": [
+     {
+      "kind": "session",
+      "session_id": "w45thu",
+      "title": "Studio class",
+      "minutes": 45,
+      "km": null,
+      "effort": "moderate",
+      "effort_label": "Moderate · 45 min",
+      "rpe": 7,
+      "fixed": true,
+      "optional": false,
+      "status": "done",
+      "pills": [],
+      "change_ids": [],
+      "change_pill": null,
+      "why": "Synthetic reason for the layout check.",
+      "how_hard": null,
+      "do": null,
+      "if_red": null,
+      "after": null,
+      "where": null,
+      "actions": [
+       "more"
+      ],
+      "done": {
+       "line": "44 min.",
+       "minutes": 44,
+       "km": null,
+       "avg_hr": null
+      },
+      "review": null,
+      "activity_id": "24990000013"
+     }
+    ]
+   },
+   {
+    "date": "2026-11-06",
+    "dow": "Fri",
+    "title": "Fri 6",
+    "tag": null,
+    "items": [
+     {
+      "kind": "session",
+      "session_id": "w45fri",
+      "title": "Easy run",
+      "minutes": 60,
+      "km": null,
+      "effort": "easy",
+      "effort_label": "Easy · 60 min",
+      "rpe": 4,
+      "fixed": true,
+      "optional": false,
+      "status": "done",
+      "pills": [],
+      "change_ids": [],
+      "change_pill": null,
+      "why": "Synthetic reason for the layout check.",
+      "how_hard": null,
+      "do": null,
+      "if_red": null,
+      "after": null,
+      "where": null,
+      "actions": [
+       "more"
+      ],
+      "done": {
+       "line": "6.1 km in 59 min.",
+       "minutes": 59,
+       "km": 6.1,
+       "avg_hr": null
+      },
+      "review": null,
+      "activity_id": "24990000014"
+     }
+    ]
+   },
+   {
+    "date": "2026-11-07",
+    "dow": "Sat",
+    "title": "Sat 7",
+    "tag": null,
+    "items": [
+     {
+      "kind": "session",
+      "session_id": "w45sat",
+      "title": "Studio class",
+      "minutes": 45,
+      "km": null,
+      "effort": "moderate",
+      "effort_label": "Moderate · 45 min",
+      "rpe": 7,
+      "fixed": true,
+      "optional": false,
+      "status": "done",
+      "pills": [],
+      "change_ids": [],
+      "change_pill": null,
+      "why": "Synthetic reason for the layout check.",
+      "how_hard": null,
+      "do": null,
+      "if_red": null,
+      "after": null,
+      "where": null,
+      "actions": [
+       "more"
+      ],
+      "done": {
+       "line": "45 min.",
+       "minutes": 45,
+       "km": null,
+       "avg_hr": null
+      },
+      "review": null,
+      "activity_id": "24990000015"
+     }
+    ]
+   },
+   {
+    "date": "2026-11-08",
+    "dow": "Sun",
+    "title": "Sun 8",
+    "tag": null,
+    "items": [
+     {
+      "kind": "rest",
+      "title": "Rest",
+      "why": "Synthetic rest day.",
+      "do": null
+     }
+    ]
+   }
+  ],
+  "report": null
+ },
+ "data/plan-week/2026-W48.json": {
+  "version": 1,
+  "week": "2026-W48",
+  "from": "2026-11-23",
+  "to": "2026-11-29",
+  "label": "Week 48 · 23–29 Nov",
+  "generated_at": "2026-11-15T19:05:00+00:00",
+  "state": "coming",
+  "phase": {
+   "key": "build",
+   "label": "Build",
+   "pill": "Build · week 1 of 2"
+  },
+  "next_race": null,
+  "why": "Synthetic build week.",
+  "hours": {
+   "firm": 3.0,
+   "optional": 0.0,
+   "planned": 3.0,
+   "aim": 6.25,
+   "target": 7.0,
+   "typical": 5.4,
+   "done": null,
+   "firm_label": "3 h",
+   "optional_label": null,
+   "aim_label": "6 h 15",
+   "target_label": "7 h",
+   "done_label": null,
+   "note": null
+  },
+  "strip": [
+   {
+    "date": "2026-11-23",
+    "dow": "M",
+    "label": "rest",
+    "bars": []
+   },
+   {
+    "date": "2026-11-24",
+    "dow": "T",
+    "label": "45",
+    "bars": [
+     {
+      "minutes": 45,
+      "effort": "hard",
+      "state": "planned"
+     }
+    ]
+   },
+   {
+    "date": "2026-11-25",
+    "dow": "W",
+    "label": "45",
+    "bars": [
+     {
+      "minutes": 45,
+      "effort": "hard",
+      "state": "planned"
+     }
+    ]
+   },
+   {
+    "date": "2026-11-26",
+    "dow": "T",
+    "label": "45",
+    "bars": [
+     {
+      "minutes": 45,
+      "effort": "moderate",
+      "state": "planned"
+     }
+    ]
+   },
+   {
+    "date": "2026-11-27",
+    "dow": "F",
+    "label": "rest",
+    "bars": []
+   },
+   {
+    "date": "2026-11-28",
+    "dow": "S",
+    "label": "45",
+    "bars": [
+     {
+      "minutes": 45,
+      "effort": "moderate",
+      "state": "planned"
+     }
+    ]
+   },
+   {
+    "date": "2026-11-29",
+    "dow": "S",
+    "label": "rest",
+    "bars": []
+   }
+  ],
+  "changes": [],
+  "decided": [],
+  "days": [
+   {
+    "date": "2026-11-23",
+    "dow": "Mon",
+    "title": "Mon 23",
+    "tag": null,
+    "items": [
+     {
+      "kind": "rest",
+      "title": "Rest",
+      "why": "Synthetic rest day.",
+      "do": null
+     }
+    ]
+   },
+   {
+    "date": "2026-11-24",
+    "dow": "Tue",
+    "title": "Tue 24",
+    "tag": null,
+    "items": [
+     {
+      "kind": "session",
+      "session_id": "w48tue",
+      "title": "Cardio class",
+      "minutes": 45,
+      "km": null,
+      "effort": "hard",
+      "effort_label": "Hard · 45 min",
+      "rpe": 8,
+      "fixed": true,
+      "optional": false,
+      "status": "planned",
+      "pills": [
+       "Booked class"
+      ],
+      "change_ids": [],
+      "change_pill": null,
+      "why": "Synthetic reason for the layout check.",
+      "how_hard": null,
+      "do": null,
+      "if_red": null,
+      "after": null,
+      "where": null,
+      "actions": [
+       "more"
+      ],
+      "done": null,
+      "review": null,
+      "activity_id": null
+     }
+    ]
+   },
+   {
+    "date": "2026-11-25",
+    "dow": "Wed",
+    "title": "Wed 25",
+    "tag": null,
+    "items": [
+     {
+      "kind": "session",
+      "session_id": "w48wed",
+      "title": "Studio HYROX",
+      "minutes": 45,
+      "km": null,
+      "effort": "hard",
+      "effort_label": "Hard · 45 min",
+      "rpe": 8,
+      "fixed": true,
+      "optional": false,
+      "status": "planned",
+      "pills": [
+       "Booked class"
+      ],
+      "change_ids": [],
+      "change_pill": null,
+      "why": "Synthetic reason for the layout check.",
+      "how_hard": null,
+      "do": null,
+      "if_red": null,
+      "after": null,
+      "where": null,
+      "actions": [
+       "more"
+      ],
+      "done": null,
+      "review": null,
+      "activity_id": null
+     }
+    ]
+   },
+   {
+    "date": "2026-11-26",
+    "dow": "Thu",
+    "title": "Thu 26",
+    "tag": null,
+    "items": [
+     {
+      "kind": "session",
+      "session_id": "w48thu",
+      "title": "Studio class",
+      "minutes": 45,
+      "km": null,
+      "effort": "moderate",
+      "effort_label": "Moderate · 45 min",
+      "rpe": 7,
+      "fixed": true,
+      "optional": false,
+      "status": "planned",
+      "pills": [
+       "Booked class"
+      ],
+      "change_ids": [],
+      "change_pill": null,
+      "why": "Synthetic reason for the layout check.",
+      "how_hard": null,
+      "do": null,
+      "if_red": null,
+      "after": null,
+      "where": null,
+      "actions": [
+       "more"
+      ],
+      "done": null,
+      "review": null,
+      "activity_id": null
+     }
+    ]
+   },
+   {
+    "date": "2026-11-27",
+    "dow": "Fri",
+    "title": "Fri 27",
+    "tag": null,
+    "items": [
+     {
+      "kind": "rest",
+      "title": "Rest",
+      "why": "Synthetic rest day.",
+      "do": null
+     }
+    ]
+   },
+   {
+    "date": "2026-11-28",
+    "dow": "Sat",
+    "title": "Sat 28",
+    "tag": null,
+    "items": [
+     {
+      "kind": "session",
+      "session_id": "w48sat",
+      "title": "Studio class",
+      "minutes": 45,
+      "km": null,
+      "effort": "moderate",
+      "effort_label": "Moderate · 45 min",
+      "rpe": 7,
+      "fixed": true,
+      "optional": false,
+      "status": "planned",
+      "pills": [
+       "Booked class"
+      ],
+      "change_ids": [],
+      "change_pill": null,
+      "why": "Synthetic reason for the layout check.",
+      "how_hard": null,
+      "do": null,
+      "if_red": null,
+      "after": null,
+      "where": null,
+      "actions": [
+       "more"
+      ],
+      "done": null,
+      "review": null,
+      "activity_id": null
+     }
+    ]
+   },
+   {
+    "date": "2026-11-29",
+    "dow": "Sun",
+    "title": "Sun 29",
+    "tag": null,
+    "items": [
+     {
+      "kind": "rest",
+      "title": "Rest",
+      "why": "Synthetic rest day.",
+      "do": null
+     }
+    ]
+   }
+  ],
+  "report": null
+ },
+ "data/reports/daily/2026-11-15.json": {
+  "short": {
+   "title": "Sunday 15 Nov",
+   "verdict": "Rest today.",
+   "cause": "The doubles ended at 21:05, 2.7 hours before bed. Your body has not come down yet.",
+   "devices_title": "This morning, each device on its own",
+   "devices": [
+    {
+     "source": "Garmin",
+     "value": "14",
+     "label": "readiness, red",
+     "lines": [
+      "HRV 29 ms · usual 32–45",
+      "resting HR 55 · usual 51",
+      "slept 5 h 49"
+     ]
+    },
+    {
+     "source": "WHOOP",
+     "value": "31 %",
+     "label": "recovery, low",
+     "lines": [
+      "HRV 49 ms · usual 48",
+      "resting HR 60 · usual 50",
+      "slept 6 h 36"
+     ]
+    }
+   ],
+   "devices_note": "They agree on heart rate. They differ on HRV.",
+   "blocks": [
+    {
+     "title": "Today",
+     "text": "No training. A 20 to 30 minute walk is fine."
+    },
+    {
+     "title": "Tonight",
+     "text": "In bed by 22:07. You need about 8 h 26."
+    },
+    {
+     "title": "Tomorrow",
+     "text": "Rest day as planned. If resting heart rate is under 53, a 30 to 45 minute walk."
+    },
+    {
+     "title": "What would change this",
+     "text": "Resting heart rate still 55 or more on Wednesday: skip Wednesday's hard class."
+    }
+   ],
+   "story": "Two races in four days is a lot for one body. Both devices read low this morning and they agree on resting heart rate, so this is real fatigue and not a bad night alone. Resting today costs you nothing, and it protects Wednesday's class, which is the first hard session of the next block. A walk is welcome but not needed.",
+   "insights": [
+    {
+     "title": "What the two devices say",
+     "text": "Garmin and WHOOP differ on heart rate variability but agree on resting heart rate, which is the number the coach trusts most after a race."
+    },
+    {
+     "title": "Why Wednesday matters",
+     "text": "The coach keeps Wednesday's class at full effort because you chose that on 15 Nov, so today's rest is what makes it safe."
+    }
+   ]
+  }
+ },
+ "data/reports/monthly/2026-10.json": {
+  "short": {
+   "title": "October 2026",
+   "verdict": "October traded volume for intensity.",
+   "summary": "Less time and half the running, but 19 hard days in 28. Fitness held. Sleep paid for it.",
+   "held": [
+    "VO2max flat at 54.1. Plan 88 % done: 19 of 25 sessions."
+   ],
+   "slipped": [
+    "Sleep, 6 h 20 a night in the middle. Running, 9.6 km a week against 17.8. Resting heart rate up 4 % to 51.9."
+   ],
+   "compare_title": "Against September",
+   "tiles": [
+    {
+     "value": "4 h 38",
+     "label": "training a week",
+     "sub": "was 6 h 46"
+    },
+    {
+     "value": "4.8",
+     "label": "hard days a week",
+     "sub": "up 9 %"
+    },
+    {
+     "value": "40 ms",
+     "label": "HRV, Garmin",
+     "sub": "up 5 %"
+    },
+    {
+     "value": "91.0 kg",
+     "label": "weight, 6 readings",
+     "sub": "stable 90.8–91.4"
+    }
+   ],
+   "trend": {
+    "title": "Training load, week by week · Garmin",
+    "points": [
+     {
+      "label": "W40",
+      "value": 420
+     },
+     {
+      "label": "W41",
+      "value": 508
+     },
+     {
+      "label": "W42",
+      "value": 553
+     },
+     {
+      "label": "W43",
+      "value": 620
+     },
+     {
+      "label": "W44",
+      "value": 660
+     }
+    ]
+   },
+   "focus_title": "For November",
+   "focus": "Cut volume into Testtown, keep two race-pace efforts, protect sleep.",
+   "story": "October was a month of fewer, harder days. You trained less in total and ran about half as far, yet hard days went up, and your fitness number stayed flat. That is a sensible trade only if sleep recovers, and it did not: nights got shorter in the middle of the month and resting heart rate crept up. November should keep two race-pace efforts and win back the sleep.",
+   "insights": [
+    {
+     "title": "Sleep paid for it",
+     "text": "Shorter nights and a higher resting heart rate arrived together, which usually means the load was a little more than recovery could absorb."
+    },
+    {
+     "title": "Fitness held",
+     "text": "VO2max did not move, so the fewer running kilometres cost you nothing measurable yet."
+    }
+   ]
+  }
+ },
+ "data/reports/list.json": {
+  "version": 1,
+  "generated_at": "2026-11-15T19:05:00+00:00",
+  "today": {
+   "key": "2026-11-15",
+   "day": "Sun 15",
+   "verdict": "Rest today",
+   "sub": "Both devices low after the doubles",
+   "ts": "2026-11-15T06:33:31+00:00"
+  },
+  "weeks": [
+   {
+    "key": "2026-W46",
+    "day": "W46",
+    "verdict": "Two races in four days",
+    "sub": "Doubles 6 minutes inside goal",
+    "ts": "2026-11-15T19:00:22+00:00"
+   },
+   {
+    "key": "2026-W45",
+    "day": "W45",
+    "verdict": "Taper week",
+    "sub": "5 h 22",
+    "ts": "2026-11-09T06:43:00+00:00"
+   }
+  ],
+  "months": [
+   {
+    "key": "2026-10",
+    "day": "Oct",
+    "verdict": "Less volume, more intensity",
+    "sub": "19 hard days in 28",
+    "ts": "2026-11-01T07:30:00+00:00"
+   }
+  ],
+  "races": [
+   {
+    "date": "2026-11-14",
+    "day": "14 Nov",
+    "name": "HYROX Testtown doubles",
+    "sub": "1:04:12 · 5:48 inside goal",
+    "activity_id": "9100000001",
+    "ts": "2026-11-15T10:00:00+00:00"
+   },
+   {
+    "date": "2026-11-11",
+    "day": "11 Nov",
+    "name": "HYROX Testtown singles",
+    "sub": "1:07:41 · 7:41 over goal",
+    "activity_id": "9100000002",
+    "ts": "2026-11-12T10:00:00+00:00"
+   }
+  ],
+  "workouts": [
+   {
+    "activity_id": "24990000002",
+    "day": "Tue 10",
+    "name": "Cardio class",
+    "sub": "Done as booked.",
+    "state": "ready",
+    "ts": "2026-11-10T09:00:00+00:00",
+    "meaning": "A moderate class two days before the doubles kept your legs fresh without adding load."
+   },
+   {
+    "activity_id": "24990000001",
+    "day": "Mon 9",
+    "name": "Openers, 5.6 km",
+    "sub": "On plan.",
+    "state": "ready",
+    "ts": "2026-11-09T10:00:00+00:00"
+   }
+  ]
+ }
+}

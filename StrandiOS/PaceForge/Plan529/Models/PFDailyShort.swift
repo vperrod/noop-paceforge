@@ -5,6 +5,10 @@ struct PFDailyShort: Codable, Equatable {
     var title: String?
     var verdict: String?
     var cause: String?
+    /// Optional: the report in a few sentences, shown under the verdict (server stream B).
+    var story: String?
+    /// Optional: up to three small titled blocks under the story.
+    var insights: [Insight]?
     var devicesTitle: String?
     var devices: [Device]?
     var devicesNote: String?
@@ -22,6 +26,11 @@ struct PFDailyShort: Codable, Equatable {
         var value: String?
         var label: String?
         var lines: [String]?
+    }
+
+    struct Insight: Codable, Equatable {
+        var title: String?
+        var text: String?
     }
 
     struct Block: Codable, Equatable {

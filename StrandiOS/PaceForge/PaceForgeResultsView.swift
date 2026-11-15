@@ -79,6 +79,7 @@ struct PFResultsSheet: View {
         let race = detail?.race
         if let race {
             PFRaceResultCard(race: race, weather: detail?.weather)
+            PFRaceLossesCard(race: race)
             PFRaceSegmentsCard(race: race)
         }
         coachCard(results.analysis)
@@ -503,6 +504,46 @@ private struct PFRaceResultCard: View {
             }
         }
         .containerIdentifier("pf-race-result")
+    }
+}
+
+/// Where the time went against the pacing plan (the three biggest losses), and what the next block changes because of it. Either part
+/// shows only when the server wrote it (build 529).
+private struct PFRaceLossesCard: View {
+    let race: PFRaceResult
+
+    var body: some View {
+        if !race.losses.isEmpty {
+            PFCard("Where the time went", icon: "timer") {
+                VStack(alignment: .leading, spacing: 10) {
+                    ForEach(Array(race.losses.enumerated()), id: \.offset) { _, loss in
+                        HStack(alignment: .firstTextBaseline, spacing: 10) {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(loss.segment)
+                                    .font(StrandFont.subhead.weight(.semibold))
+                                    .foregroundStyle(StrandPalette.textPrimary)
+                                if let note = loss.note {
+                                    Text(note)
+                                        .font(StrandFont.caption)
+                                        .foregroundStyle(StrandPalette.textTertiary)
+                                }
+                            }
+                            Spacer(minLength: 8)
+                            Text(loss.delta ?? "\u{2013}")
+                                .font(StrandFont.subhead.weight(.semibold))
+                                .foregroundStyle(PFColor.warning)
+                        }
+                    }
+                }
+            }
+            .containerIdentifier("pf-race-losses")
+        }
+        if let next = race.nextBlock {
+            PFCard("What the next block changes", icon: "arrow.forward.circle") {
+                PFParagraph(next)
+            }
+            .containerIdentifier("pf-race-next-block")
+        }
     }
 }
 

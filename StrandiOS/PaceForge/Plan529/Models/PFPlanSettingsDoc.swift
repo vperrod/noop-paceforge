@@ -22,10 +22,22 @@ struct PFPlanSettingsDoc: Codable, Equatable {
         var sub: String?
     }
 
-    /// A setting's value is a number (hours) or a list (days off); anything else reads as `.other` rather than failing the document.
+    /// One day-off range as the server keeps it (`days-off.json`): the id `dayoff-remove` takes, the first and last day, a label.
+    struct DayOff: Codable, Equatable {
+        var id: String?
+        var start: String?
+        var end: String?
+        var label: String?
+        /// holiday | rest | travel
+        var kind: String?
+    }
+
+    /// A setting's value is a number (hours) or a list (days off: ids as text, or the ranges themselves); anything else reads as `.other`
+    /// rather than failing the document.
     enum Value: Codable, Equatable {
         case number(Double)
         case list([String])
+        case days([DayOff])
         case text(String)
         case other
 
@@ -35,6 +47,8 @@ struct PFPlanSettingsDoc: Codable, Equatable {
                 self = .number(number)
             } else if let list = try? single.decode([String].self) {
                 self = .list(list)
+            } else if let days = try? single.decode([DayOff].self) {
+                self = .days(days)
             } else if let text = try? single.decode(String.self) {
                 self = .text(text)
             } else {
@@ -47,6 +61,7 @@ struct PFPlanSettingsDoc: Codable, Equatable {
             switch self {
             case .number(let number): try single.encode(number)
             case .list(let list): try single.encode(list)
+            case .days(let days): try single.encode(days)
             case .text(let text): try single.encode(text)
             case .other: try single.encodeNil()
             }

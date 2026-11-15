@@ -105,11 +105,11 @@ final class UnifiedNavUITests: XCTestCase {
         }
     }
 
-    func testSeasonHasEventsAndNoHyrox() throws {
+    func testSeasonHasRacesAndNoHyrox() throws {
         let app = try launch()
         open("Plan", host: "calendar-host", in: app)
         choose("season", prefix: "calendar", in: app)
-        XCTAssertTrue(element(app, "calendar-season-events").waitForExistence(timeout: 30), "Season has Events.")
+        XCTAssertTrue(element(app, "season-next-race").waitForExistence(timeout: 30), "Season has the next race (races are added from it).")
         XCTAssertFalse(element(app, "calendar-season-hyrox").exists, "HYROX moved to Train.")
     }
 

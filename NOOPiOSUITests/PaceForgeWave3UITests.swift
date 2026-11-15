@@ -71,7 +71,7 @@ final class PaceForgeWave3UITests: XCTestCase {
     func testOutsideRaceWeekThereIsNoRaceWeekCardAndTodayKeepsTheNextRace() throws {
         let app = try launch()
         app.openChip("Plan", "season")
-        XCTAssertTrue(reveal(element(app, "calendar-season-events"), in: app, maxSwipes: 20), "Season should list the events.")
+        XCTAssertTrue(reveal(element(app, "season-next-race"), in: app, maxSwipes: 20), "Season should list the races.")
         XCTAssertFalse(element(app, "pf-race-week-card").exists, "Outside race week there is no race-week card.")
         app.openTab("Today")
         XCTAssertTrue(reveal(element(app, "pf-today-next-race"), in: app, maxSwipes: 20), "Today should still show the next race.")
