@@ -123,7 +123,7 @@ struct JournalReminderCard: View {
     }
 
     /// WHOOP's card on the iPhone: a 12 pt tile on the dark gradient. The Mac keeps the accent-tinted frosted card.
-    @ViewBuilder private func surface<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
+    @ViewBuilder private func surface<Content: View>(@ViewBuilder _ content: @escaping () -> Content) -> some View {
         #if os(iOS)
         content()
             .padding(16)

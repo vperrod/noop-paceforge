@@ -63,7 +63,7 @@ struct MyDayTodayCard: View {
     }
 
     /// WHOOP's card: a 12 pt tile on the dark gradient (the frosted card stays on the Mac).
-    @ViewBuilder private func surface<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
+    @ViewBuilder private func surface<Content: View>(@ViewBuilder _ content: @escaping () -> Content) -> some View {
         #if os(iOS)
         content()
             .padding(16)
