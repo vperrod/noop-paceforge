@@ -62,6 +62,7 @@ struct PFCoachComposer: View {
                 }
                 .pickerStyle(.segmented)
                 .accessibilityIdentifier("pf-composer-mode")
+                if mode == .question { PFCoachContextChip() }
                 HStack(spacing: 10) {
                     TextField(mode.placeholder, text: $draft, axis: .vertical)
                         .textFieldStyle(.plain)
@@ -158,8 +159,10 @@ struct PFCoachComposer: View {
     }
 
     @MainActor private func sendMessage(_ suppliedMessage: String? = nil, sessionID: String? = nil) async {
-        let message = (suppliedMessage ?? draft).trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !message.isEmpty, !sending else { return }
+        let typed = (suppliedMessage ?? draft).trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !typed.isEmpty, !sending else { return }
+        // The screen the Coach was opened from rides in front of a typed question; a question handed over by a screen carries its own context.
+        let message = suppliedMessage == nil ? PFCoachContext.shared.wrap(typed) : typed
         guard CoachBriefScheduler.coachMasterEnabled else {
             chatStatus = "Coach is turned off in Settings."
             return
