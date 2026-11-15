@@ -84,6 +84,13 @@ struct LookJournalFlow: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityIdentifier("look-journal-impact-link")
+                // The same answers read against the next morning's recovery (PaceForge's behaviour impact), on its own screen.
+                NavigationLink { PFRecoveryInsightsScreen() } label: {
+                    InsightLink("Recovery insights")
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("look-journal-recovery-insights-link")
             }
         }
         .padding(16)
