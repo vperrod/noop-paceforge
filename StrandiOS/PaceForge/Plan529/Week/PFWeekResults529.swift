@@ -19,8 +19,10 @@ struct PFResultsLink529: ViewModifier {
     func body(content: Content) -> some View {
         content.sheet(item: $target) { item in
             if let snapshot = model.snapshot {
+                // The results sheet reads the PaceForge model from the environment; PFSnapshotHost supplied it on the old screens.
                 PFResultsSheet(workout: PFWeekLookup529.workout(for: item, in: snapshot), snapshot: snapshot,
                                onAskCoach: PFResultsSheet.askCoach(coach, router))
+                    .environmentObject(model)
             } else {
                 PFWeekState529(kind: .loading, message: "Loading the results")
                     .padding(16)

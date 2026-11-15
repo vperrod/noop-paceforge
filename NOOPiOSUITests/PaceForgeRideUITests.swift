@@ -60,8 +60,9 @@ final class PaceForgeRideUITests: XCTestCase {
     func testThisWeekAndTheBikeChipListBothRides() throws {
         let app = try launch()
         app.openChip("Plan", "week")
-        XCTAssertTrue(reveal(app.buttons[longRide], in: app, maxSwipes: 20))
+        // The week is written out in full now, so the earlier day's ride comes first on the way down.
         XCTAssertTrue(reveal(app.buttons[sampledRide], in: app, maxSwipes: 20))
+        XCTAssertTrue(reveal(app.buttons[longRide], in: app, maxSwipes: 20))
         attach(app, "50 Ride rows in This week")
         app.openChip("Train", "bike")
         XCTAssertTrue(reveal(app.buttons[longRide], in: app, maxSwipes: 20), "Train > Bike should list today's ride.")
