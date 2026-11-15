@@ -133,7 +133,7 @@ struct PFTodaySoFarCard: View {
         if let seconds = activity.durationS, seconds > 0 { parts.append(PFFormat.clock(seconds)) }
         if activity.isRun, let pace = activity.avgPaceSecPerKm, pace > 0 { parts.append("\(PFFormat.pace(pace)) /km") }
         if let hr = activity.avgHr, hr > 0 { parts.append("\(Safe.int(hr)) bpm") }
-        parts.append("Garmin")
+        parts.append(PFRecording.source(activity))
         return parts.joined(separator: " \u{00B7} ")
     }
 }

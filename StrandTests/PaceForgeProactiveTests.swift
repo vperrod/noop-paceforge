@@ -53,4 +53,10 @@ final class PaceForgeProactiveTests: XCTestCase {
         let parsed = try XCTUnwrap(doc([message("old", "2030-02-27", "works")]))
         XCTAssertEqual(parsed.groups("2030-03-13").count, 0)
     }
+
+    func testRecordingSourceNamesGarminTheStrapAndAppleHealth() {
+        XCTAssertEqual(PFRecording.source(PFActivity(id: "g", name: "Running")), "Garmin")
+        XCTAssertEqual(PFRecording.source(PFActivity(id: "s", name: "Running \u{00B7} NOOP strap")), "WHOOP strap")
+        XCTAssertEqual(PFRecording.source(PFActivity(id: "a", name: "Running \u{00B7} Apple Health via NOOP")), "Apple Health")
+    }
 }

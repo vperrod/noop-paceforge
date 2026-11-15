@@ -39,10 +39,13 @@ enum PFRecording {
 
     static func isReviewed(_ id: String, _ snapshot: PFSnapshot) -> Bool { snapshot.analyses[id]?.headline != nil }
 
-    /// Garmin unless the recording came in through NOOP (the builder tags those in the name).
+    /// Garmin unless the recording came in through NOOP: the builder tags those in the name ("... \u{00B7} NOOP strap" is the WHOOP
+    /// strap, "... \u{00B7} Apple Health via NOOP" is Apple Health).
     static func source(_ activity: PFActivity) -> String {
         let name = activity.name ?? ""
-        return name.contains("NOOP strap") || name.contains("via NOOP") ? "NOOP" : "Garmin"
+        if name.contains("Apple Health") { return "Apple Health" }
+        if name.contains("NOOP strap") { return "WHOOP strap" }
+        return name.contains("via NOOP") ? "NOOP" : "Garmin"
     }
 
     /// Distance, time, pace and heart rate, whichever the recording has.
