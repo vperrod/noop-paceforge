@@ -17,6 +17,16 @@ approximate; downloads are on the [Releases](https://github.com/NoopApp/noop/rel
 
 ---
 
+## 12.0.12 build 528 (PaceForge iPhone build): WHOOP-order Today, morning journal, races open their results
+
+- Today in WHOOP order: six dials, the day graph under them, one Today's call card (the detail lines now sit on it), Coach noticed, monitors, My Day, My Plan, My Dashboard. Duplicated cards removed; weight shows the newest reading with its source and date; every vital names its source (Garmin, WHOOP strap, Apple Health, scale).
+- Journal: until today's journal is logged it sits under Today's call; one tap per question. Once logged it links to "What helps and hurts your recovery".
+- Coach noticed: proactive notes from the server (trends, what works, what costs you, race arc) on Today and in Coach > Insights.
+- Races: a finished race opens its results sheet everywhere (Today, Plan, Calendar, HYROX), with the official time, placing (incl. age group) and segments in race order.
+- Plan > This week: adjust today and niggles; Train: running, athlete, HYROX prediction, bike FTP; Health > Day: readiness and effort target.
+- Hidden cards row and the Today so far strip with Open My Day are back. A question handed to the Coach stays in the box until it is sent.
+- Everything in build 527 below is included.
+
 ## 12.0.12 build 527 (PaceForge iPhone build): four tabs and a Coach button, and the day's graph is back on Today
 
 - Today: the My Day graph (heart rate, sleep, workouts, the plan and the overlays you switched on in My Day) sits directly under the three rings. A tap opens the full My Day screen.
