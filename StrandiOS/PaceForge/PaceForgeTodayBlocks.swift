@@ -120,22 +120,27 @@ struct PFTodayBookendRow: View {
     }
 
     var body: some View {
-        Group {
-            if let review {
-                Button { showReview = true } label: {
-                    rowContent(icon: "moon.stars", title: "DAY IN REVIEW", detail: reviewLine(review))
+        // Re-read every minute (and on return to the foreground, when the timeline resumes), so the row turns into the day in review
+        // when the evening starts without the screen being reopened.
+        TimelineView(.everyMinute) { _ in
+            Group {
+                if let review {
+                    Button { showReview = true } label: {
+                        rowContent(icon: "moon.stars", title: "DAY IN REVIEW", detail: reviewLine(review))
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("today-bookend")
+                } else if reports.showsReports, let report = reports.latestDaily {
+                    NavigationLink(value: TabRoute.reports(PFReportKind.daily.rawValue)) {
+                        rowContent(icon: "text.book.closed", title: "MORNING READ", detail: PFReportFreshness.dateLine(report))
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("today-bookend")
                 }
-                .buttonStyle(.plain)
-                .accessibilityIdentifier("today-bookend")
-                .sheet(isPresented: $showReview) { reviewSheet }
-            } else if reports.showsReports, let report = reports.latestDaily {
-                NavigationLink(value: TabRoute.reports(PFReportKind.daily.rawValue)) {
-                    rowContent(icon: "text.book.closed", title: "MORNING READ", detail: PFReportFreshness.dateLine(report))
-                }
-                .buttonStyle(.plain)
-                .accessibilityIdentifier("today-bookend")
             }
         }
+        // On the outer view, not inside the branch, so the sheet survives the row changing under it.
+        .sheet(isPresented: $showReview) { reviewSheet }
         .task { await intel.refreshIfStale() }
     }
 
