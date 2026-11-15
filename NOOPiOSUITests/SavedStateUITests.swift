@@ -10,8 +10,6 @@ final class SavedStateUITests: XCTestCase {
 
     private func launch(_ extra: [String]) throws -> XCUIApplication {
         let app = XCUIApplication()
-        // These tests drive the classic PaceForge tab and its segments, which the unified bar (the default) does not have.
-        try app.useClassicNavigation()
         app.launchArguments.append("--demo-seed")
         app.launchArguments.append(contentsOf: extra)
         app.launchArguments.append("-PaceForgeFixture")
@@ -42,30 +40,40 @@ final class SavedStateUITests: XCTestCase {
         app.descendants(matching: .any).matching(identifier: id).firstMatch
     }
 
-    private func openPaceForge(_ app: XCUIApplication) -> XCUIElement {
-        let tab = app.shellTab("PaceForge")
-        XCTAssertTrue(tab.waitForExistence(timeout: 30), "The PaceForge tab should be present.")
-        tab.tap()
-        let segments = app.segmentedControls["pf-segments"]
-        XCTAssertTrue(segments.waitForExistence(timeout: 30), "The PaceForge segmented control should load.")
-        return segments
+    /// Back to the top of the screen on show by swiping down, but only until `top` (a chip at the top of the screen) can be tapped: a swipe
+    /// down at the top of the Coach sheet would dismiss it.
+    private func scrollBack(_ app: XCUIApplication, to top: XCUIElement) {
+        for _ in 0..<10 where !(top.exists && top.isHittable) { app.swipeDown() }
     }
 
-    private func walkSegments(_ app: XCUIApplication, _ segments: XCUIElement, _ name: String) {
-        for title in ["Today", "Coach", "This week", "Insights", "Body"] {
-            let button = segments.buttons[title]
-            XCTAssertTrue(button.waitForExistence(timeout: 10), "The \(title) segment should exist.")
+    /// One screen: look at it, scroll down to its end, and come back up.
+    private func visit(_ app: XCUIApplication, _ name: String, _ title: String, top: String) {
+        Thread.sleep(forTimeInterval: 2)
+        alive(app, "\(name): opening \(title)")
+        attach(app, "\(name) \(title)")
+        for step in 0..<6 {
+            app.swipeUp()
+            alive(app, "\(name): \(title) scroll down \(step + 1)")
+        }
+        scrollBack(app, to: element(app, top))
+        alive(app, "\(name): \(title) scroll back up")
+    }
+
+    /// The screens that hold PaceForge's documents: Today, Plan > This week, Health > Body, then the four chips of the Coach sheet.
+    private func walkScreens(_ app: XCUIApplication, _ name: String) {
+        app.openTab("Today")
+        visit(app, name, "Today", top: "today-six-rings")
+        app.openChip("Plan", "thisWeek")
+        visit(app, name, "This week", top: "calendar-chip-thisWeek")
+        app.openChip("Health", "body")
+        visit(app, name, "Body", top: "health-chip-body")
+        app.openCoach("read")
+        visit(app, name, "Coach Read", top: "coach-chip-read")
+        for chip in ["ask", "reports", "insights"] {
+            let button = element(app, "coach-chip-\(chip)")
+            XCTAssertTrue(button.waitForExistence(timeout: 10), "The \(chip) chip should exist.")
             button.tap()
-            if !button.isSelected { button.tap() }
-            Thread.sleep(forTimeInterval: 2)
-            alive(app, "\(name): opening \(title)")
-            attach(app, "\(name) \(title)")
-            for step in 0..<6 {
-                app.swipeUp()
-                alive(app, "\(name): \(title) scroll down \(step + 1)")
-            }
-            for _ in 0..<6 { app.swipeDown() }
-            alive(app, "\(name): \(title) scroll back up")
+            visit(app, name, "Coach \(chip)", top: "coach-chip-read")
         }
     }
 
@@ -82,30 +90,29 @@ final class SavedStateUITests: XCTestCase {
 
     // MARK: Build 464 state, the PaceForge server not answering (the phone shows only what 464 saved)
 
-    func testTabOpensFromTheBuild464SavedDocumentsWhileOffline() throws {
+    func testScreensOpenFromTheBuild464SavedDocumentsWhileOffline() throws {
         let app = try launch(["-NoopSeedBuild464State", "-PaceForgeFetchFails"])
-        let segments = openPaceForge(app)
+        app.openTab("Today")
         XCTAssertTrue(element(app, "pf-offline-banner").waitForExistence(timeout: 30),
-                      "With the server unreachable the tab should say it shows saved data.")
-        walkSegments(app, segments, "Build464 offline")
+                      "With the server unreachable Today should say it shows saved data.")
+        walkScreens(app, "Build464 offline")
     }
 
     // MARK: Build 464 state, then the live documents arrive
 
-    func testTabMovesFromTheBuild464SavedDocumentsToTheLiveOnes() throws {
+    func testScreensMoveFromTheBuild464SavedDocumentsToTheLiveOnes() throws {
         let app = try launch(["-NoopSeedBuild464State"])
-        let segments = openPaceForge(app)
+        app.openTab("Today")
         Thread.sleep(forTimeInterval: 3)
-        alive(app, "opening the tab on the saved documents")
-        walkSegments(app, segments, "Build464 live")
+        alive(app, "opening Today on the saved documents")
+        walkScreens(app, "Build464 live")
     }
 
     func testTodayInTheEveningFromTheBuild464State() throws {
         let app = try launch(["-NoopSeedBuild464State", "-PaceForgeEvening"])
-        let segments = openPaceForge(app)
-        segments.buttons["Today"].tap()
+        app.openTab("Today")
         Thread.sleep(forTimeInterval: 3)
-        alive(app, "opening PaceForge Today in the evening")
+        alive(app, "opening Today in the evening")
         attach(app, "Build464 evening Today")
         for step in 0..<8 {
             app.swipeUp()
@@ -113,27 +120,7 @@ final class SavedStateUITests: XCTestCase {
         }
     }
 
-    func testArrangingTheBuild464TodayStillWorks() throws {
-        let app = try launch(["-NoopSeedBuild464State"])
-        let segments = openPaceForge(app)
-        segments.buttons["Today"].tap()
-        let customise = element(app, "pf-today-customise")
-        XCTAssertTrue(customise.waitForExistence(timeout: 20), "Today should offer Customise.")
-        customise.tap()
-        Thread.sleep(forTimeInterval: 1)
-        alive(app, "turning Customise on")
-        let downs = app.descendants(matching: .any).matching(NSPredicate(format: "identifier BEGINSWITH %@", "pf-arrange-down-"))
-        for index in 0..<min(downs.count, 4) {
-            let button = downs.element(boundBy: index)
-            if button.exists && button.isHittable && button.isEnabled { button.tap() }
-            alive(app, "moving card \(index) down")
-        }
-        attach(app, "Build464 arranged Today")
-        customise.tap()
-        alive(app, "turning Customise off")
-    }
-
-    // MARK: Build 464 state on NOOP Today and the other tabs
+    // MARK: Build 464 state on Today and the other tabs (Customise is gone: 622ffedd fixed the order of Today's cards)
 
     func testNoopTodayFromTheBuild464State() throws {
         let app = try launch(["-NoopSeedBuild464State"])
@@ -142,7 +129,7 @@ final class SavedStateUITests: XCTestCase {
 
     func testEveryTabOpensFromTheBuild464State() throws {
         let app = try launch(["-NoopSeedBuild464State"])
-        for title in ["Workouts", "Sleep", "More", "Today"] {
+        for title in ["Plan", "Train", "Health", "Today"] {
             let tab = app.shellTab(title)
             XCTAssertTrue(tab.waitForExistence(timeout: 30), "The \(title) tab should be present.")
             tab.tap()
@@ -154,18 +141,18 @@ final class SavedStateUITests: XCTestCase {
 
     // MARK: Damaged saved state
 
-    func testTabSurvivesDamagedSavedState() throws {
+    func testScreensSurviveDamagedSavedState() throws {
         let app = try launch(["-NoopSeedDamagedState", "-PaceForgeFetchFails"])
-        let segments = openPaceForge(app)
-        walkSegments(app, segments, "Damaged offline")
+        app.openTab("Today")
+        walkScreens(app, "Damaged offline")
     }
 
-    func testTabSurvivesDamagedSavedStateThenLiveDocuments() throws {
+    func testScreensSurviveDamagedSavedStateThenLiveDocuments() throws {
         let app = try launch(["-NoopSeedDamagedState"])
-        let segments = openPaceForge(app)
+        app.openTab("Today")
         Thread.sleep(forTimeInterval: 3)
-        alive(app, "opening the tab on damaged saved documents")
-        walkSegments(app, segments, "Damaged live")
+        alive(app, "opening Today on damaged saved documents")
+        walkScreens(app, "Damaged live")
     }
 
     func testNoopTodayFromDamagedSavedState() throws {
