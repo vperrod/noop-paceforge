@@ -56,7 +56,8 @@ struct PFSessionSheet529: View {
         .navigationTitle(found?.item.title ?? "Session")
         .navigationBarTitleDisplayMode(.inline)
         .containerIdentifier("plan529-session")
-        .pfResultsSheet529($results)
+        // One sheet per view: two sheet modifiers on the same view leave only the last one working.
+        .background { Color.clear.pfResultsSheet529($results) }
         .sheet(item: $swap) { target in PFChangeWorkoutSheet529(target: target) }
         .task {
             await store.refreshIfStale()

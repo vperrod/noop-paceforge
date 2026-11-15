@@ -104,7 +104,8 @@ struct PFWeekPage529: View {
                 }
             }
         }
-        .pfResultsSheet529($results)
+        // One sheet per view: two sheet modifiers on the same view leave only the last one working.
+        .background { Color.clear.pfResultsSheet529($results) }
         .sheet(item: $swap) { target in PFChangeWorkoutSheet529(target: target) }
         .task {
             await store.refreshIfStale()

@@ -30,10 +30,17 @@ final class Plan529WeekUITests: XCTestCase {
         add(screenshot)
     }
 
-    /// Scrolls until the element can be tapped.
+    /// Scrolls until the element can be tapped and sits clear of the floating tab bar (a tap under the bar lands on whatever the bar covers).
     @discardableResult
-    private func reveal(_ element: XCUIElement, in app: XCUIApplication, maxSwipes: Int = 24) -> Bool {
-        for _ in 0..<maxSwipes where !(element.exists && element.isHittable) { app.swipeUp() }
+    private func reveal(_ element: XCUIElement, in app: XCUIApplication, maxSwipes: Int = 60) -> Bool {
+        let height = app.windows.firstMatch.frame.height
+        for _ in 0..<maxSwipes {
+            if element.exists && element.isHittable && element.frame.minY > height * 0.15 && element.frame.maxY < height * 0.8 { return true }
+            let up = !element.exists || element.frame.minY > height * 0.15
+            let from = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: up ? 0.62 : 0.35))
+            let to = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: up ? 0.40 : 0.57))
+            from.press(forDuration: 0.05, thenDragTo: to, withVelocity: .slow, thenHoldForDuration: 0.1)
+        }
         return element.exists && element.isHittable
     }
 
