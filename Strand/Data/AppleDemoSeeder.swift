@@ -56,7 +56,9 @@ enum AppleDemoSeeder {
         guard requested else { return }
         seedDemoDeviceIfNeeded(into: store)
         let existing = (try? await store.dailyMetrics(deviceId: whoop, from: "0000-00-00", to: "9999-99-99")) ?? []
-        guard existing.isEmpty else { return }
+        // The steps fixture reseeds over a store another test already seeded: the upserts are idempotent and the seed deterministic, so
+        // Apple Health's steps for the last days are overwritten with nothing and the Garmin rows take over.
+        guard existing.isEmpty || garminStepsRequested else { return }
         do { try await seed(into: store) }
         catch { NSLog("AppleDemoSeeder: seed failed — \(error)") }
     }
