@@ -53,8 +53,12 @@ private struct PFTodayCardsColumn: View {
             ForEach(shown, id: \.rawValue) { card in
                 cardView(card, info: info)
             }
-            if let trainingRow, info.nextRace != nil || trainingRow.lastWorkout != nil {
-                PFTrainingRow(nextRace: info.nextRace, lastWorkout: trainingRow.lastWorkout)
+            if let trainingRow {
+                // The Today card lists the next race on every day but race day, so the row repeats it only on race day.
+                let race = info.today.kind == "race" ? info.nextRace : nil
+                if race != nil || trainingRow.lastWorkout != nil {
+                    PFTrainingRow(nextRace: race, lastWorkout: trainingRow.lastWorkout)
+                }
             }
             if showsHiddenRow { PFHiddenCardsRow(snapshot: snapshot) }
         }
