@@ -1,6 +1,6 @@
 import XCTest
 
-/// Simulator checks for bike rides: the ride rows in This week, Today and My Day, and the ride screen for a
+/// Simulator checks for bike rides: the ride rows in Plan > This week, Train > Bike and My Day, and the ride screen for a
 /// second-by-second ride and a 240-point one. Like the other PaceForge UI tests they serve the synthetic
 /// PaceForgeFixture.json (made-up values only); `-PaceForgeRideNone` drops ride-metrics.json and
 /// `-PaceForgeRideNoStream` drops one ride's stream file. `-MyDayFixture ride` adds a ride to the made-up day.
@@ -8,11 +8,8 @@ final class PaceForgeRideUITests: XCTestCase {
     private let longRide = "pf-ride-bike:2030-03-13"
     private let sampledRide = "pf-ride-bike:2030-03-11"
 
-    private func launch(extraArguments: [String] = [], classic: Bool = true) throws -> XCUIApplication {
+    private func launch(extraArguments: [String] = []) throws -> XCUIApplication {
         let app = XCUIApplication()
-        // These tests drive the classic PaceForge tab and its segments, which the unified bar (the default) does not have;
-        // the My Day test asks for the unified bar, which has the My Day tab.
-        if classic { try app.useClassicNavigation() }
         app.launchArguments.append("--demo-seed")
         app.launchArguments.append(contentsOf: extraArguments)
         app.launchArguments.append("-PaceForgeFixture")
@@ -38,18 +35,6 @@ final class PaceForgeRideUITests: XCTestCase {
         app.staticTexts.matching(NSPredicate(format: "label ==[c] %@", text)).firstMatch
     }
 
-    private func openSegment(_ app: XCUIApplication, _ title: String) throws {
-        let tab = app.shellTab("PaceForge")
-        XCTAssertTrue(tab.waitForExistence(timeout: 20), "The PaceForge tab should be present.")
-        tab.tap()
-        let segments = app.segmentedControls["pf-segments"]
-        XCTAssertTrue(segments.waitForExistence(timeout: 15), "The PaceForge segmented control should load from the fixture.")
-        let button = segments.buttons[title]
-        button.tap()
-        // The segment is remembered between launches; a tap that lands while the previous one is restored is lost.
-        if !button.isSelected { button.tap() }
-    }
-
     /// Scrolls down until the element can be tapped.
     @discardableResult
     private func reveal(_ element: XCUIElement, in app: XCUIApplication, maxSwipes: Int = 14) -> Bool {
@@ -63,7 +48,7 @@ final class PaceForgeRideUITests: XCTestCase {
     }
 
     private func openRide(_ app: XCUIApplication, _ id: String) throws {
-        try openSegment(app, "This week")
+        app.openChip("Plan", "thisWeek")
         let row = app.buttons[id]
         XCTAssertTrue(reveal(row, in: app, maxSwipes: 20), "This week should list the ride.")
         row.tap()
@@ -72,21 +57,22 @@ final class PaceForgeRideUITests: XCTestCase {
 
     // MARK: Rows
 
-    func testThisWeekListsBothRidesAndTodayListsTheOneOnTheDay() throws {
+    func testThisWeekAndTheBikeChipListBothRides() throws {
         let app = try launch()
-        try openSegment(app, "This week")
+        app.openChip("Plan", "thisWeek")
         XCTAssertTrue(reveal(app.buttons[longRide], in: app, maxSwipes: 20))
         XCTAssertTrue(reveal(app.buttons[sampledRide], in: app, maxSwipes: 20))
         attach(app, "50 Ride rows in This week")
-        try openSegment(app, "Today")
-        XCTAssertTrue(reveal(app.buttons[longRide], in: app, maxSwipes: 20), "Today should list today's ride.")
-        attach(app, "50 Ride row on Today")
+        app.openChip("Train", "bike")
+        XCTAssertTrue(reveal(app.buttons[longRide], in: app, maxSwipes: 20), "Train > Bike should list today's ride.")
+        XCTAssertTrue(reveal(app.buttons[sampledRide], in: app, maxSwipes: 20), "Train > Bike should list the earlier ride too.")
+        attach(app, "50 Ride rows on Train > Bike")
     }
 
     func testWithoutRideMetricsNoRideRowShows() throws {
         let app = try launch(extraArguments: ["-PaceForgeRideNone"])
-        try openSegment(app, "This week")
-        XCTAssertTrue(app.staticTexts["Wed 13 Mar"].waitForExistence(timeout: 10) || label(app, "Wed 13 Mar").waitForExistence(timeout: 5))
+        app.openChip("Plan", "thisWeek")
+        XCTAssertTrue(reveal(label(app, "Wed 13 Mar"), in: app, maxSwipes: 20), "This week should list the day the ride was on.")
         XCTAssertFalse(app.buttons[longRide].exists, "Without ride-metrics.json there is no ride row.")
     }
 
@@ -154,8 +140,8 @@ final class PaceForgeRideUITests: XCTestCase {
     // MARK: My Day
 
     func testMyDayListsTheRideAndItOpensTheRideScreen() throws {
-        let app = try launch(extraArguments: ["-MyDayFixture", "ride"], classic: false)
-        app.openMoreRow(tab: "Reports", row: "myday")
+        let app = try launch(extraArguments: ["-MyDayFixture", "ride"])
+        app.openChip("Health", "day")
         XCTAssertTrue(element(app, "myday-strip").waitForExistence(timeout: 20))
         let row = element(app, "myday-row-ride-bike:2030-03-13")
         for _ in 0..<6 where !row.exists { app.swipeUp() }
