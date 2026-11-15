@@ -2168,6 +2168,9 @@ struct LiquidTodayView: View {
                             keyMetricsSection
                             #if os(iOS)
                             // My Dashboard's own cards, under the key metrics: weight against its goal.
+                            // The key metrics against their own 30-day baselines, with the direction mark.
+                            LookMyDashboardSection(day: selectedLogicalDay, title: "Today vs 30 days", identifier: "today-vs30",
+                                                   drawsEmptyState: false)
                             if selectedDayOffset == 0 && PFAPI.isConfigured { PFTodayWeightGoalHost() }
                             #endif
                         case .workouts: lastWorkoutsSection

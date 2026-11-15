@@ -12,6 +12,10 @@ import StrandAnalytics
 
 struct LookMyDashboardSection: View {
     let day: Date
+    /// Today draws the rows as one card under the key metrics: its own title, its own identifier, and nothing while there is nothing to compare.
+    var title = "My Dashboard"
+    var identifier = "look-my-dashboard"
+    var drawsEmptyState = true
 
     @EnvironmentObject private var repo: Repository
     @AppStorage(MyDashboardPrefs.storageKey) private var raw = MyDashboardPrefs.defaultCSV
@@ -36,7 +40,7 @@ struct LookMyDashboardSection: View {
             if !rows.isEmpty {
                 TodayVs30Rows(rows: rows)
                     .accessibilityIdentifier("look-dashboard-rows")
-            } else if loaded {
+            } else if loaded && drawsEmptyState {
                 LookInfoCard(title: ids.isEmpty ? "Choose your metrics" : "Nothing to compare yet",
                              message: ids.isEmpty
                                 ? "Customize to add the metrics you want to see against your last 30 days."
@@ -45,7 +49,7 @@ struct LookMyDashboardSection: View {
             }
         }
         .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("look-my-dashboard")
+        .accessibilityIdentifier(identifier)
         .task(id: loadKey) { await load() }
         .sheet(isPresented: $showEditor) {
             LookDashboardEditor(initial: ids) { saved in
@@ -57,9 +61,14 @@ struct LookMyDashboardSection: View {
 
     private var header: some View {
         HStack {
-            Text("My Dashboard")
-                .font(LookFont.text(22, weight: .semibold))
-                .foregroundStyle(NoopLook.textPrimary)
+            // Under Today's My Dashboard header the card's title is a section label, not a second 22 pt header.
+            if drawsEmptyState {
+                Text(LocalizedStringKey(title))
+                    .font(LookFont.text(22, weight: .semibold))
+                    .foregroundStyle(NoopLook.textPrimary)
+            } else {
+                Text(LocalizedStringKey(title)).lookCaps(12.5).foregroundStyle(NoopLook.textPrimary)
+            }
             Spacer(minLength: 8)
             Button { showEditor = true } label: {
                 HStack(spacing: 6) {
