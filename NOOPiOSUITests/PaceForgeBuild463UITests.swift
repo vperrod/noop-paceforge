@@ -1,13 +1,12 @@
 import XCTest
 
-/// Simulator checks for the build-463 screens: Add measurement (tape and field test), Today Customise,
-/// the heart-rate-recovery card, the Where you stand add button and the lift exercise filters. Like the other
+/// Simulator checks for the build-463 screens: Add measurement (tape and field test),
+/// the heart-rate-recovery card, the Where you stand add button and the lift exercise filters. (Today Customise is gone: Today's
+/// cards have a fixed order since 622ffedd, which deleted PaceForgeTodayArrange.) Like the other
 /// PaceForge UI tests they serve the synthetic PaceForgeFixture.json (made-up values only).
 final class PaceForgeBuild463UITests: XCTestCase {
-    private func launch(extraArguments: [String] = [], fixture: Bool = true, classic: Bool = true) throws -> XCUIApplication {
+    private func launch(extraArguments: [String] = [], fixture: Bool = true) throws -> XCUIApplication {
         let app = XCUIApplication()
-        // Most of these tests drive the classic PaceForge tab and its segments, which the unified bar (the default) does not have.
-        if classic { try app.useClassicNavigation() }
         app.launchArguments.append("--demo-seed")
         app.launchArguments.append(contentsOf: extraArguments)
         if fixture {
@@ -29,18 +28,6 @@ final class PaceForgeBuild463UITests: XCTestCase {
 
     private func element(_ app: XCUIApplication, _ id: String) -> XCUIElement {
         app.descendants(matching: .any).matching(identifier: id).firstMatch
-    }
-
-    private func openSegment(_ app: XCUIApplication, _ title: String) throws {
-        let tab = app.shellTab("PaceForge")
-        XCTAssertTrue(tab.waitForExistence(timeout: 20), "The PaceForge tab should be present.")
-        tab.tap()
-        let segments = app.segmentedControls["pf-segments"]
-        XCTAssertTrue(segments.waitForExistence(timeout: 15), "The PaceForge segmented control should load from the fixture.")
-        let button = segments.buttons[title]
-        button.tap()
-        // The segment is remembered between launches; a tap that lands while the previous one is restored is lost.
-        if !button.isSelected { button.tap() }
     }
 
     /// Scrolls down until the element can be tapped.
@@ -74,7 +61,7 @@ final class PaceForgeBuild463UITests: XCTestCase {
 
     func testAddMeasurementSheetTakesATapeAndAFieldTest() throws {
         let app = try launch()
-        try openSegment(app, "Body")
+        app.openChip("Health", "body")
         let open = element(app, "pf-add-tape-button")
         XCTAssertTrue(reveal(open, in: app, maxSwipes: 20), "The Body tape card should offer Add measurement.")
         attach(app, "80 Body tape card with Add measurement")
@@ -97,47 +84,12 @@ final class PaceForgeBuild463UITests: XCTestCase {
         element(app, "pf-add-done").tap()
     }
 
-    // MARK: Today Customise
-
-    func testTodayCustomiseMovesAndPinsACard() throws {
-        let app = try launch()
-        try openSegment(app, "Today")
-        let customise = element(app, "pf-today-customise")
-        XCTAssertTrue(customise.waitForExistence(timeout: 10), "Today should offer Customise.")
-        attach(app, "83 Today before Customise")
-        customise.tap()
-        XCTAssertTrue(element(app, "pf-today-customise-help").waitForExistence(timeout: 5), "Customise should explain itself.")
-        attach(app, "83 Today Customise on")
-        let downs = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'pf-arrange-down-'"))
-        XCTAssertGreaterThan(downs.count, 0, "Every card should carry a Down button while Customise is on.")
-        var moved = false
-        for index in 0..<downs.count {
-            let button = downs.element(boundBy: index)
-            if button.isEnabled && button.isHittable { button.tap(); moved = true; break }
-        }
-        XCTAssertTrue(moved, "A card should be movable down.")
-        attach(app, "84 Today card moved down")
-        let pins = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'pf-arrange-pin-'"))
-        for index in 0..<pins.count {
-            let button = pins.element(boundBy: index)
-            if button.isEnabled && button.isHittable { button.tap(); break }
-        }
-        attach(app, "84 Today card pinned")
-        XCTAssertTrue(element(app, "pf-today-customise-reset").waitForExistence(timeout: 5),
-                      "A saved arrangement should offer PaceForge's order again.")
-        app.swipeUp()
-        attach(app, "84 Today Customise scrolled")
-        for _ in 0..<2 { app.swipeDown() }
-        customise.tap()
-        attach(app, "85 Today Customise done")
-    }
-
     // MARK: Heart rate recovery
 
     private func openFirstResults(_ app: XCUIApplication) throws {
-        try openSegment(app, "This week")
+        app.openChip("Plan", "thisWeek")
         let done = app.buttons["pf-workout-s-mon"]
-        XCTAssertTrue(done.waitForExistence(timeout: 10), "The completed easy run should be listed.")
+        XCTAssertTrue(reveal(done, in: app, maxSwipes: 20), "The completed easy run should be listed.")
         done.tap()
     }
 
@@ -163,7 +115,7 @@ final class PaceForgeBuild463UITests: XCTestCase {
 
     func testWhereYouStandOffersLogAFieldTest() throws {
         let app = try launch()
-        try openSegment(app, "Insights")
+        app.openCoachInsights("overview")
         let button = element(app, "pf-add-field_test-button")
         XCTAssertTrue(reveal(button, in: app, maxSwipes: 20), "Where you stand should offer Log a field test.")
         attach(app, "88 Where you stand add button")
@@ -178,7 +130,7 @@ final class PaceForgeBuild463UITests: XCTestCase {
     // MARK: Lift exercise filters
 
     func testLiftExercisePickerFiltersByMuscleGroupAndEquipment() throws {
-        let app = try launch(fixture: false, classic: false)
+        let app = try launch(fixture: false)
         let train = app.shellTab("Train")
         XCTAssertTrue(train.waitForExistence(timeout: 30), "The Train tab should be in the bar.")
         train.tap()
