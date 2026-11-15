@@ -102,6 +102,79 @@ private struct TrainRunningContent: View {
     }
 }
 
+/// The FTP card at the top of Train > Bike: the figure on file (or the estimate from rides) with its date and source, and the 20-minute
+/// test: how it works and the FTP detail (estimate, Garmin and in use, the best 20 minutes, the re-test date) behind it.
+struct TrainFtpCard: View {
+    let snapshot: PFSnapshot
+    @Environment(\.pfOpenInsight) private var openInsight
+    @State private var showTile = false
+
+    private var tile: PFAthleteMetric? { PFAthleteBuild.make(snapshot, maxHr: nil).tile("ftp") }
+    private var power: PFPowerMetric? { snapshot.insightsV2?.item(PFInsightID.powerCurve)?.power }
+
+    var body: some View {
+        PFCard("FTP", icon: "bolt.fill") {
+            VStack(alignment: .leading, spacing: 12) {
+                figure
+                Divider().overlay(StrandPalette.hairline)
+                test
+            }
+        }
+        .containerIdentifier("train-bike-ftp")
+        .sheet(isPresented: $showTile) {
+            if let tile { AthleteMetricSheet(tile: tile, standing: snapshot.standing) }
+        }
+    }
+
+    @ViewBuilder private var figure: some View {
+        if let tile {
+            Button { showTile = true } label: {
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    Text(tile.valueText).font(LookFont.numeral(28)).foregroundStyle(NoopLook.textPrimary)
+                    Text(tile.unit).font(LookFont.text(13, weight: .semibold)).foregroundStyle(NoopLook.textTertiary)
+                    Spacer(minLength: 8)
+                    VStack(alignment: .trailing, spacing: 4) {
+                        PFSourceTag(source: tile.source)
+                        if let asOf = tile.asOf {
+                            Text("since \(PFFormat.shortDate(asOf))").font(StrandFont.caption).foregroundStyle(StrandPalette.textTertiary)
+                        }
+                    }
+                    Image(systemName: "chevron.right").font(StrandFont.caption.weight(.semibold)).foregroundStyle(StrandPalette.textTertiary)
+                }
+                .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("train-bike-ftp-value")
+        } else {
+            PFParagraph("No FTP on file yet. PaceForge estimates one from a ride with a hard 20-minute effort.")
+        }
+    }
+
+    @ViewBuilder private var test: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 8) {
+                Text("20-minute test").font(StrandFont.subhead.weight(.semibold)).foregroundStyle(StrandPalette.textPrimary)
+                if power?.retestDue == true { PFChip(text: "FTP test due", color: PFColor.warning) }
+            }
+            PFParagraph("After a warm-up, ride 20 minutes as hard as you can hold evenly, on the flat or a steady climb.")
+            PFParagraph("PaceForge reads the best 20 minutes from the ride and sets FTP at about 95 % of that power.")
+            if snapshot.insightsV2?.item(PFInsightID.powerCurve) != nil {
+                Button { openInsight(PFInsightID.powerCurve) } label: {
+                    HStack(spacing: 6) {
+                        Text("Best 20 minutes and re-test date").font(StrandFont.caption.weight(.semibold))
+                        Image(systemName: "chevron.right").font(StrandFont.scaled(12, weight: .semibold))
+                    }
+                    .foregroundStyle(StrandPalette.accent)
+                    .frame(minHeight: 44)
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("train-bike-ftp-test")
+            }
+        }
+    }
+}
+
 /// The PaceForge snapshot around the screen: the lock, the load states and the offline banner.
 private struct AthleteColumn: View {
     let maxHr: Int?

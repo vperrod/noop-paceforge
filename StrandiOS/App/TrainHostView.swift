@@ -161,6 +161,7 @@ private struct TrainBikeContent: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
+            TrainFtpCard(snapshot: snapshot)
             if snapshot.rides.isEmpty {
                 PFCard("No rides yet", icon: "bicycle") {
                     PFParagraph("Rides PaceForge has analysed show here, newest first. Planned rides are on the Plan tab.")
