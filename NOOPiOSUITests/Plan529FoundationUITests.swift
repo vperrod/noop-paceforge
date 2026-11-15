@@ -49,7 +49,8 @@ final class Plan529FoundationUITests: XCTestCase {
         XCTAssertTrue(app.element("plan529-session").waitForExistence(timeout: 30), "The session sheet should open.")
         attach(app, "Plan529 01 session sheet")
         app.element("plan529-sheet-done").tap()
-        XCTAssertTrue(app.element("calendar-chip-content-week").waitForExistence(timeout: 30), "Done should return to the Plan tab.")
+        XCTAssertTrue(app.element("plan529-session").waitForNonExistence(timeout: 30), "Done should close the sheet over the Plan tab.")
+        XCTAssertTrue(app.element("calendar-host").exists, "Done should return to the Plan tab.")
     }
 
     func testInboxOpensOverThePlanTab() throws {
@@ -68,7 +69,7 @@ final class Plan529FoundationUITests: XCTestCase {
     func testReportsChipListsTheReports() throws {
         let app = try launch()
         app.openChip("Plan", "reports")
-        XCTAssertTrue(app.element("plan529-reports").waitForExistence(timeout: 30), "The Reports chip should list the reports.")
+        XCTAssertTrue(app.element("reports-row-today:2026-11-15").waitForExistence(timeout: 30), "The Reports chip should list the reports.")
         attach(app, "Plan529 03 reports chip")
     }
 }

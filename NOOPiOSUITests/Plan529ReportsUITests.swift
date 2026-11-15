@@ -131,8 +131,9 @@ final class Plan529ReportsUITests: XCTestCase {
     func testInsightsLinksToTheWeekReportAndTheMonthReport() throws {
         let app = try launch()
         app.openCoach("insights")
-        XCTAssertTrue(reveal(app.element("insights-week-report"), in: app), "Insights should link to last week's report.")
+        // Longer reports come before the week review on Overview, so they are met first when scrolling down.
         XCTAssertTrue(reveal(app.element("insights-report-monthly"), in: app), "Insights should link to the monthly report.")
         XCTAssertTrue(app.element("insights-report-monthly-scores").exists, "The monthly scores should stay reachable.")
+        XCTAssertTrue(reveal(app.element("insights-week-report"), in: app), "Insights should link to last week's report.")
     }
 }
