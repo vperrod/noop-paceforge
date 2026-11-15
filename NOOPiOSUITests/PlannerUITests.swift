@@ -2,21 +2,14 @@ import XCTest
 
 /// Simulator checks for the Effort target and the Sleep Planner. Both are driven by made-up readings
 /// (`-EffortTargetFixture`, `-SleepPlannerFixture`, DEBUG builds only) so every state can be captured with
-/// no strap and no history; nothing here is real data. The widget faces are drawn by the debug gallery.
+/// no strap and no history; nothing here is real data. (The debug widget gallery is gone: 622ffedd deleted it.)
 final class PlannerUITests: XCTestCase {
 
-    private func launch(effort: String? = nil, sleep: String? = nil, widgetGallery: Bool = false, classic: Bool = false) throws -> XCUIApplication {
+    private func launch(effort: String? = nil, sleep: String? = nil) throws -> XCUIApplication {
         let app = XCUIApplication()
-        if classic { try app.useClassicNavigation() }
         app.launchArguments.append("--demo-seed")
         if let effort { app.launchArguments += ["-EffortTargetFixture", effort] }
         if let sleep { app.launchArguments += ["-SleepPlannerFixture", sleep] }
-        if widgetGallery {
-            app.launchArguments += ["-PaceForgeFixture", "-PaceForgeWidgetGallery"]
-            let url = try XCTUnwrap(Bundle(for: Self.self).url(forResource: "PaceForgeFixture", withExtension: "json"),
-                                    "The synthetic PaceForge fixture should be bundled with the UI tests.")
-            app.launchEnvironment["PF_FIXTURE_JSON"] = String(decoding: try Data(contentsOf: url), as: UTF8.self)
-        }
         app.launch()
         return app
     }
@@ -94,11 +87,11 @@ final class PlannerUITests: XCTestCase {
 
     // MARK: Sleep Planner
 
-    /// Sleep (a More row at the end of Reports), then the Sleep Planner card at the top of the Sleep screen.
+    /// The Sleep chip of Health, then the Sleep Planner card at the top of the Sleep screen.
     private func openPlanner(_ app: XCUIApplication) {
-        app.openMoreRow(tab: "Reports", row: "sleep")
+        app.openChip("Health", "sleep")
         let entry = element(app, "sleep-planner-entry")
-        XCTAssertTrue(entry.waitForExistence(timeout: 30), "The Sleep screen should show the Sleep Planner card.")
+        XCTAssertTrue(entry.waitForExistence(timeout: 30), "The Sleep chip should show the Sleep Planner card.")
         reveal(entry, in: app)
         entry.tap()
         XCTAssertTrue(element(app, "sleep-planner-bedtime").waitForExistence(timeout: 20), "The planner should show tonight's bedtime.")
@@ -145,22 +138,5 @@ final class PlannerUITests: XCTestCase {
         XCTAssertTrue(copy.exists)
         XCTAssertTrue(copy.label.contains("cannot watch your sleep live"))
         attach(app, "35 Sleep planner alarm mode")
-    }
-
-    // MARK: Widget gallery
-
-    func testEffortTargetWidgetIsInTheGallery() throws {
-        let app = try launch(widgetGallery: true, classic: true)
-        let tab = app.shellTab("PaceForge")
-        XCTAssertTrue(tab.waitForExistence(timeout: 20))
-        tab.tap()
-        // The gallery heading and the widget card carry identifiers, which replace their text as the lookup key.
-        let widget = element(app, "effort-target-widget-gallery")
-        XCTAssertTrue(element(app, "pf-widget-gallery").waitForExistence(timeout: 20))
-        for _ in 0..<10 where !widget.exists { app.swipeUp() }
-        XCTAssertTrue(widget.exists, "The Effort target widget should be drawn in the debug gallery.")
-        attach(app, "36 Effort target widget")
-        app.swipeUp()
-        attach(app, "36 Effort target widget lock screen")
     }
 }
