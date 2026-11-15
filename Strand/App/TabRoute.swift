@@ -145,6 +145,8 @@ extension View {
                 default:
                     if kind.hasPrefix("race:") {
                         PFRaceReportPage(date: String(kind.dropFirst("race:".count)))
+                    } else if kind.hasPrefix("weekly:") {
+                        PFReportsScreen(kind: .weekly, key: String(kind.dropFirst("weekly:".count)))
                     } else {
                         PFReportsScreen(kind: PFReportKind(rawValue: kind) ?? .daily)
                     }

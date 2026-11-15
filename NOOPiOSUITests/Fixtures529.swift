@@ -9,8 +9,9 @@ enum Fixtures529 {
 
     static let folder = "Fixtures529"
 
-    /// The fixture text `PF_FIXTURE_JSON` carries: the big fixture's bytes with every merged file, in file-name order.
-    static func merged(_ base: Data) throws -> String {
+    /// The fixture text `PF_FIXTURE_JSON` carries: the big fixture's bytes with every merged file, in file-name order. `today` replaces the
+    /// big fixture's day (2030-03-13), for a screen that has to open on the 2026 season the week documents describe.
+    static func merged(_ base: Data, today: String? = nil) throws -> String {
         let bundle = Bundle(for: BundleToken.self)
         let urls = (bundle.urls(forResourcesWithExtension: "json", subdirectory: folder) ?? [])
             .sorted { $0.lastPathComponent < $1.lastPathComponent }
@@ -31,6 +32,7 @@ enum Fixtures529 {
                 }
             }
         }
+        if let today { files["today"] = today }
         return String(decoding: try JSONSerialization.data(withJSONObject: files), as: UTF8.self)
     }
 }

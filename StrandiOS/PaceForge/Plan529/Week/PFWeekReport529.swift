@@ -195,7 +195,7 @@ struct PFWeekReport529: View {
     }
 
     private func link(_ title: String, id: String) -> some View {
-        NavigationLink(value: TabRoute.reports(PFReportKind.weekly.rawValue)) {
+        NavigationLink(value: TabRoute.reports("\(PFReportKind.weekly.rawValue):\(week)")) {
             HStack {
                 Text(title).font(LookFont.text(15, weight: .medium)).foregroundStyle(NoopLook.textPrimary)
                 Spacer(minLength: 8)

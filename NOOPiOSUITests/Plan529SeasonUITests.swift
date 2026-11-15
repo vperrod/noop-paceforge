@@ -4,14 +4,16 @@ import XCTest
 /// bars and day panel (C1) and "How your plan is built" (K1). Each test serves the merged synthetic fixture (`Fixtures529/*.json`) and
 /// attaches screenshots named with the screen code.
 final class Plan529SeasonUITests: XCTestCase {
-    private func launch(open target: String? = nil, extra: [String] = []) throws -> XCUIApplication {
+    /// `today` sets the fixture's day: the Calendar opens on today when the plan covers it, and the plan now covers the big fixture's
+    /// 2030 week too, so its tests ask for the Monday of the 2026 current week.
+    private func launch(open target: String? = nil, extra: [String] = [], today: String? = nil) throws -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments.append(contentsOf: ["--demo-seed", "-theme.appearance", "dark", "-PaceForgeFixture"])
         app.launchArguments.append(contentsOf: extra)
         if let target { app.launchArguments.append(contentsOf: ["-Plan529Open", target]) }
         let url = try XCTUnwrap(Bundle(for: Self.self).url(forResource: "PaceForgeFixture", withExtension: "json"),
                                 "The synthetic fixture should be bundled with the UI tests.")
-        app.launchEnvironment["PF_FIXTURE_JSON"] = try Fixtures529.merged(Data(contentsOf: url))
+        app.launchEnvironment["PF_FIXTURE_JSON"] = try Fixtures529.merged(Data(contentsOf: url), today: today)
         app.launch()
         dumpHierarchyOnFailure(app)
         return app
@@ -191,7 +193,7 @@ final class Plan529SeasonUITests: XCTestCase {
     // MARK: C1 Calendar
 
     func testCalendarShowsTheMonthWithBarsAndTheHoursOfEachWeek() throws {
-        let app = try launch()
+        let app = try launch(today: "2026-11-16")
         app.openChip("Plan", "calendar")
         let title = app.element("calendar-month-title")
         XCTAssertTrue(title.waitForExistence(timeout: 30), "The calendar should show a month.")
@@ -202,7 +204,7 @@ final class Plan529SeasonUITests: XCTestCase {
     }
 
     func testCalendarPagesToDecember() throws {
-        let app = try launch()
+        let app = try launch(today: "2026-11-16")
         app.openChip("Plan", "calendar")
         let next = app.element("calendar-month-next")
         XCTAssertTrue(next.waitForExistence(timeout: 30), "The calendar should page forward.")
@@ -211,7 +213,7 @@ final class Plan529SeasonUITests: XCTestCase {
     }
 
     func testATappedDayListsItsItemsAndASessionOpensItsSheet() throws {
-        let app = try launch()
+        let app = try launch(today: "2026-11-16")
         app.openChip("Plan", "calendar")
         let day = app.element("calendar-day-2026-11-18")
         XCTAssertTrue(day.waitForExistence(timeout: 30), "The grid should hold Wednesday 18 November.")
@@ -224,7 +226,7 @@ final class Plan529SeasonUITests: XCTestCase {
     }
 
     func testAddAnActivityOpensTheChangeTodaySheetWhileThereIsNoPhoneJob() throws {
-        let app = try launch()
+        let app = try launch(today: "2026-11-16")
         app.openChip("Plan", "calendar")
         let add = app.element("calendar-add-activity")
         XCTAssertTrue(reveal(add, in: app), "The day panel should offer + Add an activity.")
@@ -233,7 +235,7 @@ final class Plan529SeasonUITests: XCTestCase {
     }
 
     func testAddADayOffFromTheDayPanel() throws {
-        let app = try launch()
+        let app = try launch(today: "2026-11-16")
         app.openChip("Plan", "calendar")
         let add = app.element("calendar-add-day-off")
         XCTAssertTrue(reveal(add, in: app), "The day panel should offer + Day off.")

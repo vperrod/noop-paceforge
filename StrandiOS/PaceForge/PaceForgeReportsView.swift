@@ -9,13 +9,17 @@ import StrandDesign
 struct PFReportsScreen: View {
     @ObservedObject private var store = PFReportsStore.shared
     private let kind: PFReportKind
+    /// The report a link asked for (a week's report from the Week page); `selectedKey` starts on it.
+    private let requestedKey: String?
     @State private var selectedKey: String?
     private let hiding = PFHiding()
 
     private var screenTitle: String { "\(kind.title) report" }
 
-    init(kind: PFReportKind = .daily) {
+    init(kind: PFReportKind = .daily, key: String? = nil) {
         self.kind = kind
+        requestedKey = key
+        _selectedKey = State(initialValue: key)
     }
 
     var body: some View {
@@ -82,6 +86,9 @@ struct PFReportsScreen: View {
 
     @ViewBuilder private func readyContent(_ list: [PFReportRow], first: PFReportRow) -> some View {
         let key = list.contains(where: { $0.key == selectedKey }) ? (selectedKey ?? first.key) : first.key
+        if let requestedKey, !list.contains(where: { $0.key == requestedKey }) {
+            message("There is no expert report for this week. The latest one is shown.")
+        }
         historyGroup(list, current: key)
         PFReportBody(kind: kind, key: key)
     }
