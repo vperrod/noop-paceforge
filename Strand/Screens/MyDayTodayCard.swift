@@ -35,7 +35,7 @@ struct MyDayTodayCard: View {
             surface {
                 VStack(alignment: .leading, spacing: NoopMetrics.cardInnerSpacing) {
                     HStack {
-                        Text("MY DAY").lookCaps(12.5)
+                        Text("THE DAY \u{00B7} 24 H").lookCaps(12.5)
                             .foregroundStyle(NoopLook.textPrimary)
                         Spacer(minLength: 8)
                         Image(systemName: "chevron.right")
