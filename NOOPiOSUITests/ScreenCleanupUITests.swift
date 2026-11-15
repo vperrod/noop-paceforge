@@ -206,10 +206,10 @@ final class ScreenCleanupUITests: XCTestCase {
         let ring = app.buttons.matching(NSPredicate(format: "label MATCHES %@", "Rest, [0-9]+%?")).firstMatch
         XCTAssertTrue(reveal(ring, in: app, maxSwipes: 6), "Today should show the Rest ring.")
         ring.tap()
-        let back = app.navigationBars.buttons.element(boundBy: 0)
-        XCTAssertTrue(back.waitForExistence(timeout: 20), "The Rest ring should open its own screen over Today.")
+        // The ring pushes the Rest metric's page, whose top is the Rest score detail (`look-score-detail-rest`).
+        XCTAssertTrue(element(app, "look-score-detail-rest").waitForExistence(timeout: 30), "The Rest ring should open the Rest score screen.")
         alive(app, "opening the Rest screen from its ring")
-        back.tap()
+        app.navigationBars.buttons.element(boundBy: 0).tap()
         XCTAssertFalse(app.shellTab("Sleep").exists, "Sleep is not a tab.")
         app.openChip("Health", "sleep")
         XCTAssertTrue(reveal(element(app, "look-last-night"), in: app), "Health's Sleep chip should show last night.")
