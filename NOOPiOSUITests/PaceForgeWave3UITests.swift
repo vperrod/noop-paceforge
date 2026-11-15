@@ -1,19 +1,17 @@
 import XCTest
 
 /// Simulator checks for the wave-3 PaceForge cards: race week, race simulations, easy mode, the muscle check,
-/// tape measurements, heat, the estimate label and the widget privacy state. Like the other PaceForge UI
+/// tape measurements, heat and the estimate label. (The widget gallery and its privacy faces are gone: 622ffedd deleted
+/// PaceForgeWidgetGallery.) Like the other PaceForge UI
 /// tests they serve the synthetic PaceForgeFixture.json (made-up values only); the launch switches
 /// `-PaceForgeRaceWeek`, `-PaceForgeSimsEmpty`, `-PaceForgeEasyPending`, `-PaceForgeEasyIdle` and
 /// `-PaceForgeMuscleCalibrating` swap one fixture file for its second state.
 final class PaceForgeWave3UITests: XCTestCase {
-    private func launch(extraArguments: [String] = [], widgetGallery: Bool = false) throws -> XCUIApplication {
+    private func launch(extraArguments: [String] = []) throws -> XCUIApplication {
         let app = XCUIApplication()
-        // These tests drive the classic PaceForge tab and its segments, which the unified bar (the default) does not have.
-        try app.useClassicNavigation()
         app.launchArguments.append("--demo-seed")
         app.launchArguments.append(contentsOf: extraArguments)
         app.launchArguments.append("-PaceForgeFixture")
-        if widgetGallery { app.launchArguments.append("-PaceForgeWidgetGallery") }
         let url = try XCTUnwrap(Bundle(for: Self.self).url(forResource: "PaceForgeFixture", withExtension: "json"),
                                 "The synthetic fixture should be bundled with the UI tests.")
         app.launchEnvironment["PF_FIXTURE_JSON"] = String(decoding: try Data(contentsOf: url), as: UTF8.self)
@@ -37,18 +35,6 @@ final class PaceForgeWave3UITests: XCTestCase {
         app.descendants(matching: .any).matching(identifier: id).firstMatch
     }
 
-    private func openSegment(_ app: XCUIApplication, _ title: String) throws {
-        let tab = app.shellTab("PaceForge")
-        XCTAssertTrue(tab.waitForExistence(timeout: 20), "The PaceForge tab should be present.")
-        tab.tap()
-        let segments = app.segmentedControls["pf-segments"]
-        XCTAssertTrue(segments.waitForExistence(timeout: 15), "The PaceForge segmented control should load from the fixture.")
-        let button = segments.buttons[title]
-        button.tap()
-        // The segment is remembered between launches; a tap that lands while the previous one is restored is lost.
-        if !button.isSelected { button.tap() }
-    }
-
     /// Scrolls down until the element can be tapped.
     @discardableResult
     private func reveal(_ element: XCUIElement, in app: XCUIApplication, maxSwipes: Int = 14) -> Bool {
@@ -64,14 +50,13 @@ final class PaceForgeWave3UITests: XCTestCase {
 
     // MARK: Race week
 
-    func testRaceWeekCardReplacesTheCountdownAndTheChecklistTicks() throws {
+    func testRaceWeekCardShowsItsPhaseVolumeAndTheChecklistTicks() throws {
         let app = try launch(extraArguments: ["-PaceForgeRaceWeek"])
-        try openSegment(app, "Today")
+        app.openChip("Plan", "season")
         let card = element(app, "pf-race-week-card")
-        XCTAssertTrue(card.waitForExistence(timeout: 10), "Race week should show its card on Today.")
+        XCTAssertTrue(reveal(card, in: app, maxSwipes: 20), "Race week should show its card on Plan > Season.")
         XCTAssertTrue(element(app, "pf-race-week-phase").exists, "The card should name the phase.")
         XCTAssertTrue(element(app, "pf-race-week-volume").exists, "The card should show the volume target.")
-        XCTAssertFalse(label(app, "Next race").exists, "The plain race countdown should be replaced in race week.")
         attach(app, "30 Race week card")
         let shoes = app.buttons["pf-race-check-shoes"]
         XCTAssertTrue(reveal(shoes, in: app), "The checklist should list the shoes item.")
@@ -83,22 +68,22 @@ final class PaceForgeWave3UITests: XCTestCase {
         attach(app, "30 Race week morning timeline")
     }
 
-    func testOutsideRaceWeekTheCountdownStaysAndNoRaceWeekCardShows() throws {
+    func testOutsideRaceWeekThereIsNoRaceWeekCardAndTodayKeepsTheNextRace() throws {
         let app = try launch()
-        try openSegment(app, "Today")
-        XCTAssertTrue(label(app, "Daily briefing").waitForExistence(timeout: 10))
+        app.openChip("Plan", "season")
+        XCTAssertTrue(reveal(element(app, "calendar-season-events"), in: app, maxSwipes: 20), "Season should list the events.")
         XCTAssertFalse(element(app, "pf-race-week-card").exists, "Outside race week there is no race-week card.")
-        for _ in 0..<8 where !label(app, "Next race").exists { app.swipeUp() }
-        XCTAssertTrue(label(app, "Next race").exists, "The plain race countdown should still show.")
+        app.openTab("Today")
+        XCTAssertTrue(reveal(element(app, "pf-today-next-race"), in: app, maxSwipes: 20), "Today should still show the next race.")
     }
 
     // MARK: Race simulations
 
     func testRaceSimulationsCardShowsTheSplitsFadeAndWeakestStations() throws {
         let app = try launch()
-        try openSegment(app, "Insights")
+        app.openCoachInsights("deepDives")
         let card = element(app, "pf-sims-card")
-        XCTAssertTrue(reveal(card, in: app, maxSwipes: 20) || card.waitForExistence(timeout: 5), "Insights should show Race simulations.")
+        XCTAssertTrue(reveal(card, in: app, maxSwipes: 30) || card.waitForExistence(timeout: 5), "Deep dives should show Race simulations.")
         XCTAssertTrue(element(app, "pf-sims-total").exists, "The latest total should show.")
         XCTAssertTrue(element(app, "pf-sims-vs-goal").exists, "The total should be set against the goal.")
         XCTAssertTrue(element(app, "pf-sims-fade").exists, "Run fade should show.")
@@ -117,9 +102,9 @@ final class PaceForgeWave3UITests: XCTestCase {
 
     func testRaceSimulationsEmptyStateTellsTheAthleteWhatToSay() throws {
         let app = try launch(extraArguments: ["-PaceForgeSimsEmpty"])
-        try openSegment(app, "Insights")
+        app.openCoachInsights("deepDives")
         let empty = element(app, "pf-sims-empty")
-        XCTAssertTrue(reveal(empty, in: app, maxSwipes: 20) || empty.waitForExistence(timeout: 5),
+        XCTAssertTrue(reveal(empty, in: app, maxSwipes: 30) || empty.waitForExistence(timeout: 5),
                       "With no simulation the card should say how to log one.")
         XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS[c] %@", "Log a simulation")).firstMatch.exists,
                       "The empty state should say where to log one.")
@@ -128,29 +113,33 @@ final class PaceForgeWave3UITests: XCTestCase {
 
     // MARK: Easy mode
 
-    func testEasyModeActiveShowsTheChipTheCardAndTheChangedSession() throws {
+    /// Plan > This week, with the Easy mode row opened: the row is closed by default.
+    private func openEasyMode(_ app: XCUIApplication) -> XCUIElement {
+        app.openChip("Plan", "thisWeek")
+        let toggle = element(app, "pf-easy-toggle")
+        XCTAssertTrue(reveal(toggle, in: app, maxSwipes: 20), "Plan > This week should show the Easy mode row.")
+        return toggle
+    }
+
+    func testEasyModeActiveShowsItsStateTheCardAndTheChangedSession() throws {
         let app = try launch()
-        try openSegment(app, "Today")
-        XCTAssertTrue(element(app, "pf-easy-chip").waitForExistence(timeout: 10), "An active mode should show a chip on Today.")
-        attach(app, "33 Easy mode chip")
+        let toggle = openEasyMode(app)
+        XCTAssertTrue(toggle.label.localizedCaseInsensitiveContains("Level"), "An active mode should show its level on the row: \(toggle.label)")
+        attach(app, "33 Easy mode row")
+        toggle.tap()
         let card = element(app, "pf-easy-card")
         XCTAssertTrue(reveal(card, in: app), "An active mode should show its card.")
         XCTAssertTrue(element(app, "pf-easy-days").exists, "The card should say day N of M and when it returns.")
         XCTAssertTrue(element(app, "pf-easy-restorable").exists, "A restorable mode should say so.")
         attach(app, "33 Easy mode card")
-        app.swipeDown()
-        app.swipeDown()
-        app.swipeDown()
-        app.swipeDown()
-        app.segmentedControls["pf-segments"].buttons["This week"].tap()
-        XCTAssertTrue(element(app, "pf-easy-changed-s-wed").waitForExistence(timeout: 10),
+        XCTAssertTrue(reveal(element(app, "pf-easy-changed-s-wed"), in: app, maxSwipes: 20),
                       "A session the mode changed should be marked in This week.")
         attach(app, "33 Easy mode changed session")
     }
 
-    func testEasyModePendingProposalSaysToAcceptInTelegram() throws {
+    func testEasyModePendingProposalSaysToAcceptInNeedsYou() throws {
         let app = try launch(extraArguments: ["-PaceForgeEasyPending"])
-        try openSegment(app, "Today")
+        openEasyMode(app).tap()
         let proposal = element(app, "pf-easy-pending-p1")
         XCTAssertTrue(reveal(proposal, in: app), "A pending proposal should be listed.")
         // The fixture's Needs you list has no matching item, so the card points to Needs you instead of showing Accept.
@@ -161,10 +150,10 @@ final class PaceForgeWave3UITests: XCTestCase {
 
     func testEasyModeStartCardShowsWhenNothingIsOn() throws {
         let app = try launch(extraArguments: ["-PaceForgeEasyIdle"])
-        try openSegment(app, "Today")
+        openEasyMode(app).tap()
         let start = element(app, "pf-easy-start")
-        XCTAssertTrue(reveal(start, in: app), "With no mode on, Today should offer to start one.")
-        XCTAssertFalse(element(app, "pf-easy-chip").exists, "There should be no chip when no mode is on.")
+        XCTAssertTrue(reveal(start, in: app), "With no mode on, the Easy mode row should offer to start one.")
+        XCTAssertFalse(element(app, "pf-easy-card").exists, "There should be no active-mode card when no mode is on.")
         attach(app, "35 Easy mode start")
     }
 
@@ -172,7 +161,7 @@ final class PaceForgeWave3UITests: XCTestCase {
 
     func testMuscleCheckWithARaisedFlagIsCaptured() throws {
         let app = try launch()
-        try openSegment(app, "Body")
+        app.openChip("Health", "body")
         let card = element(app, "pf-muscle-card")
         XCTAssertTrue(reveal(card, in: app), "Body should show the Muscle check card.")
         XCTAssertTrue(element(app, "pf-muscle-lean").exists, "The lean trend figures should show.")
@@ -189,7 +178,7 @@ final class PaceForgeWave3UITests: XCTestCase {
 
     func testMuscleCheckWhileCalibratingSaysSo() throws {
         let app = try launch(extraArguments: ["-PaceForgeMuscleCalibrating"])
-        try openSegment(app, "Body")
+        app.openChip("Health", "body")
         let card = element(app, "pf-muscle-card")
         XCTAssertTrue(reveal(card, in: app), "Body should show the Muscle check card while calibrating.")
         XCTAssertTrue(label(app, "Calibrating").waitForExistence(timeout: 5), "The card should say it is calibrating.")
@@ -198,7 +187,7 @@ final class PaceForgeWave3UITests: XCTestCase {
 
     func testTapeMeasurementsCardIsCaptured() throws {
         let app = try launch()
-        try openSegment(app, "Body")
+        app.openChip("Health", "body")
         let card = element(app, "pf-tape-card")
         XCTAssertTrue(reveal(card, in: app, maxSwipes: 20), "Body should show Tape measurements.")
         XCTAssertTrue(element(app, "pf-tape-waist").exists, "The waist should be listed.")
@@ -209,7 +198,7 @@ final class PaceForgeWave3UITests: XCTestCase {
 
     func testLeftRightFiguresAreLabelledAsAnEstimate() throws {
         let app = try launch()
-        try openSegment(app, "Body")
+        app.openChip("Health", "body")
         let note = element(app, "pf-body-estimate-note")
         XCTAssertTrue(reveal(note, in: app, maxSwipes: 24), "The segmental analysis should say left and right are an estimate.")
         XCTAssertTrue(element(app, "pf-body-estimate-left_arm").exists, "Each limb figure should carry the estimate label.")
@@ -221,32 +210,14 @@ final class PaceForgeWave3UITests: XCTestCase {
 
     func testHeatChipShowsInSessionResultsAndAThermometerInTheWeek() throws {
         let app = try launch()
-        try openSegment(app, "This week")
-        XCTAssertTrue(element(app, "pf-heat-glyph-s-mon").waitForExistence(timeout: 10), "A hot day should carry a thermometer in the week.")
+        app.openChip("Plan", "thisWeek")
+        XCTAssertTrue(reveal(element(app, "pf-heat-glyph-s-mon"), in: app, maxSwipes: 20), "A hot day should carry a thermometer in the week.")
         attach(app, "40 Hot day thermometer")
         let done = app.buttons["pf-workout-s-mon"]
-        XCTAssertTrue(done.waitForExistence(timeout: 10))
+        XCTAssertTrue(reveal(done, in: app, maxSwipes: 20))
         done.tap()
         XCTAssertTrue(element(app, "pf-heat-chip").waitForExistence(timeout: 15), "The session results should show the heat chip.")
         attach(app, "40 Heat chip in results")
         app.buttons["Done"].tap()
-    }
-
-    // MARK: Widgets
-
-    func testWidgetGalleryShowsTheHiddenBodyAndRaceWeekFaces() throws {
-        let app = try launch(widgetGallery: true)
-        let tab = app.shellTab("PaceForge")
-        XCTAssertTrue(tab.waitForExistence(timeout: 20))
-        tab.tap()
-        XCTAssertTrue(label(app, "Widget gallery").waitForExistence(timeout: 15))
-        XCTAssertTrue(label(app, "Race week").waitForExistence(timeout: 5), "The large widget should carry the race-week line.")
-        attach(app, "41 Widget race week")
-        let hidden = label(app, "Hidden \u{2014} open NOOP")
-        for _ in 0..<10 where !hidden.exists { app.swipeUp() }
-        XCTAssertTrue(hidden.exists, "With the privacy setting on, the body widget should read Hidden \u{2014} open NOOP.")
-        attach(app, "41 Widget body hidden")
-        app.swipeUp()
-        attach(app, "41 Widget body hidden scrolled")
     }
 }
