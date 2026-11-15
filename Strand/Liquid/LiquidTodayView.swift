@@ -985,6 +985,9 @@ struct LiquidTodayView: View {
         }
         if hasHero { heroCard }
         PFTodayCards(cards: [.theCall, .needsYou], showsHiddenRow: false, onOpenNeedsYou: openNeedsYou, onReadWhy: readWhy)
+        // PaceForge's one assessment of the day as a line under the call. Its recovery bars (TodayPFReadout) stay off Today: they carry
+        // PaceForge's own recovery numbers, a third score beside Garmin's and the strap's.
+        PFPageNote(key: "today")
         PFProactiveTodayCard()
         if mountStage >= 1 {
             if hasHero {
