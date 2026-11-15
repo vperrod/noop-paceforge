@@ -137,6 +137,7 @@ struct PFTodaysCallCard: View {
     /// The line about the two scores differing is about PaceForge's Recovery, which a day-only wearer does not have.
     @ObservedObject private var reports = PFReportsStore.shared
     @State private var isWhyOpen = false
+    @ObservedObject private var model = PFUnified.model
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -242,10 +243,22 @@ struct PFTodaysCallCard: View {
         if let session = call.plannedSession {
             PFIntelLine(label: "Planned today", text: session.lineText, icon: "figure.run")
                 .accessibilityIdentifier("pf-call-session")
+        } else if let race = raceToday {
+            PFIntelLine(label: "Planned today", text: "Race today: \(race)", icon: "flag.checkered")
+                .accessibilityIdentifier("pf-call-session")
         } else {
             PFIntelLine(label: "Planned today", text: "No session planned", icon: "figure.run")
                 .accessibilityIdentifier("pf-call-session")
         }
+    }
+
+    /// The race on today's plan, from the same today block the Today card reads: a race day has no session, and "No session planned" would
+    /// read as a rest day.
+    private var raceToday: String? {
+        guard let snapshot = model.snapshot else { return nil }
+        let info = snapshot.todayCall ?? PFTodayCallParse.fallback(from: snapshot)
+        guard info.today.kind == "race" else { return nil }
+        return info.today.title ?? info.nextRace?.name ?? "race day"
     }
 
     @ViewBuilder private var tomorrowLine: some View {

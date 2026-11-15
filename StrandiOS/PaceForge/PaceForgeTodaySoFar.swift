@@ -19,6 +19,8 @@ struct PFTodaySoFar: Equatable {
     var bands: [Band] = []
     var planned = 0
     var done = 0
+    /// Today's race, when today is a race day: the race is the plan, whether or not any session is planned beside it.
+    var raceName: String?
     /// Names of the sessions still to do.
     var pending: [String] = []
     /// "7h20 of 8h00", or just the hours when the need is not known.
@@ -28,7 +30,7 @@ struct PFTodaySoFar: Equatable {
     /// Where the clock is across the day, only when the snapshot is for today.
     var nowFraction: Double?
 
-    var hasAnything: Bool { planned > 0 || !bands.isEmpty || sleepText != nil || briefFraction != nil }
+    var hasAnything: Bool { planned > 0 || raceName != nil || !bands.isEmpty || sleepText != nil || briefFraction != nil }
 
     static func make(from s: PFSnapshot, now: Date = Date(), calendar: Calendar = .current) -> PFTodaySoFar {
         var out = PFTodaySoFar()
@@ -42,6 +44,8 @@ struct PFTodaySoFar: Equatable {
         let sessions = s.today.sessions.filter { $0.status != "optional" }
         out.planned = sessions.count
         out.done = sessions.filter { $0.status == "done" || $0.status == "partial" }.count
+        let call = s.todayCall ?? PFTodayCallParse.fallback(from: s)
+        if call.today.kind == "race" { out.raceName = call.today.title ?? call.nextRace?.name ?? "race day" }
         out.pending = sessions.filter { $0.status != "done" && $0.status != "partial" }.map { $0.name ?? "Workout" }
 
         for activity in s.activities.values {
@@ -173,10 +177,12 @@ private struct PFTodaySoFarContent: View {
         .accessibilityIdentifier("pf-open-myday")
     }
 
-    /// "1 of 2 sessions done", or "Nothing planned today".
+    /// "Race today: <name>", "1 of 2 sessions done", or "Nothing planned today". A race day counts the race as the plan.
     private var planLine: String {
-        guard model.planned > 0 else { return "Nothing planned today" }
-        return "\(model.done) of \(model.planned) session\(model.planned == 1 ? "" : "s") done"
+        let sessions = model.planned > 0
+            ? "\(model.done) of \(model.planned) session\(model.planned == 1 ? "" : "s") done" : nil
+        if let race = model.raceName { return ["Race today: \(race)", sessions].compactMap { $0 }.joined(separator: " \u{00B7} ") }
+        return sessions ?? "Nothing planned today"
     }
 
     /// "Still to do: Synthetic 4 x 800 m. Slept 7h20 of 8h00. Brief written 08:12."
