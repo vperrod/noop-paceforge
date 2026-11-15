@@ -9,6 +9,7 @@ private struct PFProactiveRow: View {
     let message: PFProactiveMessage
     var showsDate = false
     @EnvironmentObject private var router: NavRouter
+    private let hiding = PFHiding()
 
     private var toneColor: Color {
         switch message.tone {
@@ -35,18 +36,19 @@ private struct PFProactiveRow: View {
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 4) {
                 if showsDate {
-                    Text(PFFormat.dayTitle(message.date)).font(LookFont.text(12, weight: .medium)).foregroundStyle(NoopLook.textTertiary)
+                    Text(hiding.text(PFFormat.dayTitle(message.date))).font(LookFont.text(12, weight: .medium)).foregroundStyle(NoopLook.textTertiary)
                 }
                 if let title = message.title {
-                    Text(title).font(LookFont.text(15, weight: .bold)).foregroundStyle(NoopLook.textPrimary)
+                    Text(hiding.text(title)).font(LookFont.text(15, weight: .bold)).foregroundStyle(NoopLook.textPrimary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
-                Text(message.text).font(LookFont.text(13, weight: .medium)).foregroundStyle(NoopLook.textSecondary)
+                Text(hiding.text(message.text)).font(LookFont.text(13, weight: .medium)).foregroundStyle(NoopLook.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
                 HStack(spacing: 10) {
                     PFSourceTag(source: message.source)
                     Button("Ask the coach about this") {
-                        PFChatPrefill.shared.text = message.text
+                        // With Hide numbers on, the coach gets the hidden text, never the figures.
+                        PFChatPrefill.shared.text = hiding.text(message.text)
                         UserDefaults.standard.set("ask", forKey: CoachChip.storageKey)
                         router.openCoach()
                     }
