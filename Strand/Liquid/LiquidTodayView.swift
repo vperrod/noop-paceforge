@@ -1015,7 +1015,7 @@ struct LiquidTodayView: View {
             // What the watch recorded today, with its results (nothing when nothing was recorded).
             PFTodayRecordedHost()
             // Tonight's sleep: the sleep planner's own row (target hours, bedtime, wake), from the sleep need the Sleep screen uses.
-            SleepPlannerEntryCard()
+            PFSleepPlannerSlot()
             if order.contains(.journal) { JournalReminderCard() }
             PFTodayCards(cards: [.feel], drawsChrome: false, showsHiddenRow: false, containerID: "pf-today-cards-feel",
                          onOpenNeedsYou: openNeedsYou, onReadWhy: readWhy)

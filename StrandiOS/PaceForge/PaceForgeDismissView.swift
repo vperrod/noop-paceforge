@@ -27,6 +27,8 @@ enum PFCardKind: String, CaseIterable {
     case standing
     case behaviour
     case nextBestAction = "next-best-action"
+    /// The Sleep planner row on Today ("Tonight's sleep"), which is not PaceForge's card but hides the same way.
+    case sleepPlanner = "sleep-planner"
 
     var title: String {
         switch self {
@@ -46,6 +48,7 @@ enum PFCardKind: String, CaseIterable {
         case .standing: return "Where you stand"
         case .behaviour: return "Behaviour impact"
         case .nextBestAction: return "Next best action"
+        case .sleepPlanner: return "Tonight's sleep"
         }
     }
 }
@@ -204,6 +207,7 @@ enum PFCardText {
             if let review = intel.review, intel.reviewItem != nil { out.append(PFCardRef(kind: .dayInReview, text: dayInReview(review))) }
         }
         if let next = s.insightsV2?.todayCard { out.append(PFCardRef(kind: .nextBestAction, text: next.dismissText)) }
+        out.append(PFCardRef(kind: .sleepPlanner, text: PFSleepPlannerSlot.dismissText))
         return out
     }
 }
@@ -273,6 +277,19 @@ struct PFDismissable<Content: View>: View {
                 PFDismissMenu(key: kind.rawValue, title: kind.title, text: text, todayISO: todayISO)
                     .offset(x: 13, y: -13)
             }
+        }
+    }
+}
+
+/// Today's "Tonight's sleep" row with the same corner menu as the PaceForge cards; the Hidden cards row brings it back.
+struct PFSleepPlannerSlot: View {
+    /// The row has no text of its own to change, so "Hide until it changes" keeps it hidden until it is shown again from Hidden cards.
+    static let dismissText = "tonights-sleep"
+    @ObservedObject private var model = PFUnified.model
+
+    var body: some View {
+        PFDismissable(.sleepPlanner, text: Self.dismissText, todayISO: PFAPI.todayISO, server: model.snapshot?.dismissed ?? []) {
+            SleepPlannerEntryCard()
         }
     }
 }
