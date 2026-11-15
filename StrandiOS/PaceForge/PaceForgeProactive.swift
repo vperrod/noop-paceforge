@@ -105,3 +105,13 @@ struct PFProactiveDoc: Equatable {
         }
     }
 }
+
+/// Whose recording an activity is, from the tag the builder puts in its name ("... \u{00B7} NOOP strap" is the WHOOP strap,
+/// "... \u{00B7} Apple Health via NOOP" is Apple Health); anything untagged came from Garmin. Foundation only, so the unit tests compile it.
+enum PFRecordingSource {
+    static func name(forActivityName name: String) -> String {
+        if name.contains("Apple Health") { return "Apple Health" }
+        if name.contains("NOOP strap") { return "WHOOP strap" }
+        return name.contains("via NOOP") ? "NOOP" : "Garmin"
+    }
+}

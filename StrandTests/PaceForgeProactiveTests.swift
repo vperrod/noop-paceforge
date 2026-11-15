@@ -55,8 +55,8 @@ final class PaceForgeProactiveTests: XCTestCase {
     }
 
     func testRecordingSourceNamesGarminTheStrapAndAppleHealth() {
-        XCTAssertEqual(PFRecording.source(PFActivity(id: "g", name: "Running")), "Garmin")
-        XCTAssertEqual(PFRecording.source(PFActivity(id: "s", name: "Running \u{00B7} NOOP strap")), "WHOOP strap")
-        XCTAssertEqual(PFRecording.source(PFActivity(id: "a", name: "Running \u{00B7} Apple Health via NOOP")), "Apple Health")
+        XCTAssertEqual(PFRecordingSource.name(forActivityName: "Running"), "Garmin")
+        XCTAssertEqual(PFRecordingSource.name(forActivityName: "Running \u{00B7} NOOP strap"), "WHOOP strap")
+        XCTAssertEqual(PFRecordingSource.name(forActivityName: "Running \u{00B7} Apple Health via NOOP"), "Apple Health")
     }
 }

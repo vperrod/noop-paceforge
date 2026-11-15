@@ -41,12 +41,7 @@ enum PFRecording {
 
     /// Garmin unless the recording came in through NOOP: the builder tags those in the name ("... \u{00B7} NOOP strap" is the WHOOP
     /// strap, "... \u{00B7} Apple Health via NOOP" is Apple Health).
-    static func source(_ activity: PFActivity) -> String {
-        let name = activity.name ?? ""
-        if name.contains("Apple Health") { return "Apple Health" }
-        if name.contains("NOOP strap") { return "WHOOP strap" }
-        return name.contains("via NOOP") ? "NOOP" : "Garmin"
-    }
+    static func source(_ activity: PFActivity) -> String { PFRecordingSource.name(forActivityName: activity.name ?? "") }
 
     /// Distance, time, pace and heart rate, whichever the recording has.
     static func metricsLine(_ activity: PFActivity) -> String {
