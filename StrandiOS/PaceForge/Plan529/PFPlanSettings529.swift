@@ -186,7 +186,7 @@ struct PFRacePriorities529: View {
 
 // MARK: Hours a week
 
-/// Hours a week with a stepper. Server pending (`plan-hours`).
+/// Hours a week with a stepper (`plan-hours`).
 struct PFHoursSheet529: View {
     let saved: () async -> Void
 
@@ -243,7 +243,7 @@ struct PFHoursSheet529: View {
 
 // MARK: Days off
 
-/// The days off that are set, each with a Remove, and a way to add one. Server pending (`dayoff-remove`, `dayoff-add`).
+/// The days off that are set, each with a Remove, and a way to add one. (`dayoff-remove`, `dayoff-add`).
 struct PFDaysOffSheet529: View {
     let saved: () async -> Void
 

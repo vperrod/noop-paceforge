@@ -302,7 +302,6 @@ struct PFCalendarDayPanel529: View {
     let reload: () async -> Void
 
     @State private var results: PFResultsTarget529?
-    @State private var addsActivity = false
     @State private var addsDayOff = false
     private let hiding = PFHiding()
 
@@ -323,7 +322,8 @@ struct PFCalendarDayPanel529: View {
                 itemRow(item)
             }
             HStack(spacing: 6) {
-                PFPillButton529(title: "+ Add an activity") { addsActivity = true }
+                // "Add an activity" has no phone job yet (server pending): it opens the change-today sheet, which has the coach field.
+                PFPillButton529(title: "+ Add an activity") { PFPlan529Router.shared.sheet = .changeToday }
                     .accessibilityIdentifier("calendar-add-activity")
                 PFPillButton529(title: "+ Day off") { addsDayOff = true }
                     .accessibilityIdentifier("calendar-add-day-off")
@@ -333,7 +333,6 @@ struct PFCalendarDayPanel529: View {
         .planCard529()
         .containerIdentifier("calendar-day-panel")
         .resultsSheet529($results)
-        .sheet(isPresented: $addsActivity) { PFAddActivitySheet529(day: day, saved: reload) }
         .sheet(isPresented: $addsDayOff) { PFDayOffSheet529(day: day, saved: reload) }
     }
 
@@ -381,79 +380,9 @@ struct PFCalendarDayPanel529: View {
     }
 }
 
-// MARK: Add an activity
-
-/// The web's "Add activity": one session on a day. Server pending (`add-session`).
-struct PFAddActivitySheet529: View {
-    let day: String
-    let saved: () async -> Void
-
-    static let sports = ["Cardio", "Bike", "HYROX", "Strength", "Run", "Swim", "Brick", "Gym", "Yoga"]
-
-    @Environment(\.dismiss) private var dismiss
-    @StateObject private var runner = PFPlanEditRunner529()
-    @State private var sport = "Cardio"
-    @State private var name = ""
-    @State private var date: Date
-    @State private var minutes = 45
-    @State private var rpe = 5
-
-    init(day: String, saved: @escaping () async -> Void) {
-        self.day = day
-        self.saved = saved
-        _date = State(initialValue: PFFormat.date(day))
-    }
-
-    var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 12) {
-                    VStack(alignment: .leading, spacing: 10) {
-                        Picker("Sport", selection: $sport) {
-                            ForEach(Self.sports, id: \.self) { Text($0).tag($0) }
-                        }
-                        .accessibilityIdentifier("add-activity-sport")
-                        TextField("Name (optional)", text: $name)
-                            .textFieldStyle(.roundedBorder)
-                            .accessibilityIdentifier("add-activity-name")
-                        DatePicker("Day", selection: $date, displayedComponents: .date)
-                            .accessibilityIdentifier("add-activity-date")
-                        Stepper("Length: \(minutes) min", value: $minutes, in: 5...600, step: 5)
-                            .accessibilityIdentifier("add-activity-minutes")
-                        Stepper("Effort: \(rpe) of 10", value: $rpe, in: 1...10)
-                            .accessibilityIdentifier("add-activity-effort")
-                    }
-                    .font(LookFont.text(15))
-                    .planCard529()
-                    PFEditMessage529(runner: runner)
-                    PFPillButton529(title: "Add to calendar", isMain: true, isDisabled: runner.isBusy) { Task { await save() } }
-                        .accessibilityIdentifier("add-activity-save")
-                }
-                .padding(.horizontal, NoopLook.Metric.screenInset)
-                .padding(.top, 8)
-            }
-            .lookScreenBackground()
-            .navigationTitle("Add an activity")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) { Button("Cancel") { dismiss() } }
-            }
-        }
-        .containerIdentifier("add-activity-sheet")
-    }
-
-    private func save() async {
-        let inputs = PFPlanInputs529.addSession(date: PFFormat.isoString(date), sport: sport, name: name, minutes: minutes, rpe: rpe)
-        if await runner.run(.addSession, inputs: inputs) {
-            await saved()
-            dismiss()
-        }
-    }
-}
-
 // MARK: Day off
 
-/// A day off, or a run of them. Server pending (`dayoff-add`).
+/// A day off, or a run of them (`dayoff-add`). The server takes today and later.
 struct PFDayOffSheet529: View {
     let day: String
     let saved: () async -> Void
@@ -469,8 +398,9 @@ struct PFDayOffSheet529: View {
     init(day: String, saved: @escaping () async -> Void) {
         self.day = day
         self.saved = saved
-        _start = State(initialValue: PFFormat.date(day))
-        _end = State(initialValue: PFFormat.date(day))
+        let first = max(PFFormat.date(day), Calendar.current.startOfDay(for: Date()))
+        _start = State(initialValue: first)
+        _end = State(initialValue: first)
     }
 
     var body: some View {
@@ -488,7 +418,7 @@ struct PFDayOffSheet529: View {
                         }
                         .pickerStyle(.segmented)
                         .accessibilityIdentifier("day-off-kind")
-                        DatePicker(severalDays ? "From" : "Day", selection: $start, displayedComponents: .date)
+                        DatePicker(severalDays ? "From" : "Day", selection: $start, in: Calendar.current.startOfDay(for: Date())..., displayedComponents: .date)
                             .accessibilityIdentifier("day-off-start")
                         Toggle("Several days", isOn: $severalDays)
                             .accessibilityIdentifier("day-off-several")

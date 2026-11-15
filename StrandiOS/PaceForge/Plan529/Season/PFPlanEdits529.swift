@@ -3,9 +3,8 @@ import StrandDesign
 
 // The writes the Season, Calendar and plan-settings screens make, and the one place a past recording's results sheet is opened from.
 //
-// Server pending (build 529): the runner stream adds the narrow jobs `event-update`, `plan-hours`, `dayoff-add` and `dayoff-remove` to the
-// app's job list, and `add-session` (the web's "Add activity") is not on it yet. Until they are deployed PaceForge answers
-// "does not know that action" and the sheet shows it. Adding and cancelling a race go through `save-events`, which is live.
+// Jobs: server-jobs-529.md. A refusal comes back with the server's own sentence and the sheet shows it. "Add an activity" has no phone job yet
+// (server pending): the Calendar row opens the change-today sheet, which has the coach field.
 
 /// The `inputs` of the Plan section's jobs. Each builder returns nil when its values could not pass the server's own checks.
 enum PFPlanInputs529 {
@@ -29,6 +28,14 @@ enum PFPlanInputs529 {
         }
     }
 
+    /// `event-update`, `op: "cancel"`: the race on that date (and name).
+    static func raceCancel(date: String, name: String?) -> [String: Any]? {
+        guard PFJobInputs.isDay(date) else { return nil }
+        var match: [String: Any] = ["date": date]
+        if let name, !name.isEmpty { match["name"] = name }
+        return ["op": "cancel", "match": match]
+    }
+
     /// `plan-hours`: hours a week, above 0 and up to 40.
     static func hours(_ hours: Double) -> [String: Any]? {
         guard hours > 0, hours <= 40 else { return nil }
@@ -46,69 +53,9 @@ enum PFPlanInputs529 {
         return inputs
     }
 
-    /// `add-session`: one session on a day, as the web's "Add activity" books it.
-    static func addSession(date: String, sport: String, name: String, minutes: Int, rpe: Int) -> [String: Any]? {
-        guard PFJobInputs.isDay(date), (5...600).contains(minutes), (1...10).contains(rpe) else { return nil }
-        var inputs: [String: Any] = ["date": date, "sport": sport, "minutes": minutes, "target_rpe": rpe]
-        let title = name.trimmingCharacters(in: .whitespaces)
-        if !title.isEmpty { inputs["name"] = String(title.prefix(120)) }
-        return inputs
-    }
-}
-
-/// Runs one write at a time for a sheet and keeps the sentence to show when it did not go through.
-@MainActor
-final class PFPlanEditRunner529: ObservableObject {
-    @Published private(set) var isBusy = false
-    @Published private(set) var message: String?
-
-    private let tracker = PFJobTracker()
-
-    func clear() { message = nil }
-
-    func fail(_ text: String) { message = text }
-
-    /// True when the server took the write.
-    func run(_ job: PFJobName, inputs: [String: Any]?) async -> Bool {
-        guard let inputs else {
-            message = "That could not be sent. Check the values."
-            return false
-        }
-        isBusy = true
-        message = nil
-        defer { isBusy = false }
-        switch await tracker.run(job, inputs: inputs) {
-        case .success:
-            return true
-        case .failure(let failure):
-            message = failure.message
-            return false
-        }
-    }
-
-    /// Cancels one race through `save-events` (it replaces the whole list, so the list is read again just before and sent back with
-    /// only that race gone). True when the race is off the list.
+    /// Cancels one race (`event-update`, `op: "cancel"`). A race that is over is refused with the server's sentence. True when it is off the list.
     func cancelRace(date: String, name: String) async -> Bool {
-        isBusy = true
-        message = nil
-        defer { isBusy = false }
-        guard let fresh = PFEvents.parse(await PFAPI.fetchOptional("data/events.json")) else {
-            message = PFEventProblem.unreadable.message
-            return false
-        }
-        guard case .success(let updated) = PFEvents.applying(.cancel(date: date, name: name), to: fresh) else { return false }
-        if updated.count == fresh.count { return true }
-        guard let inputs = PFEvents.inputs(updated) else {
-            message = PFEventProblem.tooMany.message
-            return false
-        }
-        switch await tracker.run(.saveEvents, inputs: inputs) {
-        case .success:
-            return true
-        case .failure(let failure):
-            message = failure.message
-            return false
-        }
+        await run(.eventUpdate, inputs: PFPlanInputs529.raceCancel(date: date, name: name))
     }
 }
 

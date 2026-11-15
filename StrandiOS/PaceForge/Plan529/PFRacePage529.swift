@@ -314,7 +314,7 @@ struct PFUpcomingRace529: View {
 
 // MARK: Edit
 
-/// Goal time, date and partner of one race. Only what changed is sent (`event-update`, server pending).
+/// Goal time, date and partner of one race. Only what changed is sent (`event-update`).
 struct PFRaceEditSheet529: View {
     let race: PFSeasonDoc.Race
     /// Called after a save, with the new date when the date moved.

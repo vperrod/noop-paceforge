@@ -223,16 +223,13 @@ final class Plan529SeasonUITests: XCTestCase {
         XCTAssertTrue(app.element("plan529-session").waitForExistence(timeout: 20), "A session should open its sheet.")
     }
 
-    func testAddAnActivityFromTheDayPanel() throws {
+    func testAddAnActivityOpensTheChangeTodaySheetWhileThereIsNoPhoneJob() throws {
         let app = try launch()
         app.openChip("Plan", "calendar")
         let add = app.element("calendar-add-activity")
         XCTAssertTrue(reveal(add, in: app), "The day panel should offer + Add an activity.")
         add.tap()
-        XCTAssertTrue(app.element("add-activity-sheet").waitForExistence(timeout: 20), "The button should open the form.")
-        attach(app, "C1 add an activity")
-        app.element("add-activity-save").tap()
-        XCTAssertTrue(app.element("add-activity-sheet").waitForNonExistence(timeout: 20), "A saved activity should close the form.")
+        XCTAssertTrue(app.element("plan529-change-today").waitForExistence(timeout: 20), "The button should open the change-today sheet.")
     }
 
     func testAddADayOffFromTheDayPanel() throws {
