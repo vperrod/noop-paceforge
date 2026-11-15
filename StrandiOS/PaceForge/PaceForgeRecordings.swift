@@ -133,6 +133,9 @@ struct PFRecentRunsCard: View {
 struct PFTreadmillPacesRow: View {
     let snapshot: PFSnapshot
     @State private var showNeedsYou = false
+    /// "Read why": the sheet closes first, then the Coach opens on its Read chip (see `onDismiss`).
+    @State private var openCoachAfterSheet = false
+    @EnvironmentObject private var router: NavRouter
 
     var body: some View {
         let waiting = snapshot.needsYou.filter { $0.kind == .treadmillPace }
@@ -160,6 +163,17 @@ struct PFTreadmillPacesRow: View {
             }
         }
         .containerIdentifier("train-running-treadmill")
-        .sheet(isPresented: $showNeedsYou) { PFNeedsYouSheet(onReadWhy: { showNeedsYou = false }) }
+        .sheet(isPresented: $showNeedsYou, onDismiss: {
+            if openCoachAfterSheet {
+                openCoachAfterSheet = false
+                UserDefaults.standard.set(CoachChip.read.rawValue, forKey: CoachChip.storageKey)
+                router.openCoach()
+            }
+        }) {
+            PFNeedsYouSheet(onReadWhy: {
+                openCoachAfterSheet = true
+                showNeedsYou = false
+            })
+        }
     }
 }
