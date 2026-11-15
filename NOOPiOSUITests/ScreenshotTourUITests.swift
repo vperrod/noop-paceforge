@@ -118,8 +118,18 @@ final class ScreenshotTourUITests: XCTestCase {
         ]
         // Shown only when there is something to show (an open item, a journal switched on, a feel summary): noted, not asserted.
         let conditional: [String] = ["pf-today-card-needs-you", "today-journal", "pf-today-card-feel"]
+        // A container that wraps buttons is not always exposed under its own identifier (the Today card sits in the slot's own container), so
+        // a block is also met when one of its rows is on screen.
+        let aliases: [String: [String]] = [
+            "pf-today-card-today": ["pf-today-session", "pf-today-rest", "pf-today-race", "pf-today-next-race"],
+            "today-training-row": ["today-training-next-race", "today-training-last-workout"],
+        ]
         var met: [String] = []
-        func record() { for id in required + conditional where !met.contains(id) && element(app, id).exists { met.append(id) } }
+        func record() {
+            for id in required + conditional where !met.contains(id) {
+                if ([id] + (aliases[id] ?? [])).contains(where: { element(app, $0).exists }) { met.append(id) }
+            }
+        }
         record()
         attach(app, "01-today-top")
         for step in 1...Self.todayScrollSteps {
