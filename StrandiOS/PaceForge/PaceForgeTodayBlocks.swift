@@ -101,3 +101,97 @@ struct PFTodayRecordedHost: View {
             .containerIdentifier("today-so-far")
     }
 }
+
+// MARK: - Bookend row (morning read, evening review)
+
+/// One row at the top of My Day: in the evening the Day in review summary (when today's review exists), otherwise the morning read, which
+/// is the daily report row. Each opens what its own block opens: the review's full card, or the daily report. The two blocks lower on
+/// Today stay where they are. Draws nothing when neither exists.
+struct PFTodayBookendRow: View {
+    @ObservedObject private var intel = PFDailyIntelStore.shared
+    @ObservedObject private var reports = PFReportsStore.shared
+    @State private var showReview = false
+    private let hiding = PFHiding()
+
+    private var review: PFDayReview? {
+        guard let current = intel.intel, PFIntelClock.isEvening(), current.isCurrent(for: PFAPI.todayISO),
+              current.item(PFIntelID.dayInReview) != nil else { return nil }
+        return current.review
+    }
+
+    var body: some View {
+        Group {
+            if let review {
+                Button { showReview = true } label: {
+                    rowContent(icon: "moon.stars", title: "DAY IN REVIEW", detail: reviewLine(review))
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("today-bookend")
+                .sheet(isPresented: $showReview) { reviewSheet }
+            } else if reports.showsReports, let report = reports.latestDaily {
+                NavigationLink(value: TabRoute.reports(PFReportKind.daily.rawValue)) {
+                    rowContent(icon: "text.book.closed", title: "MORNING READ", detail: PFReportFreshness.dateLine(report))
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("today-bookend")
+            }
+        }
+        .task { await intel.refreshIfStale() }
+    }
+
+    private func reviewLine(_ review: PFDayReview) -> String {
+        var parts = [review.outcomeText.capitalized]
+        if let sentence = review.sentence { parts.append(hiding.text(sentence)) }
+        return parts.joined(separator: " \u{00B7} ")
+    }
+
+    private func rowContent(icon: String, title: String, detail: String) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: icon)
+                .font(StrandFont.scaled(16, weight: .semibold))
+                .foregroundStyle(NoopLook.textSecondary)
+                .frame(width: 24)
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .lookCaps(12.5)
+                    .foregroundStyle(NoopLook.textPrimary)
+                Text(detail)
+                    .font(LookFont.text(13, weight: .medium))
+                    .foregroundStyle(NoopLook.textSecondary)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.leading)
+            }
+            Spacer(minLength: 4)
+            Image(systemName: "chevron.right")
+                .font(StrandFont.scaled(12, weight: .semibold))
+                .foregroundStyle(NoopLook.textTertiary)
+                .accessibilityHidden(true)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+        .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: NoopLook.Metric.tileRadius, style: .continuous).fill(NoopLook.card))
+        .contentShape(Rectangle())
+    }
+
+    private var reviewSheet: some View {
+        NavigationStack {
+            ScrollView {
+                PFDayReviewStoreHost()
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
+            }
+            .background(StrandPalette.surfaceBase.ignoresSafeArea())
+            .navigationTitle("Day in review")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Done") { showReview = false }
+                        .foregroundStyle(StrandPalette.accent)
+                }
+            }
+        }
+        .presentationDetents([.medium, .large])
+    }
+}

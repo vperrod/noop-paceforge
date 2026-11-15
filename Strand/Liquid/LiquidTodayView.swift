@@ -992,6 +992,8 @@ struct LiquidTodayView: View {
             LookSectionHeader(String(localized: "My Day"))
                 .padding(.top, 8)
                 .accessibilityIdentifier("today-my-day-header")
+            // One row for the morning read and, in the evening, the day in review (the two blocks lower on Today stay).
+            PFTodayBookendRow()
             if hasHero { MyDayTodayCard(day: selectedLogicalDay) }
             PFTodayCards(cards: [.today], drawsChrome: false, showsHiddenRow: false, containerID: "pf-today-cards-day",
                          onOpenNeedsYou: openNeedsYou, onReadWhy: readWhy)
