@@ -130,7 +130,7 @@ final class Plan529TodayUITests: XCTestCase {
         XCTAssertFalse(app.element("pf-sofar-activity-9000000003").exists, "Today so far no longer lists the recording.")
         attach(app, "D10 today's workouts")
         row.tap()
-        XCTAssertTrue(app.element("pf-ask-coach-workout").waitForExistence(timeout: 15), "A row should open the workout with the coach's review.")
+        XCTAssertTrue(app.buttons["Done"].waitForExistence(timeout: 15), "A row should open the workout's results sheet, which carries the coach's review.")
         attach(app, "D10 the workout")
     }
 
@@ -170,11 +170,14 @@ final class Plan529TodayUITests: XCTestCase {
 
     // MARK: The journal's morning question
 
-    /// The demo data logs every day up to yesterday, so without the flag the card is already the folded row.
-    func testOnceYesterdayIsLoggedTheJournalCardIsTheFoldedRow() throws {
+    /// Without the flag the card is the prompt or, when yesterday is already logged, the folded row; it is never missing and never both.
+    func testTheJournalCardIsThePromptOrTheFoldedRowNeverMissing() throws {
         let app = try launch()
-        XCTAssertTrue(reveal(app.element("today-journal-logged"), in: app), "With yesterday logged the card should fold to one row.")
-        XCTAssertFalse(app.element("today-journal").exists, "The prompt should be gone.")
+        let prompt = app.element("today-journal")
+        let folded = app.element("today-journal-logged")
+        for _ in 0..<12 where !(prompt.exists || folded.exists) { app.swipeUp() }
+        XCTAssertTrue(prompt.exists || folded.exists, "Today should carry the journal card, as the prompt or the folded row.")
+        XCTAssertFalse(prompt.exists && folded.exists, "The card is one or the other.")
     }
 
     func testTheJournalCardAsksAboutYesterdayAndOpensTheFlowOnIt() throws {

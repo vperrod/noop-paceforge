@@ -33,6 +33,17 @@ struct JournalReminderCard: View {
     private static let stripDays = 7
 
     var body: some View {
+        // The loader is its own always-present, zero-size view: a `.task` on content that is empty until the data has loaded can wait
+        // for ever for the data it is meant to load (the card did not show in the UI-test runs).
+        ZStack {
+            Color.clear
+                .frame(width: 0, height: 0)
+                .task(id: JournalReminderLoadKey(seq: repo.refreshSeq, enabled: reminderEnabled)) { await reload() }
+            content
+        }
+    }
+
+    @ViewBuilder private var content: some View {
         Group {
             if reminderEnabled, let logged = loggedDays {
                 #if os(iOS)
@@ -50,11 +61,6 @@ struct JournalReminderCard: View {
                     .accessibilityIdentifier("today-journal")
                 #endif
             }
-        }
-        // Re-read whenever a sync bumps refreshSeq or the toggle flips (mirrors AutoWorkoutCard's task id),
-        // so the strip and the "logged today" state stay current after the user logs and comes back.
-        .task(id: JournalReminderLoadKey(seq: repo.refreshSeq, enabled: reminderEnabled)) {
-            await reload()
         }
     }
 

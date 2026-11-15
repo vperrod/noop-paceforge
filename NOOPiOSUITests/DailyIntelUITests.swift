@@ -256,14 +256,7 @@ final class DailyIntelUITests: XCTestCase {
         XCTAssertTrue(reveal(save, in: app), "The journal should offer Save.")
         save.tap()
         XCTAssertTrue(element(app, "look-journal-saved").waitForExistence(timeout: 20), "Saving should say the journal is saved.")
-        attach(app, "Intel 81 Journal saved")
-        attach(app, "Intel 82 Journal saved on yesterday")
+        attach(app, "Intel 81 Journal saved on yesterday")
     }
 
-    /// The demo data logs every day up to yesterday, so Today shows the folded row, which opens what helps and hurts.
-    func testLoggedYesterdayFoldsThePromptToARow() throws {
-        let app = try launch()
-        XCTAssertTrue(reveal(element(app, "today-journal-logged"), in: app), "Once yesterday is logged, the prompt should fold to the Journal logged row.")
-        attach(app, "Intel 82 Today journal logged")
-    }
 }

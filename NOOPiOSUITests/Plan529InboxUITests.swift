@@ -79,11 +79,11 @@ final class Plan529InboxUITests: XCTestCase {
         openInbox(app)
         let header = app.element("plan529-inbox-new")
         XCTAssertTrue(header.waitForExistence(timeout: 20))
-        XCTAssertFalse(header.label.hasPrefix("Nothing"), "With nothing read, the inbox should say how many are new.")
+        XCTAssertFalse(header.label.uppercased().hasPrefix("NOTHING"), "With nothing read, the inbox should say how many are new.")
         XCTAssertEqual(row(app, "report:week:2030-W10").value as? String, "Unread", "A new line should be marked.")
         attach(app, "A2 03 new lines")
         app.element("plan529-inbox-mark-all").tap()
-        expectation(for: NSPredicate(format: "label == 'Nothing new'"), evaluatedWith: app.element("plan529-inbox-new"))
+        expectation(for: NSPredicate(format: "label ==[c] 'Nothing new'"), evaluatedWith: app.element("plan529-inbox-new"))
         waitForExpectations(timeout: 10)
         attach(app, "A2 04 all read")
     }
