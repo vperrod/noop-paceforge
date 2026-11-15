@@ -434,7 +434,7 @@ struct PFPastRace529: View {
             }
             VStack(spacing: 0) {
                 if let id = race.activityId {
-                    Button { results = PFResultsTarget529(activityId: id, name: race.name, date: race.date ?? "", isRace: true) } label: {
+                    Button { results = PFResultsTarget529(id: id, title: race.name, date: race.date, isRace: true) } label: {
                         PFRow529(title: "Open the results", sub: "Where the time went, run by run", showsChevron: true)
                             .padding(.horizontal, 16)
                     }
@@ -452,6 +452,6 @@ struct PFPastRace529: View {
             }
             .planCard529(padding: 0)
         }
-        .resultsSheet529($results)
+        .pfResultsSheet529($results)
     }
 }

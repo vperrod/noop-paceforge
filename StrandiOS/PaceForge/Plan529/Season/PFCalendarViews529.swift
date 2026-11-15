@@ -332,7 +332,7 @@ struct PFCalendarDayPanel529: View {
         }
         .planCard529()
         .containerIdentifier("calendar-day-panel")
-        .resultsSheet529($results)
+        .pfResultsSheet529($results)
         .sheet(isPresented: $addsDayOff) { PFDayOffSheet529(day: day, saved: reload) }
     }
 
@@ -373,7 +373,7 @@ struct PFCalendarDayPanel529: View {
     /// A done session opens the results sheet; one still to do opens the session sheet of its week.
     private func open(_ item: PFPlanWeekDoc.Item) {
         if item.status == "done" || item.status == "partial", let id = item.activityId {
-            results = PFResultsTarget529(activityId: id, name: item.title, date: day)
+            results = PFResultsTarget529(id: id, title: item.title, date: day)
         } else if let id = item.sessionId, let week = week?.week {
             PFPlan529Router.shared.sheet = .session(week: week, id: id)
         }

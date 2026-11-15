@@ -95,12 +95,12 @@ struct PFPlanReportsContent529: View {
                     guard let id = row.activityId else { return nil }
                     let sub = [row.sub ?? (row.state == "pending" ? "Review pending" : nil), row.meaning].compactMap { $0 }.joined(separator: "\n")
                     return reportRow(id: "workout:\(id)", lead: row.day, verdict: row.name, sub: sub, ts: row.ts) {
-                        results = PFResultsTarget529(activityId: id, name: row.name, date: "")
+                        results = PFResultsTarget529(id: id, title: row.name)
                     }
                 })
             }
         }
-        .resultsSheet529($results)
+        .pfResultsSheet529($results)
         .containerIdentifier("plan529-reports")
     }
 
