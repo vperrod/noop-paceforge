@@ -6,14 +6,6 @@ import StrandDesign
 
 // MARK: - Weight vs goal
 
-/// The newest weight reading Today knows (Apple Health, the scale through PaceForge, ...), with who supplied it and its day.
-struct PFNewestWeight: Equatable {
-    let kg: Double
-    let source: String
-    /// yyyy-MM-dd.
-    let day: String
-}
-
 /// Today's "Weight vs goal": the newest weight reading (dated, with its source) against the weight goal, the gap and the weekly trend.
 /// One tap opens Health on the Body chip. Draws nothing without a weight goal, or while Hide numbers hides body weight.
 struct PFTodayWeightGoalHost: View {
