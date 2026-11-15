@@ -712,7 +712,7 @@ final class PFModel: ObservableObject {
         var out = PFSessionResults()
         if let data = await detailData {
             let parsed = PFBuilder.detail(PFJ(data: data))
-            if !parsed.samples.isEmpty || !parsed.splits.isEmpty || !parsed.zones.isEmpty { out.detail = parsed }
+            if !parsed.samples.isEmpty || !parsed.splits.isEmpty || !parsed.zones.isEmpty || parsed.race != nil { out.detail = parsed }
         }
         if let data = await analysisData, let text = String(data: data, encoding: .utf8) {
             let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
