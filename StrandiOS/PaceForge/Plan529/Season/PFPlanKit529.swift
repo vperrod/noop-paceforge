@@ -255,6 +255,40 @@ struct PFPhaseLegend529: View {
     }
 }
 
+/// The optional `story` and `insights` of a daily or monthly short block: the story under the verdict, then small titled blocks. Long text
+/// wraps and is never clamped.
+struct PFStoryBlocks529: View {
+    let story: String?
+    let insights: [(title: String, text: String)]
+    private let hiding = PFHiding()
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            if let story, !story.isEmpty {
+                Text(hiding.text(story))
+                    .font(LookFont.text(14.5))
+                    .foregroundStyle(NoopLook.textPrimary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier("report-story")
+            }
+            ForEach(Array(insights.enumerated()), id: \.offset) { _, insight in
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(hiding.text(insight.title))
+                        .font(LookFont.text(13.5, weight: .semibold))
+                        .foregroundStyle(NoopLook.textPrimary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Text(hiding.text(insight.text))
+                        .font(LookFont.text(13))
+                        .foregroundStyle(NoopLook.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .accessibilityElement(children: .combine)
+                .accessibilityIdentifier("report-insight")
+            }
+        }
+    }
+}
+
 // MARK: Numbers
 
 enum PFHours529 {

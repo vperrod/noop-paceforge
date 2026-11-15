@@ -55,6 +55,7 @@ struct PFMonthShortView529: View {
                         .foregroundStyle(NoopLook.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
+                PFStoryBlocks529(story: short.story, insights: (short.insights ?? []).prefix(3).map { (title: $0.title ?? "", text: $0.text ?? "") })
             }
             .planCard529()
             if !(short.held ?? []).isEmpty || !(short.slipped ?? []).isEmpty { heldSlippedCard }

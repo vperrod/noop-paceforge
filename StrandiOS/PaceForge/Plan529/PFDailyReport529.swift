@@ -56,6 +56,7 @@ struct PFDailyShortView529: View {
                         .foregroundStyle(NoopLook.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
+                PFStoryBlocks529(story: short.story, insights: (short.insights ?? []).prefix(3).map { (title: $0.title ?? "", text: $0.text ?? "") })
             }
             .planCard529()
             if let devices = short.devices, !devices.isEmpty { devicesCard(devices) }

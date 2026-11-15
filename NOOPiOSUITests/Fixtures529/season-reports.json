@@ -742,5 +742,212 @@
    }
   ],
   "report": null
+ },
+ "data/reports/daily/2026-11-15.json": {
+  "short": {
+   "title": "Sunday 15 Nov",
+   "verdict": "Rest today.",
+   "cause": "The doubles ended at 21:05, 2.7 hours before bed. Your body has not come down yet.",
+   "devices_title": "This morning, each device on its own",
+   "devices": [
+    {
+     "source": "Garmin",
+     "value": "14",
+     "label": "readiness, red",
+     "lines": [
+      "HRV 29 ms · usual 32–45",
+      "resting HR 55 · usual 51",
+      "slept 5 h 49"
+     ]
+    },
+    {
+     "source": "WHOOP",
+     "value": "31 %",
+     "label": "recovery, low",
+     "lines": [
+      "HRV 49 ms · usual 48",
+      "resting HR 60 · usual 50",
+      "slept 6 h 36"
+     ]
+    }
+   ],
+   "devices_note": "They agree on heart rate. They differ on HRV.",
+   "blocks": [
+    {
+     "title": "Today",
+     "text": "No training. A 20 to 30 minute walk is fine."
+    },
+    {
+     "title": "Tonight",
+     "text": "In bed by 22:07. You need about 8 h 26."
+    },
+    {
+     "title": "Tomorrow",
+     "text": "Rest day as planned. If resting heart rate is under 53, a 30 to 45 minute walk."
+    },
+    {
+     "title": "What would change this",
+     "text": "Resting heart rate still 55 or more on Wednesday: skip Wednesday's hard class."
+    }
+   ],
+   "story": "Two races in four days is a lot for one body. Both devices read low this morning and they agree on resting heart rate, so this is real fatigue and not a bad night alone. Resting today costs you nothing, and it protects Wednesday's class, which is the first hard session of the next block. A walk is welcome but not needed.",
+   "insights": [
+    {
+     "title": "What the two devices say",
+     "text": "Garmin and WHOOP differ on heart rate variability but agree on resting heart rate, which is the number the coach trusts most after a race."
+    },
+    {
+     "title": "Why Wednesday matters",
+     "text": "The coach keeps Wednesday's class at full effort because you chose that on 15 Nov, so today's rest is what makes it safe."
+    }
+   ]
+  }
+ },
+ "data/reports/monthly/2026-10.json": {
+  "short": {
+   "title": "October 2026",
+   "verdict": "October traded volume for intensity.",
+   "summary": "Less time and half the running, but 19 hard days in 28. Fitness held. Sleep paid for it.",
+   "held": [
+    "VO2max flat at 54.1. Plan 88 % done: 19 of 25 sessions."
+   ],
+   "slipped": [
+    "Sleep, 6 h 20 a night in the middle. Running, 9.6 km a week against 17.8. Resting heart rate up 4 % to 51.9."
+   ],
+   "compare_title": "Against September",
+   "tiles": [
+    {
+     "value": "4 h 38",
+     "label": "training a week",
+     "sub": "was 6 h 46"
+    },
+    {
+     "value": "4.8",
+     "label": "hard days a week",
+     "sub": "up 9 %"
+    },
+    {
+     "value": "40 ms",
+     "label": "HRV, Garmin",
+     "sub": "up 5 %"
+    },
+    {
+     "value": "91.0 kg",
+     "label": "weight, 6 readings",
+     "sub": "stable 90.8–91.4"
+    }
+   ],
+   "trend": {
+    "title": "Training load, week by week · Garmin",
+    "points": [
+     {
+      "label": "W40",
+      "value": 420
+     },
+     {
+      "label": "W41",
+      "value": 508
+     },
+     {
+      "label": "W42",
+      "value": 553
+     },
+     {
+      "label": "W43",
+      "value": 620
+     },
+     {
+      "label": "W44",
+      "value": 660
+     }
+    ]
+   },
+   "focus_title": "For November",
+   "focus": "Cut volume into Testtown, keep two race-pace efforts, protect sleep.",
+   "story": "October was a month of fewer, harder days. You trained less in total and ran about half as far, yet hard days went up, and your fitness number stayed flat. That is a sensible trade only if sleep recovers, and it did not: nights got shorter in the middle of the month and resting heart rate crept up. November should keep two race-pace efforts and win back the sleep.",
+   "insights": [
+    {
+     "title": "Sleep paid for it",
+     "text": "Shorter nights and a higher resting heart rate arrived together, which usually means the load was a little more than recovery could absorb."
+    },
+    {
+     "title": "Fitness held",
+     "text": "VO2max did not move, so the fewer running kilometres cost you nothing measurable yet."
+    }
+   ]
+  }
+ },
+ "data/reports/list.json": {
+  "version": 1,
+  "generated_at": "2026-11-15T19:05:00+00:00",
+  "today": {
+   "key": "2026-11-15",
+   "day": "Sun 15",
+   "verdict": "Rest today",
+   "sub": "Both devices low after the doubles",
+   "ts": "2026-11-15T06:33:31+00:00"
+  },
+  "weeks": [
+   {
+    "key": "2026-W46",
+    "day": "W46",
+    "verdict": "Two races in four days",
+    "sub": "Doubles 6 minutes inside goal",
+    "ts": "2026-11-15T19:00:22+00:00"
+   },
+   {
+    "key": "2026-W45",
+    "day": "W45",
+    "verdict": "Taper week",
+    "sub": "5 h 22",
+    "ts": "2026-11-09T06:43:00+00:00"
+   }
+  ],
+  "months": [
+   {
+    "key": "2026-10",
+    "day": "Oct",
+    "verdict": "Less volume, more intensity",
+    "sub": "19 hard days in 28",
+    "ts": "2026-11-01T07:30:00+00:00"
+   }
+  ],
+  "races": [
+   {
+    "date": "2026-11-14",
+    "day": "14 Nov",
+    "name": "HYROX Testtown doubles",
+    "sub": "1:04:12 · 5:48 inside goal",
+    "activity_id": "9100000001",
+    "ts": "2026-11-15T10:00:00+00:00"
+   },
+   {
+    "date": "2026-11-11",
+    "day": "11 Nov",
+    "name": "HYROX Testtown singles",
+    "sub": "1:07:41 · 7:41 over goal",
+    "activity_id": "9100000002",
+    "ts": "2026-11-12T10:00:00+00:00"
+   }
+  ],
+  "workouts": [
+   {
+    "activity_id": "24990000002",
+    "day": "Tue 10",
+    "name": "Cardio class",
+    "sub": "Done as booked.",
+    "state": "ready",
+    "ts": "2026-11-10T09:00:00+00:00",
+    "meaning": "A moderate class two days before the doubles kept your legs fresh without adding load."
+   },
+   {
+    "activity_id": "24990000001",
+    "day": "Mon 9",
+    "name": "Openers, 5.6 km",
+    "sub": "On plan.",
+    "state": "ready",
+    "ts": "2026-11-09T10:00:00+00:00"
+   }
+  ]
  }
 }

@@ -93,7 +93,7 @@ struct PFPlanReportsContent529: View {
             if let workouts = doc.workouts, !workouts.isEmpty {
                 section("Workouts", rows: workouts.compactMap { row in
                     guard let id = row.activityId else { return nil }
-                    let sub = row.sub ?? (row.state == "pending" ? "Review pending" : nil)
+                    let sub = [row.sub ?? (row.state == "pending" ? "Review pending" : nil), row.meaning].compactMap { $0 }.joined(separator: "\n")
                     return reportRow(id: "workout:\(id)", lead: row.day, verdict: row.name, sub: sub, ts: row.ts) {
                         results = PFResultsTarget529(activityId: id, name: row.name, date: "")
                     }
