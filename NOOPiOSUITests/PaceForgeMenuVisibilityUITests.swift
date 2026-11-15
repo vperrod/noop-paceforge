@@ -21,6 +21,13 @@ final class PaceForgeMenuVisibilityUITests: XCTestCase {
 
         let paceForgeChip = app.descendants(matching: .any).matching(identifier: "data-section-paceForge").firstMatch
         XCTAssertTrue(paceForgeChip.waitForExistence(timeout: 10), "The PaceForge push setting should appear under Settings > Data.")
+        // The section chips are one horizontal row of eight: PaceForge sync is the sixth, so the row is scrolled sideways until it is on screen.
+        let rowY = paceForgeChip.frame.midY / app.frame.height
+        for _ in 0..<6 where !paceForgeChip.isHittable {
+            let from = app.coordinate(withNormalizedOffset: CGVector(dx: 0.8, dy: rowY))
+            let to = app.coordinate(withNormalizedOffset: CGVector(dx: 0.2, dy: rowY))
+            from.press(forDuration: 0.05, thenDragTo: to)
+        }
         XCTAssertTrue(paceForgeChip.isHittable, "The PaceForge push section should be visible on screen.")
         paceForgeChip.tap()
         XCTAssertTrue(app.staticTexts["PaceForge sync"].waitForExistence(timeout: 10) || paceForgeChip.isSelected,

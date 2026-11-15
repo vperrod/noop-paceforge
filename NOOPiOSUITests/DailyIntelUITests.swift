@@ -33,15 +33,23 @@ final class DailyIntelUITests: XCTestCase {
         app.descendants(matching: .any).matching(identifier: id).firstMatch
     }
 
+    /// On screen and clear of the floating tab bar, read from the element's frame: `isHittable` records a test failure ("Activation
+    /// point invalid") when it is asked about a lazily mounted element that is still below the screen.
+    private func isOnScreen(_ element: XCUIElement, in app: XCUIApplication) -> Bool {
+        guard element.exists else { return false }
+        let frame = element.frame
+        return !frame.isEmpty && frame.midY > 120 && frame.midY < app.frame.height * 0.85
+    }
+
     @discardableResult
     private func reveal(_ element: XCUIElement, in app: XCUIApplication, maxSwipes: Int = 14) -> Bool {
         for _ in 0..<(maxSwipes * 3) {
-            if element.exists && element.isHittable { return true }
+            if isOnScreen(element, in: app) { return true }
             let from = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.62))
             let to = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.32))
             from.press(forDuration: 0.05, thenDragTo: to, withVelocity: .slow, thenHoldForDuration: 0.1)
         }
-        return element.exists && element.isHittable
+        return isOnScreen(element, in: app)
     }
 
     // MARK: Today's call on NOOP Today
