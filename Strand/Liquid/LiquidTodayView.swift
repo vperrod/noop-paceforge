@@ -212,10 +212,12 @@ struct LiquidTodayView: View {
     private let pullThreshold: CGFloat = 80
 
     /// How much of Today is in the view tree. 0 is the header, the hero and what sits above it; 1 adds the monitor tiles under the
-    /// hero; 2 adds My Day and its cards; every step after that adds one more section, until `allMounted`. `mountInStages` walks it, one step per ~80 ms, so
+    /// hero; 1 also adds the day graph under My Day; 2 adds the My Day cards, 3 My Plan, 4 the dashboard header; every step after that adds one more section, until `allMounted`. `mountInStages` walks it, one step per ~80 ms, so
     /// no single frame has to build and lay out the whole dashboard (the main thread stalled for 16 s doing that on a phone).
     @State private var mountStage = 0
     private static let allMounted = Int.max
+    /// The highest stage the blocks above the section list use (4 is the dashboard header); the walk never jumps to `allMounted` before it.
+    private static let lastFixedStage = 4
     private static let mountStageDelayNanoseconds: UInt64 = 80_000_000
 
     /// Measured width of the trailing header-control cluster, feeding the day title's fade mask. Seeded
@@ -997,13 +999,17 @@ struct LiquidTodayView: View {
             PFTodayCards(cards: [.howYouAre], drawsChrome: false, showsHiddenRow: false, containerID: "pf-today-cards-how",
                          onOpenNeedsYou: openNeedsYou, onReadWhy: readWhy)
         }
-        if mountStage >= 2 {
+        // The day graph sits under its heading and the bookend row, as it did before the cards below it were added.
+        if mountStage >= 1 {
             LookSectionHeader(String(localized: "My Day"))
                 .padding(.top, 8)
                 .accessibilityIdentifier("today-my-day-header")
             // One row for the morning read and, in the evening, the day in review (the two blocks lower on Today stay).
             PFTodayBookendRow()
             if hasHero { MyDayTodayCard(day: selectedLogicalDay) }
+        }
+        // Stage 2: the My Day cards.
+        if mountStage >= 2 {
             PFTodayCards(cards: [.today], drawsChrome: false, showsHiddenRow: false, containerID: "pf-today-cards-day",
                          onOpenNeedsYou: openNeedsYou, onReadWhy: readWhy)
             // What the watch recorded today, with its results (nothing when nothing was recorded).
@@ -1013,11 +1019,17 @@ struct LiquidTodayView: View {
             if order.contains(.journal) { JournalReminderCard() }
             PFTodayCards(cards: [.feel], drawsChrome: false, showsHiddenRow: false, containerID: "pf-today-cards-feel",
                          onOpenNeedsYou: openNeedsYou, onReadWhy: readWhy)
+        }
+        // Stage 3: My Plan and the training row.
+        if mountStage >= 3 {
             LookSectionHeader(String(localized: "My Plan"))
                 .padding(.top, 8)
                 .accessibilityIdentifier("today-my-plan-header")
             PFTodayCards(cards: [.thisWeek], drawsChrome: false, showsTrainingRow: true, lastWorkout: trainingLastWorkout,
                          containerID: "pf-today-cards-week", onOpenNeedsYou: openNeedsYou, onReadWhy: readWhy)
+        }
+        // Stage 4: the dashboard header.
+        if mountStage >= 4 {
             dashboardHeader
         }
     }
@@ -2218,7 +2230,7 @@ struct LiquidTodayView: View {
                 return
             }
             let order = sectionOrder
-            if Self.mountedSectionCount(order, stage: mountStage) >= order.count, mountStage >= 2 {
+            if Self.mountedSectionCount(order, stage: mountStage) >= order.count, mountStage >= Self.lastFixedStage {
                 #if os(iOS)
                 NoopDiag.stage("data-sources")
                 #endif
@@ -2229,7 +2241,7 @@ struct LiquidTodayView: View {
             let next = mountStage + 1
             let count = Self.mountedSectionCount(order, stage: next)
             #if os(iOS)
-            NoopDiag.stage(next <= 2 ? (next == 1 ? "hero-monitors" : "hero-myday") : order[max(0, count - 1)].rawValue,
+            NoopDiag.stage(next <= 4 ? ["hero-monitors", "hero-myday-cards", "hero-myplan", "hero-dashboard"][next - 1] : order[max(0, count - 1)].rawValue,
                            ["stage": Double(next), "sections": Double(count)])
             #endif
             mountStage = next
