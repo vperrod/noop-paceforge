@@ -229,6 +229,8 @@ enum TodayBlock: String, CaseIterable, Identifiable {
     case trainingRow = "training-row"
     case weightGoal = "weight-goal"
     case vsThirtyDays = "vs-30"
+    case stressMonitor = "stress-monitor"
+    case lastSevenDays = "last-7-days"
 
     var id: String { rawValue }
 
@@ -249,6 +251,8 @@ enum TodayBlock: String, CaseIterable, Identifiable {
         case .trainingRow:   return String(localized: "Training row")
         case .weightGoal:    return String(localized: "Weight vs goal")
         case .vsThirtyDays:  return String(localized: "Today vs 30 days")
+        case .stressMonitor: return String(localized: "Stress Monitor chart")
+        case .lastSevenDays: return String(localized: "Last 7 days, Charge and Effort")
         }
     }
 }

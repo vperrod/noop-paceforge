@@ -12,6 +12,10 @@ import StrandAnalytics
 // scored the screen says so and what it needs, instead of drawing a made-up day.
 
 struct LookStressMonitorSection: View {
+    /// Today's compact card: only the day line under a "STRESS MONITOR" title and its source, one tap from the Stress screen (the reading,
+    /// the summary and the explanations stay there).
+    var chartOnly = false
+
     @EnvironmentObject private var repo: Repository
 
     @State private var result: DaytimeStress.Result?
@@ -26,7 +30,12 @@ struct LookStressMonitorSection: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            if StressMonitorLogic.hasData(hours) {
+            if chartOnly {
+                NavigationLink(value: TabRoute.stress) {
+                    if StressMonitorLogic.hasData(hours) { chart } else { compactEmpty }
+                }
+                .buttonStyle(.plain)
+            } else if StressMonitorLogic.hasData(hours) {
                 reading
                 chart
                 summary
@@ -38,7 +47,7 @@ struct LookStressMonitorSection: View {
                     .foregroundStyle(NoopLook.textTertiary)
             }
         }
-        .containerIdentifier("look-stress-monitor")
+        .containerIdentifier(chartOnly ? "today-stress-monitor" : "look-stress-monitor")
         .task(id: loadKey) { await load() }
     }
 
@@ -92,9 +101,21 @@ struct LookStressMonitorSection: View {
         let masked = StressMonitorLogic.maskedStarts(hours)
         let dayStart = self.dayStart
         return VStack(alignment: .leading, spacing: 8) {
-            Text("THROUGH THE DAY")
-                .lookCaps(11.5)
-                .foregroundStyle(NoopLook.textSecondary)
+            HStack(spacing: 8) {
+                Text(chartOnly ? "STRESS MONITOR" : "THROUGH THE DAY")
+                    .lookCaps(11.5)
+                    .foregroundStyle(NoopLook.textSecondary)
+                if chartOnly {
+                    Spacer(minLength: 8)
+                    Text("NOOP strap")
+                        .font(LookFont.text(12, weight: .medium))
+                        .foregroundStyle(NoopLook.textTertiary)
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(NoopLook.textTertiary)
+                        .accessibilityHidden(true)
+                }
+            }
             Canvas { context, size in
                 let left: CGFloat = 26
                 let bottom: CGFloat = 20
@@ -141,7 +162,7 @@ struct LookStressMonitorSection: View {
                     }
                 }
             }
-            .frame(height: 190)
+            .frame(height: chartOnly ? 120 : 190)
             .accessibilityHidden(true)
             HStack(spacing: 6) {
                 RoundedRectangle(cornerRadius: 1.5, style: .continuous).fill(NoopLook.effort.opacity(0.7)).frame(width: 14, height: 3)
@@ -156,7 +177,30 @@ struct LookStressMonitorSection: View {
         .hiddenWhenPrivate(.scores, name: String(localized: "Stress"))
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Stress through the day, \(runs.reduce(0) { $0 + $1.count }) scored hours")
-        .accessibilityIdentifier("look-stress-chart")
+        .accessibilityIdentifier(chartOnly ? "today-stress-chart" : "look-stress-chart")
+    }
+
+    /// The compact card while nothing is scored: the same title and source, and one honest line, so the card does not vanish and reappear.
+    private var compactEmpty: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                Text("STRESS MONITOR").lookCaps(11.5).foregroundStyle(NoopLook.textSecondary)
+                Spacer(minLength: 8)
+                Text("NOOP strap").font(LookFont.text(12, weight: .medium)).foregroundStyle(NoopLook.textTertiary)
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(NoopLook.textTertiary)
+                    .accessibilityHidden(true)
+            }
+            Text(loaded ? "Nothing scored yet today" : "Reading the day")
+                .font(LookFont.text(14, weight: .medium))
+                .foregroundStyle(NoopLook.textSecondary)
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: NoopLook.Metric.tileRadius, style: .continuous).fill(NoopLook.card))
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("today-stress-chart")
     }
 
     // MARK: Summary

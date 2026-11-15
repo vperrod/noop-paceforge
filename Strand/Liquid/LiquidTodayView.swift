@@ -1029,6 +1029,8 @@ struct LiquidTodayView: View {
             }
             // What the watch recorded today, with its results (nothing when nothing was recorded).
             if shows(.todaySoFar) { PFTodayRecordedHost() }
+            // WHOOP's Stress Monitor card: the day's stress curve from the strap, one tap from the Stress screen. Today only.
+            if selectedDayOffset == 0 && shows(.stressMonitor) { LookStressMonitorSection(chartOnly: true) }
             // Tonight's sleep: the sleep planner's own row (target hours, bedtime, wake), from the sleep need the Sleep screen uses.
             if shows(.tonightsSleep) { PFSleepPlannerSlot() }
             if order.contains(.journal) { JournalReminderCard() }
@@ -1052,6 +1054,8 @@ struct LiquidTodayView: View {
         if mountStage >= 4 {
             dashboardHeader
             hiddenKeySectionsRow
+            // WHOOP's 7 day strain and recovery card, above the key metrics.
+            if shows(.lastSevenDays) { LookLast7DaysCard(day: selectedLogicalDay) }
         }
     }
 
