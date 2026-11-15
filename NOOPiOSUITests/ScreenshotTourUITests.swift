@@ -63,6 +63,13 @@ final class ScreenshotTourUITests: XCTestCase {
         }
         if !element(app, "pf-today-cards").waitForExistence(timeout: 30) { note("missing: pf-today-cards") }
         XCTAssertTrue(element(app, "today-daygraph").waitForExistence(timeout: 30), "The day graph (My Day) should sit on Today under the rings.")
+        // The day graph sits directly under the rings and above the call (the owner's promise), compared by frame at the top of Today.
+        let rings = element(app, "today-six-rings"), graph = element(app, "today-daygraph"), call = element(app, "pf-today-card-the-call")
+        XCTAssertTrue(rings.exists, "The six rings should be on Today.")
+        XCTAssertLessThan(rings.frame.minY, graph.frame.minY, "The day graph should sit below the rings.")
+        if call.waitForExistence(timeout: 10) {
+            XCTAssertLessThan(graph.frame.minY, call.frame.minY, "The day graph should sit above The call.")
+        } else { note("missing: pf-today-card-the-call") }
         tourToday(app)
 
         tourRings(app)

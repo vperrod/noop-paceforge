@@ -986,6 +986,9 @@ struct LiquidTodayView: View {
             router.openCoach()
         }
         if hasHero { heroCard }
+        // The day graph directly under the dials and their caption lines (source labels, the Effort target line), above the call. It
+        // mounts at stage 1, so the first frame is still the dials and the call.
+        if hasHero && mountStage >= 1 { MyDayTodayCard(day: selectedLogicalDay) }
         PFTodayCards(cards: [.theCall, .needsYou], showsHiddenRow: false, onOpenNeedsYou: openNeedsYou, onReadWhy: readWhy)
         // PaceForge's one assessment of the day as a line under the call. Its recovery bars (TodayPFReadout) stay off Today: they carry
         // PaceForge's own recovery numbers, a third score beside Garmin's and the strap's.
@@ -999,14 +1002,13 @@ struct LiquidTodayView: View {
             PFTodayCards(cards: [.howYouAre], drawsChrome: false, showsHiddenRow: false, containerID: "pf-today-cards-how",
                          onOpenNeedsYou: openNeedsYou, onReadWhy: readWhy)
         }
-        // The day graph sits under its heading and the bookend row, as it did before the cards below it were added.
+        // The day graph itself now sits directly under the dials; My Day keeps its heading and the bookend row.
         if mountStage >= 1 {
             LookSectionHeader(String(localized: "My Day"))
                 .padding(.top, 8)
                 .accessibilityIdentifier("today-my-day-header")
             // One row for the morning read and, in the evening, the day in review (the two blocks lower on Today stay).
             PFTodayBookendRow()
-            if hasHero { MyDayTodayCard(day: selectedLogicalDay) }
         }
         // Stage 2: the My Day cards.
         if mountStage >= 2 {
