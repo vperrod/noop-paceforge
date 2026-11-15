@@ -49,7 +49,9 @@ final class Plan529FoundationUITests: XCTestCase {
         XCTAssertTrue(app.element("plan529-session").waitForExistence(timeout: 30), "The session sheet should open.")
         attach(app, "Plan529 01 session sheet")
         app.element("plan529-sheet-done").tap()
-        XCTAssertTrue(app.element("calendar-chip-content-week").waitForExistence(timeout: 30), "Done should return to the Plan tab.")
+        // The Plan tab keeps its chip between launches, so the sheet closing is what is checked, not which chip is under it.
+        XCTAssertTrue(app.element("plan529-session").waitForNonExistence(timeout: 30), "Done should close the sheet.")
+        XCTAssertTrue(app.element("calendar-host").exists, "The Plan tab should be under the sheet.")
     }
 
     func testInboxOpensOverThePlanTab() throws {
@@ -68,7 +70,7 @@ final class Plan529FoundationUITests: XCTestCase {
     func testReportsChipShowsTheReportsIndex() throws {
         let app = try launch()
         app.openChip("Plan", "reports")
-        XCTAssertTrue(app.element("pf-reports-index").waitForExistence(timeout: 30), "The Reports chip should show the reports index.")
+        XCTAssertTrue(app.element("pf-reports-index-daily").waitForExistence(timeout: 30), "The Reports chip should show the reports index.")
         attach(app, "Plan529 03 reports chip")
     }
 }
