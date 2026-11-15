@@ -150,6 +150,9 @@ final class PaceForgeBuild463UITests: XCTestCase {
         addFirst.tap()
         let exercise = app.textFields["Incline dumbbell press"]
         XCTAssertTrue(exercise.waitForExistence(timeout: 10), "The exercise sheet should open.")
+        // The sheet can open already scrolled (the program editor's keyboard was up), with the field above the screen where an AX
+        // scroll-to-visible fails: drag the form down until the field is back in view.
+        for _ in 0..<4 where exercise.frame.minY < 100 { app.swipeDown(velocity: .slow) }
         exercise.tap()
         exercise.typeText("Bench press")
         let returnKey = app.keyboards.buttons["Return"]

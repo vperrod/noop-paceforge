@@ -6,10 +6,19 @@ import XCTest
 /// and two made-up past ones, so no key and no network are needed. Nothing here is real data.
 final class WhoopGapsUITests: XCTestCase {
 
-    private func launch(extraArguments: [String] = []) -> XCUIApplication {
+    private func launch(extraArguments: [String] = [], paceForge: Bool = false) -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments.append("--demo-seed")
         app.launchArguments.append(contentsOf: extraArguments)
+        if paceForge {
+            // On iPhone "Ask about this" is drawn only while PaceForge is configured (AskCoachButton, since dcfe459c6): the shared Coach
+            // is PaceForge's, so the fixture stands in for the connection.
+            app.launchArguments.append("-PaceForgeFixture")
+            if let url = Bundle(for: Self.self).url(forResource: "PaceForgeFixture", withExtension: "json"),
+               let json = try? Data(contentsOf: url) {
+                app.launchEnvironment["PF_FIXTURE_JSON"] = String(decoding: json, as: UTF8.self)
+            }
+        }
         app.launch()
         return app
     }
@@ -161,7 +170,7 @@ final class WhoopGapsUITests: XCTestCase {
     // macOS Coach only (RootView.swift), so those three tests had nothing to open and were removed.
 
     func testAskAboutThisFromAScoreInfoSheetPutsTheQuestionInCoach() {
-        let app = launch(extraArguments: ["-CoachFixture"])
+        let app = launch(extraArguments: ["-CoachFixture"], paceForge: true)
         // The Coach sheet opens over Today at launch; close it, then open a score's guide from Today.
         XCTAssertTrue(element(app, "coach-host").waitForExistence(timeout: 40), "The Coach should open at launch.")
         app.buttons["Done"].firstMatch.tap()

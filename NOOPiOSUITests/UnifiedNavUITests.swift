@@ -141,6 +141,8 @@ final class UnifiedNavUITests: XCTestCase {
         XCTAssertTrue(app.coachButton.waitForExistence(timeout: 20), "The Coach button should be beside the bar.")
         app.coachButton.tap()
         XCTAssertTrue(element(app, "coach-host").waitForExistence(timeout: 30), "The Coach sheet should open.")
+        // The sheet reopens on the chip it was left on, and the shared brain is the Read chip's content: pick Read first.
+        choose("read", prefix: "coach", in: app)
         XCTAssertTrue(element(app, "coach-full-brain").waitForExistence(timeout: 30), "The Coach should load the shared PaceForge brain.")
         choose("ask", prefix: "coach", in: app)
         XCTAssertTrue(element(app, "pf-composer-mode").waitForExistence(timeout: 30), "One composer with a mode switch on the Ask chip.")

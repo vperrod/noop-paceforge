@@ -44,11 +44,29 @@ final class PaceForgeDismissUITests: XCTestCase {
         return element.exists && element.isHittable
     }
 
+    /// Scrolls until the element is on screen and clear of the floating tab bar, read from its frame. The call now sits under the
+    /// two dial rows and the day graph, so on first launch its corner is below the bar, where a tap lands on the bar or the card.
+    @discardableResult
+    private func revealClearOfBar(_ element: XCUIElement, in app: XCUIApplication, maxSwipes: Int = 14) -> Bool {
+        func isClear() -> Bool {
+            guard element.exists else { return false }
+            let frame = element.frame
+            return !frame.isEmpty && frame.midY > 120 && frame.midY < app.frame.height * 0.85
+        }
+        for _ in 0..<maxSwipes {
+            if isClear() { return true }
+            let from = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.62))
+            let to = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.32))
+            from.press(forDuration: 0.05, thenDragTo: to, withVelocity: .slow, thenHoldForDuration: 0.1)
+        }
+        return isClear()
+    }
+
     func testTheCallOffersBothModes() throws {
         let app = try launch()
         openToday(app)
         let corner = element(app, "pf-dismiss-the-call")
-        XCTAssertTrue(corner.waitForExistence(timeout: 10), "The call should have the Not today corner.")
+        XCTAssertTrue(revealClearOfBar(corner, in: app), "The call should have the Not today corner.")
         corner.tap()
         XCTAssertTrue(app.buttons["Hide until it changes"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["Snooze until tomorrow"].exists)
@@ -59,7 +77,9 @@ final class PaceForgeDismissUITests: XCTestCase {
     func testHideUntilItChangesRemovesTheCallAndTheHiddenRowRestoresIt() throws {
         let app = try launch()
         openToday(app)
-        element(app, "pf-dismiss-the-call").tap()
+        let corner = element(app, "pf-dismiss-the-call")
+        XCTAssertTrue(revealClearOfBar(corner, in: app), "The call should have the Not today corner.")
+        corner.tap()
         app.buttons["Hide until it changes"].tap()
         XCTAssertFalse(element(app, "pf-today-card-the-call").waitForExistence(timeout: 3), "The hidden call should be gone.")
         attach(app, "61 Call hidden")

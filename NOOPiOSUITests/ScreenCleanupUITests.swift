@@ -200,13 +200,19 @@ final class ScreenCleanupUITests: XCTestCase {
         alive(app, "opening Stress from its tile")
     }
 
-    func testTheRestRingOpensSleepOverTodayAndSleepIsNotATab() throws {
+    func testTheRestRingOpensItsScreenAndSleepIsAChipOfHealthNotATab() throws {
         let app = try launch()
-        // The ring's button reads "Rest, 87"; the sticky mini dial ("Rest 87") and the "See how it is scored" button are other elements.
-        let ring = app.buttons.matching(NSPredicate(format: "label MATCHES %@", "Rest, [0-9]+")).firstMatch
+        // Today's dial reads "Rest, 87%": the ring is its first button, the name under it (also "Rest, 87%") opens the scoring guide.
+        let ring = app.buttons.matching(NSPredicate(format: "label MATCHES %@", "Rest, [0-9]+%?")).firstMatch
         XCTAssertTrue(reveal(ring, in: app, maxSwipes: 6), "Today should show the Rest ring.")
         ring.tap()
-        XCTAssertTrue(reveal(element(app, "look-last-night"), in: app), "The Rest ring should open Sleep.")
-        alive(app, "opening Sleep from the Rest ring")
+        let back = app.navigationBars.buttons.element(boundBy: 0)
+        XCTAssertTrue(back.waitForExistence(timeout: 20), "The Rest ring should open its own screen over Today.")
+        alive(app, "opening the Rest screen from its ring")
+        back.tap()
+        XCTAssertFalse(app.shellTab("Sleep").exists, "Sleep is not a tab.")
+        app.openChip("Health", "sleep")
+        XCTAssertTrue(reveal(element(app, "look-last-night"), in: app), "Health's Sleep chip should show last night.")
+        alive(app, "opening Sleep from Health")
     }
 }
