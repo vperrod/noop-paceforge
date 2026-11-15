@@ -65,10 +65,10 @@ final class Plan529FoundationUITests: XCTestCase {
         attach(app, "Plan529 02 season chip")
     }
 
-    func testReportsChipShowsTheReportsIndex() throws {
+    func testReportsChipListsTheReports() throws {
         let app = try launch()
         app.openChip("Plan", "reports")
-        XCTAssertTrue(app.element("pf-reports-index").waitForExistence(timeout: 30), "The Reports chip should show the reports index.")
+        XCTAssertTrue(app.element("plan529-reports").waitForExistence(timeout: 30), "The Reports chip should list the reports.")
         attach(app, "Plan529 03 reports chip")
     }
 }

@@ -703,6 +703,20 @@ struct PFRaceResult: Equatable, Sendable {
     var rankAgeGroup: Int?
     var segments: [Segment]
     var hrNote: String?
+    /// The three biggest losses against the pacing plan and what the next block changes (build 529; absent on an older server).
+    var losses: [Loss] = []
+    var nextBlock: String?
+
+    struct Loss: Equatable, Sendable {
+        var segment: String
+        var delta: String?
+        var note: String?
+
+        static func parse(_ j: PFJ) -> Loss? {
+            guard let segment = j["segment"].text else { return nil }
+            return Loss(segment: segment, delta: j["delta"].text, note: j["note"].text)
+        }
+    }
 
     static func parse(_ j: PFJ) -> PFRaceResult? {
         guard j.exists else { return nil }
@@ -710,7 +724,8 @@ struct PFRaceResult: Equatable, Sendable {
                                timeSeconds: j["time_seconds"].double.map { Safe.int($0) }, timeDisplay: j["time_display"].text,
                                goalSeconds: j["goal_seconds"].double.map { Safe.int($0) }, goalDeltaS: j["goal_delta_s"].double.map { Safe.int($0) },
                                rank: j["rank"].int, fieldSize: j["field_size"].int, rankAgeGroup: j["rank_age_group"].int,
-                               segments: j["segments"].array.compactMap { Segment.parse($0) }, hrNote: j["hr_note"].text)
+                               segments: j["segments"].array.compactMap { Segment.parse($0) }, hrNote: j["hr_note"].text,
+                               losses: j["losses"].array.compactMap { Loss.parse($0) }, nextBlock: j["next_block"].text)
         return out.timeSeconds != nil || out.timeDisplay != nil || !out.segments.isEmpty ? out : nil
     }
 }

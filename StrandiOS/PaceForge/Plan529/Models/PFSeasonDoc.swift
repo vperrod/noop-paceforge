@@ -49,6 +49,8 @@ struct PFSeasonDoc: Codable, Equatable {
         var packReady: Bool?
         var debriefReady: Bool?
         var isHyrox: Bool?
+        /// The doubles partner, when the race has one (added by the Season screens; the edit sheet starts from it).
+        var partner: String?
     }
 
     struct PriorityOption: Codable, Equatable {

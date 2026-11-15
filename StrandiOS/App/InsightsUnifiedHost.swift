@@ -138,21 +138,36 @@ private struct InsightsWeeklyReview: View {
     let snapshot: PFSnapshot
 
     var body: some View {
-        if let review = snapshot.coach.weeklyReview {
-            PFCoachView(snapshot: snapshot).weeklyReviewCard(review)
-                .accessibilityIdentifier("insights-weekly-review")
-        } else {
-            PFCard("Weekly review", icon: "calendar") {
-                PFParagraph("PaceForge writes the review of your week at the end of it. It shows here once it has.")
+        VStack(alignment: .leading, spacing: NoopMetrics.sectionSpacing) {
+            if let review = snapshot.coach.weeklyReview {
+                PFCoachView(snapshot: snapshot).weeklyReviewCard(review)
+                    .accessibilityIdentifier("insights-weekly-review")
+            } else {
+                PFCard("Weekly review", icon: "calendar") {
+                    PFParagraph("PaceForge writes the review of your week at the end of it. It shows here once it has.")
+                }
+            }
+            // The week report now lives in Plan > Week: last week's page, one swipe back from the plan.
+            IndexSection("Week report") {
+                IndexRow("Last week's report", "calendar", TabRoute.plan529(.week(PFISOWeek529.previous(PFAPI.todayISO))),
+                         id: "insights-week-report")
             }
         }
     }
 }
 
 private struct InsightsReportRows: View {
+    /// "2026-10" for a phone whose today is in November 2026.
+    private static var lastMonthKey: String {
+        let firstOfThisMonth = String(PFAPI.todayISO.prefix(8)) + "01"
+        return String(PFFormat.addDays(firstOfThisMonth, -1).prefix(7))
+    }
+
     var body: some View {
         IndexSection("Longer reports") {
-            IndexRow("Monthly report", "calendar", TabRoute.monthlyReport, id: "insights-report-monthly")
+            // The month in a few lines (Plan's month report, for last month); the scores for the month stay one row below it.
+            IndexRow("Monthly report", "calendar", TabRoute.plan529(.monthReport(key: Self.lastMonthKey)), id: "insights-report-monthly")
+            IndexRow("Monthly scores", "chart.bar", TabRoute.monthlyReport, id: "insights-report-monthly-scores")
             IndexRow("Highlights", "star.fill", TabRoute.highlights, id: "insights-report-highlights")
             IndexRow("Healthspan", "hourglass", TabRoute.healthspan, id: "insights-report-healthspan")
         }

@@ -25,6 +25,14 @@ enum PFJobName: String, Equatable {
     case easyModeEnd = "easy-mode-end"
     case saveEvents = "save-events"
     case hyroxSimAdd = "hyrox-sim-add"
+    // Build 529, Plan section: edits from the Season, Calendar and plan-settings screens. Server pending: the runner stream names them
+    // `event-update` (one race: set priority / goal / date / partner), `plan-hours`, `dayoff-add`, `dayoff-remove`; `add-session` is the
+    // web's "Add activity" job and is not in the app's job list yet.
+    case eventUpdate = "event-update"
+    case planHours = "plan-hours"
+    case dayoffAdd = "dayoff-add"
+    case dayoffRemove = "dayoff-remove"
+    case addSession = "add-session"
 
     /// How long a job is expected to take from the request to "done", in seconds, from the contract: a photo read is 5 s to about 4.5 min
     /// (the local vision model is shared), a Garmin sync about 8 s and a minute or more behind a Garmin rate limit, the rest run inline.
@@ -33,7 +41,8 @@ enum PFJobName: String, Equatable {
         case .analyzeWorkoutPhoto: return 270
         case .coach: return 300
         case .sync: return 120
-        case .saveRpe, .adjustToday, .coachFeedback, .niggleAdd, .niggleResolve, .calendarEdit, .sessionState, .sessionDrop, .easyMode, .easyModeEnd, .saveEvents, .hyroxSimAdd: return 30
+        case .saveRpe, .adjustToday, .coachFeedback, .niggleAdd, .niggleResolve, .calendarEdit, .sessionState, .sessionDrop, .easyMode, .easyModeEnd, .saveEvents, .hyroxSimAdd,
+             .eventUpdate, .planHours, .dayoffAdd, .dayoffRemove, .addSession: return 30
         }
     }
 

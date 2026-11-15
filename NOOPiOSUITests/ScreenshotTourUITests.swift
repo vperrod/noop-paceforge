@@ -106,7 +106,7 @@ final class ScreenshotTourUITests: XCTestCase {
         coach.tap()
         if !element(app, "coach-host").waitForExistence(timeout: 30) { note("missing: coach-host") }
         attach(app, "40-coach")
-        for (index, chip) in ["read", "ask", "reports", "insights"].enumerated() {
+        for (index, chip) in ["read", "ask", "insights"].enumerated() {
             if tapIfThere(app, "coach-chip-\(chip)", timeout: 5) {
                 attach(app, "4\(index + 1)-coach-\(chip)")
                 if chip == "insights" {

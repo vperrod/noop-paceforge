@@ -59,7 +59,7 @@ final class SavedStateUITests: XCTestCase {
         alive(app, "\(name): \(title) scroll back up")
     }
 
-    /// The screens that hold PaceForge's documents: Today, Plan > This week, Health > Body, then the four chips of the Coach sheet.
+    /// The screens that hold PaceForge's documents: Today, Plan > This week, Health > Body, then the three chips of the Coach sheet.
     private func walkScreens(_ app: XCUIApplication, _ name: String) {
         app.openTab("Today")
         visit(app, name, "Today", top: "today-six-rings")
@@ -69,7 +69,7 @@ final class SavedStateUITests: XCTestCase {
         visit(app, name, "Body", top: "health-chip-body")
         app.openCoach("read")
         visit(app, name, "Coach Read", top: "coach-chip-read")
-        for chip in ["ask", "reports", "insights"] {
+        for chip in ["ask", "insights"] {
             let button = element(app, "coach-chip-\(chip)")
             XCTAssertTrue(button.waitForExistence(timeout: 10), "The \(chip) chip should exist.")
             button.tap()
