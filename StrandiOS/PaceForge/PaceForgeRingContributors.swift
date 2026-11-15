@@ -50,7 +50,7 @@ struct PFRingContributorsCard: View {
                 PFParagraph(PFRingContributors.emptyLine(kind))
                     .accessibilityIdentifier("pf-ring-contributors-empty")
             } else {
-                ForEach(rows) { row in
+                ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
                     VStack(alignment: .leading, spacing: 6) {
                         HStack(alignment: .firstTextBaseline, spacing: 8) {
                             VStack(alignment: .leading, spacing: 2) {
