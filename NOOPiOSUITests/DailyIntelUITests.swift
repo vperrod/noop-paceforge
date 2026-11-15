@@ -54,56 +54,64 @@ final class DailyIntelUITests: XCTestCase {
 
     // MARK: Today's call on NOOP Today
 
-    /// Today's call sits under the rings, the monitor tiles, the heart-rate chart and the two collapsed rows; the short card shows the
-    /// chip, the Effort target and the planned session, and "Why" opens the rest.
-    func testTodaysCallIsAShortCardOnNoopToday() throws {
+    /// Today states the call once: the banner under the dials carries the verdict, the chip, PaceForge's Effort target and the planned
+    /// session; tapping it opens the rest (why the scores differ, the action) in the call sheet.
+    private func callBanner(_ app: XCUIApplication) -> XCUIElement { element(app, "pf-today-card-the-call") }
+
+    private func openCallSheet(_ app: XCUIApplication) {
+        let banner = callBanner(app)
+        XCTAssertTrue(reveal(banner, in: app), "Today should show the call.")
+        banner.tap()
+        XCTAssertTrue(element(app, "pf-the-call-sheet").waitForExistence(timeout: 15), "The call should open its sheet.")
+    }
+
+    func testTodaysCallIsOneBannerWithItsDetailOnNoopToday() throws {
         let app = try launch()
-        let card = element(app, "pf-todays-call")
-        XCTAssertTrue(reveal(card, in: app), "NOOP Today should show Today's call.")
-        attach(app, "Intel 10 NOOP Today, Today's call")
-        XCTAssertEqual(element(app, "pf-call-chip").label, "Keep the plan", "The verdict chip should say what the call is.")
-        XCTAssertTrue(element(app, "pf-call-effort-target").exists, "The Effort target line should show.")
-        XCTAssertTrue(element(app, "pf-call-session").exists, "The planned session should show.")
-        XCTAssertFalse(element(app, "pf-call-disagreement").exists, "The reason the scores differ is behind Why.")
-        let why = element(app, "pf-call-why")
-        XCTAssertTrue(reveal(why, in: app), "The card should offer Why.")
-        why.tap()
-        XCTAssertTrue(element(app, "pf-call-disagreement").waitForExistence(timeout: 5),
-                      "The fixture's two scores differ, so Why should say why.")
+        let banner = callBanner(app)
+        XCTAssertTrue(reveal(banner, in: app), "NOOP Today should show the call.")
+        attach(app, "Intel 10 NOOP Today, the call")
+        XCTAssertTrue(banner.label.contains("Keep the plan"), "The banner should carry the verdict chip.")
+        XCTAssertTrue(banner.label.contains("Effort target"), "The banner should carry PaceForge's Effort target.")
+        XCTAssertTrue(banner.label.contains("Planned today"), "The banner should carry the planned session.")
+        XCTAssertFalse(element(app, "pf-todays-call").exists, "Today does not draw the call a second time.")
+        banner.tap()
+        XCTAssertTrue(element(app, "pf-call-disagreement").waitForExistence(timeout: 15),
+                      "The fixture's two scores differ, so the call sheet should say why.")
     }
 
     func testTodaysCallShowsTheActionAsAnInsightCardAndOpensItsReason() throws {
         let app = try launch()
-        let why = element(app, "pf-call-why")
-        XCTAssertTrue(reveal(why, in: app), "The card should offer Why.")
-        why.tap()
+        openCallSheet(app)
         let link = element(app, "pf-call-action-keep_plan-link")
-        XCTAssertTrue(reveal(link, in: app), "The card's action should be an insight card with a link.")
+        XCTAssertTrue(reveal(link, in: app), "The call's action should be an insight card with a link.")
         attach(app, "Intel 11 Today's call, action card")
         link.tap()
         XCTAssertTrue(element(app, "pf-call-action-keep_plan").exists, "The action card should stay on screen once opened.")
         attach(app, "Intel 12 Today's call, action card opened to its reason")
     }
 
-    func testCallCardCarriesTheEffortTargetLine() throws {
+    func testCallBannerCarriesTheEffortTargetLine() throws {
         let app = try launch()
-        XCTAssertTrue(reveal(element(app, "pf-todays-call"), in: app), "The call should load first.")
-        let effort = element(app, "pf-call-effort-target")
-        XCTAssertTrue(effort.exists, "The Effort target line of the card should show.")
+        let banner = callBanner(app)
+        XCTAssertTrue(reveal(banner, in: app), "The call should load first.")
+        XCTAssertTrue(banner.label.contains("Effort target"), "The Effort target line should show on the banner.")
         attach(app, "Intel 13 Today's call, Effort target line")
     }
 
     func testTodaysCallSaysWhenItIsUnavailable() throws {
         let app = try launch(extra: ["-PaceForgeIntelUnavailable"])
+        openCallSheet(app)
         let note = element(app, "pf-todays-call-unavailable")
-        XCTAssertTrue(reveal(note, in: app), "An unavailable call should say so, not vanish.")
+        XCTAssertTrue(reveal(note, in: app), "An unavailable call should say so in the call sheet, not vanish.")
         attach(app, "Intel 14 Today's call unavailable")
     }
 
-    func testNoFileMeansNoTodaysCall() throws {
+    func testNoFileMeansNoCallDetail() throws {
         let app = try launch(extra: ["-PaceForgeIntelMissing"])
         XCTAssertTrue(app.shellTab("Today").waitForExistence(timeout: 30), "Today should have loaded.")
-        XCTAssertFalse(element(app, "pf-todays-call").waitForExistence(timeout: 5), "Without the file there is no card.")
+        XCTAssertFalse(element(app, "pf-todays-call").waitForExistence(timeout: 5), "Without the file there is no call card.")
+        let banner = callBanner(app)
+        if banner.exists { XCTAssertFalse(banner.label.contains("Effort target"), "Without the file the banner has no detail.") }
         attach(app, "Intel 15 NOOP Today without the daily file")
     }
 
@@ -111,9 +119,9 @@ final class DailyIntelUITests: XCTestCase {
 
     func testTodaysCallCarriesTheNotTodayMenu() throws {
         let app = try launch()
-        XCTAssertTrue(reveal(element(app, "pf-todays-call"), in: app), "Today should show Today's call.")
-        attach(app, "Intel 20 Today, Today's call with its Not today menu")
-        XCTAssertTrue(element(app, "pf-dismiss-todays-call").exists, "It should carry the same Not today menu as the other cards.")
+        XCTAssertTrue(reveal(callBanner(app), in: app), "Today should show the call.")
+        attach(app, "Intel 20 Today, the call with its Not today menu")
+        XCTAssertTrue(element(app, "pf-dismiss-the-call").exists, "The call should carry the Not today menu.")
     }
 
     // MARK: Health monitor
@@ -221,7 +229,29 @@ final class DailyIntelUITests: XCTestCase {
 
     func testTodaysCallInLight() throws {
         let app = try launch(appearance: "light")
-        XCTAssertTrue(reveal(element(app, "pf-todays-call"), in: app), "The call should show in light.")
+        XCTAssertTrue(reveal(element(app, "pf-today-card-the-call"), in: app), "The call should show in light.")
         attach(app, "Intel 70 Today's call (light)")
+    }
+
+    // MARK: Journal prompt
+
+    /// Until today's journal is logged it is the morning prompt under the call; one tap per question and Save; then it folds to a row.
+    func testJournalPromptOpensTheFlowAndFoldsOnceLogged() throws {
+        let app = try launch()
+        let card = element(app, "today-journal")
+        XCTAssertTrue(reveal(card, in: app), "Until today's journal is logged, Today should show the journal prompt.")
+        attach(app, "Intel 80 Today journal prompt")
+        card.buttons["Journal"].firstMatch.tap()
+        let yes = app.descendants(matching: .any).matching(NSPredicate(format: "identifier BEGINSWITH 'look-journal-yes-'")).firstMatch
+        XCTAssertTrue(yes.waitForExistence(timeout: 20), "The prompt should open the journal with a Yes for each question.")
+        yes.tap()
+        let save = element(app, "look-journal-save")
+        XCTAssertTrue(reveal(save, in: app), "The journal should offer Save.")
+        save.tap()
+        XCTAssertTrue(element(app, "look-journal-saved").waitForExistence(timeout: 20), "Saving should say the journal is saved.")
+        attach(app, "Intel 81 Journal saved")
+        app.buttons["Done"].firstMatch.tap()
+        XCTAssertTrue(reveal(element(app, "today-journal-logged"), in: app), "Once logged, the prompt should fold to the Journal logged row.")
+        attach(app, "Intel 82 Today journal logged")
     }
 }

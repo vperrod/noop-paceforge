@@ -107,7 +107,7 @@ struct LookStressMonitorSection: View {
                     .foregroundStyle(NoopLook.textSecondary)
                 if chartOnly {
                     Spacer(minLength: 8)
-                    Text("NOOP strap")
+                    Text("NOOP strap \u{00B7} hourly")
                         .font(LookFont.text(12, weight: .medium))
                         .foregroundStyle(NoopLook.textTertiary)
                     Image(systemName: "chevron.right")
@@ -186,7 +186,7 @@ struct LookStressMonitorSection: View {
             HStack(spacing: 8) {
                 Text("STRESS MONITOR").lookCaps(11.5).foregroundStyle(NoopLook.textSecondary)
                 Spacer(minLength: 8)
-                Text("NOOP strap").font(LookFont.text(12, weight: .medium)).foregroundStyle(NoopLook.textTertiary)
+                Text("NOOP strap \u{00B7} hourly").font(LookFont.text(12, weight: .medium)).foregroundStyle(NoopLook.textTertiary)
                 Image(systemName: "chevron.right")
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(NoopLook.textTertiary)

@@ -305,6 +305,19 @@ enum WorkoutSource: Equatable {
         return kept
     }
 
+    /// The name a workout's figures carry on screen: who recorded (and, for the strap, scored) the row.
+    static func attributionLabel(_ row: WorkoutRow) -> String {
+        switch classify(row.source) {
+        case .whoop:        return "WHOOP"
+        case .apple:        return "Apple Health"
+        case .paceforge:    return "Garmin"
+        case .detected:     return "WHOOP strap"
+        case .manual:       return "Logged by hand"
+        case .lifting:      return "Lift log"
+        case .activityFile: return "Activity file"
+        }
+    }
+
     /// A short, source-only descriptor of a row for the Workouts test-mode dedup trace ("strap" / "apple" /
     /// "detected" / "manual" / "lifting" / "activityFile"). No timestamps or free text.
     static func sourceLabel(_ row: WorkoutRow) -> String {

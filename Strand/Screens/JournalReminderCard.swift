@@ -32,9 +32,20 @@ struct JournalReminderCard: View {
     var body: some View {
         Group {
             if reminderEnabled, let logged = loggedDays {
+                #if os(iOS)
+                // Once today's journal is in, the card folds to one row that opens what helps and hurts recovery.
+                if logged.contains(Self.dayKeys().last ?? "") {
+                    loggedRow
+                } else {
+                    card(logged)
+                        .accessibilityElement(children: .contain)
+                        .accessibilityIdentifier("today-journal")
+                }
+                #else
                 card(logged)
                     .accessibilityElement(children: .contain)
                     .accessibilityIdentifier("today-journal")
+                #endif
             }
         }
         // Re-read whenever a sync bumps refreshSeq or the toggle flips (mirrors AutoWorkoutCard's task id),
@@ -43,6 +54,35 @@ struct JournalReminderCard: View {
             await reload()
         }
     }
+
+    #if os(iOS)
+    private var loggedRow: some View {
+        NavigationLink(value: TabRoute.journalImpact) {
+            HStack(spacing: 12) {
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.system(size: 18))
+                    .foregroundStyle(StrandPalette.accent)
+                    .accessibilityHidden(true)
+                Text(String(localized: "Journal logged \u{00B7} see what helps and hurts"))
+                    .font(LookFont.text(14, weight: .medium))
+                    .foregroundStyle(NoopLook.textPrimary)
+                    .multilineTextAlignment(.leading)
+                Spacer(minLength: 4)
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(NoopLook.textTertiary)
+                    .accessibilityHidden(true)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
+            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+            .background(RoundedRectangle(cornerRadius: NoopLook.Metric.tileRadius, style: .continuous).fill(NoopLook.card))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("today-journal-logged")
+    }
+    #endif
 
     private func card(_ logged: Set<String>) -> some View {
         let keys = Self.dayKeys()

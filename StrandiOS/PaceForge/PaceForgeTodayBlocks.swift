@@ -6,16 +6,30 @@ import StrandDesign
 
 // MARK: - Weight vs goal
 
-/// Today's "Weight vs goal": the scale's latest reading (dated, with its source) against the weight goal, the gap and the weekly trend.
+/// The newest weight reading Today knows (Apple Health, the scale through PaceForge, ...), with who supplied it and its day.
+struct PFNewestWeight: Equatable {
+    let kg: Double
+    let source: String
+    /// yyyy-MM-dd.
+    let day: String
+}
+
+/// Today's "Weight vs goal": the newest weight reading (dated, with its source) against the weight goal, the gap and the weekly trend.
 /// One tap opens Health on the Body chip. Draws nothing without a weight goal, or while Hide numbers hides body weight.
 struct PFTodayWeightGoalHost: View {
+    /// What Today's Weight tile reads. PaceForge's own last reading is used only when it is the newer one (or Today has none).
+    var newest: PFNewestWeight?
+
     var body: some View {
-        PFSnapshotHost(drawsChrome: false, content: { snapshot in AnyView(PFTodayWeightGoalCard(progress: snapshot.bodyProgress)) })
+        PFSnapshotHost(drawsChrome: false, content: { snapshot in
+            AnyView(PFTodayWeightGoalCard(progress: snapshot.bodyProgress, newest: newest))
+        })
     }
 }
 
 private struct PFTodayWeightGoalCard: View {
     let progress: PFBodyProgress?
+    let newest: PFNewestWeight?
     private let hiding = PFHiding()
 
     private var goal: PFProgressGoal? {
@@ -23,9 +37,17 @@ private struct PFTodayWeightGoalCard: View {
         return goal
     }
 
+    /// Today's newest reading, unless PaceForge's last reading is from a later day.
+    private func usable(_ newest: PFNewestWeight?) -> PFNewestWeight? {
+        guard let newest else { return nil }
+        if let latest = progress?.latestReadingDate, String(latest.prefix(10)) > newest.day { return nil }
+        return newest
+    }
+
     var body: some View {
         if let goal, let target = goal.target, !hiding.hides(.body) {
-            let reading = goal.lastReading ?? goal.current7d
+            let fresh = usable(newest)
+            let reading = fresh?.kg ?? goal.lastReading ?? goal.current7d
             Button { PFDeepLink.open(.body) } label: {
                 PFCard("Weight vs goal", icon: "scalemass") {
                     VStack(alignment: .leading, spacing: 8) {
@@ -45,7 +67,7 @@ private struct PFTodayWeightGoalCard: View {
                         }
                         if let reading { line(gapText(reading: reading, target: target, goal: goal)) }
                         if let trend = trendText(goal) { line(trend) }
-                        Text(sourceText(goal))
+                        Text(sourceText(goal, fresh: fresh))
                             .font(LookFont.text(11.5, weight: .medium))
                             .foregroundStyle(NoopLook.textTertiary)
                     }
@@ -84,7 +106,8 @@ private struct PFTodayWeightGoalCard: View {
         return "Trend \(value(abs(rate), goal.unit)) a week \(word)\(status)"
     }
 
-    private func sourceText(_ goal: PFProgressGoal) -> String {
+    private func sourceText(_ goal: PFProgressGoal, fresh: PFNewestWeight?) -> String {
+        if let fresh { return "Latest reading \(PFFormat.shortDate(fresh.day)) \u{00B7} \(fresh.source)" }
         let kind = goal.lastReading != nil ? "Last reading" : "7-day average"
         let date = progress?.latestReadingDate.map { " \(PFFormat.shortDate($0))" } ?? ""
         return "\(kind)\(date) \u{00B7} Hume scale, via PaceForge"
@@ -93,11 +116,11 @@ private struct PFTodayWeightGoalCard: View {
 
 // MARK: - Today so far (what was recorded today)
 
-/// My Day's list of what the watch recorded today, each row with its numbers and a tap to its results. Draws nothing when nothing was
-/// recorded today.
+/// My Day's Today so far card: the plan line, the mini strip and Open My Day, then what the watch recorded today, each row with its
+/// numbers and a tap to its results.
 struct PFTodayRecordedHost: View {
     var body: some View {
-        PFSnapshotHost(drawsChrome: false, content: { snapshot in AnyView(PFTodaySoFarCard(snapshot: snapshot, isRecordedOnly: true)) })
+        PFSnapshotHost(drawsChrome: false, content: { snapshot in AnyView(PFTodaySoFarCard(snapshot: snapshot)) })
             .containerIdentifier("today-so-far")
     }
 }

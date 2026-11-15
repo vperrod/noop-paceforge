@@ -248,7 +248,7 @@ enum TodayBlock: String, CaseIterable, Identifiable {
         case .tonightsSleep: return String(localized: "Tonight's sleep")
         case .feel:          return String(localized: "How do you feel")
         case .thisWeek:      return String(localized: "This week")
-        case .trainingRow:   return String(localized: "Training row")
+        case .trainingRow:   return String(localized: "Race day row")
         case .weightGoal:    return String(localized: "Weight vs goal")
         case .vsThirtyDays:  return String(localized: "Today vs 30 days")
         case .stressMonitor: return String(localized: "Stress Monitor chart")

@@ -70,9 +70,6 @@ struct PFTodaySoFar: Equatable {
 
 struct PFTodaySoFarCard: View {
     let snapshot: PFSnapshot
-    /// Today's version: no strip (the day graph above is the timeline) and no "Open My Day" button; the card draws only while something
-    /// was recorded today.
-    var isRecordedOnly = false
     @EnvironmentObject private var coach: AICoachEngine
     @EnvironmentObject private var router: NavRouter
     @State private var opened: PFWorkout?
@@ -87,18 +84,16 @@ struct PFTodaySoFarCard: View {
     }
 
     var body: some View {
-        if !isRecordedOnly || !recorded.isEmpty {
-            PFCard("Today so far", icon: "clock") {
-                VStack(alignment: .leading, spacing: 10) {
-                    PFTodaySoFarContent(model: model, showsStrip: !isRecordedOnly)
-                    ForEach(recorded, id: \.id) { activity in recordedRow(activity) }
-                }
+        PFCard("Today so far", icon: "clock") {
+            VStack(alignment: .leading, spacing: 10) {
+                PFTodaySoFarContent(model: model)
+                ForEach(recorded, id: \.id) { activity in recordedRow(activity) }
             }
-            .accessibilityElement(children: .contain)
-            .containerIdentifier("pf-sofar-card")
-            .sheet(item: $opened) { workout in
-                PFResultsSheet(workout: workout, snapshot: snapshot, onAskCoach: PFResultsSheet.askCoach(coach, router))
-            }
+        }
+        .accessibilityElement(children: .contain)
+        .containerIdentifier("pf-sofar-card")
+        .sheet(item: $opened) { workout in
+            PFResultsSheet(workout: workout, snapshot: snapshot, onAskCoach: PFResultsSheet.askCoach(coach, router))
         }
     }
 
@@ -145,14 +140,11 @@ struct PFTodaySoFarCard: View {
 /// The card's contents, a type of its own so the card's generic type stays small.
 private struct PFTodaySoFarContent: View {
     let model: PFTodaySoFar
-    var showsStrip = true
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            if showsStrip {
-                PFMiniStrip(model: model)
-                    .frame(height: 34)
-            }
+            PFMiniStrip(model: model)
+                .frame(height: 34)
             Text(planLine)
                 .font(StrandFont.subhead.weight(.semibold))
                 .foregroundStyle(StrandPalette.textPrimary)
@@ -163,7 +155,7 @@ private struct PFTodaySoFarContent: View {
                     .foregroundStyle(StrandPalette.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
-            if showsStrip { openMyDay }
+            openMyDay
         }
     }
 

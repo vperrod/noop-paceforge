@@ -66,7 +66,7 @@ struct LookStressTile: View {
             MonitorTile(title: String(localized: "Stress monitor"),
                         badge: .text(String(format: "%.1f", locale: AppLanguage.activeLocale, value)),
                         badgeForeground: color, badgeBackground: color.opacity(0.2),
-                        status: level.label, statusColor: color, detail: String(localized: "Scale 0 to 3"))
+                        status: level.label, statusColor: color, detail: String(localized: "Daily, from HRV and resting HR"))
         } else {
             MonitorTile(title: String(localized: "Stress monitor"), badge: .symbol("hourglass"),
                         badgeForeground: NoopLook.textTertiary, badgeBackground: NoopLook.track,

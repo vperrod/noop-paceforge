@@ -69,6 +69,7 @@ struct LiquidTodayView: View {
     @State private var showsStickyDials = false
     #endif
     @State private var fitnessAge: Double?         // exploreSeries("fitness_age").last
+    @State private var fitnessAgeSource: String?   // who supplied that reading, for its caption
     @State private var vo2max: Double?             // exploreSeries("vo2max_est").last (#1391)
     @State private var vitality: Double?           // exploreSeries("vitality").last
     // Queue 11a: day-keyed "spo2_candidate" metricSeries (WHOOP `spo2_candidate_82` or Oura
@@ -82,6 +83,8 @@ struct LiquidTodayView: View {
     @State private var importedActiveKcalDay: Double?  // #616: Apple Health active energy for the day (calorie fallback)
     @State private var weightKg: Double?           // Apple Health / Hume weight ?: profile fallback
     @State private var weightSourceCaption = String(localized: "latest")
+    /// The newest weight reading with its source and day: what the Weight tile prints, and what Weight vs goal measures against.
+    @State private var weightReading: PFNewestWeight?
     @State private var hrValues: [Double] = []     // hrBuckets since midnight → 5-min means
     /// Line identity for [hrValues], from the bucket timestamps this used to discard (#2082).
     ///
@@ -948,14 +951,6 @@ struct LiquidTodayView: View {
         let band = effortReading?.progress
         let ownTarget = LookDial.targetArc(low: band?.lowFraction, high: band?.highFraction, max: 1)
         let target = ownTarget ?? (selectedDayOffset == 0 ? intelStore.current?.call?.effortTarget?.arc : nil)
-        // Same choice as `target`: the strap's own band, else PaceForge's (Garmin-based) one. The line names which one drew the arc.
-        let pfTarget = selectedDayOffset == 0 ? intelStore.current?.call?.effortTarget : nil
-        var targetLine: String?
-        if ownTarget != nil, let range = band?.rangeText {
-            targetLine = String(localized: "Effort target") + " \(range) \u{00B7} NOOP"
-        } else if let pfTarget, pfTarget.arc != nil {
-            targetLine = String(localized: "Effort target") + " \(pfTarget.rangeText) \u{00B7} PaceForge (Garmin)"
-        }
         let chargeColor = chargeDisplay.pct.map { NoopLook.chargeColor($0) } ?? NoopLook.chargeHigh
         let isWhoopScale = effortScale == .whoop
         let inputs = [
@@ -969,7 +964,8 @@ struct LiquidTodayView: View {
                              maxValue: isWhoopScale ? 21 : 100, decimals: isWhoopScale ? 1 : 0, tint: NoopLook.effort,
                              unit: nil, target: target, route: .metric(HeroRingMetric.effort), onGuide: { guideSection = .effort }),
         ]
-        return TodaySixRings(noop: inputs, isToday: selectedDayOffset == 0, effortTargetLine: targetLine)
+        // The Effort target is stated once, on its own card in My Day; the dial only draws the arc.
+        return TodaySixRings(noop: inputs, isToday: selectedDayOffset == 0, effortTargetLine: nil)
         // onGeometryChange, not a preference: the preference route never delivered a value from this scroll view. It reports the
         // Bool, so the action (and a re-render of the dashboard) runs only when the strip appears or goes, not every frame.
         .onGeometryChange(for: Bool.self) {
@@ -999,6 +995,9 @@ struct LiquidTodayView: View {
         if shows(.call) {
             PFTodayCards(cards: [.theCall, .needsYou], showsHiddenRow: false, onOpenNeedsYou: openNeedsYou, onReadWhy: readWhy)
         }
+        // The journal is the morning prompt: until today's is logged it sits right under the call with a one-tap way in, and it folds to a
+        // "Journal logged" row that opens Journal impact afterwards.
+        if order.contains(.journal) { JournalReminderCard() }
         // PaceForge's one assessment of the day as a line under the call. Its recovery bars (TodayPFReadout) stay off Today: they carry
         // PaceForge's own recovery numbers, a third score beside Garmin's and the strap's.
         if shows(.pageNote) { PFPageNote(key: "today") }
@@ -1044,11 +1043,12 @@ struct LiquidTodayView: View {
             LookSectionHeader(String(localized: "My Plan"))
                 .padding(.top, 8)
                 .accessibilityIdentifier("today-my-plan-header")
-            if shows(.thisWeek) || shows(.trainingRow) {
-                PFTodayCards(cards: shows(.thisWeek) ? [.thisWeek] : [], drawsChrome: false, showsTrainingRow: shows(.trainingRow),
-                             lastWorkout: trainingLastWorkout, containerID: "pf-today-cards-week",
-                             onOpenNeedsYou: openNeedsYou, onReadWhy: readWhy)
-            }
+            // The last slot also closes Today's PaceForge cards with the Hidden cards row, so it mounts even when the week card and the
+            // training row are both turned off in Customize: a card closed with its X can always be brought back.
+            // The last workout is listed once, under My Dashboard (Last workouts); this row only carries a race that is today.
+            PFTodayCards(cards: shows(.thisWeek) ? [.thisWeek] : [], drawsChrome: false, showsTrainingRow: shows(.trainingRow),
+                         lastWorkout: nil, containerID: "pf-today-cards-week",
+                         onOpenNeedsYou: openNeedsYou, onReadWhy: readWhy)
         }
         // Stage 4: the dashboard header.
         if mountStage >= 4 {
@@ -1087,11 +1087,6 @@ struct LiquidTodayView: View {
             .buttonStyle(.plain)
             .accessibilityIdentifier("today-hidden-sections-row")
         }
-    }
-
-    /// The newest workout the Last workouts card draws, as the training row's compact card prints it.
-    private var trainingLastWorkout: PFTrainingLastWorkout? {
-        workouts.first.map { PFTrainingLastWorkout(title: WorkoutSource.displaySport($0.sport), detail: workoutSub($0), startTs: $0.startTs) }
     }
 
     /// "My Dashboard" with CUSTOMIZE, which opens the same Customize sheet as the header's button.
@@ -1509,7 +1504,8 @@ struct LiquidTodayView: View {
             cardLink(.stress, title: card.title, sub: card.subtitle,
                      value: stressText, tint: StrandPalette.accent, frac: fracOver(stress, 3))
         case .fitnessAge:
-            cardLink(.metric("fitness_age"), title: card.title, sub: card.subtitle,
+            cardLink(.metric("fitness_age"), title: card.title,
+                     sub: fitnessAgeSource.map { card.subtitle + " \u{00B7} " + $0 } ?? card.subtitle,
                      // Bound symbol as on the Health hero (#2173), so a floored reading does not read
                      // exact here and bounded there.
                      value: fitnessAge.map { "\(fitnessAgeBoundSymbol($0))" + unitText($0, card.unit) }
@@ -1787,11 +1783,14 @@ struct LiquidTodayView: View {
                 // Today where a metric was a dead end. Routes taken from `liquidCard`'s own cases so the two
                 // surfaces cannot send the same vital to different trends.
                 vitalRow(String(localized: "Heart-rate variability"), unitText(hrv, "ms"),
-                         StrandPalette.metricCyan, fracOver(hrv, 120), route: .metric("hrv"))
+                         StrandPalette.metricCyan, fracOver(hrv, 120), route: .metric("hrv"),
+                         source: hrv == nil ? nil : vitalSourceCaption(hrvSourceRow, has: { $0.avgHrv != nil }))
                 vitalRow(String(localized: "Resting heart rate"), unitText(rhr, "bpm"),
-                         StrandPalette.metricRose, fracOver(rhr, 100), route: .metric("rhr"))
+                         StrandPalette.metricRose, fracOver(rhr, 100), route: .metric("rhr"),
+                         source: rhr == nil ? nil : vitalSourceCaption(rhrSourceRow, has: { $0.restingHr != nil }))
                 vitalRow(String(localized: "Breaths per minute"), unitText(resp, "rpm", decimals: 1),
-                         StrandPalette.accent, fracOver(resp, 24), route: .metric("resp_rate"))
+                         StrandPalette.accent, fracOver(resp, 24), route: .metric("resp_rate"),
+                         source: resp == nil ? nil : vitalSourceCaption(respSourceRow, has: { $0.respRateBpm != nil }))
             }
         }
     }
@@ -1802,24 +1801,25 @@ struct LiquidTodayView: View {
     /// never claims otherwise. `LiquidPressStyle` is not decoration: a bare `NavigationLink` applies the
     /// default link chrome and would tint the whole row, which is the same reason `cardLink` carries it.
     private func vitalRow(_ label: String, _ value: String, _ tint: Color, _ frac: Double?,
-                          route: TabRoute? = nil) -> some View {
+                          route: TabRoute? = nil, source: String? = nil) -> some View {
         Group {
             if let route {
-                NavigationLink(value: route) { vitalRowBody(label, value, tint, frac, linked: true) }
+                NavigationLink(value: route) { vitalRowBody(label, value, tint, frac, linked: true, source: source) }
                     .buttonStyle(LiquidPressStyle())
             } else {
-                vitalRowBody(label, value, tint, frac, linked: false)
+                vitalRowBody(label, value, tint, frac, linked: false, source: source)
             }
         }
     }
 
     private func vitalRowBody(_ label: String, _ value: String, _ tint: Color, _ frac: Double?,
-                              linked: Bool) -> some View {
+                              linked: Bool, source: String? = nil) -> some View {
         HStack(spacing: 12) {
             // Same as cardLinkBody: without this the disc eats the row's NavigationLink tap.
             LiquidVessel(value: frac, tint: tint, animated: false, tapPassesThrough: true)
                 .frame(width: 26, height: 26)
             Text(label).font(StrandFont.subhead).foregroundStyle(StrandPalette.textSecondary)
+            if let source { PFSourceTag(source: source) }
             Spacer()
             Text(value).font(StrandFont.number(15)).foregroundStyle(StrandPalette.textPrimary)
             if linked {
@@ -1922,9 +1922,11 @@ struct LiquidTodayView: View {
         case .rest:
             ktile(String(localized: "Rest"), icon: keyMetricIcon(metric), intText(restScore), "%", StrandPalette.restColor, frac(restScore), key: HeroRingMetric.rest)
         case .hrv:
-            ktile("HRV", icon: keyMetricIcon(metric), intText(hrv), "ms", StrandPalette.metricCyan, fracOver(hrv, 120), key: "hrv")
+            ktile("HRV", icon: keyMetricIcon(metric), intText(hrv), "ms", StrandPalette.metricCyan, fracOver(hrv, 120), key: "hrv",
+                  caption: hrv == nil ? nil : vitalSourceCaption(hrvSourceRow, has: { $0.avgHrv != nil }))
         case .restingHr:
-            ktile(String(localized: "Rest HR"), icon: keyMetricIcon(metric), intText(rhr), "bpm", StrandPalette.metricRose, fracOver(rhr, 100), key: "rhr")
+            ktile(String(localized: "Rest HR"), icon: keyMetricIcon(metric), intText(rhr), "bpm", StrandPalette.metricRose, fracOver(rhr, 100), key: "rhr",
+                  caption: rhr == nil ? nil : vitalSourceCaption(rhrSourceRow, has: { $0.restingHr != nil }))
         case .bloodOxygen:
             // Queue 11a: the Liquid tile used to read `spo2Pct` only, with no candidate fallback at all
             // (unlike the classic `TodayView`/`VitalSignsSummary`), so an Oura-only or BLE-only WHOOP
@@ -1939,10 +1941,12 @@ struct LiquidTodayView: View {
                 : nil
             let spo2 = spo2Real ?? spo2CandidateValue
             ktile(String(localized: "Blood Oxygen"), icon: keyMetricIcon(metric), intText(spo2), "%", StrandPalette.metricCyan, fracOver(spo2, 100), key: spo2CandidateValue != nil ? "spo2_candidate" : "spo2",
-                  caption: spo2CandidateValue != nil ? String(localized: "strap estimate (unverified)") : nil)
+                  caption: spo2CandidateValue != nil ? String(localized: "strap estimate (unverified)")
+                      : (spo2Real == nil ? nil : vitalSourceCaption(spo2SourceRow, has: { $0.spo2Pct != nil })))
         case .respiratory:
             let resp = displayDay?.respRateBpm ?? vitalsDay?.respRateBpm ?? respDay?.respRateBpm
-            ktile(String(localized: "Respiratory"), icon: keyMetricIcon(metric), resp.map { String(format: "%.1f", locale: AppLanguage.activeLocale, $0) } ?? "—", "rpm", StrandPalette.accent, fracOver(resp, 24), key: "resp_rate")
+            ktile(String(localized: "Respiratory"), icon: keyMetricIcon(metric), resp.map { String(format: "%.1f", locale: AppLanguage.activeLocale, $0) } ?? "—", "rpm", StrandPalette.accent, fracOver(resp, 24), key: "resp_rate",
+                  caption: resp == nil ? nil : vitalSourceCaption(respSourceRow, has: { $0.respRateBpm != nil }))
         case .steps:
             ktile(String(localized: "Steps"), icon: keyMetricIcon(metric), stepsText, "", StrandPalette.chargeColor,
                   fracOver(stepCount, 10000), key: stepsDetailKey, detailMetric: stepsDetailMetric,
@@ -1969,6 +1973,24 @@ struct LiquidTodayView: View {
             // the classic TodayView Skin Temp card.
             ktile(String(localized: "Skin Temp"), icon: keyMetricIcon(metric), skinText, "", StrandPalette.metricAmber, nil, key: "skin_temp")
         }
+    }
+
+    // MARK: Source of a vital
+
+    /// The row each vital on Today was read from: today's own, else the carried one (the same order the values above use).
+    private var hrvSourceRow: DailyMetric? { displayDay?.avgHrv != nil ? displayDay : hrvDay }
+    private var rhrSourceRow: DailyMetric? { displayDay?.restingHr != nil ? displayDay : restingHrDay }
+    private var respSourceRow: DailyMetric? {
+        if displayDay?.respRateBpm != nil { return displayDay }
+        return vitalsDay?.respRateBpm != nil ? vitalsDay : respDay
+    }
+    private var spo2SourceRow: DailyMetric? { displayDay?.spo2Pct != nil ? displayDay : vitalsDay }
+
+    /// "WHOOP strap" or "Garmin": who measured a vital, with the reading's day when it is not the day on screen.
+    private func vitalSourceCaption(_ row: DailyMetric?, has: (DailyMetric) -> Bool) -> String? {
+        guard let row, let source = repo.dailySourceLabel(day: row.day, hasValue: has) else { return nil }
+        guard row.day != (displayDay?.day ?? selectedDayKey) else { return source }
+        return Self.weightCaption(source: source, day: row.day)
     }
 
     private func keyMetricIcon(_ metric: KeyMetric) -> String {
@@ -2094,9 +2116,17 @@ struct LiquidTodayView: View {
                         Text(workoutSub(w)).font(StrandFont.caption).foregroundStyle(StrandPalette.textTertiary)
                     }
                     Spacer()
-                    (Text(effortText(w.strain)).font(StrandFont.number(15))
-                        + Text(" EFFORT").font(StrandFont.overlineScaled(9)))
-                        .foregroundStyle(StrandPalette.textPrimary)
+                    VStack(alignment: .trailing, spacing: 2) {
+                        (Text(effortText(w.strain)).font(StrandFont.number(15))
+                            + Text(" EFFORT").font(StrandFont.overlineScaled(9)))
+                            .foregroundStyle(StrandPalette.textPrimary)
+                        // Who scored it: the row's own source (the WHOOP strap, Apple Health, Garmin through PaceForge).
+                        if w.strain != nil {
+                            Text(WorkoutSource.attributionLabel(w))
+                                .font(StrandFont.caption)
+                                .foregroundStyle(StrandPalette.textTertiary)
+                        }
+                    }
                 }
                 LiquidTube(frac: (w.strain ?? 0) / 100, tint: StrandPalette.effortColor, height: 12, animated: false)
             }
@@ -2187,7 +2217,9 @@ struct LiquidTodayView: View {
                             if selectedDayOffset == 0 {
                                 // Without an endpoint and token the six PaceForge cards are not mounted (see `body`), so Today says why here.
                                 if !PFAPI.isConfigured { PFNotSetUpView() }
-                                PFTodaysCallStoreHost(compact: true)
+                                // The call's detail (chip, PaceForge's Effort target, the planned session) is on the call banner above;
+                                // without PaceForge set up the banner is not drawn, so the card stays there.
+                                if !PFAPI.isConfigured { PFTodaysCallStoreHost(compact: true) }
                                 PFDailyReportRow()
                             }
                             #else
@@ -2235,13 +2267,6 @@ struct LiquidTodayView: View {
                                 #if os(iOS)
                                 if selectedDayOffset == 0 {
                                     EffortTargetCard()
-                                    // The same band as the rings' caption (NOOP), from the strap; Today's call below says PaceForge (Garmin) for its own.
-                                    Text("Effort target from NOOP (strap)")
-                                        .font(StrandFont.caption)
-                                        .foregroundStyle(StrandPalette.textTertiary)
-                                        .frame(maxWidth: .infinity, alignment: .leading)
-                                        .padding(.horizontal, 4)
-                                        .accessibilityIdentifier("today-effort-target-source")
                                     WeeklyGoalsCard()
                                 }
                                 #else
@@ -2257,9 +2282,9 @@ struct LiquidTodayView: View {
                             // direction mark), then weight against its goal.
                             if shows(.vsThirtyDays) {
                                 LookMyDashboardSection(day: selectedLogicalDay, title: "Today vs 30 days", identifier: "today-vs30",
-                                                       drawsEmptyState: false)
+                                                       drawsEmptyState: false, excludesWeight: true)
                             }
-                            if selectedDayOffset == 0 && PFAPI.isConfigured && shows(.weightGoal) { PFTodayWeightGoalHost() }
+                            if selectedDayOffset == 0 && PFAPI.isConfigured && shows(.weightGoal) { PFTodayWeightGoalHost(newest: weightReading) }
                             #endif
                         case .workouts: lastWorkoutsSection
                         case .heartRate: heartRateSection
@@ -2540,10 +2565,18 @@ struct LiquidTodayView: View {
         let newStress = await Task.detached(priority: .utility) {
             StressModel(days: daysSnapshot, stored: storedStress)?.score
         }.value
-        let newFitnessAge = (await fitA).last?.value   // history-wide latest banked (not day-scoped)
+        let fitnessSeries = await fitA
+        let newFitnessAge = fitnessSeries.last?.value   // history-wide latest banked (not day-scoped)
+        // The strap's own computed layer is NOOP's engine scoring on this phone, so it reads "NOOP, on-device"; an import names its service.
+        var newFitnessSource: String?
+        if let latestDay = fitnessSeries.last?.day {
+            newFitnessSource = await repo.exploreSeriesSourceLabel(key: "fitness_age", source: "my-whoop", day: latestDay)
+            if newFitnessSource == "WHOOP strap" { newFitnessSource = "NOOP, on-device" }
+        }
+        let fitnessSource = newFitnessSource
         let newVo2max = (await vo2A).last?.value          // NOOP's estimate remains distinct from Garmin VO₂max.
         let newVitality = (await vitA).last?.value
-        late.append { stress = newStress; fitnessAge = newFitnessAge; vo2max = newVo2max; vitality = newVitality }
+        late.append { stress = newStress; fitnessAge = newFitnessAge; fitnessAgeSource = fitnessSource; vo2max = newVo2max; vitality = newVitality }
         // Steps is a DAILY metric, so key it to the SELECTED day (like restScore above), not the history-wide
         // latest. Without this, swiping to a past day with no strap step count showed today's estimate (the
         // `.last` value) instead of that day's. Mirrors the classic Today's stepsEstByDay[selectedDayKey].
@@ -2588,6 +2621,11 @@ struct LiquidTodayView: View {
             let newCaption = Self.weightCaption(source: captionSource, day: captionDay)
             late.append { weightSourceCaption = newCaption }
         }
+        let newReading: PFNewestWeight? = {
+            guard let kg = newWeightKg, let captionSource, let captionDay else { return nil }
+            return PFNewestWeight(kg: kg, source: captionSource, day: captionDay)
+        }()
+        late.append { weightReading = newReading }
 
         // Awaited ONCE: the timestamps and the means have to come from the same read, or the segments
         // would describe a different series than the one drawn.

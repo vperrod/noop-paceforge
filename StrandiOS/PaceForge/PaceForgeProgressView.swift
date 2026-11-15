@@ -9,7 +9,7 @@ struct PFProgressCard: View {
     var body: some View {
         PFCard(title: "Progress", icon: "target", trailing: {
             if let date = progress.latestReadingDate {
-                Text("Reading \(PFFormat.shortDate(date))")
+                Text("Hume scale \u{00B7} reading \(PFFormat.shortDate(date))")
                     .font(StrandFont.caption)
                     .foregroundStyle(StrandPalette.textTertiary)
             }
@@ -128,7 +128,8 @@ private struct PFProgressGoalRow: View {
                 Text(value(goal.current7d ?? goal.lastReading))
                     .font(StrandFont.rounded(26))
                     .foregroundStyle(StrandPalette.textPrimary)
-                Text("7-day" + (goal.current7d == nil ? " (last reading)" : ""))
+                // The Body page is PaceForge's Hume Body Pod page: every figure on it is the scale's.
+                Text("7-day" + (goal.current7d == nil ? " (last reading)" : "") + " \u{00B7} Hume scale")
                     .font(StrandFont.caption)
                     .foregroundStyle(StrandPalette.textTertiary)
             }

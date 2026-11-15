@@ -16,6 +16,8 @@ struct LookMyDashboardSection: View {
     var title = "My Dashboard"
     var identifier = "look-my-dashboard"
     var drawsEmptyState = true
+    /// Today lists body weight once (its Weight tile and Weight vs goal), so its 30-day rows leave it out.
+    var excludesWeight = false
 
     @EnvironmentObject private var repo: Repository
     @AppStorage(MyDashboardPrefs.storageKey) private var raw = MyDashboardPrefs.defaultCSV
@@ -114,6 +116,7 @@ struct LookMyDashboardSection: View {
         for id in ids {
             let parts = id.split(separator: ":", maxSplits: 1).map(String.init)
             guard parts.count == 2, let metric = MetricCatalog.metric(key: parts[1], source: parts[0]) else { continue }
+            if excludesWeight && metric.key == "weight" { continue }
             // Steps resolve across Apple Health, the Garmin mirror and the strap, so the row never goes empty while
             // any of them has a count, and it names the source of the latest day.
             var rowLabel = metric.title
@@ -128,6 +131,11 @@ struct LookMyDashboardSection: View {
                 }
             } else {
                 series = await repo.exploreSeries(key: metric.key, source: metric.source, days: 120)
+                // Name who measured the latest reading, as the Steps row does.
+                if let latestDay = series.last(where: { $0.day < Repository.dayString(endOfDay) })?.day,
+                   let source = await repo.exploreSeriesSourceLabel(key: metric.key, source: metric.source, day: latestDay) {
+                    rowLabel += " \u{00B7} " + source
+                }
             }
             let points = LookSeries.points(series, calendar: calendar).filter { $0.date < endOfDay }
             let scaled = metric.key == HeroRingMetric.effort

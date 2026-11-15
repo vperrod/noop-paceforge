@@ -86,7 +86,19 @@ private struct PFTheCallCard: View {
     let snapshot: PFSnapshot
     let info: PFTodayCall
     @State private var showBrief = false
+    @ObservedObject private var intel = PFDailyIntelStore.shared
     private let hiding = PFHiding()
+
+    /// The call's detail from daily-intel.json, drawn on the banner so Today states the call once: the chip with PaceForge's Effort
+    /// target, and today's planned session. Nothing while that document is not from today.
+    private var detailLines: [String] {
+        guard let current = intel.intel, current.isCurrent(for: snapshot.todayISO), let detail = current.call else { return [] }
+        var head = [detail.call.spokenText]
+        if let target = detail.effortTarget { head.append("Effort target \(target.rangeText) \u{00B7} PaceForge (Garmin)") }
+        var lines = [head.joined(separator: " \u{00B7} ")]
+        if let session = detail.plannedSession { lines.append("Planned today: \(session.lineText)") }
+        return lines
+    }
 
     /// WHOOP's banner: a rounded bar on the warm-to-cool gradient of the Daily Outlook row, white text, a chevron at the end.
     var body: some View {
@@ -112,6 +124,14 @@ private struct PFTheCallCard: View {
                                     .multilineTextAlignment(.leading)
                                     .fixedSize(horizontal: false, vertical: true)
                                     .accessibilityIdentifier("pf-the-call-reason")
+                            }
+                            ForEach(detailLines, id: \.self) { line in
+                                Text(hiding.text(line))
+                                    .font(LookFont.text(12.5, weight: .medium))
+                                    .foregroundStyle(Color.white.opacity(0.8))
+                                    .multilineTextAlignment(.leading)
+                                    .fixedSize(horizontal: false, vertical: true)
+                                    .accessibilityIdentifier("pf-the-call-detail")
                             }
                         }
                         Spacer(minLength: 4)

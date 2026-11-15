@@ -88,6 +88,19 @@ enum DailyMetricSource: Equatable {
     }
 }
 
+extension DailyMetricSource {
+    /// The name a figure's source tag shows: the wearer's own devices and services, never an internal layer name.
+    var attributionLabel: String? {
+        switch self {
+        case .whoopImport: return "WHOOP"
+        case .noopComputed: return "WHOOP strap"
+        case .paceForgeGarmin: return "Garmin"
+        case .appleHealth: return "Apple Health"
+        case .localCache: return nil
+        }
+    }
+}
+
 struct SourcedDailyMetric: Equatable {
     let metric: DailyMetric
     let source: DailyMetricSource
@@ -1268,6 +1281,15 @@ final class Repository: ObservableObject {
                 }
                 return lhs.metric.day < rhs.metric.day
             }
+    }
+
+    /// The source that supplied a value in the merged `days` for `day`: the WHOOP import first, then the strap's own scoring, then Garmin,
+    /// the order `mergeDaily` and `mergePaceForgeGarmin` fill an empty field in. Apple Health rows are not part of `days`.
+    func dailySourceLabel(day: String, hasValue: (DailyMetric) -> Bool) -> String? {
+        vitalRows
+            .filter { $0.metric.day == day && $0.source != .appleHealth && hasValue($0.metric) }
+            .min { $0.source.vitalPriority < $1.source.vitalPriority }?
+            .source.attributionLabel
     }
 
     /// Same precedence for sleep sessions, keyed by the day the night ends on.
@@ -2627,6 +2649,29 @@ final class Repository: ObservableObject {
         }
 
         return Self.oneSkinTempScale(key: key, byDay.sorted { $0.key < $1.key }.map { (day: $0.key, value: $0.value) })
+    }
+
+    /// Who supplied `day`'s point of `exploreSeries(key:source:)`, walking the same layers in the same order: the WHOOP import's own series,
+    /// then the strap's computed series, then the merged daily column (itself WHOOP import, strap or Garmin). Any other source is read
+    /// verbatim, so it names itself. nil when the day has no point or the source has no friendly name.
+    func exploreSeriesSourceLabel(key: String, source: String, day: String) async -> String? {
+        guard source == Self.whoopSource else {
+            switch source {
+            case Self.appleHealthSource: return "Apple Health"
+            case Self.healthConnectSource: return "Health Connect"
+            case "paceforge-garmin": return "Garmin"
+            case "paceforge-hume": return "Scale (Hume)"
+            default: return nil
+            }
+        }
+        guard let store = await ensureStore() else { return nil }
+        for id in importedReadIds {
+            if let rows = try? await store.metricSeries(deviceId: id, key: key, from: day, to: day), !rows.isEmpty { return "WHOOP" }
+        }
+        for id in computedReadIds {
+            if let rows = try? await store.metricSeries(deviceId: id, key: key, from: day, to: day), !rows.isEmpty { return "WHOOP strap" }
+        }
+        return dailySourceLabel(day: day) { Self.dailyColumn(key: key, day: $0) != nil }
     }
 
     /// #1705: reduce a `skin_temp` window to a single scale; every other key passes through untouched.
