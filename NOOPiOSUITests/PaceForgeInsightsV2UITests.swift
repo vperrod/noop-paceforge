@@ -1,15 +1,13 @@
 import XCTest
 
-/// Simulator checks for Insights v2: the Next best action card on Today (hide, pin, its options), the five cards on
-/// Insights and the detail screen each opens (status, meaning, actions with why and effort, the charts, the data
+/// Simulator checks for Insights v2: the five cards on Coach > Insights > Overview and the detail screen each opens (status, meaning, actions with why and effort, the charts, the data
 /// note), the "not enough data" states (`-PaceForgeInsightsSparse`), no file at all (`-PaceForgeInsightsMissing`)
-/// and Hide numbers on the weight goal (`-noop.hide.body YES`). Like the other PaceForge UI tests they serve the
+/// and Hide numbers on the weight goal (`-noop.hide.body YES`). The Next best action card of Today (hide, pin, its options) is
+/// gone: 622ffedd removed the classic PaceForge Today and its Customise bar, and nothing mounts `PFNextActionCard` any more. Like the other PaceForge UI tests they serve the
 /// synthetic PaceForgeFixture.json (a made-up athlete and a made-up race, never real data).
 final class PaceForgeInsightsV2UITests: XCTestCase {
     private func launch(extraArguments: [String] = []) throws -> XCUIApplication {
         let app = XCUIApplication()
-        // These tests drive the classic PaceForge tab and its segments, which the unified bar (the default) does not have.
-        try app.useClassicNavigation()
         app.launchArguments.append("--demo-seed")
         app.launchArguments.append(contentsOf: extraArguments)
         app.launchArguments.append("-PaceForgeFixture")
@@ -31,18 +29,6 @@ final class PaceForgeInsightsV2UITests: XCTestCase {
         app.descendants(matching: .any).matching(identifier: id).firstMatch
     }
 
-    private func openSegment(_ app: XCUIApplication, _ title: String) throws {
-        let tab = app.shellTab("PaceForge")
-        XCTAssertTrue(tab.waitForExistence(timeout: 20), "The PaceForge tab should be present.")
-        tab.tap()
-        let segments = app.segmentedControls["pf-segments"]
-        XCTAssertTrue(segments.waitForExistence(timeout: 15), "The PaceForge segmented control should load from the fixture.")
-        let button = segments.buttons[title]
-        button.tap()
-        // The segment is remembered between launches; a tap that lands while the previous one is restored is lost.
-        if !button.isSelected { button.tap() }
-    }
-
     /// Scrolls down until the element can be tapped.
     @discardableResult
     private func reveal(_ element: XCUIElement, in app: XCUIApplication, maxSwipes: Int = 14) -> Bool {
@@ -57,7 +43,7 @@ final class PaceForgeInsightsV2UITests: XCTestCase {
 
     /// Opens the detail screen of an Insights card (`power_curve`, `race_countdown`, ...).
     private func openInsight(_ app: XCUIApplication, _ id: String) throws {
-        try openSegment(app, "Insights")
+        app.openCoachInsights("overview")
         let card = element(app, "pf-insight-card-\(id)")
         XCTAssertTrue(reveal(card, in: app, maxSwipes: 20), "Insights should show the \(id) card.")
         card.tap()
@@ -71,83 +57,12 @@ final class PaceForgeInsightsV2UITests: XCTestCase {
         XCTAssertTrue(element(app, "pf-insight-actions-\(id)").exists, "The detail should say what to do.")
     }
 
-    // MARK: Today: Next best action
-
-    func testTodayShowsTheNextBestActionCard() throws {
-        let app = try launch()
-        try openSegment(app, "Today")
-        let card = element(app, "pf-next-action-card")
-        XCTAssertTrue(reveal(card, in: app, maxSwipes: 20), "Today should show the Next best action card.")
-        XCTAssertTrue(element(app, "pf-insight-status-next_best_action").exists, "The card should show its priority.")
-        attach(app, "91 Next best action on Today")
-    }
-
-    func testTheNextBestActionCardOpensTheOtherOptions() throws {
-        let app = try launch()
-        try openSegment(app, "Today")
-        let card = element(app, "pf-next-action-card")
-        XCTAssertTrue(reveal(card, in: app, maxSwipes: 20))
-        card.tap()
-        XCTAssertTrue(element(app, "pf-insight-next_best_action").waitForExistence(timeout: 10))
-        assertTheAnswerAndTheNextStep(app, "next_best_action")
-        XCTAssertTrue(element(app, "pf-insight-effort-efficiency:easier-easy-days").exists, "The action should show what it costs.")
-        attach(app, "91 Next best action detail")
-        let options = element(app, "pf-nba-options")
-        XCTAssertTrue(reveal(options, in: app), "The detail should list the other options.")
-        attach(app, "91 Next best action options")
-        app.swipeUp()
-        attach(app, "91 Next best action ranking")
-    }
-
-    func testTheNextBestActionCardCanBeHiddenAndShownAgain() throws {
-        let app = try launch()
-        try openSegment(app, "Today")
-        let corner = element(app, "pf-dismiss-next-best-action")
-        XCTAssertTrue(reveal(corner, in: app, maxSwipes: 20), "The card should have the Not today corner.")
-        corner.tap()
-        app.buttons["Hide until it changes"].tap()
-        XCTAssertFalse(element(app, "pf-next-action-card").waitForExistence(timeout: 3), "The hidden card should be gone.")
-        let row = element(app, "pf-hidden-cards")
-        XCTAssertTrue(reveal(row, in: app, maxSwipes: 24))
-        row.tap()
-        XCTAssertTrue(element(app, "pf-hidden-sheet").waitForExistence(timeout: 10))
-        attach(app, "92 Next best action hidden")
-        let restore = app.buttons["pf-restore-next-best-action"]
-        XCTAssertTrue(restore.waitForExistence(timeout: 5))
-        restore.tap()
-        let done = app.buttons["pf-hidden-done"]
-        if done.waitForExistence(timeout: 2) { done.tap() }
-        XCTAssertTrue(element(app, "pf-next-action-card").waitForExistence(timeout: 10), "Showing it again should bring the card back.")
-    }
-
-    func testTheNextBestActionCardCanBePinnedToTheTop() throws {
-        let app = try launch()
-        try openSegment(app, "Today")
-        let customise = element(app, "pf-today-customise")
-        XCTAssertTrue(customise.waitForExistence(timeout: 10), "Today should offer Customise.")
-        customise.tap()
-        let pin = app.buttons["pf-arrange-pin-next-best-action"]
-        XCTAssertTrue(reveal(pin, in: app, maxSwipes: 20), "The card should offer Pin while arranging.")
-        pin.tap()
-        XCTAssertTrue(app.buttons["pf-arrange-up-next-best-action"].waitForExistence(timeout: 5))
-        XCTAssertFalse(app.buttons["pf-arrange-up-next-best-action"].isEnabled, "A pinned card is first, so it cannot move up.")
-        attach(app, "92 Next best action pinned")
-    }
-
-    func testTheNextBestActionCardIsAbsentWhenThereIsNothingToSuggest() throws {
-        let app = try launch(extraArguments: ["-PaceForgeInsightsSparse"])
-        try openSegment(app, "Today")
-        XCTAssertTrue(element(app, "pf-today-customise").waitForExistence(timeout: 10))
-        for _ in 0..<8 { app.swipeUp() }
-        XCTAssertFalse(element(app, "pf-next-action-card").exists, "An unavailable next best action is not worth a card.")
-    }
-
     // MARK: Insights: the cards
 
     func testInsightsListsTheFiveCardsWithTheirStatus() throws {
         let app = try launch()
-        try openSegment(app, "Insights")
-        XCTAssertTrue(element(app, "pf-insights-v2").waitForExistence(timeout: 10), "Insights should show the new cards.")
+        app.openCoachInsights("overview")
+        XCTAssertTrue(element(app, "pf-insights-v2").waitForExistence(timeout: 10), "Coach > Insights > Overview should show the new cards.")
         for id in ["power_curve", "race_countdown", "weight_goal", "efficiency", "sleep"] {
             XCTAssertTrue(reveal(element(app, "pf-insight-card-\(id)"), in: app, maxSwipes: 24), "Insights should show the \(id) card.")
         }
@@ -157,7 +72,7 @@ final class PaceForgeInsightsV2UITests: XCTestCase {
 
     func testACardReadsItsMeaningAndItsFirstStep() throws {
         let app = try launch()
-        try openSegment(app, "Insights")
+        app.openCoachInsights("overview")
         let card = element(app, "pf-insight-card-sleep")
         XCTAssertTrue(reveal(card, in: app, maxSwipes: 24))
         XCTAssertTrue(card.label.contains("Next: Aim for lights-out"), "The card should lead with the first thing to do: \(card.label)")
@@ -294,11 +209,14 @@ final class PaceForgeInsightsV2UITests: XCTestCase {
         attach(app, "99 Sleep, nine nights")
     }
 
-    func testWithoutTheFileInsightsShowsNoNewCardsAndTodayNoSuggestion() throws {
+    func testWithoutTheFileInsightsShowsNoNewCardsAndTheRestStillLoads() throws {
         let app = try launch(extraArguments: ["-PaceForgeInsightsMissing"])
-        try openSegment(app, "Insights")
+        app.openCoachInsights("overview")
+        XCTAssertFalse(element(app, "pf-insights-v2").waitForExistence(timeout: 5), "An older server serves no insights-v2.json.")
+        let deepDives = element(app, "insights-chip-deepDives")
+        XCTAssertTrue(deepDives.waitForExistence(timeout: 10), "The Deep dives chip should be there.")
+        deepDives.tap()
         XCTAssertTrue(element(app, "pf-load-chart").waitForExistence(timeout: 10), "The rest of Insights should still load.")
-        XCTAssertFalse(element(app, "pf-insights-v2").exists, "An older server serves no insights-v2.json.")
         attach(app, "99 Insights, no file")
     }
 
@@ -306,7 +224,7 @@ final class PaceForgeInsightsV2UITests: XCTestCase {
 
     func testHidingBodyNumbersCoversTheWeightGoal() throws {
         let app = try launch(extraArguments: ["-noop.hide.body", "YES"])
-        try openSegment(app, "Insights")
+        app.openCoachInsights("overview")
         let card = element(app, "pf-insight-card-weight_goal")
         XCTAssertTrue(reveal(card, in: app, maxSwipes: 24))
         XCTAssertFalse(card.label.contains("82.5"), "The card should not read the weight: \(card.label)")
