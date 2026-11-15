@@ -243,13 +243,16 @@ struct PFHyroxResultRace: Equatable, Identifiable {
     /// The official overall placing and field size, when the result carries them (the server sends nothing else about the field).
     var rank: Int? = nil
     var fieldSize: Int? = nil
+    var rankAgeGroup: Int? = nil
 
     var title: String { city ?? "Race" }
 
     /// "12 of 340 overall"; nil unless both are known.
     var placingText: String? {
         guard let rank, let fieldSize, rank > 0, fieldSize >= rank else { return nil }
-        return "\(rank) of \(fieldSize) overall"
+        let overall = "\(rank) of \(fieldSize)"
+        guard let group = rankAgeGroup, group > 0 else { return overall + " overall" }
+        return overall + " \u{00B7} age group \(group)"
     }
 
     /// "Sun 8 Mar \u{00B7} open".
@@ -566,7 +569,7 @@ enum PFHyroxParse {
                                  stationsS: j["stations_s"].int, roxzoneS: j["roxzone_s"].int,
                                  laps: j["laps"].array.map { $0.int }, stations: splits, flags: flags,
                                  artefact: j["artefact"].bool ?? !flags.isEmpty,
-                                 rank: j["rank"].int, fieldSize: j["field_size"].int)
+                                 rank: j["rank"].int, fieldSize: j["field_size"].int, rankAgeGroup: j["rank_age_group"].int)
     }
 
     private static func series(_ j: PFJ, fallbackName: String?, fallbackKey: String? = nil) -> PFHyroxSeries? {

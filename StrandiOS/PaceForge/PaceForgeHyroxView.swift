@@ -151,7 +151,7 @@ struct PFHyroxScreen: View {
             PFHyroxNextRaceCard()
             if showsPrediction, let snapshot { predictionCard(snapshot) }
             PFHyroxYourPlanCard()
-            PFHyroxResultsCard()
+            PFHyroxResultsCard(snapshot: snapshot)
             PFHyroxPerformanceCard()
             PFHyroxTrainingCard(snapshot: snapshot)
             PFHyroxAdvisoryCard(snapshot: snapshot)
@@ -607,6 +607,7 @@ private struct PFHyroxYourPlanCard: View {
 // MARK: - 3. Results
 
 private struct PFHyroxResultsCard: View {
+    let snapshot: PFSnapshot?
     @ObservedObject private var store = PFHyroxStore.shared
 
     var body: some View {
@@ -618,7 +619,7 @@ private struct PFHyroxResultsCard: View {
                                        identifier: "hyrox-no-results")
                     } else {
                         PFHyroxHint("Newest first. Tap a race for its 8 runs and 8 stations.")
-                        ForEach(results.races) { PFHyroxResultRow(race: $0) }
+                        ForEach(results.races) { PFHyroxResultRow(race: $0, snapshot: snapshot) }
                     }
                     if store.resultsIsSavedCopy { PFStaleLabel(text: "Couldn't refresh. Showing the last saved copy.") }
                 }
@@ -634,7 +635,14 @@ private struct PFHyroxResultsCard: View {
 
 private struct PFHyroxResultRow: View {
     let race: PFHyroxResultRace
+    var snapshot: PFSnapshot? = nil
+    @EnvironmentObject private var coach: AICoachEngine
+    @EnvironmentObject private var router: NavRouter
     @State private var isOpen = false
+    @State private var showRace = false
+
+    /// The recording of this race, matched by city, division and a 3-day window around the result's (first-day) date; nil when none fits.
+    private var recordingID: String? { snapshot?.recordingID(forResult: race) }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -671,6 +679,21 @@ private struct PFHyroxResultRow: View {
             .buttonStyle(.plain)
             .accessibilityValue(Text(isOpen ? "Expanded" : "Collapsed"))
             .accessibilityIdentifier("hyrox-race-\(race.id)")
+            if let id = recordingID, let snapshot {
+                Button { showRace = true } label: {
+                    Label("Race details", systemImage: "flag.checkered")
+                        .font(StrandFont.subhead.weight(.semibold))
+                        .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(StrandPalette.accent)
+                .accessibilityIdentifier("hyrox-race-details-\(race.id)")
+                .sheet(isPresented: $showRace) {
+                    PFResultsSheet(workout: PFWorkout(id: id, date: race.date ?? "", status: "done", name: race.title, kind: "race", activityId: id),
+                                   snapshot: snapshot, onAskCoach: PFResultsSheet.askCoach(coach, router))
+                }
+            }
             if isOpen { detail }
         }
         .padding(12)
