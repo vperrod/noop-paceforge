@@ -36,29 +36,36 @@ struct TrainRunningChip: View {
     var body: some View {
         let maxHr: Int? = profile.hrMaxOverride > 0 ? profile.hrMaxOverride : nil
         PFSnapshotHost(content: { snapshot in
-            AnyView(TrainRunningContent(athlete: PFAthleteBuild.make(snapshot, maxHr: maxHr)))
+            AnyView(TrainRunningContent(athlete: PFAthleteBuild.make(snapshot, maxHr: maxHr), snapshot: snapshot))
         })
         .containerIdentifier("train-chip-content-running")
+        // The numbers card draws nothing until the panels store has its document.
+        .task { await PFCoachPanelsStore.shared.refreshIfStale() }
     }
 }
 
 private struct TrainRunningContent: View {
     let athlete: PFAthlete
+    let snapshot: PFSnapshot
     @State private var sheet: AthleteSheet?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            if athlete.predictions == nil && athlete.zones == nil {
+            if athlete.predictions == nil && athlete.zones == nil && athlete.tile("vo2max") == nil && athlete.tile("lt_pace") == nil {
                 PFCard("Nothing here yet", icon: "figure.run") {
                     PFParagraph("Race predictions and heart-rate zones appear here once PaceForge has synced your watch.")
                 }
             }
+            runTiles
             if let predictions = athlete.predictions {
                 AthletePredictionsCard(predictions: predictions) { sheet = .predictions }
             }
             if let zones = athlete.zones {
                 AthleteZonesCard(zones: zones) { sheet = .zones }
             }
+            PFNumbersCard()
+            PFRecentRunsCard(snapshot: snapshot)
+            PFTreadmillPacesRow(snapshot: snapshot)
             IndexSection("Runs") {
                 IndexRow("Workouts", "figure.run", TabRoute.workouts, id: "train-running-workouts")
             }
@@ -66,8 +73,25 @@ private struct TrainRunningContent: View {
         .sheet(item: $sheet) { sheetContent($0) }
     }
 
+    /// VO2 max and the threshold: the same tiles as Athlete, each opening its detail sheet.
+    @ViewBuilder private var runTiles: some View {
+        let tiles = athlete.tiles.filter { ["vo2max", "lt_pace"].contains($0.id) }
+        if !tiles.isEmpty {
+            LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
+                ForEach(tiles) { tile in
+                    Button { sheet = .tile(tile.id) } label: { AthleteTile(tile: tile) }
+                        .buttonStyle(.plain)
+                        .accessibilityIdentifier("train-running-tile-\(tile.id)")
+                }
+            }
+            .containerIdentifier("train-running-tiles")
+        }
+    }
+
     @ViewBuilder private func sheetContent(_ sheet: AthleteSheet) -> some View {
         switch sheet {
+        case .tile(let id):
+            if let tile = athlete.tile(id) { AthleteMetricSheet(tile: tile, standing: snapshot.standing) }
         case .predictions:
             if let predictions = athlete.predictions { AthletePredictionsSheet(predictions: predictions) }
         case .zones:
