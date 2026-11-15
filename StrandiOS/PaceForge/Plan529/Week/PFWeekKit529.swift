@@ -179,28 +179,48 @@ struct PFWeekState529: View {
 
 // MARK: Proposals
 
-/// Accepts or keeps one proposal with the answer the Needs you card sends (`POST /app/answer`, kind proposal), so the same code and the
-/// same server door as before. Returns the reason in plain words when the server did not take it, nil when it did.
+/// What the server said to one answer.
+enum PFAnswerResult529: Equatable {
+    case saved
+    /// 404: the change was answered or replaced meanwhile ("That proposal is already handled."). Not an error in "Accept all".
+    case handled(String)
+    case refused(String)
+}
+
+/// Accepts or keeps one change with `POST /app/answer` `{kind: proposal, id, decision: accept | dismiss, key}` (server-jobs-529.md section 8),
+/// the same door and code as a Needs you card. The key is `accept-<id>` / `dismiss-<id>` so a retry is safe. A requested swap's id
+/// (`swap-...`) works like any other. The reason comes back in the server's own words.
 enum PFProposalAnswer529 {
-    @MainActor static func send(id: String, accept: Bool) async -> String? {
+    @MainActor static func send(id: String, accept: Bool) async -> PFAnswerResult529 {
         let model = PFUnified.model
         let answer = PFNeedsAnswer.proposal(id: id, accept: accept)
         if let item = PFEasyModeJobs.item(forProposal: id, in: model.snapshot?.needsYou ?? []) {
             await model.submitAnswer(answer, for: item)
-            return model.needsNotes[item.id]
+            guard let note = model.needsNotes[item.id] else { return .saved }
+            let lower = note.lowercased()
+            let isHandled = lower.contains("already handled") || lower.contains("no longer waiting") || lower.contains("nothing to add")
+            return isHandled ? .handled(note) : .refused(note)
         }
         var body = answer.body
-        body["key"] = "ios-" + UUID().uuidString.lowercased()
-        let outcome: PFAnswerOutcome
+        body["key"] = key(id: id, accept: accept)
+        let reply: (status: Int, data: Data)
         do {
-            let reply = try await PFAPI.postAnswer(body)
-            outcome = PFAnswerOutcome.from(status: reply.status, data: reply.data)
+            reply = try await PFAPI.postAnswer(body)
         } catch {
-            outcome = .unreachable
+            return .refused(PFAnswerOutcome.unreachable.message)
         }
-        guard outcome.isSaved else { return outcome.message }
-        await model.refresh()
-        return nil
+        let outcome = PFAnswerOutcome.from(status: reply.status, data: reply.data)
+        if outcome.isSaved {
+            await model.refresh()
+            return .saved
+        }
+        return reply.status == 404 ? .handled(outcome.message) : .refused(outcome.message)
+    }
+
+    /// 1 to 64 letters, digits, `-` and `_`.
+    static func key(id: String, accept: Bool) -> String {
+        let safe = String(id.map { $0.isASCII && ($0.isLetter || $0.isNumber || $0 == "-" || $0 == "_") ? $0 : "_" })
+        return String(((accept ? "accept-" : "dismiss-") + safe).prefix(64))
     }
 }
 
@@ -213,29 +233,44 @@ final class PFWeekDecisions529: ObservableObject {
 
     var isBusy: Bool { !busy.isEmpty || isAnsweringAll }
 
+    /// Answers one change; true when the server took it. A change already handled says so and the plan is read again.
     @discardableResult
     func decide(_ id: String, accept: Bool) async -> Bool {
         guard !busy.contains(id) else { return false }
         busy.insert(id)
         failure = nil
-        let error = await PFProposalAnswer529.send(id: id, accept: accept)
+        let result = await PFProposalAnswer529.send(id: id, accept: accept)
         busy.remove(id)
-        if let error {
-            failure = error
+        switch result {
+        case .saved:
+            NotificationCenter.default.post(name: .pfPlan529Changed, object: nil)
+            return true
+        case .handled(let message):
+            failure = message
+            NotificationCenter.default.post(name: .pfPlan529Changed, object: nil)
+            return false
+        case .refused(let message):
+            failure = message
             return false
         }
-        NotificationCenter.default.post(name: .pfPlan529Changed, object: nil)
-        return true
     }
 
-    /// Accepts every proposal in turn and stops at the first the server refuses.
+    /// "Accept all" has no server call: one accept per change in order, one request at a time. A change already handled (replaced
+    /// meanwhile) is skipped; the first refusal stops the loop and shows its sentence. The week is read again once at the end.
     func acceptAll(_ ids: [String]) async {
         isAnsweringAll = true
+        failure = nil
         for id in ids {
-            let taken = await decide(id, accept: true)
-            if !taken { break }
+            busy.insert(id)
+            let result = await PFProposalAnswer529.send(id: id, accept: true)
+            busy.remove(id)
+            if case .refused(let message) = result {
+                failure = message
+                break
+            }
         }
         isAnsweringAll = false
+        NotificationCenter.default.post(name: .pfPlan529Changed, object: nil)
     }
 }
 

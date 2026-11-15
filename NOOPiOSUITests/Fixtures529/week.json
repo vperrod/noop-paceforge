@@ -86,13 +86,13 @@
    "firm": 3.0,
    "optional": 2.0,
    "planned": 5.0,
-   "aim": 6.25,
+   "aim": 5.25,
    "target": 7.0,
    "typical": 5.4,
    "done": null,
    "firm_label": "3 h",
    "optional_label": "+2 h",
-   "aim_label": "6 h 15",
+   "aim_label": "5 h 15",
    "target_label": "7 h",
    "note": "The limit is 15 % above your typical week. Your typical week is 5 h 24."
   },
@@ -954,13 +954,13 @@
    "firm": 4.5,
    "optional": 1.0,
    "planned": 5.5,
-   "aim": 6.25,
+   "aim": 5.25,
    "target": 7.0,
    "typical": 5.4,
    "done": null,
    "firm_label": "4 h 30",
    "optional_label": "+1 h",
-   "aim_label": "6 h 15",
+   "aim_label": "5 h 15",
    "target_label": "7 h",
    "note": "The limit is 15 % above your typical week. Your typical week is 5 h 24."
   },
@@ -1340,13 +1340,13 @@
    "firm": 4.5,
    "optional": 1.0,
    "planned": 5.5,
-   "aim": 6.25,
+   "aim": 5.25,
    "target": 7.0,
    "typical": 5.4,
    "done": null,
    "firm_label": "4 h 30",
    "optional_label": "+1 h",
-   "aim_label": "6 h 15",
+   "aim_label": "5 h 15",
    "target_label": "7 h",
    "note": "The limit is 15 % above your typical week. Your typical week is 5 h 24."
   },
@@ -1461,7 +1461,7 @@
      "do": "5 min walk and leg swings, 22 min easy, 3 min walk."
     },
     "warnings": [
-     "This makes 4 hard days this week."
+     "This is a recovery week."
     ],
     "data_says": "This is a recovery week: no quality running before your readings are back to normal.",
     "why": "You asked to change this workout to running.",

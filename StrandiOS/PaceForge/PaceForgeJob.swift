@@ -25,7 +25,7 @@ enum PFJobName: String, Equatable {
     case easyModeEnd = "easy-mode-end"
     case saveEvents = "save-events"
     case hyroxSimAdd = "hyrox-sim-add"
-    /// Change workout by type (build 529): the coach builds a workout of the asked type and files it as a change. Server pending.
+    /// Change workout by type (build 529): the coach builds a workout of the asked type and files it as a change; a fast job, the reply is final.
     case sessionSwap = "session-swap"
 
     /// How long a job is expected to take from the request to "done", in seconds, from the contract: a photo read is 5 s to about 4.5 min

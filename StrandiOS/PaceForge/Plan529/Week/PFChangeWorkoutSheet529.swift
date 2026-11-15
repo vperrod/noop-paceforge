@@ -38,8 +38,8 @@ enum PFSwapKind529: String, CaseIterable, Identifiable {
     }
 }
 
-/// W5, Change workout: pick what you would rather do, the coach builds it from the week (job `session-swap`, server pending until the
-/// server stream ships it), and the answer opens as a change (W3 layout) with Accept, Try another and Keep the original. A day with no
+/// W5, Change workout: pick what you would rather do, the coach builds it from the week (job `session-swap`, a fast job: the reply names the change and the week
+/// document is already rewritten), and the answer opens as a change (W3 layout) with Accept, Try another and Keep the original. A day with no
 /// session reads "Add a workout" and the accepted result is added instead of replacing.
 struct PFChangeWorkoutSheet529: View {
     let target: PFSwapTarget529
