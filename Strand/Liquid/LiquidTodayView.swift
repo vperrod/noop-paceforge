@@ -2151,7 +2151,12 @@ struct LiquidTodayView: View {
                             }
                         case .liveSession: if liveSessionsBeta { liveSessionStartRow }
                         case .synthesis: synthesisSection
-                        case .keyMetrics: keyMetricsSection
+                        case .keyMetrics:
+                            keyMetricsSection
+                            #if os(iOS)
+                            // My Dashboard's own cards, under the key metrics: weight against its goal.
+                            if selectedDayOffset == 0 && PFAPI.isConfigured { PFTodayWeightGoalHost() }
+                            #endif
                         case .workouts: lastWorkoutsSection
                         case .heartRate: heartRateSection
                         case .recoveryVitals: recoveryVitalsSection
