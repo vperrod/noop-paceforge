@@ -243,8 +243,8 @@ final class DailyIntelUITests: XCTestCase {
 
     /// Until yesterday's journal is logged it is the morning prompt under the call ("What happened yesterday?"); one tap per question and
     /// Save; then it folds to a row.
-    func testJournalPromptOpensTheFlowAndFoldsOnceLogged() throws {
-        let app = try launch()
+    func testJournalPromptOpensTheFlowAndSaves() throws {
+        let app = try launch(extra: ["-JournalYesterdayUnlogged"])
         let card = element(app, "today-journal")
         XCTAssertTrue(reveal(card, in: app), "Until yesterday's journal is logged, Today should show the journal prompt.")
         attach(app, "Intel 80 Today journal prompt")
@@ -257,8 +257,13 @@ final class DailyIntelUITests: XCTestCase {
         save.tap()
         XCTAssertTrue(element(app, "look-journal-saved").waitForExistence(timeout: 20), "Saving should say the journal is saved.")
         attach(app, "Intel 81 Journal saved")
-        app.buttons["Done"].firstMatch.tap()
-        XCTAssertTrue(reveal(element(app, "today-journal-logged"), in: app), "Once logged, the prompt should fold to the Journal logged row.")
+        attach(app, "Intel 82 Journal saved on yesterday")
+    }
+
+    /// The demo data logs every day up to yesterday, so Today shows the folded row, which opens what helps and hurts.
+    func testLoggedYesterdayFoldsThePromptToARow() throws {
+        let app = try launch()
+        XCTAssertTrue(reveal(element(app, "today-journal-logged"), in: app), "Once yesterday is logged, the prompt should fold to the Journal logged row.")
         attach(app, "Intel 82 Today journal logged")
     }
 }

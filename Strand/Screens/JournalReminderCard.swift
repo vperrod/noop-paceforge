@@ -191,7 +191,12 @@ struct JournalReminderCard: View {
     private func reload() async {
         guard reminderEnabled else { loggedDays = nil; return }
         let keys = Self.dayKeys()
-        loggedDays = await repo.nativeJournalDays(from: keys.first ?? "", to: keys.last ?? "")
+        var days = await repo.nativeJournalDays(from: keys.first ?? "", to: keys.last ?? "")
+        #if DEBUG
+        // UI tests: the demo data logs every day up to yesterday, so `-JournalYesterdayUnlogged` takes yesterday out to show the prompt.
+        if ProcessInfo.processInfo.arguments.contains("-JournalYesterdayUnlogged") { days.remove(Self.yesterdayKey()) }
+        #endif
+        loggedDays = days
     }
 
     /// Yesterday's local-day key: the one before the last of `dayKeys()`.

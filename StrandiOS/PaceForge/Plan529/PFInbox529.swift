@@ -88,7 +88,7 @@ struct PFInbox529: View {
                 .padding(16)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(RoundedRectangle(cornerRadius: NoopLook.Metric.tileRadius, style: .continuous).fill(NoopLook.card))
-                .accessibilityIdentifier("plan529-inbox-failed")
+                .containerIdentifier("plan529-inbox-failed")
             case .loaded:
                 note("Nothing yet. What the coach tells you, your reports and your alerts show here.", id: "plan529-inbox-empty")
             }
@@ -100,7 +100,7 @@ struct PFInbox529: View {
                     rowView(row, isUnread: unread.contains(row.id))
                 }
             }
-            .accessibilityIdentifier("plan529-inbox-list")
+            .containerIdentifier("plan529-inbox-list")
         }
     }
 
@@ -278,7 +278,7 @@ struct PFInboxSettings529: View {
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(RoundedRectangle(cornerRadius: NoopLook.Metric.tileRadius, style: .continuous).fill(NoopLook.card))
-        .accessibilityIdentifier("plan529-inbox-badges-off")
+        .containerIdentifier("plan529-inbox-badges-off")
     }
 
     private var diagnostics: some View {

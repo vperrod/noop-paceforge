@@ -170,8 +170,15 @@ final class Plan529TodayUITests: XCTestCase {
 
     // MARK: The journal's morning question
 
-    func testTheJournalCardAsksAboutYesterdayAndOpensTheFlowOnIt() throws {
+    /// The demo data logs every day up to yesterday, so without the flag the card is already the folded row.
+    func testOnceYesterdayIsLoggedTheJournalCardIsTheFoldedRow() throws {
         let app = try launch()
+        XCTAssertTrue(reveal(app.element("today-journal-logged"), in: app), "With yesterday logged the card should fold to one row.")
+        XCTAssertFalse(app.element("today-journal").exists, "The prompt should be gone.")
+    }
+
+    func testTheJournalCardAsksAboutYesterdayAndOpensTheFlowOnIt() throws {
+        let app = try launch(extra: ["-JournalYesterdayUnlogged"])
         let card = app.element("today-journal")
         XCTAssertTrue(reveal(card, in: app), "Until yesterday's journal is logged, Today should show the journal prompt.")
         XCTAssertTrue(app.staticTexts["What happened yesterday?"].exists, "The card should ask what happened yesterday.")

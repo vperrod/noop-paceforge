@@ -11,7 +11,6 @@ struct PFTodaysWorkoutsHost: View {
 
     var body: some View {
         PFSnapshotHost(drawsChrome: false, content: { snapshot in AnyView(PFTodaysWorkoutsCard(snapshot: snapshot, strap: strap)) })
-            .containerIdentifier("today-workouts-host")
     }
 }
 
