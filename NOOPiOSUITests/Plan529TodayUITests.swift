@@ -184,7 +184,9 @@ final class Plan529TodayUITests: XCTestCase {
         let app = try launch(extra: ["-JournalYesterdayUnlogged"])
         let card = app.element("today-journal")
         XCTAssertTrue(reveal(card, in: app), "Until yesterday's journal is logged, Today should show the journal prompt.")
-        XCTAssertTrue(app.staticTexts["What happened yesterday?"].exists, "The card should ask what happened yesterday.")
+        // The question has the button trait (it opens the journal), so it is not a static text.
+        let asks = app.descendants(matching: .any).matching(NSPredicate(format: "label == 'What happened yesterday?'")).firstMatch
+        XCTAssertTrue(asks.exists, "The card should ask what happened yesterday.")
         attach(app, "Journal morning question")
         card.buttons["Journal"].firstMatch.tap()
         let day = app.element("look-journal-day")
