@@ -1,26 +1,41 @@
 import SwiftUI
 import StrandDesign
 
-// The PaceForge section of the unified Today: six small cards in a fixed order (PFTodayCard), each reading the snapshot's
-// `today-call.json` (or, when the server serves none, the same parts built from the snapshot's own data). The six rings sit above them
-// and the native NOOP blocks (monitor tiles, heart rate, key metrics) below them, all open.
+// The PaceForge cards of the unified Today (PFTodayCard), each reading the snapshot's `today-call.json` (or, when the server serves
+// none, the same parts built from the snapshot's own data). Today mounts the host several times, each with the cards of one slot (the
+// call, how you are, the day, the week), with its own native blocks (monitor tiles, the day graph, the journal) between the slots.
 
 /// Mounted by `LiquidTodayView` where the PaceForge blocks used to be. It brings its own snapshot host, so it shows the load, failed
 /// and offline states on Today.
 struct PFTodayCards: View {
+    /// The cards this slot draws, in the order the slot lists them (a card the snapshot has nothing for is left out, as always).
+    var cards: [PFTodayCard] = PFTodayCard.allCases
+    /// Only the first slot on the screen draws the lock, load, failed and offline states.
+    var drawsChrome = true
+    /// The "Hidden cards" row closes the last slot.
+    var showsHiddenRow = true
+    /// The training row (next race and last workout side by side) closes this slot; `lastWorkout` is what Today already read.
+    var showsTrainingRow = false
+    var lastWorkout: PFTrainingLastWorkout?
+    var containerID = "pf-today-cards"
     let onOpenNeedsYou: () -> Void
     let onReadWhy: () -> Void
 
     var body: some View {
-        PFSnapshotHost(content: { snapshot in
-            AnyView(PFTodayCardsColumn(snapshot: snapshot, onOpenNeedsYou: onOpenNeedsYou, onReadWhy: onReadWhy))
+        PFSnapshotHost(drawsChrome: drawsChrome, content: { snapshot in
+            AnyView(PFTodayCardsColumn(snapshot: snapshot, cards: cards, showsHiddenRow: showsHiddenRow,
+                                       trainingRow: showsTrainingRow ? PFTrainingSlot(lastWorkout: lastWorkout) : nil,
+                                       onOpenNeedsYou: onOpenNeedsYou, onReadWhy: onReadWhy))
         })
-        .containerIdentifier("pf-today-cards")
+        .containerIdentifier(containerID)
     }
 }
 
 private struct PFTodayCardsColumn: View {
     let snapshot: PFSnapshot
+    let cards: [PFTodayCard]
+    let showsHiddenRow: Bool
+    let trainingRow: PFTrainingSlot?
     let onOpenNeedsYou: () -> Void
     let onReadWhy: () -> Void
     @ObservedObject private var dismissals = PFDismissStore.shared
@@ -31,13 +46,17 @@ private struct PFTodayCardsColumn: View {
             alert.isLive && !PFDismissLogic.isHidden(key: PFDismissKey.alertKey(alert), text: PFDismissKey.alertText(alert),
                                                      today: snapshot.todayISO, local: dismissals.local, server: snapshot.dismissed)
         }
-        let cards = PFTodayCard.present(call: info, needsYou: snapshot.needsYou.count, hasFeel: snapshot.feel != nil,
-                                        hasLiveAlerts: hasLiveAlerts)
+        let present = PFTodayCard.present(call: info, needsYou: snapshot.needsYou.count, hasFeel: snapshot.feel != nil,
+                                          hasLiveAlerts: hasLiveAlerts)
+        let shown = cards.filter { present.contains($0) }
         VStack(alignment: .leading, spacing: 12) {
-            ForEach(cards, id: \.rawValue) { card in
+            ForEach(shown, id: \.rawValue) { card in
                 cardView(card, info: info)
             }
-            PFHiddenCardsRow(snapshot: snapshot)
+            if let trainingRow, info.nextRace != nil || trainingRow.lastWorkout != nil {
+                PFTrainingRow(nextRace: info.nextRace, lastWorkout: trainingRow.lastWorkout)
+            }
+            if showsHiddenRow { PFHiddenCardsRow(snapshot: snapshot) }
         }
     }
 
@@ -62,33 +81,45 @@ private struct PFTheCallCard: View {
     @State private var showBrief = false
     private let hiding = PFHiding()
 
+    /// WHOOP's banner: a rounded bar on the warm-to-cool gradient of the Daily Outlook row, white text, a chevron at the end.
     var body: some View {
         if let call = info.call {
             PFDismissable(.theCall, text: PFCardText.theCall(call), snapshot: snapshot) {
                 Button { showBrief = true } label: {
-                    PFCard(title: "The call", icon: "scope", trailing: {
-                        Image(systemName: "chevron.right")
-                            .font(StrandFont.caption.weight(.semibold))
-                            .foregroundStyle(StrandPalette.textTertiary)
+                    HStack(alignment: .center, spacing: 12) {
+                        Image(systemName: "scope")
+                            .font(.system(size: 16, weight: .regular))
+                            .foregroundStyle(Color.white)
                             .accessibilityHidden(true)
-                    }) {
-                        VStack(alignment: .leading, spacing: 6) {
+                        VStack(alignment: .leading, spacing: 4) {
                             Text(hiding.text(call.verdict))
-                                .font(StrandFont.headline)
-                                .foregroundStyle(StrandPalette.textPrimary)
+                                .font(LookFont.text(15, weight: .semibold))
+                                .foregroundStyle(Color.white)
                                 .multilineTextAlignment(.leading)
                                 .fixedSize(horizontal: false, vertical: true)
                                 .accessibilityIdentifier("pf-the-call-verdict")
                             if !call.reason.isEmpty {
                                 Text(hiding.text(call.reason))
-                                    .font(StrandFont.subhead)
-                                    .foregroundStyle(StrandPalette.textSecondary)
+                                    .font(LookFont.text(13, weight: .medium))
+                                    .foregroundStyle(Color.white.opacity(0.8))
                                     .multilineTextAlignment(.leading)
                                     .fixedSize(horizontal: false, vertical: true)
                                     .accessibilityIdentifier("pf-the-call-reason")
                             }
                         }
+                        Spacer(minLength: 4)
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundStyle(Color.white.opacity(0.85))
+                            .accessibilityHidden(true)
                     }
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 12)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .fill(LinearGradient(colors: NoopLook.outlookBar, startPoint: .leading, endPoint: .trailing))
+                    )
                 }
                 .buttonStyle(.plain)
                 .accessibilityIdentifier(PFTodayCard.theCall.identifier)
@@ -454,5 +485,86 @@ private struct PFThisWeekCard: View {
     private func label(_ day: PFTodayCall.WeekDay) -> String {
         if day.items.isEmpty { return "\(day.dow), rest" }
         return "\(day.dow), " + day.items.map { "\($0.title) \($0.status)" }.joined(separator: ", ")
+    }
+}
+
+// MARK: - Training row
+
+/// The newest workout Today already read (its `workouts` list, newest first), reduced to what the compact card prints.
+struct PFTrainingLastWorkout {
+    let title: String
+    let detail: String
+}
+
+/// Marks the slot that closes with the training row.
+struct PFTrainingSlot {
+    let lastWorkout: PFTrainingLastWorkout?
+}
+
+/// Next race and last workout as two compact cards side by side. Built only from what Today already has: the call's next race and the
+/// newest workout of the strap's list. A half with no source is left out.
+private struct PFTrainingRow: View {
+    let nextRace: PFTodayCall.Race?
+    let lastWorkout: PFTrainingLastWorkout?
+    @State private var showRace = false
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            if let race = nextRace { raceTile(race) }
+            if let lastWorkout { workoutTile(lastWorkout) }
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("today-training-row")
+        .sheet(isPresented: $showRace) { PFHyroxSheet() }
+    }
+
+    private func raceTile(_ race: PFTodayCall.Race) -> some View {
+        let when = race.daysOut == 1 ? "tomorrow" : "in \(race.daysOut) days"
+        let goal = race.goalTime.map { "Goal \($0)" }
+        return Button { showRace = true } label: {
+            tile(title: "NEXT RACE", headline: race.name, lines: [when, PFFormat.dayTitle(race.date)] + (goal.map { [$0] } ?? []))
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("today-training-next-race")
+    }
+
+    private func workoutTile(_ workout: PFTrainingLastWorkout) -> some View {
+        NavigationLink(value: TabRoute.workouts) {
+            tile(title: "LAST WORKOUT", headline: workout.title, lines: [workout.detail])
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("today-training-last-workout")
+    }
+
+    private func tile(title: String, headline: String, lines: [String]) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text(title)
+                    .lookCaps(12.5)
+                    .foregroundStyle(NoopLook.textPrimary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+                Spacer(minLength: 4)
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(NoopLook.textTertiary)
+                    .accessibilityHidden(true)
+            }
+            Text(headline)
+                .font(LookFont.text(17, weight: .semibold))
+                .foregroundStyle(NoopLook.textPrimary)
+                .lineLimit(2)
+                .fixedSize(horizontal: false, vertical: true)
+            ForEach(lines, id: \.self) { line in
+                Text(line)
+                    .font(LookFont.text(13, weight: .medium))
+                    .foregroundStyle(NoopLook.textSecondary)
+                    .lineLimit(1)
+            }
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, minHeight: 112, alignment: .topLeading)
+        .background(RoundedRectangle(cornerRadius: NoopLook.Metric.tileRadius, style: .continuous).fill(NoopLook.card))
+        .contentShape(Rectangle())
     }
 }

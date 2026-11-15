@@ -425,15 +425,13 @@ struct LiquidTodayView: View {
                     // nothing and keeps its slot in the saved order.
                     let order = sectionOrder
                     #if os(iOS)
-                    // The rings lead Today, then PaceForge's six cards (the call, needs you, today or the next race, how you are, feel,
-                    // this week), then the strap's own blocks (monitor tiles, heart rate, key metrics and the rest of the saved order),
-                    // all open. Without PaceForge set up, or on an earlier day, the blocks are shown as before.
+                    // Today in WHOOP's order (PaceForge set up, today): the dials (the strap's three, Garmin's three under them), the call,
+                    // the monitor tiles, how you are, My Day, My Plan with the training row, then My Dashboard: every other section in the
+                    // saved order, all open. Nothing of the earlier Today is left out; Customize still orders and hides the My Dashboard
+                    // sections, and a hidden section stays hidden. Without PaceForge, or on an earlier day, the blocks are shown as before.
                     if PFAPI.isConfigured && selectedDayOffset == 0 {
-                        if order.contains(.hero) { heroCard }
-                        if order.contains(.hero) && mountStage >= 1 { MyDayTodayCard(day: selectedLogicalDay) }
-                        PFTodayCards(onOpenNeedsYou: { showNeedsYouSheet = true }, onReadWhy: { router.openCoach() })
-                        Divider().overlay(StrandPalette.hairline)
-                        strapBlocks(order, withHero: false)
+                        lookTodayColumn(order)
+                        strapBlocks(order, withHero: false, skipping: [.hero, .journal])
                     } else {
                         strapBlocks(order)
                     }
@@ -970,6 +968,70 @@ struct LiquidTodayView: View {
         }
         .onChangeCompat(of: effortReadingKey) { _ in refreshEffortReading() }
         .task { await intelStore.refreshIfStale() }
+    }
+
+    /// Today's fixed top, in WHOOP's order (see the body). Each PaceForge slot is its own host: only the first draws the load states.
+    @ViewBuilder private func lookTodayColumn(_ order: [TodaySection]) -> some View {
+        let hasHero = order.contains(.hero)
+        let openNeedsYou = { showNeedsYouSheet = true }
+        let readWhy = { router.openCoach() }
+        if hasHero { heroCard }
+        PFTodayCards(cards: [.theCall, .needsYou], showsHiddenRow: false, onOpenNeedsYou: openNeedsYou, onReadWhy: readWhy)
+        if mountStage >= 1 {
+            if hasHero {
+                lookMonitorRow
+                if chargeLegacyRRGap { ChargeLegacyRRGapNote() }
+            }
+            PFTodayCards(cards: [.howYouAre], drawsChrome: false, showsHiddenRow: false, containerID: "pf-today-cards-how",
+                         onOpenNeedsYou: openNeedsYou, onReadWhy: readWhy)
+        }
+        if mountStage >= 2 {
+            LookSectionHeader(String(localized: "My Day"))
+                .padding(.top, 8)
+                .accessibilityIdentifier("today-my-day-header")
+            if hasHero { MyDayTodayCard(day: selectedLogicalDay) }
+            PFTodayCards(cards: [.today], drawsChrome: false, showsHiddenRow: false, containerID: "pf-today-cards-day",
+                         onOpenNeedsYou: openNeedsYou, onReadWhy: readWhy)
+            // Tonight's sleep: the sleep planner's own row (target hours, bedtime, wake), from the sleep need the Sleep screen uses.
+            SleepPlannerEntryCard()
+            if order.contains(.journal) { JournalReminderCard() }
+            PFTodayCards(cards: [.feel], drawsChrome: false, showsHiddenRow: false, containerID: "pf-today-cards-feel",
+                         onOpenNeedsYou: openNeedsYou, onReadWhy: readWhy)
+            LookSectionHeader(String(localized: "My Plan"))
+                .padding(.top, 8)
+                .accessibilityIdentifier("today-my-plan-header")
+            PFTodayCards(cards: [.thisWeek], drawsChrome: false, showsTrainingRow: true, lastWorkout: trainingLastWorkout,
+                         containerID: "pf-today-cards-week", onOpenNeedsYou: openNeedsYou, onReadWhy: readWhy)
+            dashboardHeader
+        }
+    }
+
+    /// The newest workout the Last workouts card draws, as the training row's compact card prints it.
+    private var trainingLastWorkout: PFTrainingLastWorkout? {
+        workouts.first.map { PFTrainingLastWorkout(title: WorkoutSource.displaySport($0.sport), detail: workoutSub($0)) }
+    }
+
+    /// "My Dashboard" with CUSTOMIZE, which opens the same Customize sheet as the header's button.
+    private var dashboardHeader: some View {
+        HStack {
+            Text("My Dashboard")
+                .font(LookFont.text(22, weight: .semibold))
+                .foregroundStyle(NoopLook.textPrimary)
+            Spacer(minLength: 8)
+            Button { customizationDestination = .today } label: {
+                HStack(spacing: 6) {
+                    Text("CUSTOMIZE").lookCaps(12)
+                    Image(systemName: "pencil").font(.system(size: 13, weight: .semibold))
+                }
+                .foregroundStyle(NoopLook.textPrimary)
+                .frame(minHeight: 32)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Customize My Dashboard")
+            .accessibilityIdentifier("today-dashboard-customize")
+        }
+        .padding(.top, 8)
+        .accessibilityIdentifier("today-my-dashboard-header")
     }
 
     /// Health and Stress monitor tiles side by side.
@@ -1984,11 +2046,20 @@ struct LiquidTodayView: View {
     /// Matches the Android twin, whose `SectionHeader` already takes `trailing: String? = null`.
     private func sectionHead(_ title: String, trailing: String? = nil) -> some View {
         HStack(alignment: .firstTextBaseline) {
+            #if os(iOS)
+            // WHOOP's section label: bold caps, 0.1em tracking, white.
+            Text(LocalizedStringKey(title)).lookCaps(12.5).foregroundStyle(NoopLook.textPrimary)
+            Spacer()
+            if let trailing {
+                Text(LocalizedStringKey(trailing)).font(LookFont.text(12, weight: .medium)).foregroundStyle(NoopLook.textTertiary)
+            }
+            #else
             Text(LocalizedStringKey(title)).font(StrandFont.overline).tracking(1.6).foregroundStyle(StrandPalette.textTertiary)
             Spacer()
             if let trailing {
                 Text(LocalizedStringKey(trailing)).font(StrandFont.caption).foregroundStyle(StrandPalette.textTertiary)
             }
+            #endif
         }
         .padding(.horizontal, 2)
         .padding(.top, 4)
@@ -1998,16 +2069,22 @@ struct LiquidTodayView: View {
         content()
             .padding(16)
             .frame(maxWidth: .infinity, alignment: .leading)
+            #if os(iOS)
+            // WHOOP's card: a 12 pt tile on the dark gradient.
+            .background(RoundedRectangle(cornerRadius: NoopLook.Metric.tileRadius, style: .continuous).fill(NoopLook.card.opacity(cardOpacity)))
+            #else
             .background(NoopPanelSurface(cornerRadius: 22, surfaceOpacity: cardOpacity))
+            #endif
     }
 
     /// The strap's own blocks: the six rings first on iPhone, then every section of the saved order.
-    @ViewBuilder private func strapBlocks(_ order: [TodaySection], withHero: Bool = true) -> some View {
+    /// `skipping`: sections drawn elsewhere (the WHOOP-order column above draws the dials, monitor tiles and journal itself).
+    @ViewBuilder private func strapBlocks(_ order: [TodaySection], withHero: Bool = true, skipping: Set<TodaySection> = []) -> some View {
         #if os(iOS)
         if withHero && order.contains(.hero) { heroCard }
         if withHero && order.contains(.hero) && mountStage >= 1 { MyDayTodayCard(day: selectedLogicalDay) }
         #endif
-                    ForEach(order.prefix(Self.mountedSectionCount(order, stage: mountStage))) { section in
+                    ForEach(order.prefix(Self.mountedSectionCount(order, stage: mountStage)).filter { !skipping.contains($0) }) { section in
                         switch section {
                         // PaceForge's text, kept short: the assessment as one line, the two body-signal bars (their sentences behind an
                         // (i)) and Today's call as a chip, the Effort target and the planned session (the rest behind "Why"). Today

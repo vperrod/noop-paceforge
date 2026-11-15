@@ -33,6 +33,8 @@ struct JournalReminderCard: View {
         Group {
             if reminderEnabled, let logged = loggedDays {
                 card(logged)
+                    .accessibilityElement(children: .contain)
+                    .accessibilityIdentifier("today-journal")
             }
         }
         // Re-read whenever a sync bumps refreshSeq or the toggle flips (mirrors AutoWorkoutCard's task id),
@@ -56,16 +58,21 @@ struct JournalReminderCard: View {
         // and nested SwiftUI buttons don't work — so header + subtitle carry their own onTapGesture (→
         // today) and the bars carry theirs. The regions are non-overlapping in the VStack, so a tap lands
         // on exactly one. Tapping a bar does NOT set today, so a bar's day always wins.
-        return NoopCard(tint: StrandPalette.accent) {
+        return surface {
             VStack(alignment: .leading, spacing: NoopMetrics.space3) {
                 HStack(spacing: NoopMetrics.space2) {
                     Image(systemName: "book.closed")
                         .font(.system(size: 18))
                         .foregroundStyle(StrandPalette.accent)
                         .accessibilityHidden(true)
+                    #if os(iOS)
+                    Text(String(localized: "Journal")).lookCaps(12.5)
+                        .foregroundStyle(NoopLook.textPrimary)
+                    #else
                     Text(String(localized: "Journal"))
                         .font(StrandFont.headline)
                         .foregroundStyle(StrandPalette.textPrimary)
+                    #endif
                     Spacer()
                     Image(systemName: "chevron.right")
                         .font(.system(size: 14, weight: .semibold))
@@ -113,6 +120,18 @@ struct JournalReminderCard: View {
                     .accessibilityAddTraits(.isButton)   // it opens the journal — announce it as one
             }
         }
+    }
+
+    /// WHOOP's card on the iPhone: a 12 pt tile on the dark gradient. The Mac keeps the accent-tinted frosted card.
+    @ViewBuilder private func surface<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
+        #if os(iOS)
+        content()
+            .padding(16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(RoundedRectangle(cornerRadius: NoopLook.Metric.tileRadius, style: .continuous).fill(NoopLook.card))
+        #else
+        NoopCard(tint: StrandPalette.accent) { content() }
+        #endif
     }
 
     /// Screen-reader label for a strip bar (#656): the day it deep-links to. Twin of JournalLogCard's

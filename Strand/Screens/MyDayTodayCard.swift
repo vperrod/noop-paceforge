@@ -32,15 +32,15 @@ struct MyDayTodayCard: View {
 
     var body: some View {
         NavigationLink(value: TabRoute.myDay) {
-            NoopCard(tint: StrandPalette.metricRose) {
+            surface {
                 VStack(alignment: .leading, spacing: NoopMetrics.cardInnerSpacing) {
                     HStack {
-                        Text("MY DAY").font(StrandFont.overlineScaled(11)).tracking(1.0)
-                            .foregroundStyle(StrandPalette.textPrimary)
+                        Text("MY DAY").lookCaps(12.5)
+                            .foregroundStyle(NoopLook.textPrimary)
                         Spacer(minLength: 8)
                         Image(systemName: "chevron.right")
                             .font(.system(size: 12, weight: .semibold))
-                            .foregroundStyle(StrandPalette.textTertiary)
+                            .foregroundStyle(NoopLook.textTertiary)
                             .accessibilityHidden(true)
                     }
                     if let timeline = loaded?.timeline {
@@ -60,6 +60,18 @@ struct MyDayTodayCard: View {
         .accessibilityHint("Opens the timeline of the day")
         .accessibilityIdentifier("today-daygraph")
         .task(id: loadKey) { await reload() }
+    }
+
+    /// WHOOP's card: a 12 pt tile on the dark gradient (the frosted card stays on the Mac).
+    @ViewBuilder private func surface<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
+        #if os(iOS)
+        content()
+            .padding(16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(RoundedRectangle(cornerRadius: NoopLook.Metric.tileRadius, style: .continuous).fill(NoopLook.card))
+        #else
+        NoopCard(tint: StrandPalette.metricRose) { content() }
+        #endif
     }
 
     private func reload() async {

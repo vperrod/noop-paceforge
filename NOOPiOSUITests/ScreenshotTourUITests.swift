@@ -63,7 +63,7 @@ final class ScreenshotTourUITests: XCTestCase {
         }
         if !element(app, "pf-today-cards").waitForExistence(timeout: 30) { note("missing: pf-today-cards") }
         XCTAssertTrue(element(app, "today-daygraph").waitForExistence(timeout: 30), "The day graph (My Day) should sit on Today under the rings.")
-        shoot(app, ["01-today-top", "02-today-scroll1", "03-today-scroll2", "04-today-scroll3", "05-today-scroll4"])
+        tourToday(app)
 
         tourRings(app)
 
@@ -103,6 +103,33 @@ final class ScreenshotTourUITests: XCTestCase {
         }
     }
 
+    /// Today's blocks in WHOOP's order. Today's lower half is lazy, so an element exists only while it is near the screen: the tour scrolls
+    /// to the bottom in steps, writes down which blocks it met after each step and asserts that every block of the fixed top was met.
+    private func tourToday(_ app: XCUIApplication) {
+        let required: [String] = [
+            "today-six-rings", "pf-today-card-the-call", "look-health-tile", "look-stress-tile", "pf-today-card-how-you-are",
+            "today-my-day-header", "today-daygraph", "pf-today-card-today", "sleep-planner-entry", "today-my-plan-header",
+            "pf-today-card-this-week", "today-training-row", "today-my-dashboard-header",
+        ]
+        // Shown only when there is something to show (an open item, a journal switched on, a feel summary): noted, not asserted.
+        let conditional: [String] = ["pf-today-card-needs-you", "today-journal", "pf-today-card-feel"]
+        var met: [String] = []
+        func record() { for id in required + conditional where !met.contains(id) && element(app, id).exists { met.append(id) } }
+        record()
+        attach(app, "01-today-top")
+        for step in 1...Self.todayScrollSteps {
+            app.swipeUp()
+            record()
+            attach(app, String(format: "02-today-scroll-%02d", step))
+        }
+        for id in required { XCTAssertTrue(met.contains(id), "Today should draw the block \(id).") }
+        for id in conditional where !met.contains(id) { note("missing: \(id)") }
+        for _ in 0..<(Self.todayScrollSteps + 2) { app.swipeDown() }
+    }
+
+    /// Enough swipes to reach the bottom of Today with every section open.
+    private static let todayScrollSteps = 14
+
     /// Today's six rings, one at a time: the ring opens its page (a pushed detail for NOOP's three, a sheet for PaceForge's three), a
     /// screenshot, then back. Every step is optional: a ring or page that is not found is noted and the tour goes on.
     private func tourRings(_ app: XCUIApplication) {
@@ -117,7 +144,7 @@ final class ScreenshotTourUITests: XCTestCase {
         ]
         for item in rings {
             let cell = element(app, item.ring)
-            for _ in 0..<8 where !(cell.exists && cell.isHittable) { app.swipeDown() }
+            for _ in 0..<(Self.todayScrollSteps + 2) where !(cell.exists && cell.isHittable) { app.swipeDown() }
             guard cell.exists, cell.isHittable else { note("missing: \(item.ring)"); continue }
             // The ring is the cell's first button (its name, a second button, sits under it).
             let ring = cell.buttons.firstMatch

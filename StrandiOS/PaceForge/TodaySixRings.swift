@@ -16,25 +16,17 @@ import UIKit
 enum SixRingsLayout {
     /// The Today column's side padding on both edges (NoopMetrics.screenHPadding each).
     private static let columnPadding: CGFloat = NoopMetrics.screenHPadding * 2
-    /// Room the thin divider between the groups takes: 6 + 1 + 6.
-    static let dividerSlot: CGFloat = 13
-    private static let minDiameter: CGFloat = 52
-    private static let maxDiameter: CGFloat = 72
-    /// What a ring does not use of its cell, so the name under it can be a little wider than the ring.
-    private static let cellSlack: CGFloat = 2
+    /// WHOOP's Home dial: 92 pt on the 402 pt reference (about 22 % of the width, 5.5 pt stroke, see RingDial).
+    private static let referenceDiameter: CGFloat = 92
+    private static let minDiameter: CGFloat = 60
+    /// Air kept between two neighbouring dials on a narrow phone.
+    private static let cellGap: CGFloat = 10
 
-    /// (screen width - column padding - divider) / 6, floored, less the slack. Once per launch: the row never measures itself.
+    /// 92 pt, or less when three dials would not fit the column with a gap. Once per launch: the row never measures itself.
     static let diameter: CGFloat = {
-        let cell = ((UIScreen.main.bounds.width - columnPadding - dividerSlot) / 6).rounded(.down)
-        return min(max(cell - cellSlack, minDiameter), maxDiameter)
+        let cell = ((UIScreen.main.bounds.width - columnPadding) / 3).rounded(.down)
+        return min(max(cell - cellGap, minDiameter), referenceDiameter)
     }()
-
-    static var cellWidth: CGFloat { diameter + cellSlack }
-    static var groupWidth: CGFloat { cellWidth * 3 }
-    static var rowWidth: CGFloat { groupWidth * 2 + dividerSlot }
-
-    /// Names under the rings: 10 pt, tracked 0.04em; RECOVERY is the longest word and gets 9.5.
-    static func nameSize(_ name: String) -> CGFloat { name.count > 7 ? 9.5 : 10 }
 }
 
 // MARK: - The row
@@ -55,7 +47,8 @@ struct SixRingNoopInput {
     let onGuide: () -> Void
 }
 
-/// The six rings and, under them, the never-merged note (the body-signals readout sits further down Today, after the heart-rate chart).
+/// The strap's three dials as one WHOOP-size row, Garmin's three as a second row of the same size and style directly under it, and
+/// under both the never-merged note (the body-signals readout sits further down Today, after the heart-rate chart).
 /// `isToday` false (a past day): PaceForge's scores are today's only.
 struct TodaySixRings: View {
     let noop: [SixRingNoopInput]
@@ -66,27 +59,12 @@ struct TodaySixRings: View {
     private var noopCount: Int { noop.filter { $0.score != nil }.count }
 
     var body: some View {
-        VStack(spacing: 10) {
-            HStack(alignment: .top, spacing: 0) {
-                TodayNoopRingGroup(inputs: noop)
-                SixRingsDivider()
-                TodayPFRingGroup(noopCount: noopCount, isToday: isToday)
-            }
-            .frame(maxWidth: .infinity)
+        VStack(spacing: 14) {
+            TodayNoopRingGroup(inputs: noop)
+            TodayPFRingGroup(noopCount: noopCount, isToday: isToday)
             TodaySixRingsFooter(noopCount: noopCount, isToday: isToday, effortTargetLine: effortTargetLine)
         }
         .containerIdentifier("today-six-rings")
-    }
-}
-
-private struct SixRingsDivider: View {
-    var body: some View {
-        Rectangle()
-            .fill(NoopLook.track)
-            .frame(width: 1, height: SixRingsLayout.diameter)
-            .padding(.horizontal, 6)
-            .padding(.top, 22)
-            .accessibilityHidden(true)
     }
 }
 
@@ -114,7 +92,7 @@ private struct SixRingsGroupLabel: View {
                 .lineLimit(1)
                 .minimumScaleFactor(0.75)
         }
-        .frame(width: SixRingsLayout.groupWidth)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
@@ -172,9 +150,14 @@ private struct TodayPFRingGroup: View {
         VStack(spacing: 8) {
             SixRingsGroupLabel(chip: "PaceForge", color: PFColor.sky, text: String(localized: "from Garmin data"))
             HStack(spacing: 0) {
+                // Sleep, Recovery, Strain: the same columns as the strap's Rest, Charge and Effort above. Without the overnight scores
+                // the two empty columns stay, so Strain keeps its place in the third.
                 if reports.showsOvernight {
-                    SixRingCell(spec: recovery, route: nil, action: { open(.recovery) })
                     SixRingCell(spec: sleep, route: nil, action: { open(.sleep) })
+                    SixRingCell(spec: recovery, route: nil, action: { open(.recovery) })
+                } else {
+                    Color.clear.frame(maxWidth: .infinity, minHeight: 1)
+                    Color.clear.frame(maxWidth: .infinity, minHeight: 1)
                 }
                 SixRingCell(spec: strain, route: nil, action: { open(.strain) })
             }
@@ -379,11 +362,11 @@ private struct SixRingCell: View {
     }
 
     var body: some View {
-        VStack(spacing: 6) {
+        VStack(spacing: 8) {
             ring
             name
         }
-        .frame(width: SixRingsLayout.cellWidth)
+        .frame(maxWidth: .infinity)
         .containerIdentifier(spec.identifier)
     }
 
@@ -407,18 +390,22 @@ private struct SixRingCell: View {
         }
     }
 
+    /// WHOOP's label under a dial: bold caps, 0.1em tracking, with a chevron after it.
     private var name: some View {
-        let size = SixRingsLayout.nameSize(spec.name)
-        return Button(action: action) {
-            Text(spec.name)
-                .font(LookFont.text(size, weight: .semibold))
-                .tracking(size * 0.04)
-                .textCase(.uppercase)
-                .foregroundStyle(NoopLook.textPrimary)
-                .lineLimit(1)
-                .minimumScaleFactor(0.8)
-                .frame(width: SixRingsLayout.cellWidth)
-                .contentShape(Rectangle())
+        Button(action: action) {
+            HStack(spacing: 3) {
+                Text(spec.name)
+                    .lookCaps(12)
+                    .foregroundStyle(NoopLook.textPrimary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundStyle(NoopLook.textSecondary)
+                    .accessibilityHidden(true)
+            }
+            .frame(maxWidth: .infinity)
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .accessibilityLabel(Text(spoken))
