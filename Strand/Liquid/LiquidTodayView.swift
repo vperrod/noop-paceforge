@@ -2476,18 +2476,28 @@ struct LiquidTodayView: View {
         // Weight for the SELECTED day: Apple Health wins a same-day match; the resolved series lets Hume
         // fill missing days. Falls back to the user's profile weight in the renderer (weightTile).
         let appleRows = await appleA
-        let weightSeries = resolvedWeight.values
-        let newWeightKg = appleRows.filter { $0.day == selectedDayKey }.compactMap { $0.weightKg }.max()
-            ?? weightSeries.last(where: { $0.day <= selectedDayKey })?.value
+        let sameDayAppleKg = appleRows.filter { $0.day == selectedDayKey }.compactMap { $0.weightKg }.max()
+        let weightPoint = resolvedWeight.points.last(where: { $0.day <= selectedDayKey })
+        let newWeightKg = sameDayAppleKg ?? weightPoint?.value
         late.append { weightKg = newWeightKg }
-        if let source = resolvedWeight.points.last(where: { $0.day <= selectedDayKey })?.source {
-            let newCaption: String
-            switch source {
-            case "paceforge-hume": newCaption = "Hume via PaceForge"
-            case "apple-health": newCaption = "Apple Health"
-            case "health-connect": newCaption = "Health Connect"
-            default: newCaption = String(localized: "latest")
+        // The caption names whoever supplied THIS number and the day of the reading, not the series' last source.
+        let captionSource: String?
+        let captionDay: String?
+        if sameDayAppleKg != nil {
+            captionSource = "Apple Health"; captionDay = selectedDayKey
+        } else if let point = weightPoint {
+            switch point.source {
+            case "paceforge-hume": captionSource = "Hume via PaceForge"
+            case "apple-health": captionSource = "Apple Health"
+            case "health-connect": captionSource = "Health Connect"
+            default: captionSource = "NOOP"
             }
+            captionDay = point.day
+        } else {
+            captionSource = nil; captionDay = nil
+        }
+        if let captionSource, let captionDay {
+            let newCaption = Self.weightCaption(source: captionSource, day: captionDay)
             late.append { weightSourceCaption = newCaption }
         }
 
@@ -2772,6 +2782,15 @@ struct LiquidTodayView: View {
         // Route through the shared formatter instead of hardcoding *21: a default (0–100) user was shown the
         // WHOOP-scaled number here while the hero + Workouts table showed 0–100, two numbers for one workout.
         return UnitFormatter.effortDisplay(s, scale: effortScale)
+    }
+
+    /// "Apple Health · 14 Nov": the source of the weight reading and the day it was taken.
+    private static func weightCaption(source: String, day: String) -> String {
+        let parser = DateFormatter()
+        parser.locale = Locale(identifier: "en_US_POSIX")
+        parser.dateFormat = "yyyy-MM-dd"
+        guard let date = parser.date(from: day) else { return source }
+        return source + " \u{00B7} " + date.formatted(.dateTime.day().month(.abbreviated).locale(AppLanguage.activeLocale))
     }
 
     /// The Weight tile's display string + an honest caption ("from profile" only on the fallback).
