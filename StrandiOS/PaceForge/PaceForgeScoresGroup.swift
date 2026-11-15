@@ -27,6 +27,8 @@ struct PFScoresValues: Equatable {
     var reason: String?
     /// Recovery read two ways (body signals and sleep) and the plain verdict line per score, as served; nil when the server sends none.
     var readout: PFRecoveryReadout?
+    /// Today's saved readiness document (Garmin's factors, PaceForge's drivers, the sleep need), for the ring pages; nil when it is not today's.
+    var readings: DayReadings?
 
     var hasAny: Bool { recovery != nil || sleep != nil || strain != nil }
 }
@@ -61,6 +63,7 @@ enum PFScoresParse {
         let readingsAreToday = readings?.hasLabelled == true && readings?.date == today
 
         var out = PFScoresValues(why: why)
+        out.readings = readingsAreToday ? readings : nil
         out.recovery = (readingsAreToday ? readings?.paceforgeRecovery : nil)
             ?? (fitnessIsToday ? number(daily["recovery"]["score"]) : nil)
         let sleepNode = daily["sleep"]

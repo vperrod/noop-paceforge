@@ -185,6 +185,8 @@ targets:
       # Safe.int: the trap-free Double to Int conversion every PaceForge number format goes through.
       - StrandiOSShared/SafeNumber.swift
       - StrandiOS/PaceForge/PaceForgeFormat.swift
+      # The rows on a PaceForge ring page (contributors, each with its source).
+      - StrandiOS/PaceForge/PaceForgeRingRows.swift
       # The builder and its models: the crash-guard tests build a whole snapshot from the live documents' shapes.
       - StrandiOS/PaceForge/PaceForgeModels.swift
       - StrandiOS/PaceForge/PaceForgeBuilder.swift

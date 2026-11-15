@@ -289,10 +289,12 @@ struct PFRingDetailSheet: View {
                             .accessibilityIdentifier("pf-ring-detail-score")
                         ForEach(factLines, id: \.self) { line in PFParagraph(line) }
                     }
+                    if !hidingScores { PFRingExplainSection(kind: kind, values: values) }
                     if let readout { PFReadoutCard(readout: readout) }
                     if let plain = values.why.plain { PFParagraph(plain) }
                     if let how = values.why.how { PFParagraph(how) }
                     if let caveat = values.why.caveat { PFParagraph(caveat) }
+                    if !hidingScores { PFRingAskCoachRow(kind: kind, values: values) }
                 }
                 .padding(16)
                 .frame(maxWidth: .infinity, alignment: .leading)
