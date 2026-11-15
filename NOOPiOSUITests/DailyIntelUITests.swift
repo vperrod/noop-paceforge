@@ -228,7 +228,7 @@ final class DailyIntelUITests: XCTestCase {
 
     func testDayInReviewIsAbsentInTheMorning() throws {
         let app = try launch(extra: ["-PaceForgeMorning"])
-        XCTAssertTrue(reveal(element(app, "pf-todays-call"), in: app), "Today should have loaded.")
+        XCTAssertTrue(reveal(element(app, "pf-today-card-the-call"), in: app), "Today should have loaded.")
         XCTAssertFalse(element(app, "pf-day-review").waitForExistence(timeout: 3), "Before 18:00 there is no Day in review.")
         attach(app, "Intel 61 Today in the morning, no Day in review")
     }

@@ -143,6 +143,20 @@ final class Plan529InboxUITests: XCTestCase {
         XCTAssertTrue(app.element("calendar-host").waitForExistence(timeout: 30), "A week line should land on the Plan tab.")
     }
 
+    /// A notification tap lands from another tab: the line is opened on Today, and its report is a sheet over the Plan tab. The fixture has
+    /// no short daily report for that day, so the sheet is the report screen, or the earlier reading screen that stands in for it.
+    func testADailyLineOpensItsReportAsASheetOverThePlanTab() throws {
+        let app = try launch()
+        openInbox(app)
+        let line = row(app, "today:2030-03-13")
+        XCTAssertTrue(line.waitForExistence(timeout: 20))
+        line.tap()
+        let sheet = app.descendants(matching: .any).matching(NSPredicate(format: "identifier IN {'plan529-daily-report', 'pf-reports'}")).firstMatch
+        XCTAssertTrue(sheet.waitForExistence(timeout: 30), "A daily line should open its report over the Plan tab.")
+        XCTAssertTrue(app.element("calendar-host").exists, "The Plan tab should be under the sheet.")
+        attach(app, "A2 09 daily line opens its report sheet")
+    }
+
     // MARK: What you are told about
 
     func testEveryKindHasASwitchThatKeepsItsSetting() throws {
