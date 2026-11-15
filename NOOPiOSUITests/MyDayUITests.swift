@@ -2,18 +2,15 @@ import XCTest
 
 /// Simulator checks for My Day. The screen is driven by a made-up day (`-MyDayFixture full | gap | empty`,
 /// DEBUG builds only) so every state can be captured with no strap and no data: the full day, a scrubbed
-/// strip, gaps, an empty day, the PaceForge "today so far" strip and the widget gallery. Nothing here is real
-/// data.
+/// strip, gaps and an empty day, and the day graph on Today that opens it. Nothing here is real data.
 final class MyDayUITests: XCTestCase {
 
-    private func launch(day variant: String? = nil, paceForge: Bool = false, widgetGallery: Bool = false, classic: Bool = false) throws -> XCUIApplication {
+    private func launch(day variant: String? = nil, paceForge: Bool = false) throws -> XCUIApplication {
         let app = XCUIApplication()
-        if classic { try app.useClassicNavigation() }
         app.launchArguments.append("--demo-seed")
         if let variant { app.launchArguments += ["-MyDayFixture", variant] }
         if paceForge {
             app.launchArguments.append("-PaceForgeFixture")
-            if widgetGallery { app.launchArguments.append("-PaceForgeWidgetGallery") }
             let url = try XCTUnwrap(Bundle(for: Self.self).url(forResource: "PaceForgeFixture", withExtension: "json"),
                                     "The synthetic PaceForge fixture should be bundled with the UI tests.")
             app.launchEnvironment["PF_FIXTURE_JSON"] = String(decoding: try Data(contentsOf: url), as: UTF8.self)
@@ -43,9 +40,9 @@ final class MyDayUITests: XCTestCase {
         app.staticTexts.matching(NSPredicate(format: "label CONTAINS[c] %@", text)).firstMatch
     }
 
-    /// My Day, the first row of More at the end of Reports.
+    /// My Day, the Day chip of Health.
     private func openMyDay(_ app: XCUIApplication) {
-        app.openMoreRow(tab: "Reports", row: "myday")
+        app.openChip("Health", "day")
         XCTAssertTrue(element(app, "myday-strip").waitForExistence(timeout: 20), "My Day should draw its 24 h strip.")
     }
 
@@ -114,39 +111,14 @@ final class MyDayUITests: XCTestCase {
         attach(app, "25 My Day empty")
     }
 
-    func testPaceForgeTodaySoFarOpensMyDay() throws {
-        let app = try launch(paceForge: true, classic: true)
-        let tab = app.shellTab("PaceForge")
-        XCTAssertTrue(tab.waitForExistence(timeout: 20), "The PaceForge tab should be present.")
-        tab.tap()
-        // The PaceForge segment is remembered between launches; make sure it is on Today.
-        let segments = app.segmentedControls["pf-segments"]
-        XCTAssertTrue(segments.waitForExistence(timeout: 15), "The PaceForge segmented control should load from the fixture.")
-        let today = segments.buttons["Today"]
-        for _ in 0..<3 where !today.isSelected { today.tap(); Thread.sleep(forTimeInterval: 1) }
-        // Today's call leads PaceForge Today, so the today-so-far strip is further down.
-        let open = element(app, "pf-open-myday")
-        for _ in 0..<8 where !(open.exists && open.isHittable) { app.swipeUp() }
-        XCTAssertTrue(element(app, "pf-sofar-card").exists, "PaceForge Today should show the today-so-far strip.")
-        XCTAssertTrue(label(app, "0 of 1 session done").exists, "One session is planned and none is done yet.")
-        attach(app, "26 PaceForge today so far")
-        open.tap()
-        XCTAssertTrue(element(app, "myday-strip").waitForExistence(timeout: 20), "Open My Day should land on My Day.")
-        attach(app, "26 PaceForge to My Day")
-    }
-
-    func testMyDayWidgetIsInTheGallery() throws {
-        let app = try launch(paceForge: true, widgetGallery: true, classic: true)
-        let tab = app.shellTab("PaceForge")
-        XCTAssertTrue(tab.waitForExistence(timeout: 20))
-        tab.tap()
-        let caption = label(app, "My Day, medium")
-        XCTAssertTrue(app.staticTexts["Widget gallery"].waitForExistence(timeout: 20))
-        for _ in 0..<8 where !caption.exists { app.swipeUp() }
-        XCTAssertTrue(caption.exists, "The My Day widget should be drawn in the debug gallery.")
-        attach(app, "27 My Day widget")
-        app.swipeUp()
-        attach(app, "27 My Day widget stale")
+    func testTheDayGraphOnTodayOpensMyDay() throws {
+        let app = try launch(paceForge: true)
+        let graph = element(app, "today-daygraph")
+        XCTAssertTrue(graph.waitForExistence(timeout: 30), "Today should show the day graph under the rings.")
+        attach(app, "26 Today day graph")
+        graph.tap()
+        XCTAssertTrue(element(app, "myday-strip").waitForExistence(timeout: 20), "The day graph should open My Day.")
+        attach(app, "26 Today to My Day")
     }
 
     // MARK: PaceForge enrichment (Energy, Garmin stress, planned times, weigh-in time, niggle)
