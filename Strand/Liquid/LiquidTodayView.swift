@@ -1032,7 +1032,6 @@ struct LiquidTodayView: View {
             if selectedDayOffset == 0 && shows(.stressMonitor) { LookStressMonitorSection(chartOnly: true) }
             // Tonight's sleep: the sleep planner's own row (target hours, bedtime, wake), from the sleep need the Sleep screen uses.
             if shows(.tonightsSleep) { PFSleepPlannerSlot() }
-            if order.contains(.journal) { JournalReminderCard() }
             if shows(.feel) {
                 PFTodayCards(cards: [.feel], drawsChrome: false, showsHiddenRow: false, containerID: "pf-today-cards-feel",
                              onOpenNeedsYou: openNeedsYou, onReadWhy: readWhy)
