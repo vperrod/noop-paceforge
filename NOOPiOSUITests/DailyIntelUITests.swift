@@ -7,9 +7,8 @@ import XCTest
 /// `-PaceForgeIntelMissing` swap in the red Health monitor, the all-unavailable file and no file. Screenshot names start
 /// with "Intel" and a two-digit step, so a run's attachments sort in screen order.
 final class DailyIntelUITests: XCTestCase {
-    private func launch(screen: String? = nil, appearance: String = "dark", extra: [String] = [], classic: Bool = false) throws -> XCUIApplication {
+    private func launch(screen: String? = nil, appearance: String = "dark", extra: [String] = []) throws -> XCUIApplication {
         let app = XCUIApplication()
-        if classic { try app.useClassicNavigation() }
         app.launchArguments.append("--demo-seed")
         if let screen { app.launchArguments.append(contentsOf: ["--demo-screen", screen]) }
         app.launchArguments.append(contentsOf: ["-theme.appearance", appearance])
@@ -43,17 +42,6 @@ final class DailyIntelUITests: XCTestCase {
             from.press(forDuration: 0.05, thenDragTo: to, withVelocity: .slow, thenHoldForDuration: 0.1)
         }
         return element.exists && element.isHittable
-    }
-
-    private func openPaceForgeToday(_ app: XCUIApplication) throws {
-        let tab = app.shellTab("PaceForge")
-        XCTAssertTrue(tab.waitForExistence(timeout: 20), "The PaceForge tab should be present.")
-        tab.tap()
-        let segments = app.segmentedControls["pf-segments"]
-        XCTAssertTrue(segments.waitForExistence(timeout: 15), "The PaceForge segmented control should load from the fixture.")
-        let button = segments.buttons["Today"]
-        // A tap that lands while the remembered segment is still being restored is lost; look again before moving on.
-        for _ in 0..<3 where !button.isSelected { button.tap(); Thread.sleep(forTimeInterval: 1) }
     }
 
     // MARK: Today's call on NOOP Today
@@ -111,13 +99,12 @@ final class DailyIntelUITests: XCTestCase {
         attach(app, "Intel 15 NOOP Today without the daily file")
     }
 
-    // MARK: Today's call on PaceForge Today
+    // MARK: Today's call, Not today
 
-    func testPaceForgeTodayLeadsWithTodaysCall() throws {
-        let app = try launch(classic: true)
-        try openPaceForgeToday(app)
-        XCTAssertTrue(element(app, "pf-todays-call").waitForExistence(timeout: 20), "PaceForge Today should lead with Today's call.")
-        attach(app, "Intel 20 PaceForge Today, Today's call at the top")
+    func testTodaysCallCarriesTheNotTodayMenu() throws {
+        let app = try launch()
+        XCTAssertTrue(reveal(element(app, "pf-todays-call"), in: app), "Today should show Today's call.")
+        attach(app, "Intel 20 Today, Today's call with its Not today menu")
         XCTAssertTrue(element(app, "pf-dismiss-todays-call").exists, "It should carry the same Not today menu as the other cards.")
     }
 
@@ -171,12 +158,11 @@ final class DailyIntelUITests: XCTestCase {
         attach(app, "Intel 42 Sleep planner goals at 70, 85 and 100 percent")
     }
 
-    func testTonightsSleepCardLeadsTheSleepScreen() throws {
+    func testTonightsSleepCardShowsOnTheSleepChipOfHealth() throws {
         let app = try launch()
-        XCTAssertFalse(element(app, "sleep-planner-entry").exists, "Today no longer shows Tonight's sleep.")
-        app.openMoreRow(tab: "Reports", row: "sleep")
+        app.openChip("Health", "sleep")
         let entry = element(app, "sleep-planner-entry")
-        XCTAssertTrue(reveal(entry, in: app), "The Sleep screen should show Tonight's sleep.")
+        XCTAssertTrue(reveal(entry, in: app), "The Sleep chip of Health should show Tonight's sleep.")
         attach(app, "Intel 43 Sleep, Tonight's sleep")
     }
 
