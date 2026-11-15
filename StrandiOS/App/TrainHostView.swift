@@ -85,7 +85,7 @@ private struct TrainChipBody: View {
         case .running: return AnyView(TrainRunningChip())
         case .strength: return AnyView(LiftLogView().containerIdentifier("train-chip-content-strength"))
         case .bike: return AnyView(TrainBikeChip())
-        case .workouts: return AnyView(WorkoutsView().containerIdentifier("train-chip-content-workouts"))
+        case .workouts: return AnyView(TrainWorkoutsChip())
         case .athlete: return AnyView(AthleteHostView().containerIdentifier("train-chip-content-athlete"))
         }
     }
@@ -111,6 +111,38 @@ private struct TrainHyroxContent: View {
             PFHyroxScreen(snapshot: snapshot, showsPrediction: true)
         }
         .containerIdentifier("train-chip-content-hyrox")
+    }
+}
+
+/// Workouts: PaceForge's latest recordings with their coach-review status on top (each opens the results sheet with the review and "Ask
+/// Coach about this workout"), then NOOP's own list. NOOP's rows are not matched to PaceForge recordings, so the two lists stay apart.
+private struct TrainWorkoutsChip: View {
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            // No chrome: while PaceForge is locked, loading or offline the card is simply absent and the list below stays usable.
+            PFSnapshotHost(drawsChrome: false, content: { snapshot in AnyView(TrainCoachReviewsCard(snapshot: snapshot)) })
+            WorkoutsView()
+        }
+        .containerIdentifier("train-chip-content-workouts")
+    }
+}
+
+private struct TrainCoachReviewsCard: View {
+    let snapshot: PFSnapshot
+
+    var body: some View {
+        let recent = PFRecording.latest(snapshot, runsOnly: false, limit: 5)
+        if !recent.isEmpty {
+            PFCard("Coach reviews", icon: "text.bubble") {
+                VStack(spacing: 0) {
+                    ForEach(Array(recent.enumerated()), id: \.element.id) { index, activity in
+                        PFRecordingRow(activity: activity, snapshot: snapshot, showsReview: true)
+                        if index < recent.count - 1 { Divider().overlay(StrandPalette.hairline) }
+                    }
+                }
+            }
+            .containerIdentifier("train-workouts-coach-reviews")
+        }
     }
 }
 
