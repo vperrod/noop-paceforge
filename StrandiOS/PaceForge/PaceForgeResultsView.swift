@@ -673,6 +673,7 @@ private struct PFEffortCard: View {
                             .foregroundStyle(StrandPalette.effortColor)
                         Text("of 21").font(StrandFont.caption).foregroundStyle(StrandPalette.textTertiary)
                         if let word = rank?.chipWord ?? band { PFChip(text: word, color: StrandPalette.effortColor) }
+                        PFSourceTag(source: "PaceForge")
                     }
                     GeometryReader { geo in
                         ZStack(alignment: .leading) {
@@ -709,7 +710,7 @@ private struct PFEffortCard: View {
         HStack(alignment: .top, spacing: 14) {
             PFParagraph(rankSentence(rank))
             if let score = rank.recovery {
-                PFFigure(value: String(Safe.int(score)), unit: nil, label: "Recovery that morning")
+                PFFigure(value: String(Safe.int(score)), unit: nil, label: "PaceForge recovery that morning")
                     .frame(width: 96)
             }
         }
