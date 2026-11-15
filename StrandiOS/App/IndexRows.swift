@@ -81,6 +81,8 @@ struct SectionChips<Option: Hashable>: View {
     let id: (Option) -> String
     let title: (Option) -> String
 
+    private static var fadeWidth: CGFloat { 28 }
+
     var body: some View {
         ScrollViewReader { proxy in
             ScrollView(.horizontal, showsIndicators: false) {
@@ -104,8 +106,20 @@ struct SectionChips<Option: Hashable>: View {
                         .id(option)
                     }
                 }
+                // Room for the fade at the end of the row, so the last chip is clear of it once scrolled all the way.
+                .padding(.trailing, Self.fadeWidth)
             }
-            .onAppear { proxy.scrollTo(selection, anchor: .center) }
+            // A trailing fade cue: chips that run past the edge dim out, and a row that fits is untouched. A mask, not a measured
+            // overflow state, so nothing here reads a size.
+            .mask(alignment: .trailing) {
+                HStack(spacing: 0) {
+                    Rectangle().fill(Color.black)
+                    LinearGradient(colors: [.black, .clear], startPoint: .leading, endPoint: .trailing)
+                        .frame(width: Self.fadeWidth)
+                }
+            }
+            // Deferred one runloop turn: the chips are not laid out yet when the row first appears, so an immediate scroll misses.
+            .onAppear { DispatchQueue.main.async { proxy.scrollTo(selection, anchor: .center) } }
             .onChange(of: selection) { _, new in
                 withAnimation(.easeOut(duration: 0.2)) { proxy.scrollTo(new, anchor: .center) }
             }
