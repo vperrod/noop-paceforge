@@ -79,6 +79,9 @@ enum PFAPI {
         ("-PaceForgePhase4Missing", "data/my-plan.json", "data/my-plan.missing.json"),
         ("-PaceForgeNoStreak", "data/highlights.json", "data/highlights.nostreak.json"),
         ("-PaceForgeJournalImpactEmpty", "data/journal-impact.json", "data/journal-impact.empty.json"),
+        // A Garmin run at 07:10 on the fixture day with a coach analysis: the run My Day's synthetic day lists (`-MyDayFixture full`).
+        ("-PaceForgeMyDayRun", "data/activities.json", "data/activities.myday.json"),
+        ("-PaceForgeMyDayRun", "data/analyses/index.json", "data/analyses/index.myday.json"),
         // Things waiting on the athlete (the default fixture has none, so the Needs you card is absent).
         ("-PaceForgeNeedsYou", "data/needs-you.json", "data/needs-you.active.json"),
         // No today-call.json at all: the Today cards fall back to the snapshot's own data.
@@ -708,17 +711,22 @@ final class PFModel: ObservableObject {
     /// The details file and the coach's analysis for one activity; each falls back to the saved copy.
     func results(for activityId: String) async -> PFSessionResults {
         async let detailData = Self.fetchWithCache("data/details/\(activityId).json")
-        async let analysisData = Self.fetchWithCache("data/analyses/\(activityId).md")
+        async let analysisText = self.analysisText(for: activityId)
         var out = PFSessionResults()
         if let data = await detailData {
             let parsed = PFBuilder.detail(PFJ(data: data))
             if !parsed.samples.isEmpty || !parsed.splits.isEmpty || !parsed.zones.isEmpty || parsed.race != nil { out.detail = parsed }
         }
-        if let data = await analysisData, let text = String(data: data, encoding: .utf8) {
-            let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-            if !trimmed.isEmpty { out.analysis = trimmed }
-        }
+        out.analysis = await analysisText
         return out
+    }
+
+    /// The coach's written analysis of one activity (nil when the server has none); falls back to the saved copy.
+    func analysisText(for activityId: String) async -> String? {
+        guard let data = await Self.fetchWithCache("data/analyses/\(activityId).md"),
+              let text = String(data: data, encoding: .utf8) else { return nil }
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
     }
 
     func monthlyCoachRead(monthKey: String) async -> Data? {

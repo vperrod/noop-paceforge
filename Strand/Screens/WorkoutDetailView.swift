@@ -88,6 +88,9 @@ struct WorkoutDetailView: View {
                        // needs no extra macOS NavigationStack of its own.
                        topBackground: liquidScaffoldSky()) {
             headerCard
+            #if os(iOS)
+            PFWorkoutCoachCard(startTs: row.startTs)
+            #endif
             statStrip
             routeCard
             hrCurveCard

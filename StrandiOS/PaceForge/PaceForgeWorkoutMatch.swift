@@ -83,3 +83,64 @@ struct PFWorkoutResultsLink<Content: View>: View {
         }
     }
 }
+
+/// The coach's review of a strap or Garmin workout, drawn at the top of the workout detail (My Day, Workouts and Today all open that
+/// screen). It finds the PaceForge recording by start time, the same way Today does, then shows the shared review card; a recording the
+/// coach is still reading says "Coach review pending", and a workout PaceForge has no recording of says so in one line.
+struct PFWorkoutCoachCard: View {
+    let startTs: Int
+    @ObservedObject private var model = PFUnified.model
+    @State private var analysisID: String?
+    @State private var markdown: String?
+    @State private var analysisLoaded = false
+
+    var body: some View {
+        content
+            .containerIdentifier("workout-coach-review")
+            .task {
+                if model.snapshot == nil { await model.refreshIfStale() }
+            }
+            .task(id: matchedID) {
+                guard let id = matchedID else { return }
+                analysisLoaded = false
+                markdown = await model.analysisText(for: id)
+                analysisID = id
+                analysisLoaded = true
+            }
+    }
+
+    private var matchedID: String? {
+        model.snapshot.flatMap { PFWorkoutMatch.activity(startTs: startTs, in: $0) }?.id
+    }
+
+    @ViewBuilder private var content: some View {
+        if !PFAPI.isConfigured {
+            line("No coach review: PaceForge is not set up on this phone.")
+        } else if let snapshot = model.snapshot {
+            if let id = matchedID {
+                let headline = snapshot.analyses[id]?.headline
+                if headline == nil, !(analysisLoaded && analysisID == id) {
+                    line("Loading the coach review.")
+                } else {
+                    PFCoachReviewCard(markdown: analysisID == id ? markdown : nil, headline: headline, completionAnalysis: nil,
+                                      status: snapshot.analysisStatuses[id])
+                }
+            } else {
+                line("No coach review: PaceForge has no recording of this workout within 15 minutes of its start.")
+            }
+        } else if case .failed = model.phase {
+            line("No coach review: PaceForge could not be reached.")
+        } else {
+            line("Loading the coach review.")
+        }
+    }
+
+    private func line(_ text: String) -> some View {
+        PFCard(String(localized: "Coach review"), icon: "sparkles") {
+            Text(text)
+                .font(StrandFont.subhead)
+                .foregroundStyle(StrandPalette.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+}

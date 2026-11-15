@@ -130,27 +130,57 @@ struct PFResultsSheet: View {
         PFResultsRating(workout: workout, rpe: rpe, photoSummary: workout.activityId.flatMap { snapshot.photoSummaries[$0] })
     }
 
-    @ViewBuilder private func coachCard(_ markdown: String?) -> some View {
+    private func coachCard(_ markdown: String?) -> some View {
+        PFCoachReviewCard(markdown: markdown, headline: analysis?.headline, completionAnalysis: workout.completionAnalysis,
+                          status: workout.activityId.flatMap { snapshot.analysisStatuses[$0] })
+    }
+}
+
+/// The coach's review of one session, in whichever state PaceForge has it: the written analysis (with its verdict line above it),
+/// the verdict alone, the plan's own completion note, "pending" while the server is still preparing it, or one line saying none is
+/// available. Shared by the results sheet and the workout detail, so both read the same.
+struct PFCoachReviewCard: View {
+    let markdown: String?
+    let headline: String?
+    let completionAnalysis: String?
+    let status: PFAnalysisStatus?
+
+    var body: some View {
         if let markdown {
             PFCard("Coach analysis", icon: "sparkles") {
-                PFMarkdown(text: markdown)
+                VStack(alignment: .leading, spacing: 8) {
+                    if let headline {
+                        Text(headline)
+                            .font(StrandFont.body.weight(.semibold))
+                            .foregroundStyle(StrandPalette.textPrimary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    PFMarkdown(text: markdown)
+                }
             }
             .containerIdentifier("pf-coach-analysis")
-        } else if let headline = analysis?.headline {
+        } else if let headline {
             PFCard("Coach analysis", icon: "sparkles") {
                 Text(headline)
                     .font(StrandFont.body.weight(.semibold))
                     .foregroundStyle(StrandPalette.textPrimary)
                     .fixedSize(horizontal: false, vertical: true)
             }
-        } else if let note = workout.completionAnalysis {
-            PFCard("Coach analysis", icon: "sparkles") { PFParagraph(note) }
-        } else if let status = workout.activityId.flatMap({ snapshot.analysisStatuses[$0] }) {
+        } else if let completionAnalysis {
+            PFCard("Coach analysis", icon: "sparkles") { PFParagraph(completionAnalysis) }
+        } else if let status {
             PFCard(String(localized: "Coach review"), icon: "sparkles") {
-                Text(status.reason ?? "Coach review is not available yet.")
-                    .font(StrandFont.subhead)
-                    .foregroundStyle(StrandPalette.textSecondary)
-                    .fixedSize(horizontal: false, vertical: true)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Coach review pending")
+                        .font(StrandFont.subhead.weight(.semibold))
+                        .foregroundStyle(StrandPalette.textPrimary)
+                    if let reason = status.reason {
+                        Text(reason)
+                            .font(StrandFont.subhead)
+                            .foregroundStyle(StrandPalette.textSecondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
             }
         } else {
             PFCard(String(localized: "Coach review"), icon: "sparkles") {
