@@ -71,6 +71,7 @@ final class ScreenshotTourUITests: XCTestCase {
             XCTAssertLessThan(graph.frame.minY, call.frame.minY, "The day graph should sit above The call.")
         } else { note("missing: pf-today-card-the-call") }
         tourToday(app)
+        tourCustomize(app)
 
         tourRings(app)
 
@@ -150,6 +151,29 @@ final class ScreenshotTourUITests: XCTestCase {
         for id in required { XCTAssertTrue(met.contains(id), "Today should draw the block \(id).") }
         for id in conditional where !met.contains(id) { note("missing: \(id)") }
         for _ in 0..<(Self.todayScrollSteps + 2) { app.swipeDown() }
+    }
+
+    /// The Customize sheet from the header's button, scrolled from the section rows through the Blocks switches to the note on the moved
+    /// sections, one screenshot per step. Cancel closes it (nothing was changed, so it does not ask).
+    private func tourCustomize(_ app: XCUIApplication) {
+        for _ in 0..<(Self.todayScrollSteps + 2) where !(element(app, "today-customize").exists && element(app, "today-customize").isHittable) {
+            app.swipeDown()
+        }
+        guard tapIfThere(app, "today-customize") else { return }
+        guard app.navigationBars["Customize Today"].waitForExistence(timeout: 15) else { note("missing: Customize Today sheet"); return }
+        attach(app, "05-customize-00")
+        var metBlocks = false, metNote = false
+        for step in 1...8 {
+            app.swipeUp()
+            attach(app, String(format: "05-customize-%02d", step))
+            metBlocks = metBlocks || element(app, "today-customize-blocks").exists
+            metNote = metNote || element(app, "today-customize-retired-note").exists
+        }
+        XCTAssertTrue(metBlocks, "Customize should list the Blocks section.")
+        XCTAssertTrue(metNote, "Customize should say where My Plan, My Dashboard and Start session went.")
+        let cancel = app.buttons["Cancel"]
+        if cancel.exists { cancel.tap() } else { app.swipeDown() }
+        if !element(app, "today-six-rings").waitForExistence(timeout: 10) { note("missing: way back to Today after Customize") }
     }
 
     /// Enough swipes to reach the bottom of Today with every section open.

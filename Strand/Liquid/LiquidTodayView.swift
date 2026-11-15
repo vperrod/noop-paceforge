@@ -132,6 +132,12 @@ struct LiquidTodayView: View {
     private var sectionOrder: [TodaySection] {
         TodayLayoutPrefs.visibleOrder(orderRaw: sectionOrderRaw, hiddenRaw: hiddenSectionsRaw)
     }
+    /// The iPhone Today's block switches (Customize > Blocks): a comma-separated list of the hidden block ids under its own key, so the
+    /// section keys above keep the wire format Android shares.
+    @AppStorage(TodayBlockPrefs.hiddenKey) private var hiddenBlocksRaw = ""
+    private func shows(_ block: TodayBlock) -> Bool {
+        !TodayBlockPrefs.decodeHidden(hiddenBlocksRaw).contains(block)
+    }
     // #430 parity: the Key-Metrics grid honours the SAME editor selection/order + Detailed-tiles switch as
     // Android (byte-identical @AppStorage keys). `kSparks` holds the trailing-30-day series the detailed
     // tiles graph (keyed by metric-catalog key), filled by the loader alongside everything else.
@@ -565,7 +571,8 @@ struct LiquidTodayView: View {
                 keyMetricsDetailed: $keyMetricsDetailed,
                 keyMetricsWindowDays: $keyMetricsWindowDays,
                 dashboardCardsRaw: $dashboardCardsRaw,
-                hostedCardsRaw: $hostedCardsRaw
+                hostedCardsRaw: $hostedCardsRaw,
+                hiddenBlocksRaw: $hiddenBlocksRaw
             )
         }
         .sheet(isPresented: $showCoachLauncher) {
@@ -988,51 +995,93 @@ struct LiquidTodayView: View {
         if hasHero { heroCard }
         // The day graph directly under the dials and their caption lines (source labels, the Effort target line), above the call. It
         // mounts at stage 1, so the first frame is still the dials and the call.
-        if hasHero && mountStage >= 1 { MyDayTodayCard(day: selectedLogicalDay) }
-        PFTodayCards(cards: [.theCall, .needsYou], showsHiddenRow: false, onOpenNeedsYou: openNeedsYou, onReadWhy: readWhy)
+        if hasHero && mountStage >= 1 && shows(.dayGraph) { MyDayTodayCard(day: selectedLogicalDay) }
+        if shows(.call) {
+            PFTodayCards(cards: [.theCall, .needsYou], showsHiddenRow: false, onOpenNeedsYou: openNeedsYou, onReadWhy: readWhy)
+        }
         // PaceForge's one assessment of the day as a line under the call. Its recovery bars (TodayPFReadout) stay off Today: they carry
         // PaceForge's own recovery numbers, a third score beside Garmin's and the strap's.
-        PFPageNote(key: "today")
-        PFProactiveTodayCard()
+        if shows(.pageNote) { PFPageNote(key: "today") }
+        if shows(.coachNoticed) { PFProactiveTodayCard() }
         if mountStage >= 1 {
             if hasHero {
                 lookMonitorRow
                 if chargeLegacyRRGap { ChargeLegacyRRGapNote() }
             }
-            PFTodayCards(cards: [.howYouAre], drawsChrome: false, showsHiddenRow: false, containerID: "pf-today-cards-how",
-                         onOpenNeedsYou: openNeedsYou, onReadWhy: readWhy)
+            if shows(.howYouAre) {
+                PFTodayCards(cards: [.howYouAre], drawsChrome: false, showsHiddenRow: false, containerID: "pf-today-cards-how",
+                             onOpenNeedsYou: openNeedsYou, onReadWhy: readWhy)
+            }
         }
-        // The day graph itself now sits directly under the dials; My Day keeps its heading and the bookend row.
+        // My Day: its heading and the bookend row (the day graph itself is under the dials).
         if mountStage >= 1 {
             LookSectionHeader(String(localized: "My Day"))
                 .padding(.top, 8)
                 .accessibilityIdentifier("today-my-day-header")
             // One row for the morning read and, in the evening, the day in review (the two blocks lower on Today stay).
-            PFTodayBookendRow()
+            if shows(.bookend) { PFTodayBookendRow() }
         }
         // Stage 2: the My Day cards.
         if mountStage >= 2 {
-            PFTodayCards(cards: [.today], drawsChrome: false, showsHiddenRow: false, containerID: "pf-today-cards-day",
-                         onOpenNeedsYou: openNeedsYou, onReadWhy: readWhy)
+            if shows(.todayCard) {
+                PFTodayCards(cards: [.today], drawsChrome: false, showsHiddenRow: false, containerID: "pf-today-cards-day",
+                             onOpenNeedsYou: openNeedsYou, onReadWhy: readWhy)
+            }
             // What the watch recorded today, with its results (nothing when nothing was recorded).
-            PFTodayRecordedHost()
+            if shows(.todaySoFar) { PFTodayRecordedHost() }
             // Tonight's sleep: the sleep planner's own row (target hours, bedtime, wake), from the sleep need the Sleep screen uses.
-            PFSleepPlannerSlot()
+            if shows(.tonightsSleep) { PFSleepPlannerSlot() }
             if order.contains(.journal) { JournalReminderCard() }
-            PFTodayCards(cards: [.feel], drawsChrome: false, showsHiddenRow: false, containerID: "pf-today-cards-feel",
-                         onOpenNeedsYou: openNeedsYou, onReadWhy: readWhy)
+            if shows(.feel) {
+                PFTodayCards(cards: [.feel], drawsChrome: false, showsHiddenRow: false, containerID: "pf-today-cards-feel",
+                             onOpenNeedsYou: openNeedsYou, onReadWhy: readWhy)
+            }
         }
         // Stage 3: My Plan and the training row.
         if mountStage >= 3 {
             LookSectionHeader(String(localized: "My Plan"))
                 .padding(.top, 8)
                 .accessibilityIdentifier("today-my-plan-header")
-            PFTodayCards(cards: [.thisWeek], drawsChrome: false, showsTrainingRow: true, lastWorkout: trainingLastWorkout,
-                         containerID: "pf-today-cards-week", onOpenNeedsYou: openNeedsYou, onReadWhy: readWhy)
+            if shows(.thisWeek) || shows(.trainingRow) {
+                PFTodayCards(cards: shows(.thisWeek) ? [.thisWeek] : [], drawsChrome: false, showsTrainingRow: shows(.trainingRow),
+                             lastWorkout: trainingLastWorkout, containerID: "pf-today-cards-week",
+                             onOpenNeedsYou: openNeedsYou, onReadWhy: readWhy)
+            }
         }
         // Stage 4: the dashboard header.
         if mountStage >= 4 {
             dashboardHeader
+            hiddenKeySectionsRow
+        }
+    }
+
+    /// A saved layout may hide the rings, the key metrics or the heart rate chart, the owner's "whole key" of Today. When it does, one row at
+    /// the top of My Dashboard says so and opens Customize; nothing is ever unhidden on its own.
+    @ViewBuilder private var hiddenKeySectionsRow: some View {
+        let hidden = TodayLayoutPrefs.effectiveHidden(orderRaw: sectionOrderRaw, hiddenRaw: hiddenSectionsRaw)
+            .filter { !TodaySection.retired.contains($0) }
+        if hidden.contains(.hero) || hidden.contains(.keyMetrics) || hidden.contains(.heartRate) {
+            Button { customizationDestination = .today } label: {
+                HStack(spacing: 8) {
+                    Text(hidden.count == 1 ? "1 section is hidden on Today" : "\(hidden.count) sections are hidden on Today")
+                        .font(LookFont.text(14, weight: .medium))
+                        .foregroundStyle(NoopLook.textSecondary)
+                    Spacer(minLength: 4)
+                    Text("Show").lookCaps(12)
+                        .foregroundStyle(NoopLook.textPrimary)
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(NoopLook.textTertiary)
+                        .accessibilityHidden(true)
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 10)
+                .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                .background(RoundedRectangle(cornerRadius: NoopLook.Metric.tileRadius, style: .continuous).fill(NoopLook.card))
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("today-hidden-sections-row")
         }
     }
 
@@ -1147,6 +1196,7 @@ struct LiquidTodayView: View {
             }
             .nativeLiquidGlassHeaderButton()
             .accessibilityLabel("Customize Today")
+            .accessibilityIdentifier("today-customize")
         }
     }
 
@@ -2112,7 +2162,7 @@ struct LiquidTodayView: View {
     @ViewBuilder private func strapBlocks(_ order: [TodaySection], withHero: Bool = true, skipping: Set<TodaySection> = []) -> some View {
         #if os(iOS)
         if withHero && order.contains(.hero) { heroCard }
-        if withHero && order.contains(.hero) && mountStage >= 1 { MyDayTodayCard(day: selectedLogicalDay) }
+        if withHero && order.contains(.hero) && mountStage >= 1 && shows(.dayGraph) { MyDayTodayCard(day: selectedLogicalDay) }
         #endif
                     ForEach(order.prefix(Self.mountedSectionCount(order, stage: mountStage)).filter { !skipping.contains($0) }) { section in
                         switch section {
@@ -2183,9 +2233,11 @@ struct LiquidTodayView: View {
                             #if os(iOS)
                             // My Dashboard's own cards, under the key metrics: the metrics against their own 30-day baselines (with the
                             // direction mark), then weight against its goal.
-                            LookMyDashboardSection(day: selectedLogicalDay, title: "Today vs 30 days", identifier: "today-vs30",
-                                                   drawsEmptyState: false)
-                            if selectedDayOffset == 0 && PFAPI.isConfigured { PFTodayWeightGoalHost() }
+                            if shows(.vsThirtyDays) {
+                                LookMyDashboardSection(day: selectedLogicalDay, title: "Today vs 30 days", identifier: "today-vs30",
+                                                       drawsEmptyState: false)
+                            }
+                            if selectedDayOffset == 0 && PFAPI.isConfigured && shows(.weightGoal) { PFTodayWeightGoalHost() }
                             #endif
                         case .workouts: lastWorkoutsSection
                         case .heartRate: heartRateSection

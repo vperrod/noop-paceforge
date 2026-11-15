@@ -77,17 +77,19 @@ enum TodaySection: String, CaseIterable, Identifiable {
         }
     }
 
-    /// Sections the iPhone's Today does not draw: Start session, Recovery Vitals, Your Cards (build 502), My Plan (the six PaceForge cards carry
-    /// "This week", and Today stopped drawing this section on 21 Oct, so its row controlled nothing) and My Dashboard (build 504, which gave
-    /// the Key Metrics tiles, each opening its detail, their place back: Victor found the rows a poor swap). (`myDay` stays:
-    /// on the iPhone it holds the Effort target and the Weekly goals cards only; the My Day timeline is its own tab and the Sleep planner
-    /// card moved to the Sleep screen. Adding `.myDay` here would retire those two cards from Today as well.) The cases and their rawValues
-    /// stay so the persisted wire format and the Android twin are unchanged, but on iOS they are outside `defaultOrder`,
-    /// `TodayLayoutPrefs.decodeOrder` drops them from any saved order and never back-fills them, and so neither Today nor the Arrange
-    /// sheet shows them, whatever a phone saved before. Empty on macOS, whose Today keeps every section.
+    /// Sections the iPhone's Today does not draw: Start session (a gated beta), My Plan (the six PaceForge cards carry "This week", and
+    /// Today stopped drawing this section on 21 Oct, so its row controlled nothing) and My Dashboard (its content is drawn as the My Dashboard
+    /// group of sections, each with its own row). Recovery Vitals and Your Cards were retired in build 502 and came back on 15 Nov: with
+    /// their rows gone the owner found "most of these are gone". They were visible by default before build 502 (they sat in the default
+    /// order and the hidden set starts empty), so they are again. (`myDay` stays: on the iPhone it holds the Effort target and the Weekly
+    /// goals cards only; the My Day timeline is its own tab and the Sleep planner card moved to the Sleep screen. Adding `.myDay` here would
+    /// retire those two cards from Today as well.) The cases and their rawValues stay so the persisted wire format and the Android twin are
+    /// unchanged, but on iOS the retired ones are outside `defaultOrder`, `TodayLayoutPrefs.decodeOrder` drops them from any saved order and
+    /// never back-fills them, and so neither Today nor the Arrange sheet shows them, whatever a phone saved before. Empty on macOS, whose
+    /// Today keeps every section.
     static let retired: Set<TodaySection> = {
         #if os(iOS)
-        return [.liveSession, .recoveryVitals, .yourCards, .myDashboard, .myPlan]
+        return [.liveSession, .myDashboard, .myPlan]
         #else
         return []
         #endif
@@ -102,7 +104,7 @@ enum TodaySection: String, CaseIterable, Identifiable {
     ])
 
     /// The orders a phone that never customised Today holds in its saved copy from before the Heart rate card moved up, as `decodeOrder`
-    /// reads them (the retired sections are already gone from them on iOS). The first is the earlier default (what the Arrange sheet
+    /// reads them (the retired sections are already gone from them on iOS; Recovery Vitals and Your Cards are in them again). The first is the earlier default (what the Arrange sheet
     /// wrote on Done); the second is what an order saved before the iPhone-only sections existed (hero first) decodes to. The order
     /// saved while the Heart rate card was already up is the current default. Any of them reads as "not customised" and gets the
     /// current default; any real change is kept as saved.
@@ -201,5 +203,66 @@ enum TodayLayoutPrefs {
     static func visibleOrder(orderRaw: String, hiddenRaw: String) -> [TodaySection] {
         let hidden = Set(effectiveHidden(orderRaw: orderRaw, hiddenRaw: hiddenRaw))
         return decodeOrder(orderRaw).filter { !hidden.contains($0) }
+    }
+}
+
+// MARK: - Today blocks (iPhone only, #today-blocks)
+//
+// The PaceForge blocks of the iPhone's Today are not sections, so `today.sectionOrder` / `today.hiddenSections` (whose wire format the
+// Android twin shares) cannot name them. Their visibility lives under its own key, a comma-separated list of the HIDDEN block ids, so an
+// unknown id is ignored, a block added later is visible by default and nothing about the section wire format changes. The per-card dismiss
+// (corner X and the Hidden cards row) is separate and stays as it is.
+
+/// One block of the iPhone's Today that has its own visibility switch in Customize. The rawValue is the stable persisted id.
+enum TodayBlock: String, CaseIterable, Identifiable {
+    case call = "call"
+    case pageNote = "page-note"
+    case coachNoticed = "coach-noticed"
+    case howYouAre = "how-you-are"
+    case dayGraph = "day-graph"
+    case bookend = "bookend"
+    case todayCard = "today-card"
+    case todaySoFar = "today-so-far"
+    case tonightsSleep = "tonights-sleep"
+    case feel = "feel"
+    case thisWeek = "this-week"
+    case trainingRow = "training-row"
+    case weightGoal = "weight-goal"
+    case vsThirtyDays = "vs-30"
+
+    var id: String { rawValue }
+
+    /// The label in Customize.
+    var title: String {
+        switch self {
+        case .call:          return String(localized: "The call and Needs you")
+        case .pageNote:      return String(localized: "Page note")
+        case .coachNoticed:  return String(localized: "Coach noticed")
+        case .howYouAre:     return String(localized: "How you are")
+        case .dayGraph:      return String(localized: "Day graph, under the rings")
+        case .bookend:       return String(localized: "Morning read and Day in review row")
+        case .todayCard:     return String(localized: "Today card")
+        case .todaySoFar:    return String(localized: "Today so far")
+        case .tonightsSleep: return String(localized: "Tonight's sleep")
+        case .feel:          return String(localized: "How do you feel")
+        case .thisWeek:      return String(localized: "This week")
+        case .trainingRow:   return String(localized: "Training row")
+        case .weightGoal:    return String(localized: "Weight vs goal")
+        case .vsThirtyDays:  return String(localized: "Today vs 30 days")
+        }
+    }
+}
+
+enum TodayBlockPrefs {
+    /// UserDefaults key: a comma-joined list of the hidden `TodayBlock` ids. Empty or unset means every block is shown.
+    static let hiddenKey = "today.hiddenBlocks"
+
+    static func decodeHidden(_ raw: String) -> Set<TodayBlock> {
+        Set(raw.split(separator: ",").compactMap { TodayBlock(rawValue: $0.trimmingCharacters(in: .whitespaces)) })
+    }
+
+    /// In `allCases` order, so the stored value does not depend on the order the switches were flipped in.
+    static func encodeHidden(_ hidden: Set<TodayBlock>) -> String {
+        TodayBlock.allCases.filter { hidden.contains($0) }.map(\.rawValue).joined(separator: ",")
     }
 }

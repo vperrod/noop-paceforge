@@ -177,4 +177,16 @@ final class TodayLayoutPrefsTests: XCTestCase {
         draft.hide(.hrv)
         XCTAssertEqual(draft.visible, [.hrv])
     }
+
+    func testBlockSwitchesAreAllVisibleUntilSetAndKeepTheirOwnKey() {
+        XCTAssertEqual(TodayBlockPrefs.decodeHidden(""), [])
+        XCTAssertEqual(TodayBlockPrefs.hiddenKey, "today.hiddenBlocks")
+        XCTAssertNotEqual(TodayBlockPrefs.hiddenKey, TodayLayoutPrefs.hiddenKey)
+    }
+
+    func testBlockSwitchesRoundTripInStableOrderAndIgnoreUnknownIds() {
+        let encoded = TodayBlockPrefs.encodeHidden([.vsThirtyDays, .call])
+        XCTAssertEqual(encoded, "call,vs-30")
+        XCTAssertEqual(TodayBlockPrefs.decodeHidden("vs-30, nope,call"), [.call, .vsThirtyDays])
+    }
 }

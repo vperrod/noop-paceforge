@@ -28,6 +28,7 @@ struct TodayCustomizationSheet: View {
     private let initialHostedDraft: EditableLayoutDraft<HostedCard>
     private let initialDetailed: Bool
     private let initialWindowDays: Int
+    private let initialHiddenBlocks: Set<TodayBlock>
 
     @Binding private var sectionOrderRaw: String
     @Binding private var hiddenSectionsRaw: String
@@ -36,6 +37,8 @@ struct TodayCustomizationSheet: View {
     @Binding private var keyMetricsWindowDays: Int
     @Binding private var dashboardCardsRaw: String
     @Binding private var hostedCardsRaw: String
+    /// The iPhone Today's block switches (`today.hiddenBlocks`); nil on the surfaces that have no such blocks, which then show no Blocks section.
+    private let hiddenBlocksRaw: Binding<String>?
 
     @State private var path: [Route]
     @State private var sectionDraft: EditableLayoutDraft<TodaySection>
@@ -44,6 +47,7 @@ struct TodayCustomizationSheet: View {
     @State private var hostedDraft: EditableLayoutDraft<HostedCard>
     @State private var detailed: Bool
     @State private var windowDays: Int
+    @State private var hiddenBlocks: Set<TodayBlock>
 
     private var currentDestination: TodayCustomizationDestination {
         switch path.last {
@@ -61,6 +65,7 @@ struct TodayCustomizationSheet: View {
             || hostedDraft != initialHostedDraft
             || detailed != initialDetailed
             || windowDays != initialWindowDays
+            || hiddenBlocks != initialHiddenBlocks
     }
 
     init(
@@ -71,7 +76,8 @@ struct TodayCustomizationSheet: View {
         keyMetricsDetailed: Binding<Bool>,
         keyMetricsWindowDays: Binding<Int>,
         dashboardCardsRaw: Binding<String>,
-        hostedCardsRaw: Binding<String>
+        hostedCardsRaw: Binding<String>,
+        hiddenBlocksRaw: Binding<String>? = nil
     ) {
         _sectionOrderRaw = sectionOrderRaw
         _hiddenSectionsRaw = hiddenSectionsRaw
@@ -80,6 +86,7 @@ struct TodayCustomizationSheet: View {
         _keyMetricsWindowDays = keyMetricsWindowDays
         _dashboardCardsRaw = dashboardCardsRaw
         _hostedCardsRaw = hostedCardsRaw
+        self.hiddenBlocksRaw = hiddenBlocksRaw
 
         let fullSectionOrder = TodayLayoutPrefs.decodeOrder(sectionOrderRaw.wrappedValue)
         let hiddenSectionSet = Set(TodayLayoutPrefs.effectiveHidden(orderRaw: sectionOrderRaw.wrappedValue,
@@ -107,6 +114,8 @@ struct TodayCustomizationSheet: View {
         initialHostedDraft = hosted
         initialDetailed = keyMetricsDetailed.wrappedValue
         initialWindowDays = keyMetricsWindowDays.wrappedValue
+        let blocks = TodayBlockPrefs.decodeHidden(hiddenBlocksRaw?.wrappedValue ?? "")
+        initialHiddenBlocks = blocks
 
         _sectionDraft = State(initialValue: sections)
         _keyMetricDraft = State(initialValue: metrics)
@@ -114,6 +123,7 @@ struct TodayCustomizationSheet: View {
         _hostedDraft = State(initialValue: hosted)
         _detailed = State(initialValue: keyMetricsDetailed.wrappedValue)
         _windowDays = State(initialValue: keyMetricsWindowDays.wrappedValue)
+        _hiddenBlocks = State(initialValue: blocks)
 
         switch initialDestination {
         case .today:
@@ -134,6 +144,7 @@ struct TodayCustomizationSheet: View {
                 keyMetricCount: keyMetricDraft.visible.count,
                 dashboardCardCount: dashboardDraft.visible.count,
                 hostedCardCount: hostedDraft.visible.count,
+                hiddenBlocks: hiddenBlocksRaw == nil ? nil : $hiddenBlocks,
                 onConfigure: openConfiguration,
                 onReset: resetCurrentLayout
             )
@@ -201,6 +212,7 @@ struct TodayCustomizationSheet: View {
                 visible: TodaySection.defaultOrder,
                 allItems: TodaySection.defaultOrder
             )
+            hiddenBlocks = []
         case .keyMetrics:
             keyMetricDraft = EditableLayoutDraft(
                 visible: KeyMetric.defaultOrder,
@@ -233,6 +245,7 @@ struct TodayCustomizationSheet: View {
         keyMetricsWindowDays = windowDays
         dashboardCardsRaw = DashboardCardPrefs.encode(dashboardDraft.visible)
         hostedCardsRaw = HostedCardPrefs.encode(hostedDraft.visible)
+        hiddenBlocksRaw?.wrappedValue = TodayBlockPrefs.encodeHidden(hiddenBlocks)
         dismiss()
     }
 
@@ -256,6 +269,8 @@ private struct TodaySectionsCustomizationPage: View {
     let keyMetricCount: Int
     let dashboardCardCount: Int
     let hostedCardCount: Int
+    /// The iPhone Today's blocks that are switched off; nil when this surface has none (no Blocks section then).
+    let hiddenBlocks: Binding<Set<TodayBlock>>?
     let onConfigure: (TodaySection) -> Void
     let onReset: () -> Void
 
@@ -270,7 +285,8 @@ private struct TodaySectionsCustomizationPage: View {
             tint: \.customizationTint,
             configurationLabel: configurationLabel,
             onConfigure: onConfigure,
-            onReset: onReset
+            onReset: onReset,
+            bottom: bottomSections
         ) {
             EmptyView()
         }
@@ -279,6 +295,44 @@ private struct TodaySectionsCustomizationPage: View {
         .navigationBarTitleDisplayMode(.inline)
         #endif
     }
+
+    #if os(iOS)
+    /// The Blocks switches, then a note on where the three sections the iPhone no longer lists went, so nothing silently disappears.
+    private var bottomSections: AnyView? {
+        guard let hiddenBlocks else { return nil }
+        return AnyView(Group {
+            Section {
+                ForEach(TodayBlock.allCases) { block in
+                    Toggle(block.title, isOn: Binding(
+                        get: { !hiddenBlocks.wrappedValue.contains(block) },
+                        set: { isShown in
+                            if isShown { hiddenBlocks.wrappedValue.remove(block) } else { hiddenBlocks.wrappedValue.insert(block) }
+                        }))
+                    .accessibilityIdentifier("today-customize-block-\(block.rawValue)")
+                }
+            } header: {
+                Text("Blocks")
+                    .strandOverline()
+                    .accessibilityIdentifier("today-customize-blocks")
+            } footer: {
+                Text("Switch a block off to take it off Today. A card closed with its corner X is brought back from the Hidden cards row on Today.")
+                    .font(StrandFont.footnote)
+                    .foregroundStyle(StrandPalette.textTertiary)
+            }
+            Section {
+                Text("My Plan is now the My Plan group on Today and Plan > This week. My Dashboard is the My Dashboard group on Today, made of the sections listed above. Start session is a beta and is not drawn on the iPhone's Today.")
+                    .font(StrandFont.footnote)
+                    .foregroundStyle(StrandPalette.textTertiary)
+                    .accessibilityIdentifier("today-customize-retired-note")
+            } header: {
+                Text("Moved")
+                    .strandOverline()
+            }
+        })
+    }
+    #else
+    private var bottomSections: AnyView? { nil }
+    #endif
 
     private func subtitle(for section: TodaySection) -> String? {
         switch section {
