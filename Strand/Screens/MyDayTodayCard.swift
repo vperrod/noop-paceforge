@@ -23,8 +23,11 @@ struct MyDayTodayCard: View {
 
     @State private var loaded: DayTimelineLoader.Loaded?
 
+    /// Today passes a logical day that is "now minus the rollover hours", a moving timestamp; the day start is stable.
+    private var dayStart: Date { Calendar.current.startOfDay(for: day) }
+
     private var loadKey: String {
-        "\(Int(day.timeIntervalSince1970))|\(repo.refreshSeq)|\(showStress)"
+        "\(Int(dayStart.timeIntervalSince1970))|\(repo.refreshSeq)|\(showStress)"
     }
 
     var body: some View {
@@ -61,7 +64,7 @@ struct MyDayTodayCard: View {
 
     private func reload() async {
         let options = DayTimelineLoader.Options(includeStress: showStress, segmentProfile: profile.segmentProfile)
-        let result = await DayTimelineLoader.load(repo: repo, day: day, options: options)
+        let result = await DayTimelineLoader.load(repo: repo, day: dayStart, options: options)
         guard !Task.isCancelled else { return }
         loaded = result
     }
