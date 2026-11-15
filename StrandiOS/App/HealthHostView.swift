@@ -80,7 +80,7 @@ private struct HealthChipBody: View {
 
     private var content: AnyView {
         switch chip {
-        case .day: return AnyView(MyDayView().containerIdentifier("health-chip-content-day"))
+        case .day: return AnyView(HealthDayChip())
         case .sleep: return AnyView(HealthSleepChip())
         case .recovery: return AnyView(HealthRecoveryChip())
         case .body: return AnyView(HealthBodyChip())
@@ -92,6 +92,17 @@ private struct HealthChipBody: View {
 }
 
 // MARK: - Chips
+
+/// My Day, with the Effort target under it (it stays on Today too).
+private struct HealthDayChip: View {
+    var body: some View {
+        VStack(alignment: .leading, spacing: NoopMetrics.sectionSpacing) {
+            MyDayView()
+            EffortTargetCard()
+        }
+        .containerIdentifier("health-chip-content-day")
+    }
+}
 
 /// Sleep, with Alarms and Rhythm one tap away.
 private struct HealthSleepChip: View {
