@@ -2227,7 +2227,17 @@ struct LiquidTodayView: View {
                         case .myDay:
                             if mountStage >= 2 {
                                 #if os(iOS)
-                                if selectedDayOffset == 0 { EffortTargetCard(); WeeklyGoalsCard() }
+                                if selectedDayOffset == 0 {
+                                    EffortTargetCard()
+                                    // The same band as the rings' caption (NOOP), from the strap; Today's call below says PaceForge (Garmin) for its own.
+                                    Text("Effort target from NOOP (strap)")
+                                        .font(StrandFont.caption)
+                                        .foregroundStyle(StrandPalette.textTertiary)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                        .padding(.horizontal, 4)
+                                        .accessibilityIdentifier("today-effort-target-source")
+                                    WeeklyGoalsCard()
+                                }
                                 #else
                                 if selectedDayOffset == 0 { MyDayEntryCard(); EffortTargetCard(); SleepPlannerEntryCard(); WeeklyGoalsCard() }
                                 #endif

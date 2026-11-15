@@ -219,7 +219,8 @@ struct PFTodaysCallCard: View {
                 .font(StrandFont.scaled(14, weight: .semibold))
                 .foregroundStyle(NoopLook.textSecondary)
                 .accessibilityHidden(true)
-            Text("Today's call")
+            // Today draws the call twice: the banner under the rings and this card. The compact (My Dashboard) one says it is the detail.
+            Text(compact ? "Today's call \u{00B7} detail" : "Today's call")
                 .lookCaps(12.5)
                 .foregroundStyle(NoopLook.textPrimary)
             Spacer(minLength: 8)
@@ -229,10 +230,12 @@ struct PFTodaysCallCard: View {
         }
     }
 
-    /// "Effort target 67-86": the range the day is aiming for. Its arc and tick are drawn on the Effort ring in the row above.
+    /// "Effort target 67-86 · PaceForge (Garmin)": the range PaceForge works out from Garmin's data. The rings' caption and the Effort target
+    /// card are NOOP's own band from the strap, so the two can differ and each names its source. Its arc and tick are drawn on the Effort
+    /// ring in the row above only when the strap has no band of its own.
     @ViewBuilder private var effortTargetLine: some View {
         if let target = call.effortTarget {
-            Text(hiding.text("Effort target \(target.rangeText)"))
+            Text(hiding.text("Effort target \(target.rangeText) \u{00B7} PaceForge (Garmin)"))
                 .font(LookFont.text(13.5, weight: .semibold))
                 .foregroundStyle(NoopLook.textSecondary)
                 .accessibilityIdentifier("pf-call-effort-target")
