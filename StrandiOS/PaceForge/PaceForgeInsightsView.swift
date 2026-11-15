@@ -147,21 +147,28 @@ struct PFInsightsView: View {
 
     /// The running shape against a road-race goal. A HYROX goal has none (the server answers "not a running goal").
     @ViewBuilder private var runningGoalCard: some View {
-        if let goal = insights.goalPrognosis {
-            PFCard("Running goal", icon: "target") {
-                HStack(spacing: 8) {
-                    PFChip(text: "Goal \(PFFormat.clock(goal.goalSec)) \u{00B7} \(goal.verdict)", color: PFColor.warning)
-                    Text("Running shape \(PFFormat.clock(goal.prognosisSec))")
-                        .font(StrandFont.caption)
-                        .foregroundStyle(StrandPalette.textSecondary)
-                }
-            }
-        }
+        if let goal = insights.goalPrognosis { PFRunningGoalCard(goal: goal) }
     }
 
     /// His own HYROX races, where his time is, and the way into the HYROX screen. No predicted finish, no top 3, no field comparison.
     @ViewBuilder private var hyroxCard: some View {
         if !insights.hyroxRaces.isEmpty { PFHyroxSummaryCard(races: insights.hyroxRaces) }
+    }
+}
+
+/// "Running goal": the running shape against a road-race goal (the prognosis PaceForge works out from the Garmin and PaceForge runs).
+struct PFRunningGoalCard: View {
+    let goal: PFGoalPrognosis
+
+    var body: some View {
+        PFCard("Running goal", icon: "target") {
+            HStack(spacing: 8) {
+                PFChip(text: "Goal \(PFFormat.clock(goal.goalSec)) \u{00B7} \(goal.verdict)", color: PFColor.warning)
+                Text("Running shape \(PFFormat.clock(goal.prognosisSec))")
+                    .font(StrandFont.caption)
+                    .foregroundStyle(StrandPalette.textSecondary)
+            }
+        }
     }
 }
 

@@ -108,7 +108,7 @@ private struct TrainHyroxContent: View {
             IndexSection("Race reports") {
                 IndexRow("Race reports", "flag.checkered", TabRoute.reports("race"), id: "train-hyrox-race-reports")
             }
-            PFHyroxScreen(snapshot: snapshot)
+            PFHyroxScreen(snapshot: snapshot, showsPrediction: true)
         }
         .containerIdentifier("train-chip-content-hyrox")
     }

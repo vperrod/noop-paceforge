@@ -4,7 +4,8 @@ import StrandDesign
 // The HYROX screen: seven sections in this order, each loading, empty and failing on its own: the next race (with the race picker),
 // your plan (read-only: it is edited on the web app), results, performance, training for HYROX, advisory and season. It sits on the
 // Plan tab as the HYROX chip and opens as a sheet from the Coach race plans, the Athlete tab and the race countdown. The parsing and
-// the wording are in PaceForgeHyrox.swift. His own numbers only: no predicted finish, no top 3, no field or percentile comparison.
+// the wording are in PaceForgeHyrox.swift. His own numbers only: no top 3 and no percentile of our own. A race's official placing and field size show when the result file carries them
+// (source "Official result"), and the Train chip adds the running prediction under the next race.
 
 // MARK: - Store
 
@@ -138,6 +139,8 @@ final class PFHyroxStore: ObservableObject {
 /// those two sections then say so while the other five carry on.
 struct PFHyroxScreen: View {
     let snapshot: PFSnapshot?
+    /// True on the Train > HYROX chip: the running prediction sits under the next race.
+    var showsPrediction = false
 
     @ObservedObject private var store = PFHyroxStore.shared
     @ObservedObject private var panels = PFCoachPanelsStore.shared
@@ -146,6 +149,7 @@ struct PFHyroxScreen: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             PFHyroxNextRaceCard()
+            if showsPrediction, let snapshot { predictionCard(snapshot) }
             PFHyroxYourPlanCard()
             PFHyroxResultsCard()
             PFHyroxPerformanceCard()
@@ -157,6 +161,20 @@ struct PFHyroxScreen: View {
             await store.refreshIfStale()
             await panels.refreshIfStale()
             await week.refreshIfStale()
+        }
+    }
+}
+
+extension PFHyroxScreen {
+    /// The Insights "Running goal" card, or one line saying why there is none (the server judges only a road-race goal).
+    @ViewBuilder fileprivate func predictionCard(_ snapshot: PFSnapshot) -> some View {
+        if let goal = snapshot.insights.goalPrognosis {
+            PFRunningGoalCard(goal: goal).accessibilityIdentifier("hyrox-prediction")
+        } else {
+            PFCard("Prediction", icon: "target") {
+                PFParagraph("PaceForge predicts a finish only for a road-race goal. For HYROX, the plan below has your realistic and stretch times.")
+            }
+            .accessibilityIdentifier("hyrox-prediction")
         }
     }
 }
@@ -638,6 +656,13 @@ private struct PFHyroxResultRow: View {
                             .accessibilityHidden(true)
                     }
                     Text(race.summaryLine).font(StrandFont.caption).foregroundStyle(StrandPalette.textSecondary)
+                    if let placing = race.placingText {
+                        HStack(spacing: 6) {
+                            Text(placing).font(StrandFont.caption.weight(.semibold)).foregroundStyle(StrandPalette.textPrimary)
+                            PFSourceTag(source: "Official result")
+                        }
+                        .accessibilityIdentifier("hyrox-race-placing-\(race.id)")
+                    }
                     if race.artefact { PFChip(text: "timing artefact", color: PFColor.warning) }
                 }
                 .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
