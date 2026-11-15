@@ -53,6 +53,38 @@ enum PFPlanInputs529 {
         return inputs
     }
 
+}
+
+/// Runs one write at a time for a sheet and keeps the sentence to show when it did not go through (the server's own sentence for a refusal).
+@MainActor
+final class PFPlanEditRunner529: ObservableObject {
+    @Published private(set) var isBusy = false
+    @Published private(set) var message: String?
+
+    private let tracker = PFJobTracker()
+
+    func clear() { message = nil }
+
+    func fail(_ text: String) { message = text }
+
+    /// True when the server took the write.
+    func run(_ job: PFJobName, inputs: [String: Any]?) async -> Bool {
+        guard let inputs else {
+            message = "That could not be sent. Check the values."
+            return false
+        }
+        isBusy = true
+        message = nil
+        defer { isBusy = false }
+        switch await tracker.run(job, inputs: inputs) {
+        case .success:
+            return true
+        case .failure(let failure):
+            message = failure.message
+            return false
+        }
+    }
+
     /// Cancels one race (`event-update`, `op: "cancel"`). A race that is over is refused with the server's sentence. True when it is off the list.
     func cancelRace(date: String, name: String) async -> Bool {
         await run(.eventUpdate, inputs: PFPlanInputs529.raceCancel(date: date, name: name))
