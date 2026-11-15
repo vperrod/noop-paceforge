@@ -21,6 +21,9 @@ struct PFScoresValues: Equatable {
     var strain: Double?
     var strainLow: Double?
     var strainHigh: Double?
+    /// The sessions behind today's Strain and the server's one-sentence note on them; empty / nil on a rest day or an older server.
+    var strainParts: [PFStrainPart] = []
+    var strainPartsNote: String?
     /// The sheet behind "Why they differ".
     var why: PFExplainer
     /// One line saying why there is nothing to show; nil while at least one score is there.
@@ -79,6 +82,8 @@ enum PFScoresParse {
                 out.strain = value
                 out.strainLow = number(strain["target_low"])
                 out.strainHigh = number(strain["target_high"])
+                out.strainParts = PFRingRows.strainParts(strain)
+                out.strainPartsNote = strain["strain_parts_note"].text
             }
         }
         if !out.hasAny {

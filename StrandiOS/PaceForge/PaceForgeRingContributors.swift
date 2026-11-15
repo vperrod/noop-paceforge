@@ -8,7 +8,7 @@ import StrandDesign
 // A ring with nothing to list says so in one line instead of inventing rows.
 
 enum PFRingContributors {
-    /// The rows for one ring. Empty when the readings are missing or not today's, and always for Strain (no parts are sent).
+    /// The rows for one ring. Empty when the readings are missing or not today's, and always for Strain (its rows are `PFRingRows.strain`).
     static func rows(_ kind: PFRingKind, readings: DayReadings?) -> [PFContributorRow] {
         guard let readings else { return [] }
         let facts = PFRingFacts(
@@ -40,6 +40,8 @@ enum PFRingContributors {
 struct PFRingContributorsCard: View {
     let kind: PFRingKind
     let rows: [PFContributorRow]
+    /// The server's one sentence under the rows (the Strain parts' note).
+    var caption: String? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -49,22 +51,34 @@ struct PFRingContributorsCard: View {
                     .accessibilityIdentifier("pf-ring-contributors-empty")
             } else {
                 ForEach(rows) { row in
-                    HStack(alignment: .firstTextBaseline, spacing: 8) {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(row.label)
-                                .font(LookFont.text(14, weight: .medium))
-                                .foregroundStyle(NoopLook.textPrimary)
-                                .fixedSize(horizontal: false, vertical: true)
-                            if let note = row.note {
-                                Text(note).font(LookFont.text(12, weight: .medium)).foregroundStyle(NoopLook.textTertiary)
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack(alignment: .firstTextBaseline, spacing: 8) {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(row.label)
+                                    .font(LookFont.text(14, weight: .medium))
+                                    .foregroundStyle(NoopLook.textPrimary)
+                                    .fixedSize(horizontal: false, vertical: true)
+                                if let note = row.note {
+                                    Text(note).font(LookFont.text(12, weight: .medium)).foregroundStyle(NoopLook.textTertiary)
+                                }
                             }
+                            Spacer(minLength: 8)
+                            if let value = row.value {
+                                Text(value).font(LookFont.text(15, weight: .semibold)).foregroundStyle(NoopLook.textPrimary)
+                            }
+                            PFSourceTag(source: row.source)
                         }
-                        Spacer(minLength: 8)
-                        if let value = row.value {
-                            Text(value).font(LookFont.text(15, weight: .semibold)).foregroundStyle(NoopLook.textPrimary)
+                        if let share = row.share {
+                            ProgressView(value: share)
+                                .tint(NoopLook.textSecondary)
+                                .accessibilityHidden(true)
                         }
-                        PFSourceTag(source: row.source)
                     }
+                }
+                if let caption {
+                    Text(caption).font(LookFont.text(12, weight: .medium)).foregroundStyle(NoopLook.textTertiary)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .accessibilityIdentifier("pf-ring-contributors-note")
                 }
             }
         }
@@ -96,7 +110,11 @@ struct PFRingExplainSection: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            PFRingContributorsCard(kind: kind, rows: PFRingContributors.rows(kind, readings: values.readings))
+            if kind == .strain {
+                PFRingContributorsCard(kind: kind, rows: PFRingRows.strain(values.strainParts), caption: values.strainPartsNote)
+            } else {
+                PFRingContributorsCard(kind: kind, rows: PFRingContributors.rows(kind, readings: values.readings))
+            }
             ForEach(specs, id: \.key) { spec in
                 LookTrendLineCard(title: spec.title, unit: spec.unit, points: lastDays(series[spec.key] ?? [], 30),
                                   identifier: "pf-ring-trend-\(spec.key)")
