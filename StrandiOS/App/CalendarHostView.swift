@@ -501,6 +501,10 @@ private struct CalendarSeasonChip: View {
         let currentKey = snapshot.weeks.indices.contains(snapshot.currentWeekIndex) ? snapshot.weeks[snapshot.currentWeekIndex].key : ""
         return VStack(alignment: .leading, spacing: 16) {
             PFSeasonPlanCard()
+            IndexSection("On the web") {
+                PFWebPageRow(title: "Start a programme", detail: "Opens the PaceForge website in your browser.",
+                             icon: "calendar.badge.plus", route: PFWebPage.plan, identifier: "calendar-season-start-programme")
+            }
             Text("Events").strandOverline()
             CalendarEventsSection(snapshot: snapshot)
             Text("Weeks").strandOverline()

@@ -83,7 +83,7 @@ private struct TrainChipBody: View {
         switch chip {
         case .hyrox: return AnyView(TrainHyroxChip())
         case .running: return AnyView(TrainRunningChip())
-        case .strength: return AnyView(LiftLogView().containerIdentifier("train-chip-content-strength"))
+        case .strength: return AnyView(TrainStrengthChip())
         case .bike: return AnyView(TrainBikeChip())
         case .workouts: return AnyView(TrainWorkoutsChip())
         case .athlete: return AnyView(AthleteHostView().containerIdentifier("train-chip-content-athlete"))
@@ -111,6 +111,20 @@ private struct TrainHyroxContent: View {
             PFHyroxScreen(snapshot: snapshot, showsPrediction: true)
         }
         .containerIdentifier("train-chip-content-hyrox")
+    }
+}
+
+/// Strength: the strength programme (web only) one tap away, then the Lift Log.
+private struct TrainStrengthChip: View {
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            IndexSection("On the web") {
+                PFWebPageRow(title: "Strength programme", detail: "Opens the PaceForge website in your browser.",
+                             icon: "dumbbell", route: PFWebPage.strength, identifier: "train-strength-programme")
+            }
+            LiftLogView()
+        }
+        .containerIdentifier("train-chip-content-strength")
     }
 }
 
@@ -162,6 +176,10 @@ private struct TrainBikeContent: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             TrainFtpCard(snapshot: snapshot)
+            IndexSection("On the web") {
+                PFWebPageRow(title: "Ride library", detail: "Opens the PaceForge website in your browser.",
+                             icon: "books.vertical", route: PFWebPage.bike, identifier: "train-bike-ride-library")
+            }
             if snapshot.rides.isEmpty {
                 PFCard("No rides yet", icon: "bicycle") {
                     PFParagraph("Rides PaceForge has analysed show here, newest first. Planned rides are on the Plan tab.")
