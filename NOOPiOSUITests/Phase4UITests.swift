@@ -219,38 +219,45 @@ final class Phase4UITests: XCTestCase {
 
     // MARK: My Plan
 
-    func testMyPlanCardOnNoopToday() throws {
+    /// Today stopped drawing the "5 days left" My Plan card on 21 Oct (0e20c61d4: the Plan tab owns it). Today's My Plan section is
+    /// its header and the This week card, which opens Plan > This week; the progress card is on Plan > This week, folded to one line.
+    func testMyPlanSectionOnNoopToday() throws {
         let app = try launch()
-        let card = element(app, "pf-my-plan")
-        XCTAssertTrue(reveal(card, in: app), "NOOP Today should carry the My Plan card.")
-        XCTAssertEqual(element(app, "pf-plan-header").label, "5 DAYS LEFT \u{00B7} 62 % ACCOMPLISHED", "The header states days left and percent.")
-        XCTAssertTrue(element(app, "pf-plan-next").exists, "The next session should be named.")
+        XCTAssertTrue(reveal(element(app, "today-my-plan-header"), in: app, maxSwipes: 20), "NOOP Today should carry the My Plan header.")
+        let week = element(app, "pf-today-card-this-week")
+        XCTAssertTrue(reveal(week, in: app, maxSwipes: 20), "The My Plan section should carry the This week card.")
         attach(app, "Phase4 60 NOOP Today, My Plan")
-        assertFits(card, in: app, "My Plan")
+        assertFits(week, in: app, "This week")
     }
 
-    func testViewMyPlanOpensThisWeek() throws {
+    func testThisWeekCardOnTodayOpensThePlanTab() throws {
         let app = try launch()
-        let button = element(app, "pf-plan-view")
-        XCTAssertTrue(reveal(button, in: app), "The card should have VIEW MY PLAN.")
-        button.tap()
-        XCTAssertTrue(element(app, "calendar-host").waitForExistence(timeout: 20), "VIEW MY PLAN should open the Plan tab.")
+        let card = element(app, "pf-today-card-this-week")
+        XCTAssertTrue(reveal(card, in: app, maxSwipes: 20), "Today should carry the This week card.")
+        card.tap()
+        XCTAssertTrue(element(app, "calendar-host").waitForExistence(timeout: 20), "The This week card should open the Plan tab.")
         XCTAssertTrue(element(app, "calendar-chip-content-plan").waitForExistence(timeout: 20), "It should land on the Plan chip.")
-        attach(app, "Phase4 61 Plan, opened from My Plan")
+        attach(app, "Phase4 61 Plan, opened from This week")
     }
 
     func testMyPlanCardOnThePlanTab() throws {
         let app = try launch()
         app.openChip("Plan", "thisWeek")
-        XCTAssertTrue(reveal(element(app, "pf-my-plan"), in: app), "Plan > This week should carry My Plan too.")
+        XCTAssertTrue(reveal(element(app, "pf-my-plan"), in: app), "Plan > This week should carry My Plan.")
+        // On the Plan tab the card is folded to one line; opening it shows the days left and the next session.
+        let toggle = element(app, "pf-plan-toggle")
+        XCTAssertTrue(reveal(toggle, in: app), "The My Plan card should fold and unfold.")
+        toggle.tap()
+        XCTAssertEqual(element(app, "pf-plan-header").label, "5 DAYS LEFT \u{00B7} 62 % ACCOMPLISHED", "The header states days left and percent.")
+        XCTAssertTrue(element(app, "pf-plan-next").exists, "The next session should be named.")
         attach(app, "Phase4 62 Plan, My Plan")
     }
 
     func testNoPlanMeansNoCard() throws {
         let app = try launch(extra: ["-PaceForgePhase4Unavailable"])
-        XCTAssertTrue(app.shellTab("Today").waitForExistence(timeout: 30), "Today should have loaded.")
+        app.openChip("Plan", "thisWeek")
         XCTAssertFalse(element(app, "pf-my-plan").waitForExistence(timeout: 5), "With no plan published there is no card.")
-        attach(app, "Phase4 63 NOOP Today without a plan")
+        attach(app, "Phase4 63 Plan without a plan")
     }
 
     // MARK: My Dashboard
