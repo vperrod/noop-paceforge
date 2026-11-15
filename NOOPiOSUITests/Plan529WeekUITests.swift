@@ -102,6 +102,8 @@ final class Plan529WeekUITests: XCTestCase {
 
     func testArrowsMoveToTheFinishedWeekAndItsReport() throws {
         let app = try launchWeek("2026-W47")
+        // The page under the arrows loads after the arrows draw; an arrow tapped while it swaps in is lost.
+        XCTAssertTrue(app.element("plan529-why").waitForExistence(timeout: 30), "The week should have loaded.")
         app.element("plan529-week-prev").tap()
         XCTAssertTrue(app.element("plan529-verdict").waitForExistence(timeout: 20), "A finished week should be its report.")
         XCTAssertEqual(app.element("plan529-week-label").label, "Week 46 \u{00B7} 9\u{2013}15 Nov")
