@@ -1,26 +1,26 @@
 import XCTest
 
 final class PaceForgeMenuVisibilityUITests: XCTestCase {
-    func testPaceForgePushAppearsInMoreData() {
+    func testPaceForgePushAppearsInSettingsData() {
         let app = XCUIApplication()
         app.launchArguments.append("--demo-seed")
         app.launch()
 
-        let moreTab = app.shellTab("Body")
-        XCTAssertTrue(moreTab.waitForExistence(timeout: 15), "The Body tab (which ends in the More rows) should be present.")
-        moreTab.tap()
-
-        // Since build 468 the Data screen is one row of More (Apple Health, Mi Band, Backup & Sync, PaceForge sync ... are its sections).
-        let dataRow = app.descendants(matching: .any).matching(identifier: "more-row-data").firstMatch
-        XCTAssertTrue(dataRow.waitForExistence(timeout: 10), "More should list Data.")
-        for _ in 0..<8 where !dataRow.isHittable {
+        // Settings opens from the avatar on Today; Data is a row of its Tools card, and the PaceForge sync settings are a section of Data.
+        app.openTab("Today")
+        let settings = app.element("today-settings")
+        XCTAssertTrue(settings.waitForExistence(timeout: 15), "Today should carry the profile and settings button.")
+        settings.tap()
+        let dataRow = app.element("settings-tool-data")
+        XCTAssertTrue(dataRow.waitForExistence(timeout: 10), "Settings should list Data under Tools.")
+        for _ in 0..<12 where !dataRow.isHittable {
             app.swipeUp()
         }
         XCTAssertTrue(dataRow.isHittable, "The Data row should be reachable by scrolling.")
         dataRow.tap()
 
         let paceForgeChip = app.descendants(matching: .any).matching(identifier: "data-section-paceForge").firstMatch
-        XCTAssertTrue(paceForgeChip.waitForExistence(timeout: 10), "The PaceForge push setting should appear under More → Data.")
+        XCTAssertTrue(paceForgeChip.waitForExistence(timeout: 10), "The PaceForge push setting should appear under Settings > Data.")
         XCTAssertTrue(paceForgeChip.isHittable, "The PaceForge push section should be visible on screen.")
         paceForgeChip.tap()
         XCTAssertTrue(app.staticTexts["PaceForge sync"].waitForExistence(timeout: 10) || paceForgeChip.isSelected,
