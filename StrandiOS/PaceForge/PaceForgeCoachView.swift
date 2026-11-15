@@ -25,6 +25,9 @@ struct PFCoachView: View {
             proposalsRow
             PFPageNote(key: "coach", alwaysOpen: true)
             if coach.brief != nil || coach.take != nil { todayRead(brief: coach.brief, take: coach.take) }
+            // Mounted here again after 622ffedd dropped the classic Today that drew them; each draws nothing without its document.
+            if let next = snapshot.insightsV2?.todayCard { PFNextActionCard(item: next) }
+            if let changes = snapshot.whatChanged { PFWhatChangedCard(changes: changes) }
             PFExpertReadingHost()
             waitingRow
             if let monthlyRead { monthlyReviewCard(monthlyRead) }

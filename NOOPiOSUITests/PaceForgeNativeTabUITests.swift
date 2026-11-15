@@ -117,6 +117,19 @@ final class PaceForgeNativeTabUITests: XCTestCase {
         capture("04 Insights")
     }
 
+    func testCoachReadMountsTheNextActionAndWhatChangedCards() throws {
+        let app = try launch(fixture: true)
+        app.openCoach("read")
+        XCTAssertTrue(reveal(element(app, "pf-next-action-card"), in: app, maxSwipes: 20), "Coach > Read should show the Next best action card.")
+        XCTAssertTrue(reveal(element(app, "pf-changes-card"), in: app, maxSwipes: 20), "Coach > Read should show the What changed card.")
+    }
+
+    func testHealthRecoveryMountsTheReadinessAnswers() throws {
+        let app = try launch(fixture: true)
+        app.openChip("Health", "recovery")
+        XCTAssertTrue(reveal(element(app, "pf-answers"), in: app, maxSwipes: 20), "Health > Recovery should show the readiness answers.")
+    }
+
     func testTheCallSheetCarriesTheBriefingAndNoVerdictCard() throws {
         let app = try launch(fixture: true)
         openTheCallSheet(app)

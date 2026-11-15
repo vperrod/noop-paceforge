@@ -128,6 +128,10 @@ private struct HealthRecoveryChip: View {
         VStack(alignment: .leading, spacing: NoopMetrics.sectionSpacing) {
             RecoveryThreeReadings()
             PFDualReadinessHost()
+            // The answers (OK to train, OK to train hard) and the three sources with their trust notes; nothing without the document.
+            PFSnapshotHost(drawsChrome: false, content: { snapshot in
+                AnyView(Group { if let readiness = snapshot.readiness { PFReadinessCard(readiness: readiness) } })
+            })
             IndexSection("Open the detail") {
                 IndexRow("Charge", "bolt.heart.fill", TabRoute.metric(HeroRingMetric.charge), id: "health-recovery-charge")
                 IndexRow("Effort", "flame.fill", TabRoute.metric(HeroRingMetric.effort), id: "health-recovery-effort")
