@@ -161,6 +161,8 @@ struct PFCoachComposer: View {
     @MainActor private func sendMessage(_ suppliedMessage: String? = nil, sessionID: String? = nil) async {
         let typed = (suppliedMessage ?? draft).trimmingCharacters(in: .whitespacesAndNewlines)
         guard !typed.isEmpty, !sending else { return }
+        // A question handed over by another screen is shown in the box while it sends, so a failed send leaves it there to resend.
+        if suppliedMessage != nil { draft = typed }
         // The screen the Coach was opened from rides in front of a typed question; a question handed over by a screen carries its own context.
         let message = suppliedMessage == nil ? PFCoachContext.shared.wrap(typed) : typed
         guard CoachBriefScheduler.coachMasterEnabled else {
