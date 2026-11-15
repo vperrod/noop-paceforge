@@ -17,6 +17,11 @@ approximate; downloads are on the [Releases](https://github.com/NoopApp/noop/rel
 
 ---
 
+## 12.0.12 build 527 (PaceForge iPhone build): four tabs and a Coach button, and the day's graph is back on Today
+
+- Today: the My Day graph (heart rate, sleep, workouts, the plan and the overlays you switched on in My Day) sits directly under the three rings. A tap opens the full My Day screen.
+- Everything in build 525 below is included.
+
 ## 12.0.12 build 525 (PaceForge iPhone build): four tabs and a Coach button, nothing hidden; every ring opens its page
 
 - The bar is Today · Plan · Train · Health, plus a round Coach button that opens over the screen you are on. Train holds HYROX, Running, Strength, Bike, Workouts and Athlete. Health holds Day, Sleep, Recovery, Body, Vitals, Journal and Trends. Nothing sits at the end of another page any more.

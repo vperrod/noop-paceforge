@@ -430,6 +430,7 @@ struct LiquidTodayView: View {
                     // all open. Without PaceForge set up, or on an earlier day, the blocks are shown as before.
                     if PFAPI.isConfigured && selectedDayOffset == 0 {
                         if order.contains(.hero) { heroCard }
+                        if order.contains(.hero) && mountStage >= 1 { MyDayTodayCard(day: selectedLogicalDay) }
                         PFTodayCards(onOpenNeedsYou: { showNeedsYouSheet = true }, onReadWhy: { router.openCoach() })
                         Divider().overlay(StrandPalette.hairline)
                         strapBlocks(order, withHero: false)
@@ -2004,6 +2005,7 @@ struct LiquidTodayView: View {
     @ViewBuilder private func strapBlocks(_ order: [TodaySection], withHero: Bool = true) -> some View {
         #if os(iOS)
         if withHero && order.contains(.hero) { heroCard }
+        if withHero && order.contains(.hero) && mountStage >= 1 { MyDayTodayCard(day: selectedLogicalDay) }
         #endif
                     ForEach(order.prefix(Self.mountedSectionCount(order, stage: mountStage))) { section in
                         switch section {
