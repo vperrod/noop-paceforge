@@ -68,7 +68,7 @@ struct PFChangeWorkoutSheet529: View {
                 }
                 .padding(.horizontal, NoopLook.Metric.screenInset)
                 .padding(.top, 8)
-                .padding(.bottom, 24)
+                .padding(.bottom, NoopMetrics.tabBarClearance)
             }
             .lookScreenBackground()
             .navigationTitle(heading)

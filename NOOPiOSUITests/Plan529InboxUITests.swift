@@ -50,6 +50,15 @@ final class Plan529InboxUITests: XCTestCase {
         attach(app, "A2 01 inbox")
     }
 
+    func testARowShowsTheTimeForTodayAndYesterdayForTheDayBefore() throws {
+        let app = try launch()
+        openInbox(app)
+        let today = row(app, "report:week:2030-W10")
+        XCTAssertTrue(today.waitForExistence(timeout: 20))
+        XCTAssertNotNil(today.label.range(of: #"\b\d{2}:\d{2}\b"#, options: .regularExpression), "A line from today should carry its time: \(today.label)")
+        XCTAssertTrue(row(app, "problem:synthetic-signin").label.contains("Yesterday"), "A line from yesterday should say Yesterday.")
+    }
+
     func testTheEarlierAlertHistoryIsMergedIn() throws {
         let app = try launch()
         openInbox(app)
@@ -141,20 +150,31 @@ final class Plan529InboxUITests: XCTestCase {
         XCTAssertTrue(line.waitForExistence(timeout: 20))
         line.tap()
         XCTAssertTrue(app.element("calendar-host").waitForExistence(timeout: 30), "A week line should land on the Plan tab.")
+        XCTAssertTrue(app.element("plan529-verdict").waitForExistence(timeout: 30), "A finished week's line should land on that week's report.")
+        XCTAssertEqual(app.element("plan529-week-label").label, "Week 46 \u{00B7} 9\u{2013}15 Nov", "It should be the week the line names.")
     }
 
-    /// A notification tap lands from another tab: the line is opened on Today, and its report is a sheet over the Plan tab. The fixture has
-    /// no short daily report for that day, so the sheet is the report screen, or the earlier reading screen that stands in for it.
+    /// A notification tap lands from Today: the daily line's report is a sheet over the Plan tab, with the day's verdict.
     func testADailyLineOpensItsReportAsASheetOverThePlanTab() throws {
         let app = try launch()
         openInbox(app)
         let line = row(app, "today:2030-03-13")
         XCTAssertTrue(line.waitForExistence(timeout: 20))
         line.tap()
-        let sheet = app.descendants(matching: .any).matching(NSPredicate(format: "identifier IN {'plan529-daily-report', 'pf-reports'}")).firstMatch
-        XCTAssertTrue(sheet.waitForExistence(timeout: 30), "A daily line should open its report over the Plan tab.")
+        XCTAssertTrue(app.element("plan529-daily-report").waitForExistence(timeout: 30), "A daily line should open the daily report over the Plan tab.")
+        XCTAssertTrue(app.staticTexts["Rest today."].waitForExistence(timeout: 20), "The report should show the day's verdict.")
         XCTAssertTrue(app.element("calendar-host").exists, "The Plan tab should be under the sheet.")
         attach(app, "A2 09 daily line opens its report sheet")
+    }
+
+    func testAChangesLineLandsOnTheWeekPageWithTheChangesCard() throws {
+        let app = try launch()
+        openInbox(app)
+        let line = row(app, "plan:changes:2030-W11")
+        XCTAssertTrue(line.waitForExistence(timeout: 20))
+        line.tap()
+        XCTAssertTrue(app.element("plan529-changes").waitForExistence(timeout: 30), "A changes line should land on the Week page with the changes card.")
+        XCTAssertEqual(app.element("plan529-week-label").label, "Week 47 \u{00B7} 16\u{2013}22 Nov", "It should be the week the line names.")
     }
 
     // MARK: What you are told about
@@ -168,12 +188,14 @@ final class Plan529InboxUITests: XCTestCase {
             XCTAssertTrue(app.element("plan529-inbox-switch-\(kind)").exists, "There should be a switch for \(kind).")
         }
         let plan = app.switches["plan529-inbox-switch-plan"]
-        XCTAssertEqual(plan.value as? String, "1", "Every kind starts on.")
+        for kind in ["today", "workout", "health", "coach", "report", "plan", "problem"] {
+            XCTAssertEqual(app.switches["plan529-inbox-switch-\(kind)"].value as? String, "1", "Every kind starts on: \(kind).")
+        }
+        attach(app, "A2 07 what you are told about")
         flip(plan)
         XCTAssertEqual(plan.value as? String, "0", "A tap should switch the kind off.")
         XCTAssertTrue(app.element("plan529-inbox-last-check").exists, "The last check should be shown.")
         XCTAssertTrue(app.element("plan529-inbox-last-delay").exists, "The delay of the last new item should be shown.")
-        attach(app, "A2 07 what you are told about")
         flip(plan)
     }
 

@@ -202,12 +202,13 @@ struct PFInbox529: View {
         return f
     }()
 
-    /// "19:32" today, "Yesterday", else "14 Nov".
+    /// "19:32" today, "Yesterday", else "14 Nov". Today is the app's day (`PFAPI.todayISO`, the phone's day unless a UI-test fixture fixes one).
     private static func timeText(_ date: Date?) -> String {
         guard let date else { return "" }
-        let calendar = Calendar.current
-        if calendar.isDateInToday(date) { return clock.string(from: date) }
-        if calendar.isDateInYesterday(date) { return "Yesterday" }
+        let day = PFFormat.isoString(date)
+        let today = PFAPI.todayISO
+        if day == today { return clock.string(from: date) }
+        if day == PFFormat.addDays(today, -1) { return "Yesterday" }
         return dayMonth.string(from: date)
     }
 }

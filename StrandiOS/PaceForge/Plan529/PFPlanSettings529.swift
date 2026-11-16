@@ -222,6 +222,7 @@ struct PFHoursSheet529: View {
                 }
                 .padding(.horizontal, NoopLook.Metric.screenInset)
                 .padding(.top, 8)
+                .padding(.bottom, NoopMetrics.tabBarClearance)
             }
             .lookScreenBackground()
             .navigationTitle("Hours a week")
@@ -293,6 +294,7 @@ struct PFDaysOffSheet529: View {
                 }
                 .padding(.horizontal, NoopLook.Metric.screenInset)
                 .padding(.top, 8)
+                .padding(.bottom, NoopMetrics.tabBarClearance)
             }
             .lookScreenBackground()
             .navigationTitle("Days off")

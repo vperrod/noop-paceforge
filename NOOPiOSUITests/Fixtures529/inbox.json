@@ -14,7 +14,7 @@
     "list_sub": "Report · opens the week",
     "link": {
      "route": "week",
-     "week": "2030-W10"
+     "week": "2026-W46"
     }
    },
    {
@@ -28,7 +28,7 @@
     "list_sub": "Plan · opens the changes",
     "link": {
      "route": "changes",
-     "week": "2030-W11"
+     "week": "2026-W47"
     }
    },
    {
@@ -97,7 +97,7 @@
     "list_sub": "Today's report",
     "link": {
      "route": "report_daily",
-     "date": "2030-03-13"
+     "date": "2026-11-15"
     }
    },
    {
