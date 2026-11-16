@@ -19,14 +19,14 @@ struct PFTwoLineChart530: View {
     /// Numbers shown as text; the chart passes them through the hide switches.
     var format: (Double) -> String = { String(Int($0.rounded())) }
 
-    private let height: CGFloat = 100
+    private let height: CGFloat = 124
 
     var body: some View {
         VStack(spacing: 4) {
             GeometryReader { proxy in
                 ZStack(alignment: .topLeading) {
-                    plot(upper, other: lower, in: proxy.size, band: 10...50, otherBand: 62...88)
-                    plot(lower, other: upper, in: proxy.size, band: 62...88, otherBand: 10...50)
+                    plot(upper, other: lower, in: proxy.size, band: 20...46, otherBand: 62...80)
+                    plot(lower, other: upper, in: proxy.size, band: 62...80, otherBand: 20...46)
                 }
             }
             .frame(height: height)
@@ -137,7 +137,7 @@ struct PFTwoLineChart530: View {
     /// A value label at an end of a line, clear of both lines: above its point for the series that is higher on screen there, below for the
     /// other. The first label is left-aligned and the last right-aligned inside the chart, a few points in from the edge.
     private func label(_ text: String, at point: CGPoint, leading: Bool, above: Bool, color: Color, size: CGSize) -> some View {
-        let y = above ? max(8, point.y - 11) : min(size.height - 6, point.y + 12)
+        let y = above ? max(8, point.y - 14) : min(size.height - 8, point.y + 14)
         return Text(text)
             .font(LookFont.text(10.5, weight: .semibold))
             .foregroundStyle(color)
