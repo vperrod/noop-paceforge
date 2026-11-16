@@ -179,31 +179,29 @@ final class Plan529TodayUITests: XCTestCase {
 
     // MARK: The journal's morning question
 
-    /// Without the flag the card is the prompt or, when yesterday is already logged, the folded row; it is never missing and never both.
-    func testTheJournalCardIsThePromptOrTheFoldedRowNeverMissing() throws {
+    /// Build 530: My Journal replaces the prompt and the folded row on this Today. It is one card: never missing, never two, never the old row beside it.
+    func testTheJournalCardIsOneMyJournalCardNeverMissing() throws {
         let app = try launch()
-        let prompt = app.element("today-journal")
-        let folded = app.element("today-journal-logged")
-        for _ in 0..<12 where !(prompt.exists || folded.exists) { app.swipeUp() }
-        XCTAssertTrue(prompt.exists || folded.exists, "Today should carry the journal card, as the prompt or the folded row.")
-        XCTAssertFalse(prompt.exists && folded.exists, "The card is one or the other.")
+        let card = app.element("today-journal")
+        for _ in 0..<12 where !card.exists { app.swipeUp() }
+        XCTAssertTrue(card.exists, "Today should carry the My Journal card.")
+        XCTAssertEqual(app.descendants(matching: .any).matching(identifier: "today-journal").count, 1, "There should be exactly one journal card.")
+        XCTAssertFalse(app.element("today-journal-logged").exists, "The old folded row should not show next to My Journal.")
     }
 
-    func testTheJournalCardAsksAboutYesterdayAndOpensTheFlowOnIt() throws {
+    /// A tap on a day of the card's week row opens the existing journal on that day (to catch up), as the old card's bars did.
+    func testTheJournalCardOpensTheFlowOnYesterdayFromItsWeekRow() throws {
         let app = try launch(extra: ["-JournalYesterdayUnlogged"])
         let card = app.element("today-journal")
-        XCTAssertTrue(reveal(card, in: app), "Until yesterday's journal is logged, Today should show the journal prompt.")
-        // The question has the button trait (it opens the journal), so it is not a static text.
-        let asks = app.descendants(matching: .any).matching(NSPredicate(format: "label == 'What happened yesterday?'")).firstMatch
-        XCTAssertTrue(asks.exists, "The card should ask what happened yesterday.")
-        attach(app, "Journal morning question")
-        card.buttons["Journal"].firstMatch.tap()
+        XCTAssertTrue(reveal(card, in: app), "Today should show My Journal.")
+        let yesterday = app.element("today-journal-day-1")
+        XCTAssertTrue(reveal(yesterday, in: app), "The week row should have yesterday's cell.")
+        attach(app, "Journal week row")
+        yesterday.tap()
         let day = app.element("look-journal-day")
-        XCTAssertTrue(day.waitForExistence(timeout: 20), "The card should open the journal.")
-        // The card asks about the app's yesterday (the day rolls at 04:00); the journal counts its days from the calendar, so between midnight
-        // and 04:00 that day is two calendar days back.
-        let isSmallHours = Calendar.current.component(.hour, from: Date()) < 4
-        XCTAssertEqual(day.label, isSmallHours ? "2 DAYS AGO" : "YESTERDAY", "The flow should open on the app's yesterday.")
+        XCTAssertTrue(day.waitForExistence(timeout: 20), "The week row should open the journal.")
+        // The cell counts days back from the calendar's today, as the journal does.
+        XCTAssertEqual(day.label, "YESTERDAY", "The flow should open on yesterday.")
         attach(app, "Journal flow on yesterday")
     }
 }

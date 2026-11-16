@@ -241,14 +241,15 @@ final class DailyIntelUITests: XCTestCase {
 
     // MARK: Journal prompt
 
-    /// Until yesterday's journal is logged it is the morning prompt under the call ("What happened yesterday?"); one tap per question and
-    /// Save; then it folds to a row.
+    /// Build 530: My Journal's week row opens the journal on a day (here yesterday, not logged yet); one tap per question and Save.
     func testJournalPromptOpensTheFlowAndSaves() throws {
         let app = try launch(extra: ["-JournalYesterdayUnlogged"])
         let card = element(app, "today-journal")
-        XCTAssertTrue(reveal(card, in: app), "Until yesterday's journal is logged, Today should show the journal prompt.")
+        XCTAssertTrue(reveal(card, in: app), "Today should show the My Journal card.")
         attach(app, "Intel 80 Today journal prompt")
-        card.buttons["Journal"].firstMatch.tap()
+        let yesterday = element(app, "today-journal-day-1")
+        XCTAssertTrue(reveal(yesterday, in: app), "The week row should have yesterday's cell.")
+        yesterday.tap()
         let yes = app.descendants(matching: .any).matching(NSPredicate(format: "identifier BEGINSWITH 'look-journal-yes-'")).firstMatch
         XCTAssertTrue(yes.waitForExistence(timeout: 20), "The prompt should open the journal with a Yes for each question.")
         yes.tap()
