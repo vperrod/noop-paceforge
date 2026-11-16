@@ -62,7 +62,8 @@ final class Plan529TodayUITests: XCTestCase {
     // MARK: The removals
 
     func testNothingIsShownTwiceAnyMoreAndTheKeptCopiesStay() throws {
-        let app = try launch()
+        // The bookend row is the Day in review only in the evening (the clock decides it), so the evening is forced.
+        let app = try launch(extra: ["-PaceForgeEvening"])
         let removedIDs = ["pf-open-myday", "today-daily-report-row", "pf-day-review", "look-stress-tile", "pf-page-note-today", "pf-sofar-activity-9000000003"]
         let removedTexts = ["SYNTHESIS", "RECOVERY VITALS", "LAST WORKOUTS", "DATA SOURCES"]
         let keptIDs = ["today-six-rings", "pf-today-card-how-you-are", "today-bookend", "today-stress-monitor", "today-workouts", "pf-sofar-plan",
