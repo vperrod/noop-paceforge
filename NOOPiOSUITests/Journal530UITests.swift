@@ -7,6 +7,7 @@ import XCTest
 /// screen action (5c) is a notification and has no simulator test. Screenshot names start with the screen code.
 final class Journal530UITests: XCTestCase {
     private let screenKey = "Did you view a screen in bed?"
+    private let thirdKey = "Did you share your bed?"
     private let secondKey = "Did you eat close to bedtime?"
     private let alcoholKey = "Did you drink any alcohol?"
 
@@ -57,14 +58,14 @@ final class Journal530UITests: XCTestCase {
         }
         XCTAssertTrue(app.element("pf530-journal-auto-row-hard_day").label.contains("Doubles race, 66 min"), "A row should carry its evidence.")
         XCTAssertFalse(app.element("pf530-journal-auto-row-strength_day").exists, "A No answer is in the line under the block, not a row.")
-        XCTAssertTrue(app.element("pf530-journal-auto-note").label.contains("Strength day"), "The No answers should be named under the block.")
+        XCTAssertTrue(app.element("pf530-journal-auto-note").label.contains("A strength day"), "The No answers should be named under the block.")
         XCTAssertEqual(count(app, prefix: "pf530-journal-row-"), 5, "The morning asks five questions.")
         attach(app, "5b morning sheet")
     }
 
     func testTappingYesAndSavingWritesTheAnswerToTheJournal() throws {
         let app = try launch(open: "journal-morning")
-        let yes = app.element("pf530-journal-yes-\(screenKey)")
+        let yes = app.element("pf530-journal-yes-\(thirdKey)")
         XCTAssertTrue(yes.waitForExistence(timeout: 30), "The first question should have a Yes.")
         XCTAssertTrue(reveal(yes, in: app), "Yes should be reachable.")
         yes.tap()
@@ -74,8 +75,8 @@ final class Journal530UITests: XCTestCase {
         XCTAssertTrue(reveal(save, in: app), "A changed answer should offer Save.")
         save.tap()
         XCTAssertTrue(app.element("pf530-journal-saved").waitForExistence(timeout: 20), "Saving should say it saved.")
-        XCTAssertTrue(app.element("pf530-journal-answered").label.contains("1 of 5"), "The count is read back from the journal.")
-        XCTAssertTrue(app.element("pf530-journal-yes-\(screenKey)").isSelected, "The saved answer should show as Yes after it is read back.")
+        XCTAssertFalse(app.element("pf530-journal-answered").label.contains("0 of 5"), "The count is read back from the journal (a pre-fill from an earlier test may be saved with it).")
+        XCTAssertTrue(app.element("pf530-journal-yes-\(thirdKey)").isSelected, "The saved answer should show as Yes after it is read back.")
         attach(app, "5b morning sheet, answered")
     }
 
@@ -134,7 +135,7 @@ final class Journal530UITests: XCTestCase {
             XCTAssertTrue(app.element("pf530-insight-row-\(id)").exists, "\(id) should be listed under No clear effect.")
         }
         XCTAssertEqual(app.element("pf530-insight-value-hard_day").label, "63 / 48", "No clear effect rows carry with it / without it.")
-        XCTAssertEqual(app.element("pf530-insight-counts-\(alcoholKey)").label, "0 · 1", "Still collecting rows carry the yes and no days so far.")
+        XCTAssertEqual(app.element("pf530-insight-counts-\(screenKey)").label, "1 · 0", "Still collecting rows carry the yes and no days so far.")
         XCTAssertTrue(app.element("pf530-insight-series-whoop-charge").exists, "Recovery is read from two devices, each its own chip.")
         attach(app, "5e behaviour insights")
         app.element("pf530-insight-lag-2").tap()

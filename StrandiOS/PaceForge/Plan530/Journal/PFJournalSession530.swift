@@ -102,7 +102,8 @@ final class PFJournalSession530: ObservableObject {
         isSaving = true
         defer { isSaving = false }
         await Self.perform(writes, day: day, repo: repo)
-        edits = [:]
+        // An answer the athlete took away stays away: "Same as yesterday" must not bring it back after the save.
+        edits = edits.filter { $0.value == .cleared }
         await load(repo: repo, day: day, keys: keys, readsPrevious: allowsPrevious)
         didSave = true
     }

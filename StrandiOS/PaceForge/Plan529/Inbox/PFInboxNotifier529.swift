@@ -62,7 +62,7 @@ enum PFInboxNotifier529 {
         content.title = PFRedact.text(item.title ?? "", scores: scores, body: body)
         content.body = String(PFRedact.text(item.body ?? "", scores: scores, body: body).prefix(180))
         content.sound = .default
-        content.categoryIdentifier = PFJournalAction530.categoryId(forItemID: id) ?? PaceForgeBackground.notificationCategory
+        content.categoryIdentifier = PaceForgeBackground.notificationCategory
         content.userInfo = PFInboxPayload529.userInfo(for: item)
         // An alert the earlier path would announce under this identifier replaces it rather than doubling it.
         let identifier = id.hasPrefix("alert:") ? "paceforge.alert.\(id.dropFirst("alert:".count))" : "paceforge.inbox.\(id)"

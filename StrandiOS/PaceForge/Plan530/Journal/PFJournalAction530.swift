@@ -4,10 +4,12 @@ import UserNotifications
 /// The afternoon journal question answered from the lock screen (screen 5c): a notification category with Yes and No, and the handler
 /// that saves the tapped answer through the journal's own store without opening the app. The answer is saved under the day the question was
 /// raised for (the item id `journal:<date>:afternoon`), so one given late is still the day it is about. APP-4's notifier decides when the
-/// notification is raised and gives it `categoryId(forItemID:)`; `NotificationPresenter` passes a tapped action here.
+/// notification is raised and gives a journal item of window `day` the category below (`PFAlertCategory530.journalDay` on branch
+/// app-530-alerts; the same string is written here so this file builds alone, and the merge should keep one constant).
+/// `NotificationPresenter` hands a tapped Yes or No here before any routing.
 enum PFJournalAction530 {
-    /// Also written in `NotificationPresenter` (shared with macOS, which cannot see this file): keep the two the same.
-    static let categoryId = "pf530.journal.afternoon"
+    static let categoryId = "paceforge.journal.day"
+    /// `NotificationPresenter` (shared with macOS, which cannot see this file) intercepts action ids with this prefix.
     static let yesId = "pf530.journal.yes"
     static let noId = "pf530.journal.no"
 
@@ -22,11 +24,6 @@ enum PFJournalAction530 {
             all.insert(category)
             center.setNotificationCategories(all)
         }
-    }
-
-    /// The category for an inbox item's notification: the afternoon question's, else nil (the item keeps its own).
-    static func categoryId(forItemID id: String?) -> String? {
-        PFJournalLogic530.journalItem(id)?.window == PFJournalLogic530.afternoon ? categoryId : nil
     }
 
     /// Saves a Yes or No tapped on the notification. Any other action, or a notification that is not the afternoon question's, does nothing.

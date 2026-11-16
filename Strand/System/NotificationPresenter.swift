@@ -50,10 +50,9 @@ final class NotificationPresenter: NSObject, UNUserNotificationCenterDelegate {
         withCompletionHandler completionHandler: @escaping () -> Void
     ) {
         let content = response.notification.request.content
-        // A Yes / No action on the afternoon journal question (category "pf530.journal.afternoon", PFJournalAction530) saves the answer and
-        // finishes; a plain tap on that notification falls through to the PaceForge alert route below.
-        if let onJournalAction, content.categoryIdentifier == "pf530.journal.afternoon",
-           response.actionIdentifier != UNNotificationDefaultActionIdentifier {
+        // A Yes / No tapped on the afternoon journal question (action ids "pf530.journal.*", PFJournalAction530) saves the answer and finishes:
+        // no routing, the app is not opened. A plain tap on the notification takes the routes below.
+        if let onJournalAction, response.actionIdentifier.hasPrefix("pf530.journal.") {
             Task {
                 await onJournalAction(response)
                 completionHandler()
