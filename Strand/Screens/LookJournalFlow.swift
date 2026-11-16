@@ -349,9 +349,10 @@ struct LookJournalFlow: View {
         await load()
         withAnimation(.easeOut(duration: 0.2)) { showSaved = true }
         // UI tests on the fixture hold the confirmation longer: reading Today's grown accessibility tree takes longer than 1.8 s per poll.
-        var holdSeconds = 1.8
         #if DEBUG
-        if ProcessInfo.processInfo.arguments.contains("-PaceForgeFixture") { holdSeconds = 8 }
+        let holdSeconds = ProcessInfo.processInfo.arguments.contains("-PaceForgeFixture") ? 8.0 : 1.8
+        #else
+        let holdSeconds = 1.8
         #endif
         try? await Task.sleep(nanoseconds: UInt64(holdSeconds * 1_000_000_000))
         withAnimation(.easeOut(duration: 0.2)) { showSaved = false }

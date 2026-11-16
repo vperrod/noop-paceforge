@@ -1,4 +1,3 @@
-import Combine
 import SwiftUI
 
 /// The Sunday review row on Today (build 530): directly above the overview card on Sunday from the wind-down time and on Monday until
@@ -6,20 +5,23 @@ import SwiftUI
 struct PFTodayReviewRow530: View {
     @StateObject private var index = PFDocStore529<PFPlanWeekIndexDoc>(path: PFDocPath529.weekIndex)
     @StateObject private var inbox = PFDocStore529<PFInboxDoc>(path: PFDocPath529.inbox)
-    @State private var now = Date()
 
     var body: some View {
-        Group {
-            if PFTodayReviewWindow530.isOpen(now: now, windDownMinutes: PFAlertDelivery530.minutes(inbox.doc?.quiet?.windDown)),
-               let week = PFTodayReviewWindow530.latestFinishedWeek(index.doc?.weeks, today: Self.todayKey(now)) {
-                PFTodayReviewRowLoaded530(week: week)
-            }
+        // Re-read every minute, as the overview card does, so the row appears at the wind-down time without the screen being reopened.
+        TimelineView(.everyMinute) { context in
+            row(now: context.date)
         }
         .task {
             await index.refreshIfStale()
             await inbox.refreshIfStale()
         }
-        .onReceive(Timer.publisher(every: 60, on: .main, in: .common).autoconnect()) { now = $0 }
+    }
+
+    @ViewBuilder private func row(now: Date) -> some View {
+        if PFTodayReviewWindow530.isOpen(now: now, windDownMinutes: PFAlertDelivery530.minutes(inbox.doc?.quiet?.windDown)),
+           let week = PFTodayReviewWindow530.latestFinishedWeek(index.doc?.weeks, today: Self.todayKey(now)) {
+            PFTodayReviewRowLoaded530(week: week)
+        }
     }
 
     private static func todayKey(_ date: Date) -> String {
