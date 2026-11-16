@@ -59,7 +59,7 @@ struct PFReviewAhead530: View {
         var out: [(text: String, color: Color)] = []
         if let pill = doc.phase?.pill { out.append((pill, PFWeekPhase529.color(doc.phase?.key))) }
         if let pill = doc.nextRace?.pill { out.append((pill, NoopLook.textTertiary)) }
-        return PFWeekPills529(pills: out)
+        return PFReviewPills530(pills: out)
     }
 
     /// The bar from today to the race, one stretch per phase, the race a thin tick at the end, and the line that says what it means.

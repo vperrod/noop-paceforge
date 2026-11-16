@@ -7,6 +7,8 @@ struct PFLineSeries530: Equatable {
     var values: [Double?]
     var usual: Double?
     var color: Color
+    /// The end labels sit above the line, or below it for the lower line so the two never cover each other.
+    var labelsAbove = true
 }
 
 /// Two lines on one chart, each on its own scale (HRV is in milliseconds and resting heart rate in beats a minute, so they only share
@@ -89,10 +91,10 @@ struct PFTwoLineChart530: View {
                     Circle().fill(series.color).frame(width: 7, height: 7).position(end.point)
                 }
                 if let first = points.compactMap({ $0 }).first, let last = points.compactMap({ $0 }).last, first.index != last.index {
-                    label("\(series.name) \(format(series.values[first.index] ?? 0))", at: first.point, leading: true, color: series.color)
-                    label("\(series.name) \(format(series.values[last.index] ?? 0))", at: last.point, leading: false, color: series.color)
+                    label("\(series.name) \(format(series.values[first.index] ?? 0))", at: first.point, leading: true, series: series, height: size.height)
+                    label("\(series.name) \(format(series.values[last.index] ?? 0))", at: last.point, leading: false, series: series, height: size.height)
                 } else if let only = points.compactMap({ $0 }).first {
-                    label("\(series.name) \(format(series.values[only.index] ?? 0))", at: only.point, leading: true, color: series.color)
+                    label("\(series.name) \(format(series.values[only.index] ?? 0))", at: only.point, leading: true, series: series, height: size.height)
                 }
             }
         }
@@ -110,12 +112,13 @@ struct PFTwoLineChart530: View {
         return first.index == last.index ? [first] : [first, last]
     }
 
-    /// A value label above the end of the line: to the right of the first point, to the left of the last.
-    private func label(_ text: String, at point: CGPoint, leading: Bool, color: Color) -> some View {
-        Text(text)
+    /// A value label at the end of a line: to the right of the first point, to the left of the last; above the line, or below for the lower one.
+    private func label(_ text: String, at point: CGPoint, leading: Bool, series: PFLineSeries530, height: CGFloat) -> some View {
+        let y = series.labelsAbove ? max(8, point.y - 11) : min(height - 6, point.y + 12)
+        return Text(text)
             .font(LookFont.text(10.5, weight: .semibold))
-            .foregroundStyle(color)
+            .foregroundStyle(series.color)
             .fixedSize()
-            .position(x: point.x + (leading ? 34 : -34), y: max(8, point.y - 11))
+            .position(x: point.x + (leading ? 34 : -34), y: y)
     }
 }

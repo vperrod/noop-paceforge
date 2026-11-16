@@ -170,3 +170,25 @@ struct PFReviewWideButton530: View {
         .accessibilityIdentifier(identifier)
     }
 }
+
+/// The pills under the page title: side by side, or one under the other when they do not fit (the flow layout of the Week screens drew
+/// a wrapped second pill over the text below it).
+struct PFReviewPills530: View {
+    let pills: [(text: String, color: Color)]
+
+    var body: some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 6) {
+                chips
+                Spacer(minLength: 0)
+            }
+            VStack(alignment: .leading, spacing: 6) { chips }
+        }
+    }
+
+    private var chips: some View {
+        ForEach(Array(pills.enumerated()), id: \.offset) { _, pill in
+            PFChip(text: pill.text, color: pill.color)
+        }
+    }
+}

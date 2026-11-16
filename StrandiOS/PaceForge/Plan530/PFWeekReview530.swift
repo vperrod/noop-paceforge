@@ -71,7 +71,7 @@ struct PFWeekReview530: View {
         if let pill = doc.phase?.pill { pills.append((pill, PFWeekPhase529.color(doc.phase?.key))) }
         if let range = PFReviewFormat530.range(from: doc.from, to: doc.to) { pills.append((range, NoopLook.textTertiary)) }
         return VStack(alignment: .leading, spacing: 10) {
-            PFWeekPills529(pills: pills)
+            PFReviewPills530(pills: pills)
             if let verdict = doc.report?.verdict, !verdict.isEmpty {
                 PFReviewHeadline530(text: verdict, identifier: "review530-verdict")
             }
