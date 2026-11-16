@@ -1,6 +1,6 @@
 {
  "_synthetic": "Synthetic build 530 foundation fixture: one small example of each new document. Invented values.",
- "data/journal.json": {
+ "data/journal-view.json": {
   "version": 1,
   "generated_at": "2030-03-13T06:30:00+00:00",
   "list": [

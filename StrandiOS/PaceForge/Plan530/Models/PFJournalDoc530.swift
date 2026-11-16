@@ -1,6 +1,6 @@
 import Foundation
 
-/// data/journal.json: the questions asked, what the devices answered, the week's row, today's prompts and the behaviour insights.
+/// data/journal-view.json: the questions asked, what the devices answered, the week's row, today's prompts and the behaviour insights.
 /// Every field is optional; a key this build does not know is ignored.
 struct PFJournalDoc530: Codable, Equatable {
     var version: Int?
