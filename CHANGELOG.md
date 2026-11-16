@@ -17,6 +17,18 @@ approximate; downloads are on the [Releases](https://github.com/NoopApp/noop/rel
 
 ---
 
+## 12.0.12 build 529 (PaceForge iPhone build): the Plan tab rebuilt, reports that explain, an inbox with notifications
+
+- Plan has four parts: Week, Season, Calendar, Reports. Week shows any week of the season: where it sits (phase, days to the next race), why it is built this way, the seven days at once, hours as one bar (firm, optional, the coach's limit, your target), the changes waiting for you with before and after, and every workout written out with why, how hard, what to do and what to do on a bad morning.
+- Change workout: on any workout pick HYROX conditioning, Strength, Running or Cycling and the coach builds one that fits the week; you see it before it replaces anything. Change today (tired, short on time, sick, not feeling 100 %, something hurts) is one sheet.
+- A finished week is its report: what happened, what the body showed on each device, what comes next, with up to three insights. Daily and monthly reports open with the same kind of account; the experts' detail stays one tap away. Races show where the time went against the pacing plan.
+- Season: the timeline to the last race, a page per race (priority A, B or C and what each does, goal, date, cancel), hours planned against done by week. Calendar: how much and how hard each day, hours per week, days off. How your plan is built: your settings and the coach's rules in plain words.
+- Inbox behind the bell on Today, with notifications for the morning verdict, workout reviews, health alerts, coach notes, reports, plan changes and problems only you can fix. A tap opens the exact screen. A switch per kind.
+- Today: eleven repeats removed (one list of today's workouts with each device named, one effort target card, one place for each report link). Rings and Key Metrics unchanged.
+- Journal: the morning card asks what happened yesterday and saves on that day.
+- A workout opened from My Day, Workouts or Today shows the coach's review.
+- Everything in build 528 below is included.
+
 ## 12.0.12 build 528 (PaceForge iPhone build): WHOOP-order Today, morning journal, races open their results
 
 - Today in WHOOP order: six dials, the day graph under them, one Today's call card (the detail lines now sit on it), Coach noticed, monitors, My Day, My Plan, My Dashboard. Duplicated cards removed; weight shows the newest reading with its source and date; every vital names its source (Garmin, WHOOP strap, Apple Health, scale).
