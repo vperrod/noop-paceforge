@@ -46,11 +46,11 @@ struct PFTodayJournal530: Decodable, Equatable {
         case week, prompts, auto, insights
     }
 
-    private enum DayKeys: String, CodingKey { case date, logged }
-    private enum PromptKeys: String, CodingKey { case window, title, body, open }
-    private enum AutoDayKeys: String, CodingKey { case date, answers }
-    private enum AutoAnswerKeys: String, CodingKey { case id, label, answer }
-    private enum InsightKeys: String, CodingKey { case behaviour, label, clear }
+    fileprivate enum DayKeys: String, CodingKey { case date, logged }
+    fileprivate enum PromptKeys: String, CodingKey { case window, title, body, open }
+    fileprivate enum AutoDayKeys: String, CodingKey { case date, answers }
+    fileprivate enum AutoAnswerKeys: String, CodingKey { case id, label, answer }
+    fileprivate enum InsightKeys: String, CodingKey { case behaviour, label, clear }
 
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -63,7 +63,7 @@ struct PFTodayJournal530: Decodable, Equatable {
 
 extension PFTodayJournal530.Day {
     init(from decoder: Decoder) throws {
-        let c = try decoder.container(keyedBy: DayKeys.self)
+        let c = try decoder.container(keyedBy: PFTodayJournal530.DayKeys.self)
         date = c.pfLossy(String.self, .date)
         logged = c.pfLossy(Bool.self, .logged)
     }
@@ -71,7 +71,7 @@ extension PFTodayJournal530.Day {
 
 extension PFTodayJournal530.Prompt {
     init(from decoder: Decoder) throws {
-        let c = try decoder.container(keyedBy: PromptKeys.self)
+        let c = try decoder.container(keyedBy: PFTodayJournal530.PromptKeys.self)
         window = c.pfLossy(String.self, .window)
         title = c.pfLossy(String.self, .title)
         body = c.pfLossy(String.self, .body)
@@ -81,7 +81,7 @@ extension PFTodayJournal530.Prompt {
 
 extension PFTodayJournal530.AutoDay {
     init(from decoder: Decoder) throws {
-        let c = try decoder.container(keyedBy: AutoDayKeys.self)
+        let c = try decoder.container(keyedBy: PFTodayJournal530.AutoDayKeys.self)
         date = c.pfLossy(String.self, .date)
         answers = c.pfLossyList(PFTodayJournal530.AutoAnswer.self, .answers)
     }
@@ -89,7 +89,7 @@ extension PFTodayJournal530.AutoDay {
 
 extension PFTodayJournal530.AutoAnswer {
     init(from decoder: Decoder) throws {
-        let c = try decoder.container(keyedBy: AutoAnswerKeys.self)
+        let c = try decoder.container(keyedBy: PFTodayJournal530.AutoAnswerKeys.self)
         id = c.pfLossy(String.self, .id)
         label = c.pfLossy(String.self, .label)
         answer = c.pfLossy(Bool.self, .answer)
@@ -98,7 +98,7 @@ extension PFTodayJournal530.AutoAnswer {
 
 extension PFTodayJournal530.Insight {
     init(from decoder: Decoder) throws {
-        let c = try decoder.container(keyedBy: InsightKeys.self)
+        let c = try decoder.container(keyedBy: PFTodayJournal530.InsightKeys.self)
         behaviour = c.pfLossy(String.self, .behaviour)
         label = c.pfLossy(String.self, .label)
         clear = c.pfLossy(Bool.self, .clear)
