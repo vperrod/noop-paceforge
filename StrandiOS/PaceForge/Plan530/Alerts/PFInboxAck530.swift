@@ -137,16 +137,17 @@ enum PFAlertMoment530 {
     }
 }
 
-/// Registers the category of the inbox alerts (ids in `PFAlertCategory530`).
+/// Registers the categories of build 530 (inbox alerts, and the afternoon journal question's Yes / No) in one read-merge-write, so neither
+/// overwrites the other: `setNotificationCategories` replaces the whole set.
 enum PFAlertCategoryRegistration530 {
-    /// Adds the inbox category to the ones already registered (the journal stream adds its own the same way): `setNotificationCategories`
-    /// replaces the whole set, so the existing ones are read first.
     static func register() async {
         let center = UNUserNotificationCenter.current()
+        let ours: Set<String> = [PFAlertCategory530.inbox, PFAlertCategory530.journalDay]
         var categories = await center.notificationCategories()
-        categories = categories.filter { $0.identifier != PFAlertCategory530.inbox }
+        categories = categories.filter { !ours.contains($0.identifier) }
         categories.insert(UNNotificationCategory(identifier: PFAlertCategory530.inbox, actions: [], intentIdentifiers: [],
                                                  options: [.customDismissAction]))
+        categories.insert(PFJournalAction530.category)
         center.setNotificationCategories(categories)
     }
 }

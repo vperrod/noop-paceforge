@@ -108,10 +108,9 @@ struct StrandiOSApp: App {
         NotificationPresenter.shared.onPaceForgeAlertDismissed = { userInfo in
             Task { @MainActor in PFInboxAck530.dismissed(userInfo: userInfo) }
         }
-        // The inbox alerts' category (it carries the dismiss action) must exist before a notification of it is shown.
+        // The inbox alerts' category (it carries the dismiss action) and the journal's Yes / No category must exist before a notification of it is shown.
         Task { await PFAlertCategoryRegistration530.register() }
         PaceForgeBackground.register()
-        PFJournalAction530.register()
         PFMyDay.install()
         // A summary written before the privacy choice existed gets its body flag now, not at the next fetch.
         PFSummaryWriter.applyPrivacy()

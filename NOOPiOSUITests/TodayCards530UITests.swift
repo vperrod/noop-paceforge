@@ -111,12 +111,13 @@ final class TodayCards530UITests: XCTestCase {
 
     // MARK: Order
 
-    /// The rings and the My Day graph come first; the overview card and My Journal come after them, in that order. Each id is noted where
-    /// the scroll first meets it (the step, then the height on screen); an element met in a later step lies lower on the page.
-    func testTheRingsAndTheDayGraphComeBeforeTheNewCardsInTheScrollOrder() throws {
+    /// The rings, the My Day graph, the call and the Health tile come first; the overview card and My Journal come after them, in that
+    /// order. Each id is noted where the scroll first meets it (the step, then the height on screen); an element met in a later step lies
+    /// lower on the page. (The Stress tile gives way to the Stress Monitor chart when PaceForge is set up, so the Health tile stands for the tiles.)
+    func testTheRingsTheDayGraphTheCallAndTheTilesComeBeforeTheNewCardsInTheScrollOrder() throws {
         let app = try launch(extra: ["-PaceForgeMorning"])
         waitForToday(app)
-        let ids = ["today-six-rings", "today-daygraph", "today-overview-morning", "today-journal"]
+        let ids = ["today-six-rings", "today-daygraph", "pf-today-card-the-call", "look-health-tile", "today-overview-morning", "today-journal"]
         var first: [String: (step: Int, y: CGFloat)] = [:]
         func note(_ step: Int) {
             for id in ids where first[id] == nil {
@@ -136,6 +137,8 @@ final class TodayCards530UITests: XCTestCase {
         }
         XCTAssertTrue(isBefore("today-six-rings", "today-overview-morning"), "The rings should come before the overview card.")
         XCTAssertTrue(isBefore("today-daygraph", "today-overview-morning"), "The My Day graph should come before the overview card.")
+        XCTAssertTrue(isBefore("pf-today-card-the-call", "today-overview-morning"), "The call should come before the overview card.")
+        XCTAssertTrue(isBefore("look-health-tile", "today-overview-morning"), "The Health tile should come before the overview card.")
         XCTAssertTrue(isBefore("today-overview-morning", "today-journal"), "My Journal should come after the overview card.")
     }
 }

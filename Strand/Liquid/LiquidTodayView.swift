@@ -992,12 +992,6 @@ struct LiquidTodayView: View {
         // The day graph directly under the dials and their caption lines (source labels, the Effort target line), above the call. It
         // mounts at stage 1, so the first frame is still the dials and the call.
         if hasHero && mountStage >= 1 && shows(.dayGraph) { MyDayTodayCard(day: selectedLogicalDay) }
-        // Build 530: the overview card (morning or evening) and My Journal, directly under the rings and the My Day graph.
-        if hasHero && mountStage >= 1 {
-            PFTodayOverviewCard530()
-            // My Journal replaces the journal reminder card on this path (see below); it follows the same hide switch.
-            if order.contains(.journal) { PFTodayJournalCard530() }
-        }
         if shows(.call) {
             PFTodayCards(cards: [.theCall, .needsYou], showsHiddenRow: false, onOpenNeedsYou: openNeedsYou, onReadWhy: readWhy)
         }
@@ -1010,6 +1004,12 @@ struct LiquidTodayView: View {
             if hasHero {
                 lookMonitorRow
                 if chargeLegacyRRGap { ChargeLegacyRRGapNote() }
+                // Build 530: below the rings, the My Day graph, the call and the Health and Stress tiles, none of which move: the Sunday
+                // review row (Sunday evening, Monday morning), the overview card (morning or evening), then My Journal. My Journal
+                // replaces the journal reminder card on this path (see above); it follows the same hide switch.
+                PFTodayReviewRow530()
+                PFTodayOverviewCard530()
+                if order.contains(.journal) { PFTodayJournalCard530() }
             }
             if shows(.howYouAre) {
                 PFTodayCards(cards: [.howYouAre], drawsChrome: false, showsHiddenRow: false, containerID: "pf-today-cards-how",

@@ -17,6 +17,15 @@ approximate; downloads are on the [Releases](https://github.com/NoopApp/noop/rel
 
 ---
 
+## 12.0.12 build 530 (PaceForge iPhone build): the Sunday review, Today overview and My Journal, a fuller journal, calmer alerts
+
+- Sunday review: a page for the finished week with charts and one reading line each, then the week ahead. It opens from the week's page and from a row on Today on Sunday evening and Monday morning.
+- Today: an overview card (the morning verdict with both devices, or the evening day against the plan) and a My Journal card sit under the rings, the My Day graph, the call and the Health and Stress tiles. Nothing above them moved.
+- Journal: a morning sheet, an evening reflection, behaviour insights (what moves your recovery and sleep, per device) and a customise screen with the coach's suggestions.
+- The afternoon journal question can be answered Yes or No from the lock screen.
+- Alerts arrive in windows (morning, day, evening) with quiet hours while you sleep, nothing during a recorded workout, a daily cap, and delivery receipts so the coach knows what you saw.
+- Everything in build 529 below is included.
+
 ## 12.0.12 build 529 (PaceForge iPhone build): the Plan tab rebuilt, reports that explain, an inbox with notifications
 
 - Plan has four parts: Week, Season, Calendar, Reports. Week shows any week of the season: where it sits (phase, days to the next race), why it is built this way, the seven days at once, hours as one bar (firm, optional, the coach's limit, your target), the changes waiting for you with before and after, and every workout written out with why, how hard, what to do and what to do on a bad morning.
