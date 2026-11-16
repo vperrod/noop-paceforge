@@ -1,0 +1,717 @@
+{
+ "_synthetic": "Synthetic build 530 Sunday review fixture (APP-1): the finished week 2030-W09 with its review block and the coming week 2030-W10. Invented values; overrides the foundation's 2030-W09 stub (file-name order).",
+ "data/plan-week/2030-W09.json": {
+  "version": 1,
+  "week": "2030-W09",
+  "from": "2030-02-25",
+  "to": "2030-03-03",
+  "label": "Week 9 · 25 Feb–3 Mar",
+  "generated_at": "2030-03-04T05:00:00+00:00",
+  "state": "finished",
+  "phase": {
+   "key": "race",
+   "label": "Race week",
+   "pill": "Race week"
+  },
+  "days": [],
+  "report": {
+   "ready_at": "2030-03-03T19:00:00+00:00",
+   "verdict": "Two races in four days. The second went better against its goal than the first.",
+   "races": [
+    {
+     "date": "2030-02-27",
+     "day": "Wed 27",
+     "name": "Sample Hyrox singles",
+     "time": "1:08:13",
+     "sub": "Goal 1:00:00 · 8:13 over",
+     "activity_id": "9300000001"
+    },
+    {
+     "date": "2030-03-02",
+     "day": "Sat 2",
+     "name": "Sample Hyrox doubles",
+     "time": "1:05:56",
+     "sub": "Goal 1:10:00 · 4:04 inside",
+     "activity_id": "9300000002"
+    }
+   ],
+   "next_week": {
+    "week": "2030-W10",
+    "summary": "Recovery week next: 5 sessions, 1 change for you to decide.",
+    "changes": 1
+   },
+   "nights": {
+    "labels": [
+     "Mon",
+     "Tue",
+     "Wed",
+     "Thu",
+     "Fri",
+     "Sat",
+     "Sun"
+    ],
+    "series": [
+     {
+      "source": "WHOOP",
+      "title": "WHOOP recovery",
+      "max": 100,
+      "values": [
+       69,
+       65,
+       86,
+       19,
+       59,
+       32,
+       23
+      ],
+      "bands": [
+       "green",
+       "amber",
+       "green",
+       "red",
+       "amber",
+       "red",
+       "red"
+      ],
+      "usual": 61
+     },
+     {
+      "source": "Garmin",
+      "title": "Garmin readiness",
+      "max": 100,
+      "values": [
+       77,
+       76,
+       56,
+       55,
+       48,
+       60,
+       9
+      ],
+      "bands": [
+       "green",
+       "green",
+       "amber",
+       "amber",
+       "amber",
+       "green",
+       "red"
+      ],
+      "usual": 56
+     }
+    ]
+   },
+   "review": {
+    "training_days": [
+     {
+      "dow": "M",
+      "minutes": 28,
+      "effort": "easy"
+     },
+     {
+      "dow": "T",
+      "minutes": 43,
+      "effort": "hard"
+     },
+     {
+      "dow": "W",
+      "minutes": 68,
+      "effort": "race"
+     },
+     {
+      "dow": "T",
+      "minutes": 0,
+      "effort": null
+     },
+     {
+      "dow": "F",
+      "minutes": 0,
+      "effort": null
+     },
+     {
+      "dow": "S",
+      "minutes": 66,
+      "effort": "race"
+     },
+     {
+      "dow": "S",
+      "minutes": 0,
+      "effort": null
+     }
+    ],
+    "hours": {
+     "this_label": "3 h 25",
+     "this_h": 3.42,
+     "usual_weeks": 4,
+     "usual_label": "6 h 16",
+     "usual_h": 6.27,
+     "pct_vs_usual": -45,
+     "planned_done": {
+      "done": 4,
+      "planned": 4
+     }
+    },
+    "race_losses": [
+     {
+      "date": "2030-02-27",
+      "name": "Singles",
+      "against": "plan",
+      "losses": [
+       {
+        "station": "Wall Balls",
+        "seconds": 45
+       },
+       {
+        "station": "Sled Push",
+        "seconds": 39
+       },
+       {
+        "station": "Sandbag Lunges",
+        "seconds": 39
+       }
+      ]
+     }
+    ],
+    "sleep": {
+     "source": "Garmin",
+     "hours": [
+      8.12,
+      6.15,
+      6.77,
+      6.72,
+      6.8,
+      8.17,
+      5.82
+     ],
+     "labels": [
+      "8:07",
+      "6:09",
+      "6:46",
+      "6:43",
+      "6:48",
+      "8:10",
+      "5:49"
+     ],
+     "need_h": 7.67,
+     "short_nights": 5,
+     "avg_label": "6 h 56"
+    },
+    "hrv_rhr": [
+     {
+      "source": "Garmin",
+      "hrv": [
+       47,
+       44,
+       38,
+       36,
+       40,
+       34,
+       26
+      ],
+      "rhr": [
+       50,
+       51,
+       52,
+       53,
+       51,
+       55,
+       57
+      ],
+      "hrv_usual": 36,
+      "rhr_usual": 52
+     }
+    ],
+    "readings": {
+     "training": "Everything planned was done, 4 of 4. Time was 45 % under your usual, which is what a race week should be.",
+     "races": "You started the singles fresh on both devices (WHOOP 86 %, Garmin 56), so tiredness does not explain the 8 minutes.",
+     "stations": "Wall Balls and Lunges were what the last block trained, and they still cost the most.",
+     "whoop": "Three red mornings. Thursday and Sunday each follow a race. Dashed line: your usual 61 %.",
+     "garmin": "Held near your usual 56 until Sunday, then 9 after the doubles finished late.",
+     "sleep": "Five of seven nights short. Average 6 h 56 against the 7 h 40 you need (dashed line).",
+     "hrv_rhr": "HRV fell all week while resting heart rate climbed. Two signals moving together is real fatigue, not a sensor blip."
+    },
+    "ahead": {
+     "week": "2030-W10",
+     "headline": "Recover first, then your classes. Nothing hard before Wednesday.",
+     "calendar": [
+      {
+       "phase": "recover",
+       "days": 9,
+       "from": "2030-03-04",
+       "to": "2030-03-12"
+      },
+      {
+       "phase": "build",
+       "days": 14,
+       "from": "2030-03-13",
+       "to": "2030-03-26"
+      },
+      {
+       "phase": "taper",
+       "days": 7,
+       "from": "2030-03-27",
+       "to": "2030-04-02"
+      }
+     ],
+     "next_race": {
+      "name": "Sample Paris doubles",
+      "date": "2030-04-03",
+      "goal": "1:03:00"
+     },
+     "mix": [
+      {
+       "type": "classes",
+       "minutes": 180
+      },
+      {
+       "type": "strength",
+       "minutes": 90
+      },
+      {
+       "type": "running",
+       "minutes": 27
+      }
+     ],
+     "calendar_reading": "This week is the recovery part. Only 14 build days follow, so they go to Wall Balls, Lunges and running under fatigue."
+    }
+   }
+  }
+ },
+ "data/plan-week/2030-W10.json": {
+  "version": 1,
+  "week": "2030-W10",
+  "from": "2030-03-04",
+  "to": "2030-03-10",
+  "label": "Week 10 · 4–10 Mar",
+  "generated_at": "2030-03-03T19:00:00+00:00",
+  "state": "coming",
+  "phase": {
+   "key": "recover",
+   "label": "Recovery",
+   "pill": "Recovery · days 2 to 8 of 10"
+  },
+  "next_race": {
+   "name": "Sample Paris doubles",
+   "short": "Paris",
+   "date": "2030-04-03",
+   "days_out": 30,
+   "pill": "30 days to Paris"
+  },
+  "why": "Recover first, then your classes.",
+  "hours": {
+   "firm": 3.75,
+   "optional": 1.2,
+   "planned": 4.95,
+   "aim": 5.25,
+   "target": 7.0,
+   "typical": 5.4,
+   "done": null,
+   "firm_label": "3 h 45",
+   "optional_label": "+1 h 12",
+   "aim_label": "5 h 15",
+   "target_label": "7 h",
+   "note": null
+  },
+  "strip": [
+   {
+    "date": "2030-03-04",
+    "dow": "M",
+    "today": true,
+    "label": "rest",
+    "bars": []
+   },
+   {
+    "date": "2030-03-05",
+    "dow": "T",
+    "label": "90",
+    "bars": [
+     {
+      "minutes": 45,
+      "effort": "hard",
+      "state": "planned"
+     },
+     {
+      "minutes": 45,
+      "effort": "hard",
+      "state": "planned"
+     }
+    ]
+   },
+   {
+    "date": "2030-03-06",
+    "dow": "W",
+    "label": "45",
+    "bars": [
+     {
+      "minutes": 45,
+      "effort": "hard",
+      "state": "planned"
+     }
+    ]
+   },
+   {
+    "date": "2030-03-07",
+    "dow": "T",
+    "label": "45",
+    "bars": [
+     {
+      "minutes": 45,
+      "effort": "moderate",
+      "state": "planned"
+     }
+    ]
+   },
+   {
+    "date": "2030-03-08",
+    "dow": "F",
+    "label": "optional",
+    "bars": [
+     {
+      "minutes": 27,
+      "effort": "easy",
+      "state": "optional"
+     },
+     {
+      "minutes": 45,
+      "effort": "hard",
+      "state": "optional"
+     }
+    ]
+   },
+   {
+    "date": "2030-03-09",
+    "dow": "S",
+    "label": "45",
+    "bars": [
+     {
+      "minutes": 45,
+      "effort": "moderate",
+      "state": "planned"
+     }
+    ]
+   },
+   {
+    "date": "2030-03-10",
+    "dow": "S",
+    "label": "rest",
+    "bars": []
+   }
+  ],
+  "changes": [
+   {
+    "id": "chg530a",
+    "day": "2030-03-05",
+    "session_ids": [
+     "s530cardio"
+    ],
+    "title": "Tue · Cardio class, shorter and easy",
+    "sheet_title": "Tuesday's class, shorter and easy",
+    "one_line": "45 min hard → 27 min easy. It is day 3 after the race.",
+    "before": {
+     "label": "45 min",
+     "sub": "hard · 8 of 10"
+    },
+    "after": {
+     "label": "27 min",
+     "sub": "easy · day 3 after the race"
+    },
+    "data_says": "Tuesday is day 3 after the race.",
+    "why": "The coach's rule: nothing hard within 3 days of a race.",
+    "if_keep": "A hard class on day 3.",
+    "accept_label": "Accept",
+    "keep_label": "Keep 45 min",
+    "footnote": "Keep holds for 7 days."
+   }
+  ],
+  "decided": [],
+  "days": [
+   {
+    "date": "2030-03-04",
+    "dow": "Mon",
+    "title": "Mon 4",
+    "tag": "Day 2 after the race",
+    "items": [
+     {
+      "kind": "rest",
+      "title": "Rest",
+      "why": null,
+      "do": "A 20 to 30 minute walk if you want. Sleep 8 to 9 hours."
+     }
+    ]
+   },
+   {
+    "date": "2030-03-05",
+    "dow": "Tue",
+    "title": "Tue 5",
+    "tag": null,
+    "items": [
+     {
+      "kind": "session",
+      "session_id": "s530pull",
+      "title": "Pull · strength",
+      "minutes": 45,
+      "km": null,
+      "effort": "hard",
+      "effort_label": "Hard · 45 min",
+      "rpe": 9,
+      "fixed": false,
+      "optional": false,
+      "status": "planned",
+      "pills": [],
+      "change_ids": [],
+      "change_pill": null,
+      "why": "First harder session of the week. It keeps the strength block going.",
+      "how_hard": null,
+      "do": null,
+      "if_red": null,
+      "after": null,
+      "where": null,
+      "actions": [
+       "more",
+       "move",
+       "skip"
+      ],
+      "done": null,
+      "review": null,
+      "activity_id": null,
+      "proposed": true
+     },
+     {
+      "kind": "session",
+      "session_id": "s530cardio",
+      "title": "Cardio class",
+      "minutes": 45,
+      "km": null,
+      "effort": "hard",
+      "effort_label": "Hard · 45 min",
+      "rpe": 8,
+      "fixed": true,
+      "optional": false,
+      "status": "planned",
+      "pills": [],
+      "change_ids": [
+       "chg530a"
+      ],
+      "change_pill": "Change waiting: 27 min, easy",
+      "why": "A booked class, so it stays on its day. It falls 3 days after the race.",
+      "how_hard": null,
+      "do": null,
+      "if_red": null,
+      "after": null,
+      "where": null,
+      "actions": [
+       "more",
+       "move",
+       "skip"
+      ],
+      "done": null,
+      "review": null,
+      "activity_id": null,
+      "proposed": false
+     }
+    ]
+   },
+   {
+    "date": "2030-03-06",
+    "dow": "Wed",
+    "title": "Wed 6",
+    "tag": null,
+    "items": [
+     {
+      "kind": "session",
+      "session_id": "s530hyrox",
+      "title": "Sample HYROX class",
+      "minutes": 45,
+      "km": null,
+      "effort": "hard",
+      "effort_label": "Hard · 45 min",
+      "rpe": 8,
+      "fixed": true,
+      "optional": false,
+      "status": "planned",
+      "pills": [],
+      "change_ids": [],
+      "change_pill": null,
+      "why": "Kept at full effort by you. Sled, lunges, row, wall balls under fatigue.",
+      "how_hard": null,
+      "do": null,
+      "if_red": null,
+      "after": null,
+      "where": null,
+      "actions": [
+       "more",
+       "move",
+       "skip"
+      ],
+      "done": null,
+      "review": null,
+      "activity_id": null,
+      "proposed": false
+     }
+    ]
+   },
+   {
+    "date": "2030-03-07",
+    "dow": "Thu",
+    "title": "Thu 7",
+    "tag": null,
+    "items": [
+     {
+      "kind": "session",
+      "session_id": "s530thu",
+      "title": "Sample class",
+      "minutes": 45,
+      "km": null,
+      "effort": "moderate",
+      "effort_label": "Moderate · 45 min",
+      "rpe": 7,
+      "fixed": true,
+      "optional": false,
+      "status": "planned",
+      "pills": [],
+      "change_ids": [],
+      "change_pill": null,
+      "why": "7 of 10, movement quality.",
+      "how_hard": null,
+      "do": null,
+      "if_red": null,
+      "after": null,
+      "where": null,
+      "actions": [
+       "more",
+       "move",
+       "skip"
+      ],
+      "done": null,
+      "review": null,
+      "activity_id": null,
+      "proposed": false
+     }
+    ]
+   },
+   {
+    "date": "2030-03-08",
+    "dow": "Fri",
+    "title": "Fri 8",
+    "tag": null,
+    "items": [
+     {
+      "kind": "session",
+      "session_id": "s530easy",
+      "title": "Easy run",
+      "minutes": 27,
+      "km": null,
+      "effort": "easy",
+      "effort_label": "Easy · 27 min",
+      "rpe": 4,
+      "fixed": false,
+      "optional": true,
+      "status": "optional",
+      "pills": [],
+      "change_ids": [],
+      "change_pill": null,
+      "why": "5.4 km at an easy pace, under 131 bpm.",
+      "how_hard": null,
+      "do": null,
+      "if_red": null,
+      "after": null,
+      "where": null,
+      "actions": [
+       "more",
+       "move",
+       "skip"
+      ],
+      "done": null,
+      "review": null,
+      "activity_id": null,
+      "proposed": false
+     },
+     {
+      "kind": "session",
+      "session_id": "s530legs",
+      "title": "Legs",
+      "minutes": 45,
+      "km": null,
+      "effort": "hard",
+      "effort_label": "Hard · 45 min",
+      "rpe": 8,
+      "fixed": false,
+      "optional": true,
+      "status": "optional",
+      "pills": [],
+      "change_ids": [],
+      "change_pill": null,
+      "why": "Strength for the legs, only if the readings are back to normal.",
+      "how_hard": null,
+      "do": null,
+      "if_red": null,
+      "after": null,
+      "where": null,
+      "actions": [
+       "more",
+       "move",
+       "skip"
+      ],
+      "done": null,
+      "review": null,
+      "activity_id": null,
+      "proposed": false
+     }
+    ]
+   },
+   {
+    "date": "2030-03-09",
+    "dow": "Sat",
+    "title": "Sat 9",
+    "tag": null,
+    "items": [
+     {
+      "kind": "session",
+      "session_id": "s530sat",
+      "title": "Sample class",
+      "minutes": 45,
+      "km": null,
+      "effort": "moderate",
+      "effort_label": "Moderate · 45 min",
+      "rpe": 7,
+      "fixed": true,
+      "optional": false,
+      "status": "planned",
+      "pills": [],
+      "change_ids": [],
+      "change_pill": null,
+      "why": "7 of 10.",
+      "how_hard": null,
+      "do": null,
+      "if_red": null,
+      "after": null,
+      "where": null,
+      "actions": [
+       "more",
+       "move",
+       "skip"
+      ],
+      "done": null,
+      "review": null,
+      "activity_id": null,
+      "proposed": false
+     }
+    ]
+   },
+   {
+    "date": "2030-03-10",
+    "dow": "Sun",
+    "title": "Sun 10",
+    "tag": null,
+    "items": [
+     {
+      "kind": "rest",
+      "title": "Rest",
+      "why": null,
+      "do": "An easy 30 to 45 minutes only if the week's readings are back to normal."
+     }
+    ]
+   }
+  ]
+ }
+}
