@@ -230,4 +230,35 @@ final class Plan529WeekUITests: XCTestCase {
         again.tap()
         XCTAssertTrue(app.element("plan529-change-built-title").waitForExistence(timeout: 30), "Another variant should come back as a change.")
     }
+
+    // MARK: Review fixes (F1, F2, F7)
+
+    func testSkippingOneOfTwoSessionsOfADayLeavesTheOtherCardUntouched() throws {
+        let app = try launchWeek("2026-W47")
+        let skip = app.element("plan529-act-c10def6f-skip")
+        XCTAssertTrue(reveal(skip, in: app), "The first session of Tuesday should offer Skip.")
+        skip.tap()
+        let confirm = app.buttons["Skip session"]
+        XCTAssertTrue(confirm.waitForExistence(timeout: 10), "Skip should ask first.")
+        confirm.tap()
+        XCTAssertTrue(app.element("plan529-act-c10def6f-result").waitForExistence(timeout: 20), "The skipped session should say so.")
+        XCTAssertFalse(app.element("plan529-act-1629495d-result").exists, "The other card of the day must not inherit the answer.")
+    }
+
+    func testTheCurrentWeekSaysHowFarItIs() throws {
+        let app = try launch(open: "chip:week")
+        app.openTab("Plan")
+        let line = app.element("plan529-progress")
+        XCTAssertTrue(line.waitForExistence(timeout: 30), "The current week should carry a progress line.")
+        XCTAssertTrue(line.label.hasPrefix("2 of 7 sessions done"), "It should count the week's own sessions: \(line.label)")
+    }
+
+    func testAFinishedWeekWithoutAReportOffersNoEdits() throws {
+        let app = try launchWeek("2026-W45")
+        XCTAssertTrue(app.element("plan529-progress").label.hasPrefix("5 of 5 sessions done"), "A finished week should say how it went.")
+        XCTAssertFalse(app.element("plan529-add-2026-11-02").exists, "A rest day in the past should not offer to add a workout.")
+        let add = app.element("plan529-add")
+        XCTAssertTrue(reveal(add, in: app), "+ Add should still be drawn.")
+        XCTAssertFalse(add.isEnabled, "+ Add should not offer a past date.")
+    }
 }

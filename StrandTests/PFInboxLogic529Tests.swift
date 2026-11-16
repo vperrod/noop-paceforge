@@ -235,12 +235,20 @@ final class PFInboxLogic529Tests: XCTestCase {
         XCTAssertEqual(route("needs_you"), .needsYou)
     }
 
-    func testARouteTheBuildDoesNotKnowOpensToday() {
-        XCTAssertEqual(route("somewhere-new"), .today)
+    func testARouteTheBuildDoesNotKnowOpensTheInbox() {
+        XCTAssertEqual(route("somewhere-new"), .inbox)
     }
 
-    func testAnItemWithNoLinkOpensToday() {
-        XCTAssertEqual(PFInboxRoute529(link: nil), .today)
+    func testAnItemWithNoLinkOpensTheInbox() {
+        XCTAssertEqual(PFInboxRoute529(link: nil), .inbox)
+    }
+
+    func testAWorkoutLinkWithoutItsActivityOpensTheInbox() {
+        XCTAssertEqual(route("workout"), .inbox)
+    }
+
+    func testTheTodayRouteOpensToday() {
+        XCTAssertEqual(route("today"), .today)
     }
 
     func testANotificationPayloadCarriesItsLinkBack() {

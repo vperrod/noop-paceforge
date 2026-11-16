@@ -10,13 +10,17 @@ struct PFRacePage529: View {
     @StateObject private var store = PFDocStore529<PFSeasonDoc>(path: PFDocPath529.season)
     /// A date edit moves the race; the page follows it.
     @State private var currentDate: String
+    /// The date a save has moved the race to, until the season document shows it there and `currentDate` follows.
+    @State private var movingTo: String?
 
     init(date: String) {
         self.date = date
         _currentDate = State(initialValue: date)
     }
 
-    private var upcoming: PFSeasonDoc.Race? { store.doc?.races?.first { $0.date == currentDate } }
+    private var upcoming: PFSeasonDoc.Race? {
+        store.doc?.races?.first { $0.date == currentDate } ?? movingTo.flatMap { moved in store.doc?.races?.first { $0.date == moved } }
+    }
     private var past: PFSeasonDoc.PastRace? { store.doc?.pastRaces?.first { $0.date == currentDate } }
 
     private var title: String {
@@ -37,7 +41,8 @@ struct PFRacePage529: View {
             case .loaded:
                 if store.isStale { PFStaleNote529() }
                 if let upcoming {
-                    PFUpcomingRace529(race: upcoming, reload: { await store.refresh() }, dateChanged: { currentDate = $0 })
+                    PFUpcomingRace529(race: upcoming, reload: { await store.refresh() },
+                                      dateMoving: { movingTo = $0 }, dateChanged: { currentDate = $0; movingTo = nil })
                 } else if let past {
                     PFPastRace529(race: past)
                 } else {
@@ -120,10 +125,14 @@ struct PFRaceReadiness529: View {
 struct PFUpcomingRace529: View {
     let race: PFSeasonDoc.Race
     let reload: () async -> Void
+    /// A saved edit moved the race to this date (before the document is read again), then the page follows it (after).
+    let dateMoving: (String) -> Void
     let dateChanged: (String) -> Void
 
     @Environment(\.dismiss) private var dismiss
     @StateObject private var runner = PFPlanEditRunner529()
+    /// The cancel has its own message: its refusal belongs next to the Cancel row, not in the priority card.
+    @StateObject private var cancelRunner = PFPlanEditRunner529()
     /// The priority just saved, shown at once; the reloaded document confirms it.
     @State private var chosen: String?
     @State private var showsPacing = false
@@ -176,8 +185,13 @@ struct PFUpcomingRace529: View {
         .sheet(isPresented: $showsPacing) { PFHyroxSheet() }
         .sheet(isPresented: $showsEdit) {
             PFRaceEditSheet529(race: race) { newDate in
-                if let newDate, newDate != race.date { dateChanged(newDate) }
-                Task { await reload() }
+                let moved = newDate.flatMap { $0 != race.date ? $0 : nil }
+                if let moved { dateMoving(moved) }
+                // The page follows the new date only once the document holds the race there, so it never shows "not in your season".
+                Task {
+                    await reload()
+                    if let moved { dateChanged(moved) }
+                }
             }
         }
         .confirmationDialog("Cancel this race? It is removed from your list.", isPresented: $confirmsCancel, titleVisibility: .visible) {
@@ -295,16 +309,20 @@ struct PFUpcomingRace529: View {
                 PFRow529(title: "Cancel this race", showsChevron: true).padding(.horizontal, 16)
             }
             .buttonStyle(.plain)
-            .disabled(runner.isBusy)
+            .disabled(runner.isBusy || cancelRunner.isBusy)
             .accessibilityIdentifier("race-cancel")
+            PFEditMessage529(runner: cancelRunner)
+                .padding(.horizontal, 16)
+                .padding(.bottom, 10)
         }
         .planCard529(padding: 0)
         .containerIdentifier("race-actions")
     }
 
+    /// The cancel goes by date (and the name when the race has one); the server's answer, a refusal included, shows under the row.
     private func cancel() async {
-        guard let date = race.date, let name = race.name else { return }
-        if await runner.cancelRace(date: date, name: name) {
+        guard let date = race.date else { return }
+        if await cancelRunner.cancelRace(date: date, name: race.name) {
             await reload()
             await PFUnified.model.refresh()
             dismiss()

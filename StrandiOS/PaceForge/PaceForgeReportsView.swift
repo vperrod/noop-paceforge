@@ -87,7 +87,7 @@ struct PFReportsScreen: View {
     @ViewBuilder private func readyContent(_ list: [PFReportRow], first: PFReportRow) -> some View {
         let key = list.contains(where: { $0.key == selectedKey }) ? (selectedKey ?? first.key) : first.key
         if let requestedKey, !list.contains(where: { $0.key == requestedKey }) {
-            message("There is no expert report for this week. The latest one is shown.")
+            message("There is no expert report for this \(kind.periodWord). The latest one is shown.")
         }
         historyGroup(list, current: key)
         PFReportBody(kind: kind, key: key)

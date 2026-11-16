@@ -166,7 +166,8 @@ struct PFRacePriorities529: View {
                 PFDocPlaceholder529(kind: .failed, retry: { Task { await store.refresh() } })
             case .loaded(let doc):
                 VStack(alignment: .leading, spacing: 0) {
-                    ForEach(Array((doc.races ?? []).enumerated()), id: \.offset) { index, race in
+                    // A race with no date has no page to open, so it is left out.
+                    ForEach(Array((doc.races ?? []).filter { $0.date?.isEmpty == false }.enumerated()), id: \.offset) { index, race in
                         if index > 0 { PFDivider529() }
                         NavigationLink(value: TabRoute.plan529(.race(date: race.date ?? ""))) {
                             PFRow529(lead: race.dayLabel, title: race.short ?? race.name ?? "Race", sub: race.sub,
@@ -250,12 +251,25 @@ struct PFDaysOffSheet529: View {
 
     @Environment(\.dismiss) private var dismiss
     @StateObject private var runner = PFPlanEditRunner529()
-    @State private var days: [PFPlanSettingsDoc.DayOff]
+    /// The days off as the plan settings document holds them now: the parent hands the sheet its current list each time the document is
+    /// read again, so a day added in the nested sheet appears and can be removed without reopening.
+    let allDays: [PFPlanSettingsDoc.DayOff]
+    /// Ids removed here and not yet gone from the document (the reload is on its way).
+    @State private var removed: Set<String> = []
     @State private var adds = false
+
+    /// Days added here that the document has not shown yet.
+    @State private var added: [PFPlanSettingsDoc.DayOff] = []
+
+    private var days: [PFPlanSettingsDoc.DayOff] {
+        let known = Set(allDays.compactMap(\.id))
+        let pending = added.filter { day in day.id.map { !known.contains($0) } ?? true }
+        return (allDays + pending).filter { day in day.id.map { !removed.contains($0) } ?? true }
+    }
 
     init(days: [PFPlanSettingsDoc.DayOff], saved: @escaping () async -> Void) {
         self.saved = saved
-        _days = State(initialValue: days)
+        allDays = days
     }
 
     private func span(_ day: PFPlanSettingsDoc.DayOff) -> String {
@@ -304,12 +318,13 @@ struct PFDaysOffSheet529: View {
             }
         }
         .containerIdentifier("days-off-sheet")
-        .sheet(isPresented: $adds) { PFDayOffSheet529(day: PFAPI.todayISO, saved: saved) }
+        .sheet(isPresented: $adds) { PFDayOffSheet529(day: PFAPI.todayISO, saved: saved, onAdded: { added.append($0) }) }
     }
 
     private func remove(_ id: String) async {
-        if await runner.run(.dayoffRemove, inputs: ["id": id]) {
-            days.removeAll { $0.id == id }
+        // A day off the server no longer knows ("No day off with that id") is gone, which is what was asked.
+        if await runner.run(.dayoffRemove, inputs: ["id": id], isAlreadyDone: { $0.lowercased().hasPrefix("no day off") }) {
+            removed.insert(id)
             await saved()
         }
     }

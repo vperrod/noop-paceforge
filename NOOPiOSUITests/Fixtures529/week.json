@@ -10,7 +10,8 @@
       "ok": true,
       "week": "2026-W49",
       "change_id": "swap-4d229cf4-1",
-      "note": "Proposed. Accept it to start."
+      "note": "Proposed. Accept it to start.",
+      "id": "d0ff0001"
     }
   },
   "data/niggles.json": [

@@ -21,6 +21,11 @@ struct PFWeekDay529: View {
     @ObservedObject private var model = PFUnified.model
 
     private var items: [PFPlanWeekDoc.Item] { day.items ?? [] }
+    private var keyedItems: [(key: String, item: PFPlanWeekDoc.Item)] {
+        items.enumerated().map { offset, item in
+            (item.sessionId ?? "\(day.date ?? "")-\(item.kind ?? "")-\(item.raceDate ?? String(offset))", item)
+        }
+    }
     /// Bike rides of the day from the ride metrics: they are not planned sessions, so they sit beside the cards as before.
     private var rides: [PFRide] { model.snapshot?.rides(on: day.date ?? "") ?? [] }
 
@@ -35,8 +40,10 @@ struct PFWeekDay529: View {
                 }
             }
             .padding(.horizontal, 2)
-            ForEach(items.indices, id: \.self) { index in
-                PFWeekItemCard529(week: week, day: day, item: items[index], isToday: isToday, hooks: hooks, allowsEdits: allowsEdits)
+            // Keyed by the session id (a race by its date, else the position): a card keeps its own state when its neighbour changes.
+            ForEach(keyedItems, id: \.key) { entry in
+                PFWeekItemCard529(week: week, day: day, item: entry.item, isToday: isToday, hooks: hooks, allowsEdits: allowsEdits)
+                    .id(entry.key)
             }
             if let snapshot = model.snapshot {
                 ForEach(rides) { PFRideRow(ride: $0, snapshot: snapshot) }
@@ -58,6 +65,7 @@ struct PFWeekItemCard529: View {
     var allowsEdits = true
 
     @ObservedObject private var model = PFUnified.model
+    private let hiding = PFHiding()
 
     private var kind: String { item.kind ?? "session" }
     private var date: String { day.date ?? "" }
@@ -74,7 +82,7 @@ struct PFWeekItemCard529: View {
             }
             lines
             if let done = item.done?.line, !done.isEmpty {
-                Label(done, systemImage: "checkmark.circle")
+                Label(hiding.text(done), systemImage: "checkmark.circle")
                     .font(LookFont.text(13, weight: .medium))
                     .foregroundStyle(PFWeekColor529.teal)
                     .accessibilityIdentifier("plan529-done-\(key)")
@@ -179,7 +187,7 @@ struct PFWeekItemCard529: View {
     @ViewBuilder private var review: some View {
         switch item.review?.state ?? "" {
         case "ready":
-            Text("Coach: \(item.review?.verdict ?? "reviewed")")
+            Text(hiding.text("Coach: \(item.review?.verdict ?? "reviewed")"))
                 .font(LookFont.text(13, weight: .medium))
                 .foregroundStyle(NoopLook.textSecondary)
                 .accessibilityIdentifier("plan529-review-\(key)")

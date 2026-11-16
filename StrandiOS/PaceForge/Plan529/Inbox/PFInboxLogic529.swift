@@ -209,7 +209,8 @@ enum PFInboxLogic529 {
 // MARK: - Where a tap goes
 
 /// What a tapped inbox row or notification opens. `link.route` is one of week, changes, report_daily, report_month, race, workout,
-/// coach_noticed, stress, heart_rate, effort, needs_you, today; a route this build does not know opens Today.
+/// coach_noticed, stress, heart_rate, effort, needs_you, today; a route this build does not know, no link, or a workout link
+/// without its activity opens the inbox itself.
 enum PFInboxRoute529: Equatable {
     /// Plan > Week, on this ISO week; nil opens the Week chip as it was.
     case week(String?)
@@ -223,21 +224,25 @@ enum PFInboxRoute529: Equatable {
     case effort
     case needsYou
     case today
+    /// The inbox itself: nothing more specific can be opened.
+    case inbox
 
     init(link: PFInboxDoc.Link?) {
-        guard let link, let route = link.route else { self = .today; return }
+        guard let link, let route = link.route else { self = .inbox; return }
         switch route {
         case "week", "changes": self = .week(link.week)
         case "report_daily": self = .dailyReport(date: link.date)
         case "report_month": self = .monthReport(key: link.key)
         case "race": self = .race(date: link.date)
-        case "workout": self = .workout(activityID: link.activityId, date: link.date)
+        case "workout":
+            if let activity = link.activityId, !activity.isEmpty { self = .workout(activityID: activity, date: link.date) } else { self = .inbox }
         case "coach_noticed": self = .coachNoticed(id: link.id)
         case "stress": self = .stress
         case "heart_rate": self = .heartRate
         case "effort": self = .effort
         case "needs_you": self = .needsYou
-        default: self = .today
+        case "today": self = .today
+        default: self = .inbox
         }
     }
 }

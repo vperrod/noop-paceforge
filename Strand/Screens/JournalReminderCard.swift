@@ -130,7 +130,7 @@ struct JournalReminderCard: View {
                         .accessibilityHidden(true)
                 }
                 .contentShape(Rectangle())
-                .onTapGesture { router.openJournal(day: 1) }
+                .onTapGesture { router.openJournal(day: 1 + Self.calendarShift) }
                 .accessibilityElement(children: .combine)
                 .accessibilityAddTraits(.isButton)
                 .accessibilityLabel(Text(String(localized: "Journal")))
@@ -157,7 +157,7 @@ struct JournalReminderCard: View {
                                     }
                             }
                             .contentShape(Rectangle())
-                            .onTapGesture { router.openJournal(day: off) }
+                            .onTapGesture { router.openJournal(day: off + Self.calendarShift) }
                             .accessibilityAddTraits(.isButton)
                             .accessibilityLabel(Self.barLabel(off))
                     }
@@ -166,7 +166,7 @@ struct JournalReminderCard: View {
                     .font(StrandFont.footnote)
                     .foregroundStyle((!yesterdayLogged || hasMissed) ? StrandPalette.accent : StrandPalette.textSecondary)
                     .contentShape(Rectangle())
-                    .onTapGesture { router.openJournal(day: 1) }
+                    .onTapGesture { router.openJournal(day: 1 + Self.calendarShift) }
                     .accessibilityAddTraits(.isButton)   // it opens the journal — announce it as one
             }
         }
@@ -210,11 +210,17 @@ struct JournalReminderCard: View {
         dayKeys().dropLast().last ?? ""
     }
 
-    /// The `stripDays` local-day keys (yyyy-MM-dd), oldest → today, matching Android's `journalDayKey`
+    /// How many calendar days the app's logical today (it rolls at 04:00) is behind the calendar's: 1 between midnight and 04:00, else 0.
+    /// The journal screen counts its day offsets from the calendar day, so an offset taken from the strip here is moved by this.
+    private static var calendarShift: Int {
+        Repository.localDayKey(Date()) == Repository.logicalDayKey(Date()) ? 0 : 1
+    }
+
+    /// The `stripDays` local-day keys (yyyy-MM-dd), oldest → the app's logical today (04:00 roll), matching Android's `journalDayKey`
     /// (civil-day arithmetic via Calendar so a DST edge can't mislabel a day).
     private static func dayKeys() -> [String] {
         let cal = Calendar.current
-        let today = Date()
+        let today = Repository.logicalDay(Date())
         return (0..<stripDays).reversed().map { n in
             Repository.localDayKey(cal.date(byAdding: .day, value: -n, to: today) ?? today)
         }

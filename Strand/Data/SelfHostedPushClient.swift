@@ -188,7 +188,8 @@ enum SelfHostedPushClient {
     @MainActor
     static func checkInboxAfterContact() async {
         #if os(iOS)
-        await PFInboxNotifier529.checkIfDue()
+        // Not awaited: the sync is done when its own exchange is; the check runs under its own background-task assertion.
+        PFInboxNotifier529.startCheck()
         #endif
     }
 

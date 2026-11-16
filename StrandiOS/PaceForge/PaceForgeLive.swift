@@ -652,16 +652,20 @@ final class PFModel: ObservableObject {
 
     /// Sends one Needs you answer. The item leaves the card at once; the server's fresh list replaces it on success, and on any
     /// failure the item comes back with the reason in `needsNotes`. The reply is read off the main thread.
-    func submitAnswer(_ answer: PFNeedsAnswer, for item: PFNeedsItem) async {
+    /// `key` replaces the generated idempotency key (the Plan section uses `accept-<id>`), `refreshes` false leaves the full reload to the
+    /// caller (Accept all reloads once at the end). True when the server took the answer; false when it refused or nothing was sent (the
+    /// item is already being answered, or no longer in the list).
+    @discardableResult
+    func submitAnswer(_ answer: PFNeedsAnswer, for item: PFNeedsItem, key explicitKey: String? = nil, refreshes: Bool = true) async -> Bool {
         guard !needsInFlight.contains(item.id), var current = snapshot,
-              let index = current.needsYou.firstIndex(where: { $0.id == item.id }) else { return }
+              let index = current.needsYou.firstIndex(where: { $0.id == item.id }) else { return false }
         needsInFlight.insert(item.id)
         needsNotes[item.id] = nil
         current.needsYou.remove(at: index)
         snapshot = current
 
         let signature = answer.signature(for: item.id)
-        let key = needsKeys[signature] ?? "ios-" + UUID().uuidString.lowercased()
+        let key = explicitKey ?? needsKeys[signature] ?? "ios-" + UUID().uuidString.lowercased()
         needsKeys[signature] = key
         var body = answer.body
         body["key"] = key
@@ -682,7 +686,7 @@ final class PFModel: ObservableObject {
                 latest.needsYou.insert(item, at: min(index, latest.needsYou.count))
                 snapshot = latest
             }
-            return
+            return false
         }
         needsKeys[signature] = nil
         needsAnswered.insert(item.id)
@@ -691,7 +695,8 @@ final class PFModel: ObservableObject {
             snapshot = latest
         }
         // What the answer changed (a pace, a plan) reaches the other cards on the next load. A fixture has no server to ask.
-        if !PFAPI.isFixture { Task { await refresh() } }
+        if refreshes && !PFAPI.isFixture { Task { await refresh() } }
+        return true
     }
 
     /// Logs one tape or field-test phrase and, when the server took it, refreshes so the new numbers show at once.

@@ -62,13 +62,16 @@ final class PFPlanEditRunner529: ObservableObject {
     @Published private(set) var message: String?
 
     private let tracker = PFJobTracker()
+    /// The `id` the last successful job's result carried (a day off the server just made), if any.
+    private(set) var lastResultID: String?
 
     func clear() { message = nil }
 
     func fail(_ text: String) { message = text }
 
-    /// True when the server took the write.
-    func run(_ job: PFJobName, inputs: [String: Any]?) async -> Bool {
+    /// True when the server took the write. `isAlreadyDone` names a refusal that means the write's effect is already there (a day off that
+    /// is gone), which counts as taken.
+    func run(_ job: PFJobName, inputs: [String: Any]?, isAlreadyDone: ((String) -> Bool)? = nil) async -> Bool {
         guard let inputs else {
             message = "That could not be sent. Check the values."
             return false
@@ -76,17 +79,20 @@ final class PFPlanEditRunner529: ObservableObject {
         isBusy = true
         message = nil
         defer { isBusy = false }
+        lastResultID = nil
         switch await tracker.run(job, inputs: inputs) {
-        case .success:
+        case .success(let result):
+            lastResultID = result["id"].idString
             return true
         case .failure(let failure):
+            if let isAlreadyDone, isAlreadyDone(failure.message) { return true }
             message = failure.message
             return false
         }
     }
 
     /// Cancels one race (`event-update`, `op: "cancel"`). A race that is over is refused with the server's sentence. True when it is off the list.
-    func cancelRace(date: String, name: String) async -> Bool {
+    func cancelRace(date: String, name: String?) async -> Bool {
         await run(.eventUpdate, inputs: PFPlanInputs529.raceCancel(date: date, name: name))
     }
 }

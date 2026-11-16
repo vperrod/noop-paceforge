@@ -230,6 +230,8 @@ private struct PFNigglePanel529: View {
     @State private var site: PFNiggleSite?
     @State private var severity: Int?
     @State private var loaded = false
+    /// The list could not be read: it says so, with a way to try again, instead of claiming that no niggle is open.
+    @State private var loadFailed = false
 
     private var isBusy: Bool { tracker.phase == .sending || tracker.phase == .working }
 
@@ -262,7 +264,13 @@ private struct PFNigglePanel529: View {
 
     @ViewBuilder private var openRows: some View {
         let open = PFNiggles.open(niggles)
-        if loaded && open.isEmpty {
+        if loadFailed {
+            HStack(spacing: 10) {
+                PFWeekSub529(text: "The open niggles could not be loaded.").accessibilityIdentifier("pf-niggles-failed")
+                Spacer(minLength: 8)
+                PFWeekButton529(title: "Try again", identifier: "pf-niggles-retry") { Task { await load() } }
+            }
+        } else if loaded && open.isEmpty {
             PFWeekSub529(text: "No niggle is open.").accessibilityIdentifier("pf-niggles-none")
         }
         ForEach(open) { niggle in
@@ -317,7 +325,14 @@ private struct PFNigglePanel529: View {
     }
 
     @MainActor private func load() async {
-        if let data = await PFAPI.fetchOptional("data/niggles.json") { niggles = PFNiggles.list(data) }
+        let fetched = await PFAPI.fetchDoc("data/niggles.json")
+        if let data = fetched.data {
+            niggles = PFNiggles.list(data)
+            loadFailed = false
+        } else {
+            // Not served is an empty list; a failed read with no saved copy is not.
+            loadFailed = fetched.failed
+        }
         loaded = true
     }
 

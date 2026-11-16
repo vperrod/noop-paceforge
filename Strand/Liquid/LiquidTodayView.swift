@@ -1026,7 +1026,7 @@ struct LiquidTodayView: View {
             // What the watch recorded today, with its results (nothing when nothing was recorded).
             if shows(.todaySoFar) { PFTodayRecordedHost() }
             // Today's workouts: one list, one row per workout, the strap's and Garmin's versions together.
-            if shows(.todaysWorkouts) { PFTodaysWorkoutsHost(strap: workouts) }
+            if shows(.todaysWorkouts) { PFTodaysWorkoutsHost(strap: workouts, dayKey: selectedDayKey, isToday: selectedDayOffset == 0) }
             // WHOOP's Stress Monitor card: the day's stress curve from the strap, one tap from the Stress screen. Today only. Its header
             // carries today's score (the Stress tile near the top is gone).
             if selectedDayOffset == 0 && shows(.stressMonitor) { LookStressMonitorSection(chartOnly: true, todayScore: stress) }
@@ -1116,9 +1116,10 @@ struct LiquidTodayView: View {
         HStack(spacing: 12) {
             // The illness early-warning describes now, so it sits on today only.
             if selectedDayOffset == 0 { LookHealthTile() }
-            // With PaceForge set up, today's Stress is a score in the header of the Stress Monitor chart in My Day, so the tile goes.
-            // Without it, and on an earlier day, there is no such chart and the tile stays.
-            if !(PFAPI.isConfigured && selectedDayOffset == 0) {
+            // With PaceForge set up, today's Stress is a score in the header of the Stress Monitor chart in My Day, so the tile goes, as
+            // long as that chart is on (the athlete can hide its block). Without PaceForge, on an earlier day or with the chart hidden,
+            // the tile stays.
+            if !(PFAPI.isConfigured && selectedDayOffset == 0 && shows(.stressMonitor)) {
                 LookStressTile(score: stress)
                     .hiddenWhenPrivate(.scores, name: String(localized: "Stress"))
             }
@@ -1859,6 +1860,15 @@ struct LiquidTodayView: View {
         }
     }
 
+    /// The 30-day rows that repeat a Key Metrics tile on screen: HRV and resting heart rate, but only while their tile is drawn.
+    private var vitalsOnTiles: Set<String> {
+        guard shows(.keyMetrics) else { return [] }
+        var keys: Set<String> = []
+        if enabledKeyMetrics.contains(.hrv) { keys.insert("hrv") }
+        if enabledKeyMetrics.contains(.restingHr) { keys.insert("rhr") }
+        return keys
+    }
+
     private var keyMetricsSection: some View {
         // HRV / Rest HR (+ Blood Oxygen / Respiratory) tiles share the recovery vitals' per-field
         // today-first carry so they don't blank at the rollover while Recovery/Strain/Rest stay strictly
@@ -2288,7 +2298,7 @@ struct LiquidTodayView: View {
                             // direction mark), then weight against its goal.
                             if shows(.vsThirtyDays) {
                                 LookMyDashboardSection(day: selectedLogicalDay, title: "Today vs 30 days", identifier: "today-vs30",
-                                                       drawsEmptyState: false, excludesWeight: true, excludesVitals: true)
+                                                       drawsEmptyState: false, excludesWeight: true, excludedKeys: vitalsOnTiles)
                             }
                             if selectedDayOffset == 0 && PFAPI.isConfigured && shows(.weightGoal) { PFTodayWeightGoalHost(newest: weightReading) }
                             #endif

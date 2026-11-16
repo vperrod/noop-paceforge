@@ -224,6 +224,8 @@ struct PFSeasonHoursCard529: View {
 
 struct PFSeasonLinks529: View {
     let programmes: PFSeasonDoc.Programmes?
+    /// Reads the season document again (after the Events sheet closes, where a race may have been added).
+    var reload: () async -> Void = {}
 
     @State private var addsRace = false
 
@@ -253,7 +255,7 @@ struct PFSeasonLinks529: View {
         }
         .planCard529(padding: 0)
         .containerIdentifier("season-links")
-        .sheet(isPresented: $addsRace) {
+        .sheet(isPresented: $addsRace, onDismiss: { Task { await reload() } }) {
             PFEventsSheet().environmentObject(PFUnified.model)
         }
     }

@@ -18,6 +18,8 @@ struct PFChangeSheet529: View {
                     PFWeekState529(kind: .loading, message: "Loading the change")
                 case .missing:
                     PFWeekState529(kind: .empty, message: "This change is no longer waiting for you.")
+                case .failed:
+                    PFWeekState529(kind: .failed, message: "The change could not be loaded.", retry: { Task { await lookup.load(id: changeId) } })
                 case .found(let change, _):
                     Text(change.sheetTitle ?? change.title ?? "Change")
                         .font(LookFont.text(20, weight: .bold))
@@ -36,6 +38,13 @@ struct PFChangeSheet529: View {
         .navigationBarTitleDisplayMode(.inline)
         .containerIdentifier("plan529-change")
         .task { await lookup.load(id: changeId) }
+        // A change handled elsewhere (accepted from the Week page, answered in Needs you) closes its sheet.
+        .onReceive(NotificationCenter.default.publisher(for: .pfPlan529Changed)) { _ in
+            Task {
+                await lookup.load(id: changeId)
+                if case .missing = lookup.state { dismiss() }
+            }
+        }
     }
 
     private func askCoach(_ change: PFPlanWeekDoc.Change) {
@@ -57,6 +66,7 @@ struct PFChangeContent529: View {
     let onAskCoach: () -> Void
 
     @StateObject private var decisions = PFWeekDecisions529()
+    private let hiding = PFHiding()
 
     private var isRequested: Bool { change.requested == true }
 
@@ -147,7 +157,7 @@ struct PFChangeContent529: View {
                         .font(.system(size: 13, weight: .semibold))
                         .foregroundStyle(PFWeekColor529.amber)
                         .accessibilityHidden(true)
-                    Text(warning)
+                    Text(hiding.text(warning))
                         .font(LookFont.text(14, weight: .regular))
                         .foregroundStyle(PFWeekColor529.amber)
                         .fixedSize(horizontal: false, vertical: true)
@@ -197,9 +207,14 @@ struct PFChangeContent529: View {
 enum PFWeekFetch529 {
     /// One week document, read and decoded; nil when the server does not serve it or it cannot be read.
     static func week(_ isoWeek: String) async -> PFPlanWeekDoc? {
+        await weekResult(isoWeek).doc
+    }
+
+    /// The same, saying whether the read failed (nothing could be fetched) as against the document not being served.
+    static func weekResult(_ isoWeek: String) async -> (doc: PFPlanWeekDoc?, failed: Bool) {
         let fetched = await PFAPI.fetchDoc(PFDocPath529.week(isoWeek))
-        guard let data = fetched.data else { return nil }
-        return try? PFPlan529Decoder.make().decode(PFPlanWeekDoc.self, from: data)
+        guard let data = fetched.data else { return (nil, fetched.failed) }
+        return ((try? PFPlan529Decoder.make().decode(PFPlanWeekDoc.self, from: data)), false)
     }
 
     static func index() async -> PFPlanWeekIndexDoc? {
@@ -209,43 +224,70 @@ enum PFWeekFetch529 {
     }
 }
 
-/// The change a sheet was asked to open. The Week page hands over the changes it has read; otherwise the coming weeks are searched.
+/// The change a sheet was asked to open. The Week page hands over the changes it has read so the sheet knows which week to read; the
+/// sheet always reads that week again, so a change that was handled elsewhere is not offered, and it reads again whenever the plan
+/// changes. Otherwise the coming weeks are searched.
 @MainActor
 final class PFChangeLookup529: ObservableObject {
     enum State {
         case loading
         case found(PFPlanWeekDoc.Change, week: String)
+        /// The change is not waiting any more (the week was read and it is not in it).
         case missing
+        /// The week could not be read at all.
+        case failed
     }
 
     @Published private(set) var state: State = .loading
 
     private static var remembered: [String: (change: PFPlanWeekDoc.Change, week: String)] = [:]
 
+    /// Takes a week's changes as they are now: the ones that are gone from that week are forgotten.
     static func remember(_ doc: PFPlanWeekDoc) {
+        let week = doc.week ?? ""
+        for (id, known) in remembered where known.week == week { remembered[id] = nil }
         for change in doc.changes ?? [] {
-            if let id = change.id { remembered[id] = (change, doc.week ?? "") }
+            if let id = change.id { remembered[id] = (change, week) }
         }
     }
 
     func load(id: String) async {
         if let known = Self.remembered[id] {
-            state = .found(known.change, week: known.week)
+            let result = await PFWeekFetch529.weekResult(known.week)
+            if let doc = result.doc {
+                Self.remember(doc)
+                if let change = doc.changes?.first(where: { $0.id == id }) {
+                    state = .found(change, week: known.week)
+                } else {
+                    state = .missing
+                }
+            } else if result.failed {
+                // The saved copy of the change stays on screen while the phone cannot ask; only a first look that fails says so.
+                if case .found = state { return }
+                state = .failed
+            } else {
+                state = .missing
+            }
             return
         }
         guard let index = await PFWeekFetch529.index() else {
-            state = .missing
+            state = .failed
             return
         }
         let weeks = (index.weeks ?? []).filter { $0.state != "finished" }.compactMap { $0.week }
+        var failed = false
         for week in weeks.prefix(8) {
-            guard let doc = await PFWeekFetch529.week(week) else { continue }
+            let result = await PFWeekFetch529.weekResult(week)
+            guard let doc = result.doc else {
+                failed = failed || result.failed
+                continue
+            }
             Self.remember(doc)
             if let change = doc.changes?.first(where: { $0.id == id }) {
                 state = .found(change, week: week)
                 return
             }
         }
-        state = .missing
+        state = failed ? .failed : .missing
     }
 }

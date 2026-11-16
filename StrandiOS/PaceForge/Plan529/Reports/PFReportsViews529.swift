@@ -5,24 +5,41 @@ import StrandDesign
 // verdict and a line under it, and a dot on the rows newer than the last time that row was opened.
 
 /// Which report rows were opened and what they said then, kept on the phone. A row is new while its timestamp is newer than the one it
-/// had when it was last opened, or it was never opened.
+/// had when it was last opened. The first list a phone reads is its baseline: everything in it counts as seen, so a first run does not
+/// open on a dot at every row, and only what arrives later carries one.
 @MainActor
 final class PFReportSeenStore529: ObservableObject {
     static let shared = PFReportSeenStore529()
     static let storageKey = "noop.plan529.reportsSeen"
 
     @Published private(set) var seen: [String: String]
+    /// False until a first list has been read and taken as the baseline.
+    private var hasBaseline: Bool
 
     private init() {
         let defaults = UserDefaults.standard
+        var stored = defaults.dictionary(forKey: Self.storageKey) as? [String: String]
         #if DEBUG
-        // UI tests start with every row unread, whatever an earlier run opened.
-        if ProcessInfo.processInfo.arguments.contains("-Plan529ResetSeen") { defaults.removeObject(forKey: Self.storageKey) }
+        // UI tests start with every row unread (a baseline with nothing in it), whatever an earlier run opened.
+        if ProcessInfo.processInfo.arguments.contains("-Plan529ResetSeen") {
+            defaults.removeObject(forKey: Self.storageKey)
+            stored = [:]
+        }
         #endif
-        seen = (defaults.dictionary(forKey: Self.storageKey) as? [String: String]) ?? [:]
+        hasBaseline = stored != nil
+        seen = stored ?? [:]
+    }
+
+    /// Takes the first list as seen; does nothing once a baseline exists.
+    func adoptBaseline(_ rows: [(id: String, ts: String?)]) {
+        guard !hasBaseline else { return }
+        hasBaseline = true
+        for row in rows { seen[row.id] = row.ts ?? "opened" }
+        UserDefaults.standard.set(seen, forKey: Self.storageKey)
     }
 
     func isNew(id: String, ts: String?) -> Bool {
+        guard hasBaseline else { return false }
         guard let opened = seen[id] else { return true }
         guard let ts else { return false }
         return Self.isNewer(ts, than: opened)
@@ -102,6 +119,18 @@ struct PFPlanReportsContent529: View {
         }
         .pfResultsSheet529($results)
         .containerIdentifier("plan529-reports")
+        .task { seen.adoptBaseline(Self.rows(of: doc)) }
+    }
+
+    /// Every row of the list as (id, timestamp), the ids the rows are marked with.
+    private static func rows(of doc: PFReportsListDoc) -> [(id: String, ts: String?)] {
+        var out: [(id: String, ts: String?)] = []
+        if let today = doc.today, let key = today.key { out.append(("today:\(key)", today.ts)) }
+        for row in doc.weeks ?? [] { if let key = row.key { out.append(("week:\(key)", row.ts)) } }
+        for row in doc.months ?? [] { if let key = row.key { out.append(("month:\(key)", row.ts)) } }
+        for row in doc.races ?? [] { if let date = row.date { out.append(("race:\(date)", row.ts)) } }
+        for row in doc.workouts ?? [] { if let id = row.activityId { out.append(("workout:\(id)", row.ts)) } }
+        return out
     }
 
     private func reportRow(id: String, lead: String?, verdict: String?, sub: String?, ts: String?, open: @escaping () -> Void) -> AnyView {

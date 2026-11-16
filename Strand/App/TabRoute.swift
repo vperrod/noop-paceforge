@@ -145,8 +145,9 @@ extension View {
                 default:
                     if kind.hasPrefix("race:") {
                         PFRaceReportPage(date: String(kind.dropFirst("race:".count)))
-                    } else if kind.hasPrefix("weekly:") {
-                        PFReportsScreen(kind: .weekly, key: String(kind.dropFirst("weekly:".count)))
+                    } else if let colon = kind.firstIndex(of: ":"), let asked = PFReportKind(rawValue: String(kind[..<colon])) {
+                        // "weekly:2026-W46", "monthly:2026-10", "daily:2026-11-15": that report of the reading screen.
+                        PFReportsScreen(kind: asked, key: String(kind[kind.index(after: colon)...]))
                     } else {
                         PFReportsScreen(kind: PFReportKind(rawValue: kind) ?? .daily)
                     }

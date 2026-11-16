@@ -75,6 +75,17 @@ final class Plan529TodayUITests: XCTestCase {
         attach(app, "D1-D11 Today bottom")
     }
 
+    /// Without PaceForge (not set up, or not answering) the strap's own workouts are still Today's workouts: the card is drawn, with a row
+    /// per workout of the day, or the latest one with its date and the way to the Workouts list.
+    func testTodaysWorkoutsAreDrawnWithoutPaceForge() throws {
+        let app = XCUIApplication()
+        app.launchArguments.append(contentsOf: ["--demo-seed", "-theme.appearance", "dark"])
+        app.launch()
+        dumpHierarchyOnFailure(app)
+        let met = scrollToday(app, ids: ["today-workouts"])
+        XCTAssertTrue(met.ids.contains("today-workouts"), "Today's workouts should be drawn without PaceForge.")
+    }
+
     // MARK: D4 and D8: the call states the call
 
     func testTheCallBannerCarriesTheCallAndNeitherTheTargetNorTheSession() throws {

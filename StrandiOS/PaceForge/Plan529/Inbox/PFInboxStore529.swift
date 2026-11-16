@@ -1,3 +1,4 @@
+import Combine
 import SwiftUI
 import UserNotifications
 
@@ -29,10 +30,16 @@ final class PFInboxStore529: ObservableObject {
     @Published private(set) var lastCheck: Date?
     /// How late the newest item the phone raised a notification for was when the phone first saw it (seconds).
     @Published private(set) var lastNewDelay: TimeInterval?
+    /// What the bell and the tab bar read: worked out when something that feeds them changes, not on every redraw of a screen that
+    /// watches a store that ticks often.
+    @Published private(set) var unreadCount = 0
+    @Published private(set) var hasUnreadPlan = false
+    @Published private(set) var hasUnreadCoach = false
 
     private let defaults = UserDefaults.standard
     private var inFlight: Task<Void, Never>?
     private var lastFetch: Date?
+    private var feeds: Set<AnyCancellable> = []
 
     private init() {
         seen = defaults.stringArray(forKey: Self.seenKey)
@@ -49,6 +56,24 @@ final class PFInboxStore529: ObservableObject {
             items = doc.items ?? []
             load = .loaded
         }
+        recount()
+        // The earlier alert history and the PaceForge snapshot (where its entries come from) feed the unread count too; their changes are
+        // gathered for a quarter of a second so a burst of them is one recount.
+        Publishers.Merge(PFAlertHistoryStore.shared.objectWillChange.map { _ in () }, PFUnified.model.objectWillChange.map { _ in () })
+            .debounce(for: .milliseconds(250), scheduler: RunLoop.main)
+            .sink { [weak self] in self?.recount() }
+            .store(in: &feeds)
+    }
+
+    /// Works the unread figures out again; publishes only what changed.
+    func recount() {
+        let unread = unreadRows()
+        let count = unread.count
+        let plan = PFInboxLogic529.hasUnread(unread, kinds: PFInboxLogic529.planDotKinds)
+        let coach = PFInboxLogic529.hasUnread(unread, kinds: PFInboxLogic529.coachDotKinds)
+        if unreadCount != count { unreadCount = count }
+        if hasUnreadPlan != plan { hasUnreadPlan = plan }
+        if hasUnreadCoach != coach { hasUnreadCoach = coach }
     }
 
     // MARK: Reading the document
@@ -108,6 +133,7 @@ final class PFInboxStore529: ObservableObject {
         isStale = false
         lastFetch = Date()
         adoptIfNeeded()
+        recount()
         updateBadge()
     }
 
@@ -133,9 +159,6 @@ final class PFInboxStore529: ObservableObject {
         return !read.contains(row.id)
     }
 
-    var unreadCount: Int { unreadRows().count }
-    var hasUnreadPlan: Bool { PFInboxLogic529.hasUnread(unreadRows(), kinds: PFInboxLogic529.planDotKinds) }
-    var hasUnreadCoach: Bool { PFInboxLogic529.hasUnread(unreadRows(), kinds: PFInboxLogic529.coachDotKinds) }
 
     /// The first document read becomes the baseline: everything in it (and in the earlier history) is read, so the day this build
     /// arrives there is no pile of unread. Only what comes after is.
@@ -162,6 +185,7 @@ final class PFInboxStore529: ObservableObject {
     private func setSeen(_ list: [String]) {
         seen = list
         defaults.set(list, forKey: Self.seenKey)
+        recount()
     }
 
     // MARK: Kinds

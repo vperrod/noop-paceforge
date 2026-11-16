@@ -9,13 +9,11 @@ struct PFInboxTabBar529: View {
     let onCoach: () -> Void
 
     @ObservedObject private var inbox = PFInboxStore529.shared
-    @ObservedObject private var history = PFAlertHistoryStore.shared
 
     var body: some View {
-        let unread = inbox.unreadRows()
         FloatingTabBar(items: items, selection: $selection, onCoach: onCoach,
-                       dotIDs: PFInboxLogic529.hasUnread(unread, kinds: PFInboxLogic529.planDotKinds) ? ["plan"] : [],
-                       coachDot: PFInboxLogic529.hasUnread(unread, kinds: PFInboxLogic529.coachDotKinds))
+                       dotIDs: inbox.hasUnreadPlan ? ["plan"] : [],
+                       coachDot: inbox.hasUnreadCoach)
             .task { await inbox.refreshIfStale() }
     }
 }

@@ -15,6 +15,7 @@ struct PFSessionSheet529: View {
     @State private var results: PFResultsTarget529?
     @State private var swap: PFSwapTarget529?
     @State private var showsMore = false
+    private let hiding = PFHiding()
 
     init(week: String, sessionId: String) {
         self.week = week
@@ -104,7 +105,7 @@ struct PFSessionSheet529: View {
         if let minutes = item.minutes { out.append(("\(minutes) min", NoopLook.textTertiary)) }
         if let effort = item.effort {
             let word = PFFormat.capitalized(effort)
-            out.append((item.rpe.map { "\(word) \u{00B7} \($0) of 10" } ?? word, PFWeekColor529.effort(effort)))
+            out.append((hiding.text(item.rpe.map { "\(word) \u{00B7} \($0) of 10" } ?? word), PFWeekColor529.effort(effort)))
         }
         for pill in item.pills ?? [] { out.append((pill, NoopLook.textTertiary)) }
         return out

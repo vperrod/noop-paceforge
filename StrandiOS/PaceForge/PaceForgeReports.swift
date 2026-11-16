@@ -12,6 +12,15 @@ enum PFReportKind: String, CaseIterable, Identifiable {
 
     var id: String { rawValue }
 
+    /// "day", "week" or "month": the period a report of this kind covers.
+    var periodWord: String {
+        switch self {
+        case .daily: return "day"
+        case .weekly: return "week"
+        case .monthly: return "month"
+        }
+    }
+
     var title: String {
         switch self {
         case .daily: return "Daily"

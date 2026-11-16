@@ -191,12 +191,15 @@ enum PFAnswerResult529: Equatable {
 /// the same door and code as a Needs you card. The key is `accept-<id>` / `dismiss-<id>` so a retry is safe. A requested swap's id
 /// (`swap-...`) works like any other. The reason comes back in the server's own words.
 enum PFProposalAnswer529 {
-    @MainActor static func send(id: String, accept: Bool) async -> PFAnswerResult529 {
+    /// `refreshes` false leaves the full reload of the PaceForge model to the caller (Accept all reloads once at the end).
+    @MainActor static func send(id: String, accept: Bool, refreshes: Bool = true) async -> PFAnswerResult529 {
         let model = PFUnified.model
         let answer = PFNeedsAnswer.proposal(id: id, accept: accept)
         if let item = PFEasyModeJobs.item(forProposal: id, in: model.snapshot?.needsYou ?? []) {
-            await model.submitAnswer(answer, for: item)
-            guard let note = model.needsNotes[item.id] else { return .saved }
+            let saved = await model.submitAnswer(answer, for: item, key: key(id: id, accept: accept), refreshes: refreshes)
+            if saved { return .saved }
+            // Nothing was sent when the card is already being answered or is gone; a refusal leaves its sentence.
+            guard let note = model.needsNotes[item.id] else { return .handled("That proposal is already being handled.") }
             let lower = note.lowercased()
             let isHandled = lower.contains("already handled") || lower.contains("no longer waiting") || lower.contains("nothing to add")
             return isHandled ? .handled(note) : .refused(note)
@@ -211,7 +214,7 @@ enum PFProposalAnswer529 {
         }
         let outcome = PFAnswerOutcome.from(status: reply.status, data: reply.data)
         if outcome.isSaved {
-            await model.refresh()
+            if refreshes { await model.refresh() }
             return .saved
         }
         return reply.status == 404 ? .handled(outcome.message) : .refused(outcome.message)
@@ -262,13 +265,14 @@ final class PFWeekDecisions529: ObservableObject {
         failure = nil
         for id in ids {
             busy.insert(id)
-            let result = await PFProposalAnswer529.send(id: id, accept: true)
+            let result = await PFProposalAnswer529.send(id: id, accept: true, refreshes: false)
             busy.remove(id)
             if case .refused(let message) = result {
                 failure = message
                 break
             }
         }
+        await PFUnified.model.refresh()
         isAnsweringAll = false
         NotificationCenter.default.post(name: .pfPlan529Changed, object: nil)
     }

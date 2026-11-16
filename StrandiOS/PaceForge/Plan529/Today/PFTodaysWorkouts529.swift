@@ -6,11 +6,23 @@ import WhoopStore
 /// strap's version and Garmin's matched by start time (`PFWorkoutMatch`) so a workout both devices recorded is one row, each device's
 /// numbers named. A tap opens the workout with the coach's review.
 struct PFTodaysWorkoutsHost: View {
-    /// The strap's workouts as Today read them (newest first, every day); this list keeps today's.
+    /// The strap's workouts as Today read them (newest first, every day); this list keeps the day on screen's.
     let strap: [WorkoutRow]
+    /// The day key Today is showing (today's, or the earlier day browsed to), and whether that is today.
+    var dayKey: String = ""
+    var isToday = true
+
+    @ObservedObject private var model = PFUnified.model
 
     var body: some View {
-        PFSnapshotHost(drawsChrome: false, content: { snapshot in AnyView(PFTodaysWorkoutsCard(snapshot: snapshot, strap: strap)) })
+        if model.snapshot == nil {
+            // PaceForge is not set up, still loading or failed: the strap's own workouts are still Today's workouts.
+            PFTodaysWorkoutsCard(snapshot: nil, strap: strap, dayKey: dayKey, isToday: isToday)
+        } else {
+            PFSnapshotHost(drawsChrome: false, content: { snapshot in
+                AnyView(PFTodaysWorkoutsCard(snapshot: snapshot, strap: strap, dayKey: dayKey, isToday: isToday))
+            })
+        }
     }
 }
 
@@ -26,10 +38,16 @@ struct PFTodaysWorkoutRow529: Identifiable {
 enum PFTodaysWorkouts529 {
     /// The rows of `todayISO`, in the order the workouts started. A strap workout the PaceForge mirror wrote into NOOP's own list
     /// (source "paceforge") is Garmin's recording again, so it is left out; Garmin's side comes from the snapshot's recordings.
-    static func rows(snapshot: PFSnapshot, strap: [WorkoutRow]) -> [PFTodaysWorkoutRow529] {
+    /// `day` is the day listed (yyyy-MM-dd). Without a snapshot only the strap's own workouts of that day are listed.
+    static func rows(snapshot: PFSnapshot?, strap: [WorkoutRow], day: String) -> [PFTodaysWorkoutRow529] {
         let todayStrap = strap.filter { row in
-            WorkoutSource.classify(row.source) != .paceforge
-                && PFFormat.isoString(Date(timeIntervalSince1970: TimeInterval(row.startTs))) == snapshot.todayISO
+            // Without PaceForge nothing mirrors Garmin into the strap list, so every strap row counts.
+            (snapshot == nil || WorkoutSource.classify(row.source) != .paceforge)
+                && PFFormat.isoString(Date(timeIntervalSince1970: TimeInterval(row.startTs))) == day
+        }
+        guard let snapshot else {
+            return todayStrap.map { PFTodaysWorkoutRow529(id: "strap-\($0.startTs)", activity: nil, strap: [$0], startTs: $0.startTs) }
+                .sorted { $0.startTs < $1.startTs }
         }
         var byActivity: [String: [WorkoutRow]] = [:]
         var strapOnly: [WorkoutRow] = []
@@ -42,7 +60,7 @@ enum PFTodaysWorkouts529 {
         }
         var out: [PFTodaysWorkoutRow529] = []
         var shown: Set<String> = []
-        let recordedToday = snapshot.activities.values.filter { $0.startTime?.hasPrefix(snapshot.todayISO) == true }
+        let recordedToday = snapshot.activities.values.filter { $0.startTime?.hasPrefix(day) == true }
         for activity in recordedToday.sorted(by: { ($0.startTime ?? "") < ($1.startTime ?? "") }) {
             shown.insert(activity.id)
             let start = activity.startTime.flatMap { PFMyDay.parse($0) }.map { Int($0.timeIntervalSince1970) } ?? 0
@@ -61,8 +79,10 @@ enum PFTodaysWorkouts529 {
 }
 
 private struct PFTodaysWorkoutsCard: View {
-    let snapshot: PFSnapshot
+    let snapshot: PFSnapshot?
     let strap: [WorkoutRow]
+    let dayKey: String
+    let isToday: Bool
     @EnvironmentObject private var coach: AICoachEngine
     @EnvironmentObject private var router: NavRouter
     @AppStorage(UnitPrefs.effortScaleKey) private var effortScaleRaw = EffortScale.hundred.rawValue
@@ -70,15 +90,18 @@ private struct PFTodaysWorkoutsCard: View {
     private let hiding = PFHiding()
 
     var body: some View {
-        let rows = PFTodaysWorkouts529.rows(snapshot: snapshot, strap: strap)
-        PFCard("Today's workouts", icon: "figure.run") {
+        // Today lists the snapshot's own day (the fixture's, or the phone's); an earlier day browsed to lists that day.
+        let day = isToday ? (snapshot?.todayISO ?? dayKey) : dayKey
+        let rows = PFTodaysWorkouts529.rows(snapshot: snapshot, strap: strap, day: day)
+        PFCard(isToday ? "Today's workouts" : "Workouts", icon: "figure.run") {
             VStack(alignment: .leading, spacing: 4) {
                 if rows.isEmpty {
-                    Text("No workout recorded today.")
+                    Text(isToday ? "No workout recorded today." : "No workout recorded on this day.")
                         .font(StrandFont.subhead)
                         .foregroundStyle(StrandPalette.textSecondary)
                         .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
                         .accessibilityIdentifier("today-workouts-empty")
+                    if isToday { latest }
                 } else {
                     ForEach(rows) { row in rowView(row) }
                 }
@@ -87,14 +110,46 @@ private struct PFTodaysWorkoutsCard: View {
         .accessibilityElement(children: .contain)
         .containerIdentifier("today-workouts")
         .sheet(item: $opened) { workout in
-            PFResultsSheet(workout: workout, snapshot: snapshot, onAskCoach: PFResultsSheet.askCoach(coach, router))
+            if let snapshot { PFResultsSheet(workout: workout, snapshot: snapshot, onAskCoach: PFResultsSheet.askCoach(coach, router)) }
         }
+    }
+
+    // MARK: Latest from an earlier day
+
+    /// Nothing today: the strap's latest workout of any day, named with its date, and the way to the whole list (what the retired Last
+    /// workouts card showed).
+    @ViewBuilder private var latest: some View {
+        if let last = strap.first(where: { snapshot == nil || WorkoutSource.classify($0.source) != .paceforge }) {
+            let day = PFFormat.isoString(Date(timeIntervalSince1970: TimeInterval(last.startTs)))
+            Text("Latest: \(PFFormat.dayTitle(day))")
+                .font(StrandFont.caption.weight(.semibold))
+                .foregroundStyle(StrandPalette.textTertiary)
+                .padding(.top, 4)
+                .accessibilityIdentifier("today-workouts-latest")
+            rowView(PFTodaysWorkoutRow529(id: "strap-\(last.startTs)", activity: nil, strap: [last], startTs: last.startTs))
+        }
+        NavigationLink(value: TabRoute.workouts) {
+            HStack {
+                Text("All workouts (\(strap.count))")
+                    .font(StrandFont.subhead.weight(.semibold))
+                    .foregroundStyle(StrandPalette.textPrimary)
+                Spacer(minLength: 4)
+                Image(systemName: "chevron.right")
+                    .font(StrandFont.caption.weight(.semibold))
+                    .foregroundStyle(StrandPalette.textTertiary)
+                    .accessibilityHidden(true)
+            }
+            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("today-workouts-all")
     }
 
     // MARK: Rows
 
     @ViewBuilder private func rowView(_ row: PFTodaysWorkoutRow529) -> some View {
-        if let activity = row.activity {
+        if let activity = row.activity, let snapshot {
             Button { opened = PFAlertActivityRouter.workout(for: activity, in: snapshot) } label: { content(row) }
                 .buttonStyle(.plain)
                 .accessibilityIdentifier("today-workout-row-\(row.id)")

@@ -10,15 +10,21 @@ import StrandDesign
 final class PFWeekDocs529: ObservableObject {
     @Published private(set) var docs: [String: PFPlanWeekDoc] = [:]
     /// Weeks the server does not serve (asked once, so a missing week is not asked for again on every redraw).
-    private var absent: Set<String> = []
+    @Published private(set) var absent: Set<String> = []
+    /// Weeks that could not be read at all (no answer and no saved copy): the panel says so and offers to try again.
+    @Published private(set) var failed: Set<String> = []
 
     func load(_ keys: [String]) async {
         for key in keys where docs[key] == nil && !absent.contains(key) {
             let fetched = await PFAPI.fetchDoc(PFDocPath529.week(key))
             if let data = fetched.data, let doc = try? PFPlan529Decoder.make().decode(PFPlanWeekDoc.self, from: data) {
                 docs[key] = doc
-            } else if !fetched.failed {
+                failed.remove(key)
+            } else if fetched.failed {
+                failed.insert(key)
+            } else {
                 absent.insert(key)
+                failed.remove(key)
             }
         }
     }
@@ -28,6 +34,7 @@ final class PFWeekDocs529: ObservableObject {
         for key in keys {
             docs[key] = nil
             absent.remove(key)
+            failed.remove(key)
         }
         await load(keys)
     }
@@ -108,8 +115,9 @@ struct PFCalendarContent529: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             monthCard
-            PFCalendarDayPanel529(day: selected, week: week(containing: selected), doc: weeks.docs[week(containing: selected)?.week ?? ""],
-                                  reload: { await weeks.reload(visibleKeys) })
+            let key = week(containing: selected)?.week ?? ""
+            PFCalendarDayPanel529(day: selected, week: week(containing: selected), doc: weeks.docs[key],
+                                  isFailed: weeks.failed.contains(key), isAbsent: weeks.absent.contains(key), reload: { await weeks.reload(visibleKeys) })
         }
         .task(id: monthStart + selected) { await weeks.load(visibleKeys) }
         .reloadsAfterPull529 { await weeks.reload(visibleKeys) }
@@ -299,6 +307,10 @@ struct PFCalendarDayPanel529: View {
     let day: String
     let week: PFPlanWeekIndexDoc.Week?
     let doc: PFPlanWeekDoc?
+    /// The week's document could not be read (as against not being served: nothing is scheduled then).
+    var isFailed = false
+    /// The server does not serve the week's document.
+    var isAbsent = false
     let reload: () async -> Void
 
     @State private var results: PFResultsTarget529?
@@ -312,10 +324,24 @@ struct PFCalendarDayPanel529: View {
             PFOver529(text: PFFormat.dayTitle(day))
                 .padding(.bottom, 4)
             if items.isEmpty {
-                Text(doc == nil && week != nil ? "Loading" : "Nothing scheduled")
-                    .font(LookFont.text(14))
-                    .foregroundStyle(NoopLook.textTertiary)
+                if isFailed && doc == nil {
+                    HStack(spacing: 10) {
+                        Text("This week could not be loaded.")
+                            .font(LookFont.text(14))
+                            .foregroundStyle(NoopLook.textTertiary)
+                            .accessibilityIdentifier("calendar-day-failed")
+                        Spacer(minLength: 6)
+                        PFPillButton529(title: "Try again") { Task { await reload() } }
+                            .accessibilityIdentifier("calendar-day-retry")
+                    }
                     .padding(.vertical, 8)
+                } else {
+                    // Still loading only while the week is being asked for; a week the server does not serve holds nothing.
+                    Text(doc == nil && week != nil && !isAbsent ? "Loading" : "Nothing scheduled")
+                        .font(LookFont.text(14))
+                        .foregroundStyle(NoopLook.textTertiary)
+                        .padding(.vertical, 8)
+                }
             }
             ForEach(Array(items.enumerated()), id: \.offset) { index, item in
                 if index > 0 { PFDivider529() }
@@ -386,6 +412,8 @@ struct PFCalendarDayPanel529: View {
 struct PFDayOffSheet529: View {
     let day: String
     let saved: () async -> Void
+    /// Hands back the day off the server just made, for a list that shows it before the document is read again.
+    var onAdded: ((PFPlanSettingsDoc.DayOff) -> Void)?
 
     @Environment(\.dismiss) private var dismiss
     @StateObject private var runner = PFPlanEditRunner529()
@@ -395,9 +423,10 @@ struct PFDayOffSheet529: View {
     @State private var severalDays = false
     @State private var kind = "holiday"
 
-    init(day: String, saved: @escaping () async -> Void) {
+    init(day: String, saved: @escaping () async -> Void, onAdded: ((PFPlanSettingsDoc.DayOff) -> Void)? = nil) {
         self.day = day
         self.saved = saved
+        self.onAdded = onAdded
         let first = max(PFFormat.date(day), Calendar.current.startOfDay(for: Date()))
         _start = State(initialValue: first)
         _end = State(initialValue: first)
@@ -452,6 +481,9 @@ struct PFDayOffSheet529: View {
         let last = severalDays ? PFFormat.isoString(max(start, end)) : nil
         let inputs = PFPlanInputs529.dayOffAdd(start: first, end: last, label: label.isEmpty ? "Day off" : label, kind: kind)
         if await runner.run(.dayoffAdd, inputs: inputs) {
+            let added = PFPlanSettingsDoc.DayOff(id: runner.lastResultID ?? "local-\(first)", start: first, end: last ?? first,
+                                                 label: label.isEmpty ? "Day off" : label, kind: kind)
+            onAdded?(added)
             await saved()
             dismiss()
         }

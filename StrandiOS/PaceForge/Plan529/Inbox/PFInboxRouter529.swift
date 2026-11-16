@@ -29,8 +29,10 @@ enum PFInboxRouter529 {
             if let activityID {
                 PFAlertLink.open(userInfo: PFAlertRoute.userInfo(kind: PFAlertRoute.alertKind, id: activityID, activityID: activityID))
             } else {
-                PFDeepLink.openToday()
+                PFDeepLink529.open(.sheet(.inbox))
             }
+        case .inbox:
+            PFDeepLink529.open(.sheet(.inbox))
         case .coachNoticed, .today:
             // The Coach noticed card sits near the top of Today.
             PFDeepLink.openToday()

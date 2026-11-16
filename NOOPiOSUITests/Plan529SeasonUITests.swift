@@ -190,6 +190,24 @@ final class Plan529SeasonUITests: XCTestCase {
         XCTAssertTrue(app.element("priorities-race-2026-12-16").waitForExistence(timeout: 20), "The list should hold the races to come.")
     }
 
+    func testADayOffAddedInTheDaysOffSheetShowsAtOnceAndCanBeRemoved() throws {
+        let app = try launch(open: "settings")
+        app.openTab("Plan")
+        let row = app.element("settings-row-days_off")
+        XCTAssertTrue(row.waitForExistence(timeout: 30), "Days off should be a row.")
+        row.tap()
+        XCTAssertTrue(app.element("days-off-sheet").waitForExistence(timeout: 20), "The row should open the days off.")
+        app.element("days-off-add").tap()
+        XCTAssertTrue(app.element("day-off-sheet").waitForExistence(timeout: 20), "Add a day off should open the form.")
+        app.element("day-off-save").tap()
+        XCTAssertTrue(app.element("day-off-sheet").waitForNonExistence(timeout: 20), "A saved day off should close the form.")
+        let remove = app.element("day-off-remove-d0ff0001")
+        XCTAssertTrue(remove.waitForExistence(timeout: 20), "The new day off should be listed without reopening the sheet.")
+        attach(app, "K1 days off added")
+        remove.tap()
+        XCTAssertTrue(remove.waitForNonExistence(timeout: 20), "A removed day off should be gone.")
+    }
+
     // MARK: C1 Calendar
 
     func testCalendarShowsTheMonthWithBarsAndTheHoursOfEachWeek() throws {

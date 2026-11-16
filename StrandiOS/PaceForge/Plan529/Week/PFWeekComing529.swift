@@ -16,9 +16,38 @@ struct PFWeekComing529: View {
     private var days: [PFPlanWeekDoc.Day] { doc.days ?? [] }
     private var hasChanges: Bool { !(doc.changes ?? []).isEmpty || !(doc.decided ?? []).isEmpty }
 
-    /// Where "+ Add" puts a workout: today when it is in this week, else the first day.
+    /// The day the week document marks as today (the server's own clock), when this week holds it.
+    private var todayDate: String? { doc.strip?.first(where: { $0.today == true })?.date }
+
+    /// Edits are offered on sessions that are still ahead: all of a coming week, today and later in the current week, nothing in a finished one.
+    private func allowsEdits(_ day: PFPlanWeekDoc.Day) -> Bool {
+        switch doc.state ?? "" {
+        case "finished": return false
+        case "current": return (day.date ?? "") >= (todayDate ?? PFAPI.todayISO)
+        default: return true
+        }
+    }
+
+    /// Where "+ Add" puts a workout: the first day of a coming week, today in the current one, nowhere in a finished week.
     private var addDate: String {
-        doc.strip?.first(where: { $0.today == true })?.date ?? doc.from ?? ""
+        switch doc.state ?? "" {
+        case "finished": return ""
+        case "current": return todayDate ?? (PFAPI.todayISO >= (doc.from ?? "") && PFAPI.todayISO <= (doc.to ?? "") ? PFAPI.todayISO : "")
+        default: return doc.from ?? ""
+        }
+    }
+
+    /// "2 of 4 sessions done · 1 h 30 of 3 h": the current or a finished week's progress, from its own items. Nothing for a coming week.
+    private var progressLine: String? {
+        guard ["current", "finished"].contains(doc.state ?? "") else { return nil }
+        let sessions = days.flatMap { $0.items ?? [] }.filter { $0.kind == "session" }
+        guard !sessions.isEmpty else { return nil }
+        let done = sessions.filter { ["done", "partial"].contains($0.status ?? "") }.count
+        var line = "\(done) of \(sessions.count) sessions done"
+        if let hours = doc.hours, let did = hours.done, let of = hours.planned ?? hours.target {
+            line += " \u{00B7} \(PFHours529.text(did)) of \(PFHours529.text(of))"
+        }
+        return line
     }
 
     var body: some View {
@@ -29,8 +58,10 @@ struct PFWeekComing529: View {
             if hasChanges {
                 PFWeekChanges529(changes: doc.changes ?? [], decided: doc.decided ?? [], decisions: decisions)
             }
-            ForEach(days.indices, id: \.self) { index in
-                PFWeekDay529(week: week, day: days[index], isToday: isToday(days[index]), hooks: hooks)
+            // Keyed by the day's date, not its position: a card keeps its own state (Skipped, a moved date) when the list around it changes.
+            ForEach(days, id: \.date) { day in
+                PFWeekDay529(week: week, day: day, isToday: isToday(day), hooks: hooks, allowsEdits: allowsEdits(day))
+                    .id(day.date ?? "")
             }
             PFWeekTellCoach529(currentDoc: doc, reload: reload)
             buttons
@@ -46,6 +77,13 @@ struct PFWeekComing529: View {
     private var top: some View {
         VStack(alignment: .leading, spacing: 10) {
             header
+            if let progress = progressLine {
+                Text(progress)
+                    .font(LookFont.text(13, weight: .medium))
+                    .foregroundStyle(NoopLook.textSecondary)
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .accessibilityIdentifier("plan529-progress")
+            }
             PFWeekPills529(pills: pills)
             if let why = doc.why, !why.isEmpty {
                 PFWeekBody529(text: why).accessibilityIdentifier("plan529-why")

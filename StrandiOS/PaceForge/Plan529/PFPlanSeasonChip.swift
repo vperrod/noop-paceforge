@@ -24,7 +24,7 @@ struct PFPlanSeasonChip: View {
                 if store.isStale { PFStaleNote529() }
                 PFSeasonContent529(doc: doc)
             }
-            PFSeasonLinks529(programmes: store.doc?.programmes)
+            PFSeasonLinks529(programmes: store.doc?.programmes, reload: { await store.refresh() })
         }
         .lockGate529()
         .containerIdentifier("calendar-chip-content-season")

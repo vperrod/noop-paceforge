@@ -1,4 +1,5 @@
 import Foundation
+import UIKit
 import UserNotifications
 
 /// Build 529 notifications: on a background contact with the server, read `data/inbox.json` and raise one local notification for each item
@@ -13,6 +14,17 @@ enum PFInboxNotifier529 {
     private static let notifiedKey = "noop.paceforge.inbox.notified"
     private static let attemptKey = "noop.paceforge.inbox.lastAttempt"
     private static var isRunning = false
+
+    /// Starts a check without making the caller wait (the end of a sync): the GET is held by its own short background-task assertion, so
+    /// iOS does not suspend the app in the middle of it. The assertion starts here, synchronously, not when the task gets its turn.
+    static func startCheck() {
+        guard PFAPI.isConfigured, !PFAPI.isFixture, !isRunning else { return }
+        let assertion = BackgroundAssertion529(name: "paceforge.inbox-check")
+        Task {
+            await checkIfDue()
+            assertion.end()
+        }
+    }
 
     static func checkIfDue(now: Date = Date()) async {
         guard PFAPI.isConfigured, !PFAPI.isFixture, !isRunning else { return }
@@ -71,5 +83,25 @@ enum PFInboxNotifier529 {
         let earlierID = String(id.dropFirst("alert:".count))
         let list = defaults.stringArray(forKey: PaceForgeBackground.notifiedAlertsKey) ?? []
         if !list.contains(earlierID) { defaults.set(Array((list + [earlierID]).suffix(200)), forKey: PaceForgeBackground.notifiedAlertsKey) }
+    }
+}
+
+
+/// One `beginBackgroundTask` / `endBackgroundTask` pair: the app is kept running for the short GET, and the task ends when the check does
+/// or when iOS says the time is up.
+@MainActor
+private final class BackgroundAssertion529 {
+    private var identifier = UIBackgroundTaskIdentifier.invalid
+
+    init(name: String) {
+        identifier = UIApplication.shared.beginBackgroundTask(withName: name) { [weak self] in
+            Task { @MainActor in self?.end() }
+        }
+    }
+
+    func end() {
+        guard identifier != .invalid else { return }
+        UIApplication.shared.endBackgroundTask(identifier)
+        identifier = .invalid
     }
 }

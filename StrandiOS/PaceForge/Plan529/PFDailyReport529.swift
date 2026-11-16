@@ -24,9 +24,9 @@ struct PFDailyReport529: View {
                 PFDocPlaceholder529(kind: .failed, retry: { Task { await store.refresh() } })
                     .planScreen529(title: "Daily report", identifier: "plan529-daily-report")
             case .empty:
-                PFReportsScreen(kind: .daily)
+                PFReportsScreen(kind: .daily, key: date)
             case .loaded(let doc):
-                PFDailyShortView529(short: doc.short ?? PFDailyShort())
+                PFDailyShortView529(short: doc.short ?? PFDailyShort(), date: date)
                     .planScreen529(title: doc.short?.title ?? "Daily report", identifier: "plan529-daily-report")
             }
         }
@@ -36,6 +36,8 @@ struct PFDailyReport529: View {
 
 struct PFDailyShortView529: View {
     let short: PFDailyShort
+    /// The day this report is (the expert reading opens on it).
+    var date = ""
 
     @State private var showsWords = false
     private let hiding = PFHiding()
@@ -127,7 +129,7 @@ struct PFDailyShortView529: View {
 
     private var linksCard: some View {
         VStack(spacing: 0) {
-            NavigationLink(value: TabRoute.reports("daily")) {
+            NavigationLink(value: TabRoute.reports(date.isEmpty ? "daily" : "daily:\(date)")) {
                 PFRow529(title: "What each expert read", sub: "Sleep, health, nutrition, physio, running, mind", showsChevron: true)
                     .padding(.horizontal, 16)
             }

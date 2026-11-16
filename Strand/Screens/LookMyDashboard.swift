@@ -19,8 +19,8 @@ struct LookMyDashboardSection: View {
     /// Today lists body weight once (its Weight tile and Weight vs goal), so its 30-day rows leave it out.
     var excludesWeight = false
     /// Today shows HRV and resting heart rate once, as Key Metrics tiles with their own mark against the 30-day usual, so its rows leave
-    /// them out (its sleep rows stay).
-    var excludesVitals = false
+    /// out the ones whose tile is on screen (a metric the layout dropped stays here; its sleep rows stay).
+    var excludedKeys: Set<String> = []
 
     @EnvironmentObject private var repo: Repository
     @AppStorage(MyDashboardPrefs.storageKey) private var raw = MyDashboardPrefs.defaultCSV
@@ -36,7 +36,7 @@ struct LookMyDashboardSection: View {
     private var ids: [String] { MyDashboardPrefs.decode(raw) }
 
     private var loadKey: String {
-        "\(repo.refreshSeq)|\(raw)|\(effortScaleRaw)|\(unitSystemRaw)|\(hideScores)|\(hideBody)|\(Int(day.timeIntervalSince1970))"
+        "\(repo.refreshSeq)|\(raw)|\(effortScaleRaw)|\(unitSystemRaw)|\(hideScores)|\(hideBody)|\(Int(day.timeIntervalSince1970))|\(excludedKeys.sorted().joined(separator: ","))"
     }
 
     var body: some View {
@@ -120,7 +120,7 @@ struct LookMyDashboardSection: View {
             let parts = id.split(separator: ":", maxSplits: 1).map(String.init)
             guard parts.count == 2, let metric = MetricCatalog.metric(key: parts[1], source: parts[0]) else { continue }
             if excludesWeight && metric.key == "weight" { continue }
-            if excludesVitals && (metric.key == "hrv" || metric.key == "rhr") { continue }
+            if excludedKeys.contains(metric.key) { continue }
             // Steps resolve across Apple Health, the Garmin mirror and the strap, so the row never goes empty while
             // any of them has a count, and it names the source of the latest day.
             var rowLabel = metric.title

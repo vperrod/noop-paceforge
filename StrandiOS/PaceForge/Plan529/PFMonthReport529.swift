@@ -24,9 +24,9 @@ struct PFMonthReport529: View {
                 PFDocPlaceholder529(kind: .failed, retry: { Task { await store.refresh() } })
                     .planScreen529(title: "Month report", identifier: "plan529-month-report")
             case .empty:
-                PFReportsScreen(kind: .monthly)
+                PFReportsScreen(kind: .monthly, key: key)
             case .loaded(let doc):
-                PFMonthShortView529(short: doc.short ?? PFMonthlyShort())
+                PFMonthShortView529(short: doc.short ?? PFMonthlyShort(), key: key)
                     .planScreen529(title: doc.short?.title ?? "Month report", identifier: "plan529-month-report")
             }
         }
@@ -36,6 +36,8 @@ struct PFMonthReport529: View {
 
 struct PFMonthShortView529: View {
     let short: PFMonthlyShort
+    /// The month this report is (its own detail screen opens on it).
+    var key = ""
 
     private let hiding = PFHiding()
 
@@ -104,13 +106,23 @@ struct PFMonthShortView529: View {
             PFOver529(text: short.compareTitle ?? "Against the month before")
             LazyVGrid(columns: [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8)], alignment: .leading, spacing: 8) {
                 ForEach(Array(tiles.enumerated()), id: \.offset) { _, tile in
-                    PFTile529(value: hiding.text(tile.value ?? "\u{2013}"),
-                              sub: [tile.label, tile.sub].compactMap { $0 }.map { hiding.text($0) }.joined(separator: "\n"))
+                    if isBodyTile(tile), hiding.hides(.body) {
+                        // A weight or composition tile: the body rule hides its value and the line under it, not only figures it can read.
+                        PFTile529(value: PFRedact.placeholder, sub: tile.label ?? "")
+                    } else {
+                        PFTile529(value: hiding.text(tile.value ?? "\u{2013}"),
+                                  sub: [tile.label, tile.sub].compactMap { $0 }.map { hiding.text($0) }.joined(separator: "\n"))
+                    }
                 }
             }
         }
         .planCard529()
         .containerIdentifier("month-tiles")
+    }
+
+    private func isBodyTile(_ tile: PFMonthlyShort.Tile) -> Bool {
+        let label = (tile.label ?? "").lowercased()
+        return ["weight", "body", "composition", "fat", "lean", "muscle"].contains { label.contains($0) }
     }
 
     private func trendCard(_ points: [PFMonthlyShort.Point]) -> some View {
@@ -128,7 +140,7 @@ struct PFMonthShortView529: View {
             .frame(height: 52, alignment: .bottom)
             HStack(spacing: 5) {
                 ForEach(Array(points.enumerated()), id: \.offset) { _, point in
-                    Text(point.value.map { PFFormat.trimmed($0) } ?? "")
+                    Text(point.value.map { hiding.shown(PFFormat.trimmed($0), .scores) } ?? "")
                         .font(LookFont.text(10))
                         .foregroundStyle(NoopLook.textTertiary)
                         .frame(maxWidth: .infinity)
@@ -149,7 +161,7 @@ struct PFMonthShortView529: View {
 
     private var linksCard: some View {
         VStack(spacing: 0) {
-            NavigationLink(value: TabRoute.reports("monthly")) {
+            NavigationLink(value: TabRoute.reports(key.isEmpty ? "monthly" : "monthly:\(key)")) {
                 PFRow529(title: "Training, body and race detail", showsChevron: true).padding(.horizontal, 16)
             }
             .buttonStyle(.plain)
