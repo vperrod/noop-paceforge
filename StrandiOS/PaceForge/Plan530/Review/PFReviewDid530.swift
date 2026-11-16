@@ -38,7 +38,7 @@ struct PFReviewDid530: View {
 
     /// The efforts that appear this week, in the order easy, moderate, hard, race.
     private func legend(_ days: [PFWeekReviewDoc530.TrainingDay]) -> some View {
-        let present = ["easy", "moderate", "hard", "race"].filter { effort in days.contains { $0.effort == effort && ($0.minutes ?? 0) > 0 } }
+        let present: [String] = ["easy", "moderate", "hard", "race"].filter { effort in days.contains { $0.effort == effort && ($0.minutes ?? 0) > 0 } }
         return LookFlowLayout(spacing: 12, lineSpacing: 4) {
             ForEach(present, id: \.self) { effort in
                 HStack(spacing: 5) {
