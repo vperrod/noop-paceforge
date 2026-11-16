@@ -258,19 +258,21 @@ enum PFJournalLogic530 {
 
     // MARK: Insights
 
-    static let outcomes = ["recovery", "sleep", "performance"]
+    /// The server reads a behaviour against recovery and sleep; there is no performance outcome.
+    static let outcomes = ["recovery", "sleep"]
 
     static func outcomeTitle(_ outcome: String) -> String {
         switch outcome {
         case "recovery": return "Recovery"
         case "sleep": return "Sleep"
-        case "performance": return "Performance"
         default: return outcome.capitalized
         }
     }
 
-    static func lagTitle(_ lag: Int) -> String {
-        lag == 2 ? "Morning after" : "Next morning"
+    /// Recovery is read the morning after, sleep the night after.
+    static func lagTitle(_ lag: Int, outcome: String = "recovery") -> String {
+        if outcome == "sleep" { return lag == 2 ? "Two nights after" : "Night after" }
+        return lag == 2 ? "Morning after" : "Next morning"
     }
 
     /// One measure of one device: the scores a behaviour is read against.
@@ -353,11 +355,6 @@ enum PFJournalLogic530 {
         case "h", "of 21": return String(format: "%.1f", value)
         default: return String(format: "%.0f", value)
         }
-    }
-
-    /// Hurts or helps: the sign of the difference with the behaviour against without it.
-    static func verdict(_ diff: Double?) -> String {
-        (diff ?? 0) < 0 ? "Hurts" : "Helps"
     }
 
     // MARK: Questions added on the phone

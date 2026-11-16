@@ -400,7 +400,7 @@
     "outcome": "recovery",
     "device": "Garmin",
     "measure": "Readiness",
-    "unit": "%",
+    "unit": "",
     "lag": 1,
     "n_with": 10,
     "n_without": 29,
@@ -408,7 +408,7 @@
     "mean_without": 58,
     "diff": -14,
     "clear": true,
-    "note": "A bedtime after 23:30: Readiness (Garmin) the next morning averages 44 % with it against 58 % without (10 days with it, 29 without). It lined up with the score; it does not prove the cause."
+    "note": "A bedtime after 23:30: Readiness (Garmin) the next morning averages 44 with it against 58 without (10 days with it, 29 without). It lined up with the score; it does not prove the cause."
    },
    {
     "behaviour": "hard_day",
@@ -416,7 +416,7 @@
     "outcome": "recovery",
     "device": "Garmin",
     "measure": "Readiness",
-    "unit": "%",
+    "unit": "",
     "lag": 1,
     "n_with": 12,
     "n_without": 27,
@@ -424,7 +424,7 @@
     "mean_without": 56,
     "diff": 1,
     "clear": false,
-    "note": "A hard day: no clear difference in Readiness (Garmin) the next morning, 57 % with it against 56 % without (12 days with it, 27 without)."
+    "note": "A hard day: no clear difference in Readiness (Garmin) the next morning, 57 with it against 56 without (12 days with it, 27 without)."
    },
    {
     "behaviour": "journal:Did you drink any alcohol?",
@@ -440,7 +440,7 @@
     "mean_without": 7.2,
     "diff": -1.1,
     "clear": true,
-    "note": "Alcohol: Hours asleep (Garmin) the next morning averages 6.1 h with it against 7.2 h without (11 days with it, 34 without). It lined up with the score; it does not prove the cause.",
+    "note": "Alcohol: Hours asleep (Garmin) the night after averages 6.1 h with it against 7.2 h without (11 days with it, 34 without). It lined up with the score; it does not prove the cause.",
     "by_amount": [
      {
       "amount": "1",
@@ -468,7 +468,7 @@
     "mean_without": 7.1,
     "diff": -0.1,
     "clear": false,
-    "note": "A hard day: no clear difference in Hours asleep (Garmin) the next morning, 7 h with it against 7.1 h without (12 days with it, 27 without)."
+    "note": "A hard day: no clear difference in Hours asleep (Garmin) the night after, 7 h with it against 7.1 h without (12 days with it, 27 without)."
    }
   ],
   "suggestions": [

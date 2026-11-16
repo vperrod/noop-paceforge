@@ -29,7 +29,7 @@ struct PFJournalInsightsBody530: View {
             SectionChips(options: Logic.outcomes, selection: $outcome, idPrefix: "pf530-insight-outcome",
                          id: { $0 }, title: { Logic.outcomeTitle($0) })
             SectionChips(options: [1, 2], selection: $lag, idPrefix: "pf530-insight-lag",
-                         id: { String($0) }, title: { Logic.lagTitle($0) })
+                         id: { String($0) }, title: { Logic.lagTitle($0, outcome: outcome) })
             if series.count > 1 {
                 SectionChips(options: series, selection: seriesBinding, idPrefix: "pf530-insight-series",
                              id: { $0.id.replacingOccurrences(of: "|", with: "-").lowercased() }, title: { $0.title })
@@ -66,7 +66,7 @@ struct PFJournalInsightsBody530: View {
         let what = series.map { "\($0.title) " } ?? "\(Logic.outcomeTitle(outcome)) "
         return VStack(alignment: .leading, spacing: 6) {
             PFOver529(text: "No result yet")
-            Text("No behaviour has \(Logic.daysNeeded) days with it and \(Logic.daysNeeded) without it against \(what)\(Logic.lagTitle(lag).lowercased()) yet.")
+            Text("No behaviour has \(Logic.daysNeeded) days with it and \(Logic.daysNeeded) without it against \(what)\(Logic.lagTitle(lag, outcome: outcome).lowercased()) yet.")
                 .font(LookFont.text(14))
                 .foregroundStyle(NoopLook.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -82,7 +82,7 @@ struct PFJournalInsightsBody530: View {
         let withValue = insight.meanWith ?? 0
         let withoutValue = insight.meanWithout ?? 0
         return VStack(alignment: .leading, spacing: 10) {
-            PFOver529(text: "Clear effect · \(Logic.lagTitle(lag).lowercased()) \(series.title) · \(days) days")
+            PFOver529(text: "Clear effect · \(Logic.lagTitle(lag, outcome: outcome).lowercased()) \(series.title) · \(days) days")
             barRow(label: insight.label ?? id, value: shown(withValue, series.unit), fraction: Logic.barFraction(withValue, unit: series.unit),
                    color: hurts ? NoopLook.trendDown : NoopLook.trendUp, id: "pf530-insight-with-\(id)")
             barRow(label: "Without it", value: shown(withoutValue, series.unit), fraction: Logic.barFraction(withoutValue, unit: series.unit),
@@ -90,7 +90,7 @@ struct PFJournalInsightsBody530: View {
             if let split = insight.byAmount, !split.isEmpty {
                 amounts(split, series: series, id: id)
             }
-            reading(Logic.verdict(insight.diff), insight.note)
+            reading(insight.note)
         }
         .planCard529()
         .containerIdentifier("pf530-insight-clear-\(id)")
@@ -109,10 +109,13 @@ struct PFJournalInsightsBody530: View {
         }
     }
 
-    private func reading(_ verdict: String, _ note: String?) -> some View {
-        (Text("\(verdict). ").font(LookFont.text(13.5, weight: .bold)).foregroundColor(NoopLook.textPrimary)
-            + Text(hiding.text(note ?? "")).font(LookFont.text(13.5)).foregroundColor(NoopLook.textSecondary))
+    /// The server's own sentence for the row; nothing is composed here.
+    private func reading(_ note: String?) -> some View {
+        Text(hiding.text(note ?? ""))
+            .font(LookFont.text(13.5))
+            .foregroundStyle(NoopLook.textSecondary)
             .fixedSize(horizontal: false, vertical: true)
+            .accessibilityIdentifier("pf530-insight-reading")
     }
 
     private func noEffectCard(_ insights: [Logic.Insight], series: Logic.Series) -> some View {

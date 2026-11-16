@@ -306,10 +306,6 @@ final class PFJournalLogic530Tests: XCTestCase {
         XCTAssertEqual([Logic.valueText(26, unit: "%"), Logic.valueText(6.14, unit: "h"), Logic.valueText(72, unit: "")], ["26 %", "6.1 h", "72"])
     }
 
-    func testALowerMeanWithTheBehaviourHurts() {
-        XCTAssertEqual(Logic.verdict(-35), "Hurts")
-    }
-
     // MARK: The list of ten
 
     func testAQuestionCanBeAddedUntilTheListHoldsTen() {

@@ -66,7 +66,8 @@ struct PFJournalDoc530: Codable, Equatable {
     }
 
     /// One behaviour against one outcome on one device at one lag: days with the behaviour against days without, and for a count the same
-    /// split by amount. `outcome`: recovery | sleep | performance. `device`: WHOOP | Garmin. `lag`: 1 = next morning, 2 = the morning after.
+    /// split by amount. `outcome`: recovery | sleep. `device`: WHOOP | Garmin. `lag`: 1 = the first morning or night after, 2 = the one after that.
+    /// `unit`: "%" (WHOOP Charge), "" (a Garmin score out of 100), "h" (hours asleep).
     struct Insight: Codable, Equatable {
         var behaviour: String?
         var label: String?
