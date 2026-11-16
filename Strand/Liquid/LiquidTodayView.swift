@@ -1862,7 +1862,7 @@ struct LiquidTodayView: View {
 
     /// The 30-day rows that repeat a Key Metrics tile on screen: HRV and resting heart rate, but only while their tile is drawn.
     private var vitalsOnTiles: Set<String> {
-        guard shows(.keyMetrics) else { return [] }
+        // Drawn in the same section as the tiles, so the tiles are on screen whenever these rows are.
         var keys: Set<String> = []
         if enabledKeyMetrics.contains(.hrv) { keys.insert("hrv") }
         if enabledKeyMetrics.contains(.restingHr) { keys.insert("rhr") }
