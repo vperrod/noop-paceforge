@@ -995,14 +995,16 @@ struct LiquidTodayView: View {
         // Build 530: the overview card (morning or evening) and My Journal, directly under the rings and the My Day graph.
         if hasHero && mountStage >= 1 {
             PFTodayOverviewCard530()
-            PFTodayJournalCard530()
+            // My Journal replaces the journal reminder card on this path (see below); it follows the same hide switch.
+            if order.contains(.journal) { PFTodayJournalCard530() }
         }
         if shows(.call) {
             PFTodayCards(cards: [.theCall, .needsYou], showsHiddenRow: false, onOpenNeedsYou: openNeedsYou, onReadWhy: readWhy)
         }
         // The journal is the morning prompt: until today's is logged it sits right under the call with a one-tap way in, and it folds to a
         // "Journal logged" row that opens Journal impact afterwards.
-        if order.contains(.journal) { JournalReminderCard() }
+        // With the hero (always, on this path) My Journal is mounted under the overview card instead; the old card stays when the hero is hidden.
+        if order.contains(.journal) && !hasHero { JournalReminderCard() }
         if shows(.coachNoticed) { PFProactiveTodayCard() }
         if mountStage >= 1 {
             if hasHero {

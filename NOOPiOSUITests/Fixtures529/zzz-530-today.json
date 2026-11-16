@@ -1,0 +1,220 @@
+{
+ "_synthetic": "Synthetic build 530 Today-cards fixture (APP-2). Invented values; the day is the fixture day 2030-03-13.",
+ "data/today-cards.json": {
+  "date": "2030-03-13",
+  "phase": "morning",
+  "evening_from": "21:15",
+  "morning_ready": true,
+  "morning": {
+   "title": "This morning · Wednesday 13 Mar",
+   "verdict": "A good day to train as planned.",
+   "devices": [
+    {
+     "source": "WHOOP",
+     "value": "71 %",
+     "label": "recovery, green",
+     "lines": [
+      "HRV 62 ms · usual 55",
+      "resting HR 50 · usual 54"
+     ]
+    },
+    {
+     "source": "Garmin",
+     "value": "58",
+     "label": "readiness, amber",
+     "lines": [
+      "HRV 48 ms · usual 45",
+      "resting HR 51 · usual 53"
+     ]
+    }
+   ],
+   "trend": [
+    {
+     "source": "WHOOP",
+     "label": "recovery",
+     "values": [
+      58,
+      62,
+      66,
+      null,
+      64,
+      69,
+      60,
+      71
+     ],
+     "bands": [
+      "amber",
+      "green",
+      "green",
+      null,
+      "green",
+      "green",
+      "amber",
+      "green"
+     ]
+    },
+    {
+     "source": "Garmin",
+     "label": "readiness",
+     "values": [
+      50,
+      61,
+      57,
+      66,
+      52,
+      38,
+      31,
+      58
+     ],
+     "bands": [
+      "amber",
+      "green",
+      "amber",
+      "green",
+      "amber",
+      "red",
+      "red",
+      "amber"
+     ]
+    }
+   ],
+   "reading": "WHOOP recovery rose from 60 % to 71 % overnight. Garmin sleep was short: 6 h 40 against the 7 h 30 you need.",
+   "rows": [
+    {
+     "title": "Today",
+     "text": "Tempo run as planned."
+    },
+    {
+     "title": "Tonight",
+     "text": "In bed by 22:45."
+    },
+    {
+     "title": "Tomorrow",
+     "text": "Easy day, 40 min."
+    }
+   ],
+   "link": {
+    "route": "report_daily",
+    "date": "2030-03-13"
+   }
+  },
+  "evening": {
+   "date": "2030-03-13",
+   "title": "Wednesday 13 Mar",
+   "verdict": "A full day, done as planned.",
+   "against_plan": "Planned: Tempo run, 50 min. Done: Tempo run, 52 min.",
+   "moved": "HRV 41 against your usual 48.",
+   "found": [
+    "Bed at 23:57",
+    "Slept 5 h 49",
+    "Session ended 2.7 h before bed"
+   ],
+   "tonight": "In bed by 22:07. You need about 7 h 30."
+  }
+ },
+ "data/journal-view.json": {
+  "week": [
+   {
+    "date": "2030-03-11",
+    "logged": true
+   },
+   {
+    "date": "2030-03-12",
+    "logged": false
+   },
+   {
+    "date": "2030-03-13",
+    "logged": false
+   },
+   {
+    "date": "2030-03-14",
+    "logged": false
+   },
+   {
+    "date": "2030-03-15",
+    "logged": false
+   },
+   {
+    "date": "2030-03-16",
+    "logged": false
+   },
+   {
+    "date": "2030-03-17",
+    "logged": false
+   }
+  ],
+  "prompts": [
+   {
+    "window": "morning",
+    "title": "Morning questions",
+    "body": "5 questions about last night.",
+    "open": 5
+   }
+  ],
+  "auto": [
+   {
+    "date": "2030-03-12",
+    "answers": [
+     {
+      "id": "hard_day",
+      "label": "Hard day",
+      "answer": true,
+      "evidence": "Effort 14.2 on WHOOP"
+     },
+     {
+      "id": "late_session",
+      "label": "Session starting 20:00 or later",
+      "answer": false,
+      "evidence": "No session after 20:00"
+     },
+     {
+      "id": "late_bed",
+      "label": "Bedtime after 23:30",
+      "answer": true,
+      "evidence": "Bed at 23:57"
+     },
+     {
+      "id": "short_night",
+      "label": "Night under 7 h",
+      "answer": true,
+      "evidence": "Slept 5 h 49"
+     }
+    ]
+   }
+  ],
+  "insights": [
+   {
+    "behaviour": "late_bed",
+    "label": "Bedtime after 23:30",
+    "outcome": "recovery",
+    "device": "WHOOP",
+    "measure": "recovery",
+    "unit": "%",
+    "lag": 1,
+    "n_with": 6,
+    "n_without": 9,
+    "mean_with": 52.0,
+    "mean_without": 68.0,
+    "diff": -16.0,
+    "clear": true,
+    "note": "Recovery was lower the morning after."
+   },
+   {
+    "behaviour": "hard_day",
+    "label": "Hard day",
+    "outcome": "sleep",
+    "device": "Garmin",
+    "measure": "sleep hours",
+    "unit": "h",
+    "lag": 1,
+    "n_with": 3,
+    "n_without": 8,
+    "mean_with": 7.1,
+    "mean_without": 7.3,
+    "diff": -0.2,
+    "clear": false,
+    "note": "Still collecting."
+   }
+  ]
+ }
+}
