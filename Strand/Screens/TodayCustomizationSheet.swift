@@ -303,11 +303,25 @@ private struct TodaySectionsCustomizationPage: View {
         return AnyView(Group {
             Section {
                 ForEach(TodayBlock.allCases) { block in
-                    Toggle(block.title, isOn: Binding(
+                    let isOn = Binding(
                         get: { !hiddenBlocks.wrappedValue.contains(block) },
-                        set: { isShown in
+                        set: { (isShown: Bool) in
                             if isShown { hiddenBlocks.wrappedValue.remove(block) } else { hiddenBlocks.wrappedValue.insert(block) }
-                        }))
+                        })
+                    Group {
+                        if let detail = block.detail {
+                            Toggle(isOn: isOn) {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(block.title)
+                                    Text(detail)
+                                        .font(StrandFont.footnote)
+                                        .foregroundStyle(StrandPalette.textTertiary)
+                                }
+                            }
+                        } else {
+                            Toggle(block.title, isOn: isOn)
+                        }
+                    }
                     .accessibilityIdentifier("today-customize-block-\(block.rawValue)")
                 }
             } header: {

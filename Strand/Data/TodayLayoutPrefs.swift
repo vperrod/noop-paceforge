@@ -222,6 +222,9 @@ enum TodayLayoutPrefs {
 enum TodayBlock: String, CaseIterable, Identifiable {
     case call = "call"
     case coachNoticed = "coach-noticed"
+    case sundayReview = "sunday-review"
+    case dailyOverview = "daily-overview"
+    case myJournal = "my-journal"
     case howYouAre = "how-you-are"
     case dayGraph = "day-graph"
     case bookend = "bookend"
@@ -244,6 +247,9 @@ enum TodayBlock: String, CaseIterable, Identifiable {
         switch self {
         case .call:          return String(localized: "The call and Needs you")
         case .coachNoticed:  return String(localized: "Coach noticed")
+        case .sundayReview:  return String(localized: "Sunday review")
+        case .dailyOverview: return String(localized: "Daily overview")
+        case .myJournal:     return String(localized: "My Journal")
         case .howYouAre:     return String(localized: "How you are")
         case .dayGraph:      return String(localized: "Day graph, under the rings")
         case .bookend:       return String(localized: "Morning read and Day in review row")
@@ -258,6 +264,16 @@ enum TodayBlock: String, CaseIterable, Identifiable {
         case .vsThirtyDays:  return String(localized: "Today vs 30 days")
         case .stressMonitor: return String(localized: "Stress Monitor chart")
         case .lastSevenDays: return String(localized: "Last 7 days, Charge and Effort")
+        }
+    }
+
+    /// A one-line description under the label in Customize; nil for the blocks whose label says it all.
+    var detail: String? {
+        switch self {
+        case .sundayReview:  return String(localized: "The row shown on Sunday evening and Monday morning.")
+        case .dailyOverview: return String(localized: "The morning card and the evening card.")
+        case .myJournal:     return String(localized: "The week row and the journal questions.")
+        default:             return nil
         }
     }
 }

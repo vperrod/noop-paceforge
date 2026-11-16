@@ -17,6 +17,12 @@ approximate; downloads are on the [Releases](https://github.com/NoopApp/noop/rel
 
 ---
 
+## 12.0.12 build 531 (PaceForge iPhone build): every Today card can be switched off
+
+- Today: every card can now be switched off in Customize Today (the pencil-and-sliders button at the top right of Today, or CUSTOMIZE under My Dashboard). That includes the three cards build 530 added: the Daily overview (the morning and evening card), My Journal and the Sunday review row. All three stay on until you switch them off, and a card that is off leaves no gap.
+- Review: the chart labels no longer overlap.
+- Everything in build 530 below is included.
+
 ## 12.0.12 build 530 (PaceForge iPhone build): the Sunday review, Today overview and My Journal, a fuller journal, calmer alerts
 
 - Sunday review: a page for the finished week with charts and one reading line each, then the week ahead. It opens from the week's page and from a row on Today on Sunday evening and Monday morning.

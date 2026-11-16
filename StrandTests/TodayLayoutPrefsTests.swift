@@ -194,4 +194,34 @@ final class TodayLayoutPrefsTests: XCTestCase {
         XCTAssertEqual(encoded, "call,vs-30")
         XCTAssertEqual(TodayBlockPrefs.decodeHidden("vs-30, nope,call"), [.call, .vsThirtyDays])
     }
+
+    // Build 531: the three blocks build 530 added are switchable like the others.
+    private static let build530Blocks: [TodayBlock] = [.sundayReview, .dailyOverview, .myJournal]
+
+    func testTheBuild530BlocksAreInTheCustomizeList() {
+        XCTAssertTrue(Self.build530Blocks.allSatisfy { TodayBlock.allCases.contains($0) })
+    }
+
+    func testTheBuild530BlocksHaveStableIdsAndPlainTitles() {
+        XCTAssertEqual(Self.build530Blocks.map(\.rawValue), ["sunday-review", "daily-overview", "my-journal"])
+        XCTAssertEqual(Self.build530Blocks.map(\.title), ["Sunday review", "Daily overview", "My Journal"])
+    }
+
+    func testTheBuild530BlocksEachHaveAOneLineDescription() {
+        XCTAssertTrue(Self.build530Blocks.allSatisfy { ($0.detail ?? "").isEmpty == false })
+    }
+
+    func testTheBuild530BlocksAreOnByDefaultOnAnExistingInstall() {
+        let hidden = TodayBlockPrefs.decodeHidden("call,vs-30")
+        XCTAssertTrue(Self.build530Blocks.allSatisfy { !hidden.contains($0) })
+    }
+
+    func testSwitchingTheBuild530BlocksOffPersistsAndReadsBack() {
+        let encoded = TodayBlockPrefs.encodeHidden([.myJournal, .sundayReview, .dailyOverview])
+        XCTAssertEqual(TodayBlockPrefs.decodeHidden(encoded), [.sundayReview, .dailyOverview, .myJournal])
+    }
+
+    func testSwitchingOneBuild530BlockOffLeavesTheOthersOn() {
+        XCTAssertEqual(TodayBlockPrefs.decodeHidden("daily-overview"), [.dailyOverview])
+    }
 }
