@@ -273,6 +273,9 @@ targets:
       - StrandiOS/PaceForge/Plan530/Models
       # The inbox's decisions (build 529): which items notify, the rows and unread marks, where a tap goes. Foundation only, tested in PFInboxLogic529Tests.
       - StrandiOS/PaceForge/Plan529/Inbox/PFInboxLogic529.swift
+      # Build 530 alert delivery: the pure rules and the acknowledgement queue, tested in PFAlertDelivery530Tests and PFAlertAck530Tests.
+      - StrandiOS/PaceForge/Plan530/Alerts/PFAlertDelivery530.swift
+      - StrandiOS/PaceForge/Plan530/Alerts/PFAlertAck530.swift
     # Same wrapper as the app target, so the OURA_CLOUD_IMPORT-gated Oura tests compile exactly
     # when the app's Oura lane does (flag + creds both come from the untracked OuraSecrets.xcconfig).
     configFiles:

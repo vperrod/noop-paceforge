@@ -101,7 +101,7 @@ enum PFInboxLogic529 {
             guard let id = item.id, !id.isEmpty, have.insert(id).inserted else { continue }
             let title = nonEmpty(item.listTitle) ?? nonEmpty(item.title) ?? ""
             out.append(PFInboxRow529(id: id, date: PFAlertDates.parse(item.ts), kind: item.kind, title: title,
-                                     subtitle: nonEmpty(item.listSub) ?? nonEmpty(item.body), link: item.link, legacy: nil))
+                                     subtitle: nonEmpty(item.listSub) ?? nonEmpty(item.body), link: resolvedLink(of: item), legacy: nil))
         }
         for entry in legacy {
             guard have.insert(entry.id).inserted else { continue }
@@ -139,6 +139,14 @@ enum PFInboxLogic529 {
         var out = seen
         for id in ids where have.insert(id).inserted { out.append(id) }
         return Array(out.suffix(cap))
+    }
+
+    /// The item's link with a journal route made specific: the server sends `{"route": "journal"}` and the item's `window` says which sheet.
+    /// morning opens the morning sheet; day (the afternoon question) and evening open the evening sheet.
+    static func resolvedLink(of item: PFInboxDoc.Item) -> PFInboxDoc.Link? {
+        guard var link = item.link, link.route == "journal" else { return item.link }
+        link.route = item.window == "morning" ? "journal_morning" : "journal_evening"
+        return link
     }
 
     private static func nonEmpty(_ text: String?) -> String? {
@@ -256,7 +264,7 @@ enum PFInboxRoute529: Equatable {
         case "today": self = .today
         case "review": self = .review(week: link.week)
         case "journal_morning": self = .journalMorning
-        case "journal_evening": self = .journalEvening
+        case "journal_evening", "journal": self = .journalEvening
         default: self = .inbox
         }
     }
@@ -267,6 +275,8 @@ enum PFInboxRoute529: Equatable {
 enum PFInboxPayload529 {
     static let kindKey = "pf.kind"
     static let inboxKind = "inbox"
+    /// The item's kind, so a dismissal or an open of the notification can be counted per kind without the document.
+    static let itemKindKey = "pf.item_kind"
     private static let keys: [(String, KeyPath<PFInboxDoc.Link, String?>)] = [
         ("pf.route", \.route), ("pf.week", \.week), ("pf.link_id", \.id), ("pf.date", \.date), ("pf.key", \.key),
         ("pf.activity_id", \.activityId),
@@ -274,8 +284,10 @@ enum PFInboxPayload529 {
 
     static func userInfo(for item: PFInboxDoc.Item) -> [AnyHashable: Any] {
         var out: [AnyHashable: Any] = [kindKey: inboxKind, "pf.id": item.id ?? ""]
+        if let kind = item.kind, !kind.isEmpty { out[itemKindKey] = kind }
+        let link = PFInboxLogic529.resolvedLink(of: item)
         for (key, path) in keys {
-            if let value = item.link?[keyPath: path], !value.isEmpty { out[key] = value }
+            if let value = link?[keyPath: path], !value.isEmpty { out[key] = value }
         }
         return out
     }

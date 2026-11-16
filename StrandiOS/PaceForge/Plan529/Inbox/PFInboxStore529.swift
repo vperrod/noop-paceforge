@@ -19,6 +19,7 @@ final class PFInboxStore529: ObservableObject {
     private static let kindsOffKey = "noop.paceforge.inbox.kindsOff"
     private static let lastCheckKey = "noop.paceforge.inbox.lastCheck"
     private static let lastDelayKey = "noop.paceforge.inbox.lastNewDelay"
+    private static let muteKey = "noop.paceforge.inbox.mute"
 
     @Published private(set) var items: [PFInboxDoc.Item] = []
     @Published private(set) var load: Load = .loading
@@ -27,6 +28,8 @@ final class PFInboxStore529: ObservableObject {
     /// The ids that count as read. nil until a first document has been read and taken as the baseline.
     @Published private(set) var seen: [String]?
     @Published private(set) var kindsOff: Set<String>
+    /// The kinds the dismiss-twice rule has silenced (build 530), and the dismissals it counts. The athlete's switch turns a kind back on.
+    @Published private(set) var mute: PFMuteState530
     @Published private(set) var lastCheck: Date?
     /// How late the newest item the phone raised a notification for was when the phone first saw it (seconds).
     @Published private(set) var lastNewDelay: TimeInterval?
@@ -44,6 +47,7 @@ final class PFInboxStore529: ObservableObject {
     private init() {
         seen = defaults.stringArray(forKey: Self.seenKey)
         kindsOff = Set(defaults.stringArray(forKey: Self.kindsOffKey) ?? [])
+        mute = defaults.data(forKey: Self.muteKey).flatMap { try? JSONDecoder().decode(PFMuteState530.self, from: $0) } ?? PFMuteState530()
         lastCheck = defaults.object(forKey: Self.lastCheckKey) as? Date
         lastNewDelay = defaults.object(forKey: Self.lastDelayKey) as? Double
         #if DEBUG
@@ -190,17 +194,45 @@ final class PFInboxStore529: ObservableObject {
 
     // MARK: Kinds
 
-    func isOn(_ kind: PFInboxKind529) -> Bool { !kindsOff.contains(kind.rawValue) }
+    /// A kind the dismiss-twice rule silenced shows as off.
+    func isOn(_ kind: PFInboxKind529) -> Bool { !kindsOff.contains(kind.rawValue) && !mute.muted.contains(kind.rawValue) }
 
     func set(_ kind: PFInboxKind529, on: Bool) {
-        if on { kindsOff.remove(kind.rawValue) } else { kindsOff.insert(kind.rawValue) }
+        if on {
+            // The server is told to stop muting it, whether the phone or the server silenced it.
+            if kindsOff.contains(kind.rawValue) || mute.muted.contains(kind.rawValue) { PFInboxAck530.unmute(kind) }
+            kindsOff.remove(kind.rawValue)
+            mute.unmute(kind: kind.rawValue)
+            saveMute()
+        } else {
+            kindsOff.insert(kind.rawValue)
+        }
         defaults.set(kindsOff.sorted(), forKey: Self.kindsOffKey)
+    }
+
+    func noteDismissed(id: String, kind: String) {
+        mute.dismissed(id: id, kind: kind)
+        saveMute()
+    }
+
+    func noteOpened(kind: String) {
+        mute.opened(kind: kind)
+        saveMute()
+    }
+
+    func mergeServerMuted(_ kinds: [String]) {
+        mute.merge(server: kinds)
+        saveMute()
+    }
+
+    private func saveMute() {
+        if let data = try? JSONEncoder().encode(mute) { defaults.set(data, forKey: Self.muteKey) }
     }
 
     /// The kinds a notification may be raised for: switched on here, and for the health alerts also on in the earlier alerts switch
     /// (More > PaceForge sync), which keeps working.
     var enabledKinds: Set<String> {
-        var kinds = Set(PFInboxKind529.allCases.map(\.rawValue)).subtracting(kindsOff)
+        var kinds = Set(PFInboxKind529.allCases.map(\.rawValue)).subtracting(kindsOff).subtracting(mute.muted)
         if !(defaults.object(forKey: PFPrefs.alertsKey) as? Bool ?? true) { kinds.remove(PFInboxKind529.health.rawValue) }
         return kinds
     }

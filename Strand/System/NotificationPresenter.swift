@@ -30,6 +30,9 @@ final class NotificationPresenter: NSObject, UNUserNotificationCenterDelegate {
     /// `userInfo`; the iOS side reads it (`PFAlertRoute`).
     var onPaceForgeAlertTapped: (([AnyHashable: Any]) -> Void)?
 
+    /// Build 530: wired on iOS to count an inbox alert the athlete swiped away (its category has the dismiss action). Receives `userInfo`.
+    var onPaceForgeAlertDismissed: (([AnyHashable: Any]) -> Void)?
+
     func userNotificationCenter(
         _ center: UNUserNotificationCenter,
         willPresent notification: UNNotification,
@@ -47,6 +50,12 @@ final class NotificationPresenter: NSObject, UNUserNotificationCenterDelegate {
         withCompletionHandler completionHandler: @escaping () -> Void
     ) {
         let content = response.notification.request.content
+        // A swipe away is not a tap: it routes nowhere.
+        if response.actionIdentifier == UNNotificationDismissActionIdentifier {
+            if content.userInfo["pf.kind"] != nil { onPaceForgeAlertDismissed?(content.userInfo) }
+            completionHandler()
+            return
+        }
         // A PaceForge alert or Needs you notification carries "pf.kind" (PFAlertRoute.kindKey) and shares the brief's category, so it is
         // checked first; one posted before this carried none and still opens the Coach below.
         if content.userInfo["pf.kind"] != nil {

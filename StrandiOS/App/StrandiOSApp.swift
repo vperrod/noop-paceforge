@@ -100,8 +100,16 @@ struct StrandiOSApp: App {
             Task { @MainActor in router?.openCoach() }
         }
         NotificationPresenter.shared.onPaceForgeAlertTapped = { userInfo in
-            Task { @MainActor in PFAlertLink.open(userInfo: userInfo) }
+            Task { @MainActor in
+                PFAlertLink.open(userInfo: userInfo)
+                PFInboxAck530.opened(userInfo: userInfo)
+            }
         }
+        NotificationPresenter.shared.onPaceForgeAlertDismissed = { userInfo in
+            Task { @MainActor in PFInboxAck530.dismissed(userInfo: userInfo) }
+        }
+        // The inbox alerts' category (it carries the dismiss action) must exist before a notification of it is shown.
+        Task { await PFAlertCategoryRegistration530.register() }
         PaceForgeBackground.register()
         PFMyDay.install()
         // A summary written before the privacy choice existed gets its body flag now, not at the next fetch.

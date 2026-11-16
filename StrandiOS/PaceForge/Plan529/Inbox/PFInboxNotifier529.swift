@@ -7,7 +7,9 @@ import UserNotifications
 /// the notifications arrive within minutes. No push service is involved.
 ///
 /// Called from the end of the sync (`SelfHostedPushClient.pushIfEnabled`) and, as the fallback, from the background refresh
-/// (`PaceForgeBackground.deliver`). At most one check every ten minutes, whichever calls. The decisions are in `PFInboxLogic529`.
+/// (`PaceForgeBackground.deliver`). At most one check every ten minutes, whichever calls. The decisions are in `PFInboxLogic529`; when an
+/// item is raised (window, quiet hours, a workout recording, the daily cap) is `PFAlertDelivery530` (build 530), and what the phone tells
+/// the server about it is `PFInboxAck530`.
 @MainActor
 enum PFInboxNotifier529 {
     static let interval: TimeInterval = 600
@@ -41,11 +43,24 @@ enum PFInboxNotifier529 {
         let seenAt = Date()
         let decision = PFInboxLogic529.decide(items: doc.items ?? [], notified: defaults.stringArray(forKey: notifiedKey),
                                               enabledKinds: store.enabledKinds, legacyNotified: legacyNotified(defaults), now: seenAt)
-        defaults.set(decision.notified, forKey: notifiedKey)
-        let delay = decision.toNotify.compactMap { PFInboxLogic529.delay(of: $0, now: seenAt) }.min()
+        // Build 530: the delivery rules (`PFAlertDelivery530`). A held item is not remembered as announced, so the next contact asks again.
+        let ledger = PFInboxAck530.raisedLedger()
+        let plan = PFAlertDelivery530.plan(items: decision.toNotify, now: seenAt, quiet: doc.quiet,
+                                           isRecordingWorkout: PFAlertMoment530.isRecordingWorkout(now: seenAt), isAsleep: nil,
+                                           enabledKinds: store.enabledKinds, raisedIDs: ledger.ids,
+                                           raisedToday: ledger.countToday(now: seenAt, calendar: .current))
+        defaults.set(decision.notified.filter { !plan.held.contains($0) }, forKey: notifiedKey)
+        let delay = plan.deliver.compactMap { PFInboxLogic529.delay(of: $0, now: seenAt) }.min()
         store.recordCheck(at: seenAt, newDelay: delay)
-        guard !decision.toNotify.isEmpty, await canNotify() else { return }
-        for item in decision.toNotify { await post(item, defaults: defaults) }
+        if !plan.deliver.isEmpty, await canNotify() {
+            await PFAlertCategoryRegistration530.register()
+            for item in plan.deliver {
+                await post(item, defaults: defaults)
+                PFInboxAck530.raised(item, at: seenAt)
+            }
+        }
+        // Acknowledgements the last contact could not send go with this one.
+        await PFInboxAck530.flush()
     }
 
     private static func canNotify() async -> Bool {
@@ -62,7 +77,7 @@ enum PFInboxNotifier529 {
         content.title = PFRedact.text(item.title ?? "", scores: scores, body: body)
         content.body = String(PFRedact.text(item.body ?? "", scores: scores, body: body).prefix(180))
         content.sound = .default
-        content.categoryIdentifier = PaceForgeBackground.notificationCategory
+        content.categoryIdentifier = PFAlertCategory530.identifier(for: item)
         content.userInfo = PFInboxPayload529.userInfo(for: item)
         // An alert the earlier path would announce under this identifier replaces it rather than doubling it.
         let identifier = id.hasPrefix("alert:") ? "paceforge.alert.\(id.dropFirst("alert:".count))" : "paceforge.inbox.\(id)"
@@ -90,7 +105,7 @@ enum PFInboxNotifier529 {
 /// One `beginBackgroundTask` / `endBackgroundTask` pair: the app is kept running for the short GET, and the task ends when the check does
 /// or when iOS says the time is up.
 @MainActor
-private final class BackgroundAssertion529 {
+final class BackgroundAssertion529 {
     private var identifier = UIBackgroundTaskIdentifier.invalid
 
     init(name: String) {
