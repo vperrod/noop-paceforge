@@ -51,12 +51,12 @@ final class Plan530TodayCardsTests: XCTestCase {
 
     func testNothingWhenBothCardsAreMissing() throws {
         let doc = try cards(#"{"evening_from": "21:15", "morning": null, "evening": null}"#)
-        XCTAssertEqual(doc.choice(minutesOfDay: minutes("22:00")), .none)
+        XCTAssertEqual(doc.choice(minutesOfDay: minutes("22:00")), .nothing)
     }
 
     func testNothingWhenBothCardsAreEmptyObjects() throws {
         let doc = try cards(#"{"morning": {}, "evening": {"found": []}}"#)
-        XCTAssertEqual(doc.choice(minutesOfDay: minutes("08:00")), .none)
+        XCTAssertEqual(doc.choice(minutesOfDay: minutes("08:00")), .nothing)
     }
 
     func testAForcedEveningReplacesTheClock() throws {

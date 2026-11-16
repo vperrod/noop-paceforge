@@ -57,7 +57,7 @@ struct PFTodayOverviewCard530: View {
             if let morning = doc.morning { morningCard(morning, doc: doc) }
         case .evening:
             if let evening = doc.evening { PFTodayEveningCard530(card: evening, isStale: store.isStale) }
-        case .none:
+        case .nothing:
             EmptyView()
         }
     }

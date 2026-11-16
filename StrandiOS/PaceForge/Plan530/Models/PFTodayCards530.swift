@@ -168,7 +168,7 @@ enum PFTodayCardChoice530: Equatable {
     case morning
     case evening
     /// Nothing is drawn: both cards are missing or empty.
-    case none
+    case nothing
 }
 
 extension PFTodayCards530 {
@@ -180,7 +180,7 @@ extension PFTodayCards530 {
     func choice(minutesOfDay: Int, forcedEvening: Bool? = nil) -> PFTodayCardChoice530 {
         let hasMorning = morning?.isDrawable == true
         let hasEvening = evening?.isDrawable == true
-        if !hasMorning && !hasEvening { return .none }
+        if !hasMorning && !hasEvening { return .nothing }
         let clockSaysEvening: Bool
         if let forcedEvening {
             clockSaysEvening = forcedEvening
