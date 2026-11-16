@@ -17,6 +17,7 @@ struct PFWeekReport529: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             top
+            if let review = report?.review, !review.isEmpty { PFReviewLinkRow530(week: week) }
             if let races = report?.races, !races.isEmpty { racesCard(races) }
             plannedAgainstDone
             if let nights = report?.nights, let series = nights.series, !series.isEmpty { nightsCard(nights, series) }
