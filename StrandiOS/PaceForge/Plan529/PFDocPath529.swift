@@ -8,6 +8,8 @@ enum PFDocPath529 {
     static let settings = "data/plan-settings.json"
     static let reportsList = "data/reports/list.json"
     static let inbox = "data/inbox.json"
+    static let journal = "data/journal.json"
+    static let todayCards = "data/today-cards.json"
 
     /// "2026-W47"
     static func week(_ isoWeek: String) -> String { "data/plan-week/\(isoWeek).json" }

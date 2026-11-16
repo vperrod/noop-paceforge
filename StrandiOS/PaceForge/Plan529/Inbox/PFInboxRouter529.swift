@@ -33,6 +33,12 @@ enum PFInboxRouter529 {
             }
         case .inbox:
             PFDeepLink529.open(.sheet(.inbox))
+        case .review(let week):
+            PFDeepLink529.open(.sheet(.review(week: week ?? PFISOWeek529.previous(PFAPI.todayISO))))
+        case .journalMorning:
+            PFDeepLink529.open(.sheet(.journalMorning))
+        case .journalEvening:
+            PFDeepLink529.open(.sheet(.journalEvening))
         case .coachNoticed, .today:
             // The Coach noticed card sits near the top of Today.
             PFDeepLink.openToday()

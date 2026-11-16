@@ -150,6 +150,8 @@ struct PFPlanWeekDoc: Codable, Equatable {
         var raceDate: String?
         var result: RaceResult?
         var lastTime: LastTime?
+        /// Build 530: true when the coach filled the slot and it is not booked.
+        var proposed: Bool?
     }
 
     struct Done: Codable, Equatable {
@@ -191,6 +193,8 @@ struct PFPlanWeekDoc: Codable, Equatable {
         var notToDo: String?
         var nextWeek: NextWeek?
         var detail: Detail?
+        /// The Sunday review block (build 530): the week told in charts and one reading line each.
+        var review: PFWeekReviewDoc530?
     }
 
     struct Insight: Codable, Equatable {
@@ -226,6 +230,8 @@ struct PFPlanWeekDoc: Codable, Equatable {
         var max: Double?
         var values: [Double?]?
         var bands: [String]?
+        /// Build 530: the device's own usual for these nights (the dashed line).
+        var usual: Double?
     }
 
     struct NextWeek: Codable, Equatable {

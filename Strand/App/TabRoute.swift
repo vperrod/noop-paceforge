@@ -76,6 +76,13 @@ enum Plan529Route: Hashable {
     case inbox
     /// A week of the Week chip, by ISO week.
     case week(String)
+    /// The Sunday review of a finished week, by ISO week (build 530).
+    case review(week: String)
+    /// The journal's morning sheet, evening reflection, behaviour insights and question editor (build 530).
+    case journalMorning
+    case journalEvening
+    case journalInsights
+    case journalCustomise
 }
 
 extension View {

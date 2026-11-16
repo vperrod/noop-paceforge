@@ -7,7 +7,7 @@ import Foundation
 
 /// The kinds the server puts on an inbox item (`data/inbox.json`). Each has one switch under "Choose what you are told about".
 enum PFInboxKind529: String, CaseIterable, Identifiable {
-    case today, workout, health, coach, report, plan, problem
+    case today, workout, health, coach, report, plan, problem, progress, bedtime, journal, review
 
     var id: String { rawValue }
 
@@ -20,6 +20,10 @@ enum PFInboxKind529: String, CaseIterable, Identifiable {
         case .report: return "Reports"
         case .plan: return "Plan changes"
         case .problem: return "Problems only you can fix"
+        case .progress: return "Progress in your week"
+        case .bedtime: return "Bedtime reminder"
+        case .journal: return "Journal questions"
+        case .review: return "Sunday review"
         }
     }
 
@@ -32,6 +36,10 @@ enum PFInboxKind529: String, CaseIterable, Identifiable {
         case .report: return "When a week or a month report is ready."
         case .plan: return "When the coach proposes changes to your plan."
         case .problem: return "For example when Garmin needs you to sign in again."
+        case .progress: return "When half of your week's sessions, or all of them, are done."
+        case .bedtime: return "When your sleep is short, a nudge at your wind-down time."
+        case .journal: return "Your journal questions, in the morning, afternoon and evening."
+        case .review: return "When your Sunday review and the week ahead are ready."
         }
     }
 }
@@ -224,6 +232,10 @@ enum PFInboxRoute529: Equatable {
     case effort
     case needsYou
     case today
+    /// The Sunday review of this ISO week; nil opens the last finished week.
+    case review(week: String?)
+    case journalMorning
+    case journalEvening
     /// The inbox itself: nothing more specific can be opened.
     case inbox
 
@@ -242,6 +254,9 @@ enum PFInboxRoute529: Equatable {
         case "effort": self = .effort
         case "needs_you": self = .needsYou
         case "today": self = .today
+        case "review": self = .review(week: link.week)
+        case "journal_morning": self = .journalMorning
+        case "journal_evening": self = .journalEvening
         default: self = .inbox
         }
     }

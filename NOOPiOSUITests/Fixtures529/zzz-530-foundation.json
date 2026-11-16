@@ -1,0 +1,449 @@
+{
+ "_synthetic": "Synthetic build 530 foundation fixture: one small example of each new document. Invented values.",
+ "data/journal.json": {
+  "version": 1,
+  "generated_at": "2030-03-13T06:30:00+00:00",
+  "list": [
+   {
+    "key": "Did you drink alcohol?",
+    "label": "Alcohol",
+    "prompt": "How many drinks did you have today?",
+    "hint": "Count a pint as two.",
+    "kind": "count",
+    "window": "evening",
+    "about": "today",
+    "yes": "Yes",
+    "no": "No",
+    "state": "collecting"
+   },
+   {
+    "key": "Did you read before bed?",
+    "label": "Read before bed",
+    "prompt": "Did you read before bed last night?",
+    "hint": "",
+    "kind": "yes_no",
+    "window": "morning",
+    "about": "yesterday",
+    "yes": "Yes",
+    "no": "No",
+    "state": "clear"
+   }
+  ],
+  "auto": [
+   {
+    "date": "2030-03-12",
+    "answers": [
+     {
+      "id": "hard_day",
+      "label": "Hard day",
+      "answer": true,
+      "evidence": "Effort 14.2 on WHOOP"
+     },
+     {
+      "id": "late_session",
+      "label": "Session starting 20:00 or later",
+      "answer": false,
+      "evidence": "No session after 20:00"
+     }
+    ]
+   }
+  ],
+  "week": [
+   {
+    "date": "2030-03-11",
+    "logged": true
+   },
+   {
+    "date": "2030-03-12",
+    "logged": true
+   },
+   {
+    "date": "2030-03-13",
+    "logged": false
+   }
+  ],
+  "prompts": [
+   {
+    "window": "morning",
+    "title": "Morning questions",
+    "body": "2 questions about last night.",
+    "open": 2
+   }
+  ],
+  "insights": [
+   {
+    "behaviour": "Did you drink alcohol?",
+    "label": "Alcohol",
+    "outcomes": [
+     {
+      "outcome": "recovery",
+      "source": "WHOOP",
+      "lags": [
+       {
+        "lag": 1,
+        "n_with": 9,
+        "n_without": 41,
+        "mean_with": 48.0,
+        "mean_without": 63.0,
+        "diff": -15.0,
+        "clear": true,
+        "note": "Recovery was lower the next morning.",
+        "by_amount": [
+         {
+          "amount": "1 to 2",
+          "n": 6,
+          "mean": 52.0,
+          "diff": -11.0
+         },
+         {
+          "amount": "3 or more",
+          "n": 5,
+          "mean": 41.0,
+          "diff": -22.0
+         }
+        ]
+       },
+       {
+        "lag": 2,
+        "n_with": 9,
+        "n_without": 41,
+        "mean_with": 60.0,
+        "mean_without": 62.0,
+        "diff": -2.0,
+        "clear": false,
+        "note": "No clear effect."
+       }
+      ]
+     }
+    ]
+   }
+  ],
+  "suggestions": []
+ },
+ "data/today-cards.json": {
+  "phase": "morning",
+  "morning": {
+   "title": "Morning read",
+   "verdict": "Go, with a steady effort.",
+   "devices": [
+    {
+     "source": "WHOOP",
+     "value": "71 %",
+     "label": "Recovery",
+     "lines": [
+      "HRV 62 ms, usual 55"
+     ]
+    },
+    {
+     "source": "Garmin",
+     "value": "66",
+     "label": "Readiness",
+     "lines": [
+      "HRV 48 ms, usual 45"
+     ]
+    }
+   ],
+   "trend": [
+    {
+     "source": "WHOOP",
+     "values": [
+      58,
+      62,
+      66,
+      60,
+      64,
+      69,
+      71
+     ],
+     "bands": [
+      "amber",
+      "green",
+      "green",
+      "green",
+      "green",
+      "green",
+      "green"
+     ]
+    }
+   ],
+   "reading": "Recovery has risen four days in a row.",
+   "rows": [
+    {
+     "title": "Today",
+     "text": "Tempo run as planned."
+    },
+    {
+     "title": "Tonight",
+     "text": "In bed by 22:45."
+    },
+    {
+     "title": "Tomorrow",
+     "text": "Easy day."
+    }
+   ],
+   "link": {
+    "route": "report_daily",
+    "date": "2030-03-13"
+   }
+  },
+  "evening": {
+   "title": "Evening reflection",
+   "verdict": "A full day.",
+   "against_plan": "Tempo run done, strength skipped.",
+   "moved": "Stress rose after 16:00.",
+   "found": [
+    "Hard day"
+   ],
+   "tonight": "Wind down from 21:15."
+  }
+ },
+ "data/plan-week/2030-W09.json": {
+  "version": 1,
+  "week": "2030-W09",
+  "from": "2030-02-25",
+  "to": "2030-03-03",
+  "label": "Week 9",
+  "generated_at": "2030-03-04T05:00:00+00:00",
+  "state": "finished",
+  "days": [
+   {
+    "date": "2030-02-25",
+    "dow": "Mon",
+    "title": "Easy run",
+    "items": [
+     {
+      "kind": "session",
+      "session_id": "s530a",
+      "title": "Easy run",
+      "minutes": 40,
+      "effort": "easy",
+      "proposed": false
+     }
+    ]
+   },
+   {
+    "date": "2030-02-26",
+    "dow": "Tue",
+    "title": "Rest",
+    "items": [
+     {
+      "kind": "session",
+      "session_id": "s530b",
+      "title": "Coach pick: tempo",
+      "minutes": 50,
+      "effort": "hard",
+      "proposed": true
+     }
+    ]
+   }
+  ],
+  "report": {
+   "ready_at": "2030-03-04T05:00:00+00:00",
+   "verdict": "A steady week.",
+   "nights": {
+    "labels": [
+     "Mon",
+     "Tue",
+     "Wed",
+     "Thu",
+     "Fri",
+     "Sat",
+     "Sun"
+    ],
+    "series": [
+     {
+      "source": "WHOOP",
+      "title": "WHOOP recovery",
+      "max": 100,
+      "values": [
+       60,
+       55,
+       70,
+       64,
+       58,
+       66,
+       72
+      ],
+      "bands": [
+       "green",
+       "amber",
+       "green",
+       "green",
+       "amber",
+       "green",
+       "green"
+      ],
+      "usual": 61
+     }
+    ]
+   },
+   "review": {
+    "training_days": [
+     {
+      "dow": "Mon",
+      "minutes": 40,
+      "effort": "easy"
+     },
+     {
+      "dow": "Tue",
+      "minutes": 50,
+      "effort": "hard"
+     },
+     {
+      "dow": "Wed",
+      "minutes": 0,
+      "effort": null
+     },
+     {
+      "dow": "Thu",
+      "minutes": 45,
+      "effort": "moderate"
+     },
+     {
+      "dow": "Fri",
+      "minutes": 0,
+      "effort": null
+     },
+     {
+      "dow": "Sat",
+      "minutes": 90,
+      "effort": "race"
+     },
+     {
+      "dow": "Sun",
+      "minutes": 30,
+      "effort": "easy"
+     }
+    ],
+    "hours": {
+     "this_label": "4 h 15",
+     "this_h": 4.25,
+     "usual_label": "6 h 30",
+     "usual_h": 6.5,
+     "pct_vs_usual": -35,
+     "planned_done": "4 of 4"
+    },
+    "race_losses": [
+     {
+      "race": "Sample 10K",
+      "date": "2030-03-02",
+      "stations": [
+       {
+        "station": "Km 8",
+        "seconds": 24
+       },
+       {
+        "station": "Km 9",
+        "seconds": 18
+       },
+       {
+        "station": "Km 6",
+        "seconds": 9
+       }
+      ]
+     }
+    ],
+    "sleep": {
+     "source": "Garmin",
+     "hours": [
+      7.5,
+      6.8,
+      7.2,
+      6.1,
+      7.9,
+      8.1,
+      7.4
+     ],
+     "labels": [
+      "7:30",
+      "6:48",
+      "7:12",
+      "6:06",
+      "7:54",
+      "8:06",
+      "7:24"
+     ],
+     "need_h": 7.5,
+     "short_nights": 2,
+     "avg_label": "7 h 15"
+    },
+    "hrv_rhr": [
+     {
+      "source": "WHOOP",
+      "hrv": [
+       60,
+       58,
+       62,
+       55,
+       57,
+       63,
+       66
+      ],
+      "rhr": [
+       50,
+       51,
+       50,
+       53,
+       52,
+       49,
+       48
+      ],
+      "hrv_usual": 58,
+      "rhr_usual": 51
+     }
+    ],
+    "readings": {
+     "training": "Everything planned was done, 4 of 4.",
+     "races": "One race, 10K.",
+     "stations": "Km 8 cost the most.",
+     "whoop": "Two amber mornings.",
+     "garmin": "Two short nights.",
+     "sleep": "Two nights under 7 hours.",
+     "hrv_rhr": "HRV and resting heart rate moved together."
+    },
+    "ahead": {
+     "week": "2030-W10",
+     "headline": "Week 10: build week",
+     "calendar": [
+      {
+       "phase": "Build",
+       "days": 5,
+       "from": "2030-03-04",
+       "to": "2030-03-08"
+      },
+      {
+       "phase": "Rest",
+       "days": 2,
+       "from": "2030-03-09",
+       "to": "2030-03-10"
+      }
+     ],
+     "next_race": {
+      "name": "Sample Half",
+      "date": "2030-04-14",
+      "goal": "1:45"
+     },
+     "mix": [
+      {
+       "type": "running",
+       "minutes": 180
+      },
+      {
+       "type": "strength",
+       "minutes": 60
+      },
+      {
+       "type": "classes",
+       "minutes": 45
+      },
+      {
+       "type": "cycling",
+       "minutes": 0
+      }
+     ],
+     "calendar_reading": "Five training days, two rest."
+    }
+   }
+  }
+ }
+}

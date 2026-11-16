@@ -5,12 +5,22 @@ struct PFInboxDoc: Codable, Equatable {
     var version: Int?
     var generatedAt: String?
     var items: [Item]?
+    /// Build 530: the athlete's usual sleep times, so the phone stays quiet while asleep.
+    var quiet: Quiet?
+
+    struct Quiet: Codable, Equatable {
+        /// "23:15"
+        var usualBedtime: String?
+        var usualWake: String?
+        /// Usual bedtime minus 90 minutes.
+        var windDown: String?
+    }
 
     struct Item: Codable, Equatable {
         /// Stable across refreshes: the phone keeps unread marks by it.
         var id: String?
         var ts: String?
-        /// today | workout | health | coach | report | plan | problem
+        /// today | workout | health | coach | report | plan | problem | progress | bedtime | journal | review
         var kind: String?
         /// True when the item raises a phone notification once.
         var notify: Bool?
@@ -19,10 +29,14 @@ struct PFInboxDoc: Codable, Equatable {
         var listTitle: String?
         var listSub: String?
         var link: Link?
+        /// Build 530: morning | day | evening | any. The phone delivers inside the window.
+        var window: String?
+        /// Build 530: ISO time; nothing is delivered before it.
+        var notBefore: String?
     }
 
     /// Where a tap goes. `route` is one of week, changes, report_daily, report_month, race, workout, coach_noticed, stress, heart_rate,
-    /// effort, needs_you, today; the other fields say which one.
+    /// effort, needs_you, today, review, journal_morning, journal_evening; the other fields say which one.
     struct Link: Codable, Equatable {
         var route: String?
         var week: String?

@@ -33,7 +33,7 @@ enum PFDeepLink529 {
 
     /// UI tests: `-Plan529Open <target>` opens a destination once the Plan tab is up. Targets: `chip:season`, `week:2026-W47`,
     /// `session:2026-W47:c10def6f`, `change:0dfc53f2`, `change-today`, `race:2026-12-16`, `daily:2026-11-15`, `month:2026-10`,
-    /// `settings`, `inbox`.
+    /// `settings`, `inbox`, `review:2026-W46`, `journal-morning`, `journal-evening`, `journal-insights`, `journal-customise`.
     static func openFromLaunchArguments() {
         let arguments = ProcessInfo.processInfo.arguments
         guard !didOpenFromLaunch, let at = arguments.firstIndex(of: "-Plan529Open"), arguments.indices.contains(at + 1) else { return }
@@ -51,6 +51,11 @@ enum PFDeepLink529 {
         case "month": if let key = arg.first { open(.sheet(.monthReport(key: key))) }
         case "settings": open(.sheet(.planSettings))
         case "inbox": open(.sheet(.inbox))
+        case "review": if let week = arg.first { open(.sheet(.review(week: week))) }
+        case "journal-morning": open(.sheet(.journalMorning))
+        case "journal-evening": open(.sheet(.journalEvening))
+        case "journal-insights": open(.sheet(.journalInsights))
+        case "journal-customise": open(.sheet(.journalCustomise))
         default: break
         }
     }

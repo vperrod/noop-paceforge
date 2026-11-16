@@ -269,6 +269,8 @@ targets:
       - StrandiOS/PaceForge/PaceForgeGlanceBuilder.swift
       # The Plan section's documents (build 529): Foundation-only models, decoded in Plan529ModelsTests.
       - StrandiOS/PaceForge/Plan529/Models
+      # Build 530 documents (Sunday review, journal, Today cards): Foundation-only, referenced by the week and inbox models above.
+      - StrandiOS/PaceForge/Plan530/Models
       # The inbox's decisions (build 529): which items notify, the rows and unread marks, where a tap goes. Foundation only, tested in PFInboxLogic529Tests.
       - StrandiOS/PaceForge/Plan529/Inbox/PFInboxLogic529.swift
     # Same wrapper as the app target, so the OURA_CLOUD_IMPORT-gated Oura tests compile exactly

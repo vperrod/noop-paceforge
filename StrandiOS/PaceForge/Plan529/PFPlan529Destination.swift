@@ -19,6 +19,11 @@ struct PFPlan529Destination: View {
         case .monthReport(let key): PFMonthReport529(key: key)
         case .planSettings: PFPlanSettings529()
         case .inbox: PFInbox529()
+        case .review(let isoWeek): PFWeekReview530(week: isoWeek)
+        case .journalMorning: PFJournalMorning530()
+        case .journalEvening: PFJournalEvening530()
+        case .journalInsights: PFJournalInsights530()
+        case .journalCustomise: PFJournalCustomise530()
         case .week(let isoWeek):
             ScrollView {
                 PFPlanWeekChip(week: isoWeek)

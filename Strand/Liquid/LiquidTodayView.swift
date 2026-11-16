@@ -992,6 +992,11 @@ struct LiquidTodayView: View {
         // The day graph directly under the dials and their caption lines (source labels, the Effort target line), above the call. It
         // mounts at stage 1, so the first frame is still the dials and the call.
         if hasHero && mountStage >= 1 && shows(.dayGraph) { MyDayTodayCard(day: selectedLogicalDay) }
+        // Build 530: the overview card (morning or evening) and My Journal, directly under the rings and the My Day graph.
+        if hasHero && mountStage >= 1 {
+            PFTodayOverviewCard530()
+            PFTodayJournalCard530()
+        }
         if shows(.call) {
             PFTodayCards(cards: [.theCall, .needsYou], showsHiddenRow: false, onOpenNeedsYou: openNeedsYou, onReadWhy: readWhy)
         }
