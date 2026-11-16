@@ -82,7 +82,7 @@ struct PFReviewBody530: View {
                     PFWeekOverline529(text: title)
                     PFTwoLineChart530(
                         upper: PFLineSeries530(name: "HRV", values: entry.hrv ?? [], usual: entry.hrvUsual, color: PFWeekColor529.teal),
-                        lower: PFLineSeries530(name: "RHR", values: entry.rhr ?? [], usual: entry.rhrUsual, color: PFWeekColor529.amber, labelsAbove: false),
+                        lower: PFLineSeries530(name: "RHR", values: entry.rhr ?? [], usual: entry.rhrUsual, color: PFWeekColor529.amber),
                         days: dayLetters,
                         summary: "\(title), seven days",
                         format: { hiding.shown(String(Int($0.rounded())), .body) })

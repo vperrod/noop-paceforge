@@ -7,8 +7,6 @@ struct PFLineSeries530: Equatable {
     var values: [Double?]
     var usual: Double?
     var color: Color
-    /// The end labels sit above the line, or below it for the lower line so the two never cover each other.
-    var labelsAbove = true
 }
 
 /// Two lines on one chart, each on its own scale (HRV is in milliseconds and resting heart rate in beats a minute, so they only share
@@ -27,8 +25,8 @@ struct PFTwoLineChart530: View {
         VStack(spacing: 4) {
             GeometryReader { proxy in
                 ZStack(alignment: .topLeading) {
-                    plot(upper, in: proxy.size, band: 10...50)
-                    plot(lower, in: proxy.size, band: 62...88)
+                    plot(upper, other: lower, in: proxy.size, band: 10...50, otherBand: 62...88)
+                    plot(lower, other: upper, in: proxy.size, band: 62...88, otherBand: 10...50)
                 }
             }
             .frame(height: height)
@@ -58,14 +56,35 @@ struct PFTwoLineChart530: View {
         size.width * (CGFloat(index) + 0.5) / CGFloat(max(count, 1))
     }
 
-    @ViewBuilder private func plot(_ series: PFLineSeries530, in size: CGSize, band: ClosedRange<CGFloat>) -> some View {
+    /// The points of a line (nil = no reading), each on the line's own scale inside its band.
+    private func dots(_ series: PFLineSeries530, in size: CGSize, band: ClosedRange<CGFloat>) -> [Dot?] {
+        let known: [Double] = series.values.compactMap { $0 }
+        let spread: [Double] = known + (series.usual.map { [$0] } ?? [])
+        guard let low = spread.min(), let high = spread.max() else { return [] }
+        let count = series.values.count
+        return series.values.enumerated().map { index, value in
+            value.map { Dot(index: index, point: CGPoint(x: x(index, count: count, size: size), y: y($0, low: low, high: high, band: band, size: size))) }
+        }
+    }
+
+    /// True when `series` has its first (or last) reading higher on screen than `other`'s: its label then goes above the point and the
+    /// other's below, so the two labels never meet and neither lies across a line.
+    private func isHigher(_ series: PFLineSeries530, than other: PFLineSeries530, last: Bool, in size: CGSize,
+                          band: ClosedRange<CGFloat>, otherBand: ClosedRange<CGFloat>) -> Bool {
+        func edge(_ list: [Dot?]) -> CGFloat? { (last ? list.compactMap { $0 }.last : list.compactMap { $0 }.first)?.point.y }
+        guard let mine = edge(dots(series, in: size, band: band)) else { return true }
+        guard let theirs = edge(dots(other, in: size, band: otherBand)) else { return true }
+        return mine <= theirs
+    }
+
+    @ViewBuilder private func plot(_ series: PFLineSeries530, other: PFLineSeries530, in size: CGSize, band: ClosedRange<CGFloat>,
+                                   otherBand: ClosedRange<CGFloat>) -> some View {
         let known: [Double] = series.values.compactMap { $0 }
         let spread: [Double] = known + (series.usual.map { [$0] } ?? [])
         if let low = spread.min(), let high = spread.max() {
-            let count = series.values.count
-            let points: [Dot?] = series.values.enumerated().map { index, value in
-                value.map { Dot(index: index, point: CGPoint(x: x(index, count: count, size: size), y: y($0, low: low, high: high, band: band, size: size))) }
-            }
+            let points = dots(series, in: size, band: band)
+            let startAbove = isHigher(series, than: other, last: false, in: size, band: band, otherBand: otherBand)
+            let endAbove = isHigher(series, than: other, last: true, in: size, band: band, otherBand: otherBand)
             ZStack(alignment: .topLeading) {
                 if let usual = series.usual {
                     Path { path in
@@ -91,10 +110,13 @@ struct PFTwoLineChart530: View {
                     Circle().fill(series.color).frame(width: 7, height: 7).position(end.point)
                 }
                 if let first = points.compactMap({ $0 }).first, let last = points.compactMap({ $0 }).last, first.index != last.index {
-                    label("\(series.name) \(format(series.values[first.index] ?? 0))", at: first.point, leading: true, series: series, height: size.height)
-                    label("\(series.name) \(format(series.values[last.index] ?? 0))", at: last.point, leading: false, series: series, height: size.height)
+                    label("\(series.name) \(format(series.values[first.index] ?? 0))", at: first.point, leading: true, above: startAbove,
+                          color: series.color, size: size)
+                    label("\(series.name) \(format(series.values[last.index] ?? 0))", at: last.point, leading: false, above: endAbove,
+                          color: series.color, size: size)
                 } else if let only = points.compactMap({ $0 }).first {
-                    label("\(series.name) \(format(series.values[only.index] ?? 0))", at: only.point, leading: true, series: series, height: size.height)
+                    label("\(series.name) \(format(series.values[only.index] ?? 0))", at: only.point, leading: true, above: startAbove,
+                          color: series.color, size: size)
                 }
             }
         }
@@ -112,13 +134,17 @@ struct PFTwoLineChart530: View {
         return first.index == last.index ? [first] : [first, last]
     }
 
-    /// A value label at the end of a line: to the right of the first point, to the left of the last; above the line, or below for the lower one.
-    private func label(_ text: String, at point: CGPoint, leading: Bool, series: PFLineSeries530, height: CGFloat) -> some View {
-        let y = series.labelsAbove ? max(8, point.y - 11) : min(height - 6, point.y + 12)
+    /// A value label at an end of a line, clear of both lines: above its point for the series that is higher on screen there, below for the
+    /// other. The first label is left-aligned and the last right-aligned inside the chart, a few points in from the edge.
+    private func label(_ text: String, at point: CGPoint, leading: Bool, above: Bool, color: Color, size: CGSize) -> some View {
+        let y = above ? max(8, point.y - 11) : min(size.height - 6, point.y + 12)
         return Text(text)
             .font(LookFont.text(10.5, weight: .semibold))
-            .foregroundStyle(series.color)
+            .foregroundStyle(color)
             .fixedSize()
-            .position(x: point.x + (leading ? 34 : -34), y: y)
+            .frame(maxWidth: .infinity, alignment: leading ? .leading : .trailing)
+            .padding(.horizontal, 4)
+            .frame(width: size.width, height: 14)
+            .position(x: size.width / 2, y: y)
     }
 }
