@@ -169,11 +169,6 @@ struct LiquidSky: View {
     /// CPU-seconds a minute on Today at night. The still frame keeps drawing those stars, unmoving. Dark
     /// appearance is unchanged: there a drawable star always lifts its pixel more than that.
     static func pausesFrames(hour: Double, light: Bool, poseStill: Bool) -> Bool {
-        #if DEBUG
-        // A UI-test run (the PaceForge fixture) draws the one still frame whatever the hour: the 20 fps star loop only runs after dark, so
-        // a test on a busy simulator (SavedStateUITests offline) passed by day and timed out by night.
-        if ProcessInfo.processInfo.arguments.contains("-PaceForgeFixture") { return true }
-        #endif
         return poseStill || !liquidSkyHasVisibleStars(liquidSkyAt(hour, light: light).stars)
             || liquidStarPeakLift(hour: hour, light: light) < liquidStarMinLift
     }
