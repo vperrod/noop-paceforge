@@ -75,15 +75,12 @@ final class Plan529TodayUITests: XCTestCase {
         attach(app, "D1-D11 Today bottom")
     }
 
-    /// Without PaceForge (not set up, or not answering) the strap's own workouts are still Today's workouts: the card is drawn, with a row
-    /// per workout of the day, or the latest one with its date and the way to the Workouts list.
-    func testTodaysWorkoutsAreDrawnWithoutPaceForge() throws {
-        let app = XCUIApplication()
-        app.launchArguments.append(contentsOf: ["--demo-seed", "-theme.appearance", "dark"])
-        app.launch()
-        dumpHierarchyOnFailure(app)
+    /// With PaceForge set up but not answering (no snapshot), the strap's own workouts are still Today's workouts: the card is drawn, with a
+    /// row per workout of the day, or the latest one with its date and the way to the Workouts list.
+    func testTodaysWorkoutsAreDrawnWhilePaceForgeDoesNotAnswer() throws {
+        let app = try launch(extra: ["-PaceForgeFetchFails"])
         let met = scrollToday(app, ids: ["today-workouts"])
-        XCTAssertTrue(met.ids.contains("today-workouts"), "Today's workouts should be drawn without PaceForge.")
+        XCTAssertTrue(met.ids.contains("today-workouts"), "Today's workouts should be drawn from the strap while PaceForge does not answer.")
     }
 
     // MARK: D4 and D8: the call states the call
@@ -203,7 +200,10 @@ final class Plan529TodayUITests: XCTestCase {
         card.buttons["Journal"].firstMatch.tap()
         let day = app.element("look-journal-day")
         XCTAssertTrue(day.waitForExistence(timeout: 20), "The card should open the journal.")
-        XCTAssertEqual(day.label, "YESTERDAY", "The flow should open on yesterday.")
+        // The card asks about the app's yesterday (the day rolls at 04:00); the journal counts its days from the calendar, so between midnight
+        // and 04:00 that day is two calendar days back.
+        let isSmallHours = Calendar.current.component(.hour, from: Date()) < 4
+        XCTAssertEqual(day.label, isSmallHours ? "2 DAYS AGO" : "YESTERDAY", "The flow should open on the app's yesterday.")
         attach(app, "Journal flow on yesterday")
     }
 }
