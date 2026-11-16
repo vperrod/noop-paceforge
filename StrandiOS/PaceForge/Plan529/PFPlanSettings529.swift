@@ -262,8 +262,13 @@ struct PFDaysOffSheet529: View {
     @State private var added: [PFPlanSettingsDoc.DayOff] = []
 
     private var days: [PFPlanSettingsDoc.DayOff] {
+        // A day added here counts as shown once the document holds it: by id, or by the same start, end and label (a day the server gave
+        // no id for is held here under a local one).
         let known = Set(allDays.compactMap(\.id))
-        let pending = added.filter { day in day.id.map { !known.contains($0) } ?? true }
+        let pending = added.filter { day in
+            !(day.id.map { known.contains($0) } ?? false)
+                && !allDays.contains { $0.start == day.start && ($0.end ?? $0.start) == (day.end ?? day.start) && $0.label == day.label }
+        }
         return (allDays + pending).filter { day in day.id.map { !removed.contains($0) } ?? true }
     }
 
@@ -318,6 +323,12 @@ struct PFDaysOffSheet529: View {
             }
         }
         .containerIdentifier("days-off-sheet")
+        // Once the reloaded document holds a day added here, the local copy is dropped.
+        .onChange(of: allDays) { _, now in
+            added.removeAll { day in
+                now.contains { ($0.id != nil && $0.id == day.id) || ($0.start == day.start && ($0.end ?? $0.start) == (day.end ?? day.start) && $0.label == day.label) }
+            }
+        }
         .sheet(isPresented: $adds) { PFDayOffSheet529(day: PFAPI.todayISO, saved: saved, onAdded: { added.append($0) }) }
     }
 

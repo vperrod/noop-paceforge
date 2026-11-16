@@ -29,6 +29,9 @@ struct JournalReminderCard: View {
     /// Which of the last `stripDays` day-keys carry a native journal entry. nil = still loading / read
     /// error → render nothing (never a misleading all-empty strip).
     @State private var loggedDays: Set<String>?
+    /// The app's logical day (rolls at 04:00) the strip was drawn for: when it changes the strip is drawn again, so a tap and what was
+    /// drawn always agree on which day a bar is.
+    @State private var logicalDayKey = Repository.logicalDayKey(Date())
 
     private static let stripDays = 7
 
@@ -40,6 +43,10 @@ struct JournalReminderCard: View {
                 .frame(width: 0, height: 0)
                 .task(id: JournalReminderLoadKey(seq: repo.refreshSeq, enabled: reminderEnabled)) { await reload() }
             content
+        }
+        .onReceive(Timer.publish(every: 30, on: .main, in: .common).autoconnect()) { _ in
+            let key = Repository.logicalDayKey(Date())
+            if key != logicalDayKey { logicalDayKey = key }
         }
     }
 
@@ -94,9 +101,13 @@ struct JournalReminderCard: View {
     #endif
 
     private func card(_ logged: Set<String>) -> some View {
-        let keys = Self.dayKeys()
+        // The keys and the shift of one instant, held together: a bar tapped later still opens the day it was drawn as.
+        let now = Date()
+        let shift = Self.calendarShift(now)
+        let keys = Self.dayKeys(now)
+        _ = logicalDayKey
         let todayKey = keys.last ?? ""
-        let yesterdayKey = Self.yesterdayKey()
+        let yesterdayKey = keys.dropLast().last ?? ""
         let yesterdayLogged = logged.contains(yesterdayKey)
         // A recent PAST day with no entry — surfaces the tap-a-bar-to-backfill interaction once yesterday is
         // done (#656). Accent while anything is actionable; calm secondary once fully caught up. Today is not due yet.
@@ -130,7 +141,7 @@ struct JournalReminderCard: View {
                         .accessibilityHidden(true)
                 }
                 .contentShape(Rectangle())
-                .onTapGesture { router.openJournal(day: 1 + Self.calendarShift) }
+                .onTapGesture { router.openJournal(day: 1 + shift) }
                 .accessibilityElement(children: .combine)
                 .accessibilityAddTraits(.isButton)
                 .accessibilityLabel(Text(String(localized: "Journal")))
@@ -157,7 +168,7 @@ struct JournalReminderCard: View {
                                     }
                             }
                             .contentShape(Rectangle())
-                            .onTapGesture { router.openJournal(day: off + Self.calendarShift) }
+                            .onTapGesture { router.openJournal(day: off + shift) }
                             .accessibilityAddTraits(.isButton)
                             .accessibilityLabel(Self.barLabel(off))
                     }
@@ -166,7 +177,7 @@ struct JournalReminderCard: View {
                     .font(StrandFont.footnote)
                     .foregroundStyle((!yesterdayLogged || hasMissed) ? StrandPalette.accent : StrandPalette.textSecondary)
                     .contentShape(Rectangle())
-                    .onTapGesture { router.openJournal(day: 1 + Self.calendarShift) }
+                    .onTapGesture { router.openJournal(day: 1 + shift) }
                     .accessibilityAddTraits(.isButton)   // it opens the journal — announce it as one
             }
         }
@@ -212,15 +223,15 @@ struct JournalReminderCard: View {
 
     /// How many calendar days the app's logical today (it rolls at 04:00) is behind the calendar's: 1 between midnight and 04:00, else 0.
     /// The journal screen counts its day offsets from the calendar day, so an offset taken from the strip here is moved by this.
-    private static var calendarShift: Int {
-        Repository.localDayKey(Date()) == Repository.logicalDayKey(Date()) ? 0 : 1
+    private static func calendarShift(_ now: Date = Date()) -> Int {
+        Repository.localDayKey(now) == Repository.logicalDayKey(now) ? 0 : 1
     }
 
     /// The `stripDays` local-day keys (yyyy-MM-dd), oldest → the app's logical today (04:00 roll), matching Android's `journalDayKey`
     /// (civil-day arithmetic via Calendar so a DST edge can't mislabel a day).
-    private static func dayKeys() -> [String] {
+    private static func dayKeys(_ now: Date = Date()) -> [String] {
         let cal = Calendar.current
-        let today = Repository.logicalDay(Date())
+        let today = Repository.logicalDay(now)
         return (0..<stripDays).reversed().map { n in
             Repository.localDayKey(cal.date(byAdding: .day, value: -n, to: today) ?? today)
         }

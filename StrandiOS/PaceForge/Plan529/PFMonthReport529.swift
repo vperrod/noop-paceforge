@@ -121,8 +121,9 @@ struct PFMonthShortView529: View {
     }
 
     private func isBodyTile(_ tile: PFMonthlyShort.Tile) -> Bool {
-        let label = (tile.label ?? "").lowercased()
-        return ["weight", "body", "composition", "fat", "lean", "muscle"].contains { label.contains($0) }
+        // Whole words, so "clean" or "fatigue" is not taken for "lean" or "fat".
+        let words = (tile.label ?? "").lowercased().split { !$0.isLetter }.map(String.init)
+        return words.contains { ["weight", "body", "composition", "fat", "lean", "muscle"].contains($0) }
     }
 
     private func trendCard(_ points: [PFMonthlyShort.Point]) -> some View {

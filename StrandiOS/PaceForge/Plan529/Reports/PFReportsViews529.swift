@@ -11,6 +11,9 @@ import StrandDesign
 final class PFReportSeenStore529: ObservableObject {
     static let shared = PFReportSeenStore529()
     static let storageKey = "noop.plan529.reportsSeen"
+    /// Whether the first list has been taken as the baseline: its own flag, because a row can be marked opened (a deep link) before the
+    /// list has ever loaded, and the seen map alone would then look like a baseline.
+    static let baselineKey = "noop.plan529.reportsBaselined"
 
     @Published private(set) var seen: [String: String]
     /// False until a first list has been read and taken as the baseline.
@@ -19,14 +22,17 @@ final class PFReportSeenStore529: ObservableObject {
     private init() {
         let defaults = UserDefaults.standard
         var stored = defaults.dictionary(forKey: Self.storageKey) as? [String: String]
+        var baselined = defaults.bool(forKey: Self.baselineKey)
         #if DEBUG
         // UI tests start with every row unread (a baseline with nothing in it), whatever an earlier run opened.
         if ProcessInfo.processInfo.arguments.contains("-Plan529ResetSeen") {
             defaults.removeObject(forKey: Self.storageKey)
-            stored = [:]
+            defaults.set(true, forKey: Self.baselineKey)
+            stored = nil
+            baselined = true
         }
         #endif
-        hasBaseline = stored != nil
+        hasBaseline = baselined
         seen = stored ?? [:]
     }
 
@@ -34,8 +40,10 @@ final class PFReportSeenStore529: ObservableObject {
     func adoptBaseline(_ rows: [(id: String, ts: String?)]) {
         guard !hasBaseline else { return }
         hasBaseline = true
-        for row in rows { seen[row.id] = row.ts ?? "opened" }
+        // A row opened before the list loaded keeps its own mark.
+        for row in rows where seen[row.id] == nil { seen[row.id] = row.ts ?? "opened" }
         UserDefaults.standard.set(seen, forKey: Self.storageKey)
+        UserDefaults.standard.set(true, forKey: Self.baselineKey)
     }
 
     func isNew(id: String, ts: String?) -> Bool {
