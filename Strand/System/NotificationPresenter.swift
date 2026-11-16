@@ -33,6 +33,9 @@ final class NotificationPresenter: NSObject, UNUserNotificationCenterDelegate {
     /// Build 530: wired on iOS to count an inbox alert the athlete swiped away (its category has the dismiss action). Receives `userInfo`.
     var onPaceForgeAlertDismissed: (([AnyHashable: Any]) -> Void)?
 
+    /// Wired on iOS to save a Yes or No tapped on the afternoon journal question's notification, without opening the app (build 530).
+    var onJournalAction: ((UNNotificationResponse) async -> Void)?
+
     func userNotificationCenter(
         _ center: UNUserNotificationCenter,
         willPresent notification: UNNotification,
@@ -50,6 +53,15 @@ final class NotificationPresenter: NSObject, UNUserNotificationCenterDelegate {
         withCompletionHandler completionHandler: @escaping () -> Void
     ) {
         let content = response.notification.request.content
+        // A Yes / No tapped on the afternoon journal question (action ids "pf530.journal.*", PFJournalAction530) saves the answer and finishes:
+        // no routing, the app is not opened. It runs before every other branch.
+        if let onJournalAction, response.actionIdentifier.hasPrefix("pf530.journal.") {
+            Task {
+                await onJournalAction(response)
+                completionHandler()
+            }
+            return
+        }
         // A swipe away is not a tap: it routes nowhere.
         if response.actionIdentifier == UNNotificationDismissActionIdentifier {
             if content.userInfo["pf.kind"] != nil { onPaceForgeAlertDismissed?(content.userInfo) }

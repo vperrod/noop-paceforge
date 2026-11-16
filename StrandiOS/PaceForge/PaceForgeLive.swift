@@ -79,6 +79,8 @@ enum PFAPI {
         ("-PaceForgePhase4Missing", "data/my-plan.json", "data/my-plan.missing.json"),
         ("-PaceForgeNoStreak", "data/highlights.json", "data/highlights.nostreak.json"),
         ("-PaceForgeJournalImpactEmpty", "data/journal-impact.json", "data/journal-impact.empty.json"),
+        // No journal-view.json at all (build 530): the journal screens say so, and the older Journal impact screen shows its earlier content.
+        ("-PaceForgeJournalViewMissing", "data/journal-view.json", "data/journal-view.missing.json"),
         // A Garmin run at 07:10 on the fixture day with a coach analysis: the run My Day's synthetic day lists (`-MyDayFixture full`).
         ("-PaceForgeMyDayRun", "data/activities.json", "data/activities.myday.json"),
         ("-PaceForgeMyDayRun", "data/analyses/index.json", "data/analyses/index.myday.json"),
