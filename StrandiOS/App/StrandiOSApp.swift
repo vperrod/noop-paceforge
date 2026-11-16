@@ -103,11 +103,15 @@ struct StrandiOSApp: App {
             Task { @MainActor in PFAlertLink.open(userInfo: userInfo) }
         }
         PaceForgeBackground.register()
+        PFJournalAction530.register()
         PFMyDay.install()
         // A summary written before the privacy choice existed gets its body flag now, not at the next fetch.
         PFSummaryWriter.applyPrivacy()
         let model = AppModel()
         _model = StateObject(wrappedValue: model)
+        NotificationPresenter.shared.onJournalAction = { [repo = model.repo] response in
+            await PFJournalAction530.handle(response, repo: repo)
+        }
         CoachBriefScheduler.register(generateBrief: { [weak coach = model.coach] in
             await coach?.generateBrief()
         }, log: { [weak model] line in

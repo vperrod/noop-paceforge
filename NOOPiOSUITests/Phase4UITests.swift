@@ -166,7 +166,7 @@ final class Phase4UITests: XCTestCase {
     // MARK: Journal impact
 
     func testJournalImpactHurtsHelpsAndWhatIsMissing() throws {
-        let app = try launch(screen: "journalimpact")
+        let app = try launch(screen: "journalimpact", extra: ["-PaceForgeJournalViewMissing"])
         XCTAssertTrue(element(app, "pf-impact-body").waitForExistence(timeout: 30), "Journal impact should load from the fixture.")
         XCTAssertTrue(element(app, "pf-impact-late_meal").exists, "A behaviour that hurts should have its card.")
         XCTAssertTrue(element(app, "pf-impact-easy_day").exists, "A behaviour that helps should have its card.")
@@ -178,7 +178,7 @@ final class Phase4UITests: XCTestCase {
     }
 
     func testJournalImpactDetail() throws {
-        let app = try launch(screen: "journalimpact")
+        let app = try launch(screen: "journalimpact", extra: ["-PaceForgeJournalViewMissing"])
         let card = element(app, "pf-impact-late_meal")
         XCTAssertTrue(card.waitForExistence(timeout: 30), "The hurting behaviour should show.")
         card.tap()
@@ -188,7 +188,7 @@ final class Phase4UITests: XCTestCase {
     }
 
     func testJournalImpactWithNoClearEffect() throws {
-        let app = try launch(screen: "journalimpact", extra: ["-PaceForgeJournalImpactEmpty"])
+        let app = try launch(screen: "journalimpact", extra: ["-PaceForgeJournalViewMissing", "-PaceForgeJournalImpactEmpty"])
         XCTAssertTrue(element(app, "pf-impact-none").waitForExistence(timeout: 30), "With nothing clear the screen says so.")
         attach(app, "Phase4 43 Journal impact, nothing clear yet")
     }

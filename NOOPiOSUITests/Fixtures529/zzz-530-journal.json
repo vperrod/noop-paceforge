@@ -1,0 +1,490 @@
+{
+ "data/journal-view.json": {
+  "version": 1,
+  "generated_at": "2030-03-13T06:30:00+00:00",
+  "as_of": "2030-03-13",
+  "list": [
+   {
+    "key": "Did you view a screen in bed?",
+    "label": "Screen in bed",
+    "prompt": "Did you view a screen in bed?",
+    "hint": "in the 30 minutes before sleep",
+    "kind": "yes_no",
+    "window": "morning",
+    "about": "yesterday",
+    "yes": "Yes",
+    "no": "No",
+    "state": "collecting",
+    "state_source": null,
+    "n_yes": 1,
+    "n_no": 0
+   },
+   {
+    "key": "Did you eat close to bedtime?",
+    "label": "Late meal",
+    "prompt": "Did you eat within 2 hours of bed?",
+    "hint": "",
+    "kind": "yes_no",
+    "window": "morning",
+    "about": "yesterday",
+    "yes": "Yes",
+    "no": "No",
+    "state": "collecting",
+    "state_source": null,
+    "n_yes": 0,
+    "n_no": 2
+   },
+   {
+    "key": "Did you share your bed?",
+    "label": "Shared bed",
+    "prompt": "Did you share your bed?",
+    "hint": "",
+    "kind": "yes_no",
+    "window": "morning",
+    "about": "yesterday",
+    "yes": "Yes",
+    "no": "No",
+    "state": "no_effect",
+    "state_source": "WHOOP",
+    "n_yes": 14,
+    "n_no": 16
+   },
+   {
+    "key": "Did you read before bed?",
+    "label": "Read before bed",
+    "prompt": "Did you read before bed?",
+    "hint": "",
+    "kind": "yes_no",
+    "window": "morning",
+    "about": "yesterday",
+    "yes": "Yes",
+    "no": "No",
+    "state": "no_effect",
+    "state_source": "WHOOP",
+    "n_yes": 18,
+    "n_no": 12
+   },
+   {
+    "key": "Did you take magnesium?",
+    "label": "Magnesium",
+    "prompt": "Did you take magnesium?",
+    "hint": "in the evening",
+    "kind": "yes_no",
+    "window": "morning",
+    "about": "yesterday",
+    "yes": "Yes",
+    "no": "No",
+    "state": "collecting",
+    "state_source": null,
+    "n_yes": 3,
+    "n_no": 2
+   },
+   {
+    "key": "Did you have caffeine late in the day?",
+    "label": "Late caffeine",
+    "prompt": "Caffeine after 14:00 today?",
+    "hint": "",
+    "kind": "yes_no",
+    "window": "afternoon",
+    "about": "today",
+    "yes": "Yes",
+    "no": "No",
+    "state": "collecting",
+    "state_source": null,
+    "n_yes": 0,
+    "n_no": 1
+   },
+   {
+    "key": "Did you drink any alcohol?",
+    "label": "Alcohol",
+    "prompt": "Did you drink any alcohol?",
+    "hint": "Yes asks how many, and the time of the last one",
+    "kind": "count",
+    "window": "evening",
+    "about": "today",
+    "yes": "Yes",
+    "no": "No",
+    "state": "collecting",
+    "state_source": null,
+    "n_yes": 0,
+    "n_no": 1
+   },
+   {
+    "key": "Did you feel stressed?",
+    "label": "Stressed",
+    "prompt": "Did you feel stressed today?",
+    "hint": "Yes asks 1 to 5",
+    "kind": "scale",
+    "window": "evening",
+    "about": "today",
+    "yes": "Yes",
+    "no": "No",
+    "state": "collecting",
+    "state_source": null,
+    "n_yes": 2,
+    "n_no": 1
+   },
+   {
+    "key": "Did you feel sick or ill?",
+    "label": "Sick or ill",
+    "prompt": "Did you feel sick or ill?",
+    "hint": "",
+    "kind": "yes_no",
+    "window": "evening",
+    "about": "today",
+    "yes": "Yes",
+    "no": "No",
+    "state": "collecting",
+    "state_source": null,
+    "n_yes": 0,
+    "n_no": 3
+   },
+   {
+    "key": "Did you use a sauna?",
+    "label": "Sauna",
+    "prompt": "Did you use a sauna?",
+    "hint": "",
+    "kind": "yes_no",
+    "window": "evening",
+    "about": "today",
+    "yes": "Yes",
+    "no": "No",
+    "state": "collecting",
+    "state_source": null,
+    "n_yes": 1,
+    "n_no": 1
+   }
+  ],
+  "auto": [
+   {
+    "date": "2030-03-12",
+    "answers": [
+     {
+      "id": "hard_day",
+      "label": "A hard day",
+      "answer": true,
+      "evidence": "Doubles race, 66 min \u00b7 Garmin"
+     },
+     {
+      "id": "late_session",
+      "label": "A session starting at 20:00 or later",
+      "answer": true,
+      "evidence": "Ended 21:16, 2.7 h before sleep \u00b7 Garmin"
+     },
+     {
+      "id": "bedtime_late",
+      "label": "A bedtime after 23:30",
+      "answer": true,
+      "evidence": "In bed at 23:57 \u00b7 Garmin"
+     },
+     {
+      "id": "short_sleep",
+      "label": "A night under 7 hours",
+      "answer": true,
+      "evidence": "Slept 5 h 49 \u00b7 Garmin"
+     },
+     {
+      "id": "strength_day",
+      "label": "A strength day",
+      "answer": false,
+      "evidence": "No strength session \u00b7 Garmin"
+     },
+     {
+      "id": "long_run",
+      "label": "A long run",
+      "answer": false,
+      "evidence": "No run of 90 min or 18 km \u00b7 Garmin"
+     },
+     {
+      "id": "travel_day",
+      "label": "A travel day",
+      "answer": false,
+      "evidence": "No travel on file \u00b7 Garmin"
+     }
+    ]
+   },
+   {
+    "date": "2030-03-13",
+    "answers": [
+     {
+      "id": "strength_day",
+      "label": "A strength day",
+      "answer": true,
+      "evidence": "Strength session, 40 min \u00b7 Garmin"
+     }
+    ]
+   }
+  ],
+  "week": [
+   {
+    "date": "2030-03-11",
+    "logged": true
+   },
+   {
+    "date": "2030-03-12",
+    "logged": false
+   },
+   {
+    "date": "2030-03-13",
+    "logged": false
+   },
+   {
+    "date": "2030-03-14",
+    "logged": false
+   },
+   {
+    "date": "2030-03-15",
+    "logged": false
+   },
+   {
+    "date": "2030-03-16",
+    "logged": false
+   },
+   {
+    "date": "2030-03-17",
+    "logged": false
+   }
+  ],
+  "prompts": [
+   {
+    "window": "morning",
+    "title": "5 quick questions about last night.",
+    "body": "Screen in bed, a late meal, a shared bed, reading, magnesium.",
+    "open": 5
+   },
+   {
+    "window": "afternoon",
+    "title": "Caffeine after 14:00 today?",
+    "body": "Hold to answer: Yes or No.",
+    "open": 1
+   },
+   {
+    "window": "evening",
+    "title": "Your day is ready. 4 quick questions.",
+    "body": "Alcohol, stress, feeling ill, sauna.",
+    "open": 4
+   }
+  ],
+  "insights": [
+   {
+    "behaviour": "bedtime_late",
+    "label": "A bedtime after 23:30",
+    "outcome": "recovery",
+    "device": "WHOOP",
+    "measure": "Charge",
+    "unit": "%",
+    "lag": 1,
+    "n_with": 10,
+    "n_without": 29,
+    "mean_with": 26,
+    "mean_without": 61,
+    "diff": -35,
+    "clear": true,
+    "note": "A bedtime after 23:30: Charge (WHOOP) the next morning averages 26 % with it against 61 % without (10 days with it, 29 without). It lined up with the score; it does not prove the cause."
+   },
+   {
+    "behaviour": "hard_day",
+    "label": "A hard day",
+    "outcome": "recovery",
+    "device": "WHOOP",
+    "measure": "Charge",
+    "unit": "%",
+    "lag": 1,
+    "n_with": 12,
+    "n_without": 27,
+    "mean_with": 63,
+    "mean_without": 48,
+    "diff": 15,
+    "clear": false,
+    "note": "A hard day: no clear difference in Charge (WHOOP) the next morning, 63 % with it against 48 % without (12 days with it, 27 without)."
+   },
+   {
+    "behaviour": "strength_day",
+    "label": "A strength day",
+    "outcome": "recovery",
+    "device": "WHOOP",
+    "measure": "Charge",
+    "unit": "%",
+    "lag": 1,
+    "n_with": 14,
+    "n_without": 25,
+    "mean_with": 53,
+    "mean_without": 51,
+    "diff": 2,
+    "clear": false,
+    "note": "A strength day: no clear difference in Charge (WHOOP) the next morning, 53 % with it against 51 % without (14 days with it, 25 without)."
+   },
+   {
+    "behaviour": "short_sleep",
+    "label": "A night under 7 hours",
+    "outcome": "recovery",
+    "device": "WHOOP",
+    "measure": "Charge",
+    "unit": "%",
+    "lag": 1,
+    "n_with": 26,
+    "n_without": 13,
+    "mean_with": 51,
+    "mean_without": 53,
+    "diff": -2,
+    "clear": false,
+    "note": "A night under 7 hours: no clear difference in Charge (WHOOP) the next morning, 51 % with it against 53 % without (26 days with it, 13 without)."
+   },
+   {
+    "behaviour": "bedtime_late",
+    "label": "A bedtime after 23:30",
+    "outcome": "recovery",
+    "device": "WHOOP",
+    "measure": "Charge",
+    "unit": "%",
+    "lag": 2,
+    "n_with": 10,
+    "n_without": 29,
+    "mean_with": 48,
+    "mean_without": 55,
+    "diff": -7,
+    "clear": false,
+    "note": "A bedtime after 23:30: no clear difference in Charge (WHOOP) the morning after that, 48 % with it against 55 % without (10 days with it, 29 without)."
+   },
+   {
+    "behaviour": "hard_day",
+    "label": "A hard day",
+    "outcome": "recovery",
+    "device": "WHOOP",
+    "measure": "Charge",
+    "unit": "%",
+    "lag": 2,
+    "n_with": 12,
+    "n_without": 27,
+    "mean_with": 58,
+    "mean_without": 55,
+    "diff": 3,
+    "clear": false,
+    "note": "A hard day: no clear difference in Charge (WHOOP) the morning after that, 58 % with it against 55 % without (12 days with it, 27 without)."
+   },
+   {
+    "behaviour": "strength_day",
+    "label": "A strength day",
+    "outcome": "recovery",
+    "device": "WHOOP",
+    "measure": "Charge",
+    "unit": "%",
+    "lag": 2,
+    "n_with": 14,
+    "n_without": 25,
+    "mean_with": 52,
+    "mean_without": 52,
+    "diff": 0,
+    "clear": false,
+    "note": "A strength day: no clear difference in Charge (WHOOP) the morning after that, 52 % with it against 52 % without (14 days with it, 25 without)."
+   },
+   {
+    "behaviour": "short_sleep",
+    "label": "A night under 7 hours",
+    "outcome": "recovery",
+    "device": "WHOOP",
+    "measure": "Charge",
+    "unit": "%",
+    "lag": 2,
+    "n_with": 26,
+    "n_without": 13,
+    "mean_with": 50,
+    "mean_without": 53,
+    "diff": -3,
+    "clear": false,
+    "note": "A night under 7 hours: no clear difference in Charge (WHOOP) the morning after that, 50 % with it against 53 % without (26 days with it, 13 without)."
+   },
+   {
+    "behaviour": "bedtime_late",
+    "label": "A bedtime after 23:30",
+    "outcome": "recovery",
+    "device": "Garmin",
+    "measure": "Readiness",
+    "unit": "%",
+    "lag": 1,
+    "n_with": 10,
+    "n_without": 29,
+    "mean_with": 44,
+    "mean_without": 58,
+    "diff": -14,
+    "clear": true,
+    "note": "A bedtime after 23:30: Readiness (Garmin) the next morning averages 44 % with it against 58 % without (10 days with it, 29 without). It lined up with the score; it does not prove the cause."
+   },
+   {
+    "behaviour": "hard_day",
+    "label": "A hard day",
+    "outcome": "recovery",
+    "device": "Garmin",
+    "measure": "Readiness",
+    "unit": "%",
+    "lag": 1,
+    "n_with": 12,
+    "n_without": 27,
+    "mean_with": 57,
+    "mean_without": 56,
+    "diff": 1,
+    "clear": false,
+    "note": "A hard day: no clear difference in Readiness (Garmin) the next morning, 57 % with it against 56 % without (12 days with it, 27 without)."
+   },
+   {
+    "behaviour": "journal:Did you drink any alcohol?",
+    "label": "Alcohol",
+    "outcome": "sleep",
+    "device": "Garmin",
+    "measure": "Hours asleep",
+    "unit": "h",
+    "lag": 1,
+    "n_with": 11,
+    "n_without": 34,
+    "mean_with": 6.1,
+    "mean_without": 7.2,
+    "diff": -1.1,
+    "clear": true,
+    "note": "Alcohol: Hours asleep (Garmin) the next morning averages 6.1 h with it against 7.2 h without (11 days with it, 34 without). It lined up with the score; it does not prove the cause.",
+    "by_amount": [
+     {
+      "amount": "1",
+      "n": 6,
+      "mean": 6.6
+     },
+     {
+      "amount": "3+",
+      "n": 5,
+      "mean": 5.5
+     }
+    ]
+   },
+   {
+    "behaviour": "hard_day",
+    "label": "A hard day",
+    "outcome": "sleep",
+    "device": "Garmin",
+    "measure": "Hours asleep",
+    "unit": "h",
+    "lag": 1,
+    "n_with": 12,
+    "n_without": 27,
+    "mean_with": 7.0,
+    "mean_without": 7.1,
+    "diff": -0.1,
+    "clear": false,
+    "note": "A hard day: no clear difference in Hours asleep (Garmin) the next morning, 7 h with it against 7.1 h without (12 days with it, 27 without)."
+   }
+  ],
+  "suggestions": [
+   {
+    "action": "drop",
+    "key": "short_sleep",
+    "title": "Drop \"Night under 7 hours\" from the insights",
+    "reason": "26 of 39 mornings, no clear effect on Charge."
+   },
+   {
+    "action": "add",
+    "key": "",
+    "title": "Did you train fasted?",
+    "reason": "Nothing in your list is about training. Proposed for the current block."
+   }
+  ]
+ },
+ "_synthetic": "Build 530 APP-3 fixture: the journal document with the ten starter questions, the device answers of one day, and a flat insights list. Invented values."
+}

@@ -1,8 +1,9 @@
 import SwiftUI
 
-/// The journal's evening reflection (screen 5d). Placeholder until its builder replaces the body (build 530); the route and the identifier stay.
+/// The journal's evening reflection (screen 5d): the evening card, then the day's questions. The screen is `PFJournalDaySheet530`
+/// (Plan530/Journal).
 struct PFJournalEvening530: View {
     var body: some View {
-        PFPlan529Placeholder(title: "Evening reflection", identifier: "pf530-journal-evening")
+        PFJournalDaySheet530(window: PFJournalLogic530.evening)
     }
 }

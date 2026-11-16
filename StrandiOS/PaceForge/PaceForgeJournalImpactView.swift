@@ -53,7 +53,32 @@ struct PFImpactBar: View {
 
 // MARK: - Screen
 
+/// The journal's results. Since build 530 the screen shows the behaviour insights (outcome and lag chips, clear / no clear effect / still
+/// collecting) from `data/journal-view.json`; when that document is not served or cannot be fetched it shows what it always showed, the
+/// recovery impact analysis from `journal-impact.json`.
 struct PFJournalImpactScreen: View {
+    @StateObject private var store = PFDocStore529<PFJournalDoc530>(path: PFDocPath529.journal)
+
+    var body: some View {
+        switch store.state {
+        case .loaded(let doc):
+            VStack(alignment: .leading, spacing: 12) {
+                if store.isStale { PFStaleNote529() }
+                PFJournalInsightsBody530(doc: doc)
+            }
+            .planScreen529(title: "Behaviour insights", identifier: "pf530-journal-insights")
+        case .loading:
+            PFDocPlaceholder529(kind: .loading)
+                .planScreen529(title: "Behaviour insights", identifier: "pf530-journal-insights-loading")
+                .task { await store.refresh() }
+        case .empty, .failed:
+            PFJournalImpactLegacyScreen()
+        }
+    }
+}
+
+/// The screen as it was before build 530.
+private struct PFJournalImpactLegacyScreen: View {
     @ObservedObject private var store = PFPhase4Store.shared
 
     var body: some View {
