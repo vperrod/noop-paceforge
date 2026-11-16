@@ -89,7 +89,7 @@ final class TodayCards530UITests: XCTestCase {
         XCTAssertTrue(reveal(card, in: app), "Today should show the My Journal card.")
         let line = app.element("today-journal-line")
         XCTAssertTrue(line.waitForExistence(timeout: 20), "The card should say what the devices answered and what is left for you.")
-        XCTAssertTrue(line.label.contains("About Tuesday: 4 answered by your devices, 5 questions for you."), "The line was: \(line.label)")
+        XCTAssertTrue(line.label.contains("About Tuesday: 7 answered by your devices, 5 questions for you."), "The line was: \(line.label)")
         let ids = ["today-journal-week", "today-journal-fill", "today-journal-insights"]
         let found = revealAll(ids, in: app)
         for id in ids { XCTAssertTrue(found.contains(id), "The journal card should show \(id).") }
