@@ -34,6 +34,9 @@ struct PFChangeSheet529: View {
                                                askCoach(change, another: true)
                                            }
                                        }, onAskCoach: { askCoach(change) })
+                    PFWeekButton529(title: "Ask the coach", identifier: "plan529-change-ask") {
+                        askCoach(change)
+                    }
                 }
             }
             .padding(.horizontal, NoopLook.Metric.screenInset)
@@ -208,8 +211,6 @@ struct PFChangeContent529: View {
                                 identifier: "plan529-change-keep") {
                     Task { if await decisions.decide(change.id ?? "", accept: false) { onKept() } }
                 }
-                PFWeekButton529(title: "Ask the coach", isDisabled: decisions.isBusy,
-                                identifier: "plan529-change-ask", action: onAskCoach)
             } else {
                 PFWeekButton529(title: change.keepLabel ?? "Keep", isDisabled: decisions.isBusy, identifier: "plan529-change-keep") {
                     Task { if await decisions.decide(change.id ?? "", accept: false) { onKept() } }
