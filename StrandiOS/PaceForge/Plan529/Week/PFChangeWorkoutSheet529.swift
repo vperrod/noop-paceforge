@@ -62,6 +62,7 @@ struct PFChangeWorkoutSheet529: View {
     }
 
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var router: NavRouter
     @StateObject private var tracker = PFJobTracker()
     @State private var phase = Phase.choosing
     @State private var kind: PFSwapKind529?
@@ -114,7 +115,8 @@ struct PFChangeWorkoutSheet529: View {
                 .foregroundStyle(NoopLook.textPrimary)
                 .fixedSize(horizontal: false, vertical: true)
             PFChangeContent529(change: change, onAccepted: { dismiss() }, onKept: { dismiss() },
-                               onTryAnother: { Task { await ask(again: change.id) } }, onAskCoach: {})
+                               onTryAnother: { Task { await ask(again: change.id) } },
+                               onAskCoach: { askCoach(change) })
         case .failed(let message):
             VStack(alignment: .leading, spacing: 10) {
                 Text(message)
@@ -201,6 +203,13 @@ struct PFChangeWorkoutSheet529: View {
     }
 
     // MARK: Asking
+
+    private func askCoach(_ change: PFPlanWeekDoc.Change) {
+        let title = change.sheetTitle ?? change.title ?? "this workout change"
+        PFChatPrefill.shared.text = "About your proposed change \"\(title)\": what else would work for this session?"
+        dismiss()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { router.openCoach() }
+    }
 
     /// Posts `session-swap`, then reads the week document the server rewrote before it answered and opens the change it filed.
     @MainActor private func ask(again: String?) async {
