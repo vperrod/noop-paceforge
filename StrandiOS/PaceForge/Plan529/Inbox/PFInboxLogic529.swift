@@ -142,10 +142,14 @@ enum PFInboxLogic529 {
     }
 
     /// The item's link with a journal route made specific: the server sends `{"route": "journal"}` and the item's `window` says which sheet.
-    /// morning opens the morning sheet; day (the afternoon question) and evening open the evening sheet.
+    /// Each journal alert opens the window it names.
     static func resolvedLink(of item: PFInboxDoc.Item) -> PFInboxDoc.Link? {
         guard var link = item.link, link.route == "journal" else { return item.link }
-        link.route = item.window == "morning" ? "journal_morning" : "journal_evening"
+        switch item.window {
+        case "morning": link.route = "journal_morning"
+        case "day", "afternoon": link.route = "journal_afternoon"
+        default: link.route = "journal_evening"
+        }
         return link
     }
 
@@ -243,6 +247,7 @@ enum PFInboxRoute529: Equatable {
     /// The Sunday review of this ISO week; nil opens the last finished week.
     case review(week: String?)
     case journalMorning
+    case journalAfternoon
     case journalEvening
     /// The inbox itself: nothing more specific can be opened.
     case inbox
@@ -264,6 +269,7 @@ enum PFInboxRoute529: Equatable {
         case "today": self = .today
         case "review": self = .review(week: link.week)
         case "journal_morning": self = .journalMorning
+        case "journal_afternoon": self = .journalAfternoon
         case "journal_evening", "journal": self = .journalEvening
         default: self = .inbox
         }

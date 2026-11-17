@@ -428,7 +428,7 @@ struct RootTabView: View {
                 case .liveSession: LiquidTodayView()
                 // .journal opens through the quick-action Journal sheet (handled above); this keeps the
                 // switch exhaustive and falls back to the journal's Insights host if it ever reaches here.
-                case .journal: InsightsHomeView(initial: .journal)
+                case .journal: HealthJournalChip()
                 // .sleep switches to Health's Sleep chip (handled above); this keeps the switch exhaustive.
                 case .sleep: SleepView()
                 // .coach presents this sheet (handled above — the morning-brief tap-through and the
@@ -480,7 +480,7 @@ struct RootTabView: View {
         case .workout:
             quickScreen(WorkoutsView())
         case .journal:
-            quickScreen(InsightsHomeView(initial: .journal))
+            quickScreen(ScrollView { HealthJournalChip() })
         case .breathe:
             quickScreen(BreathingView())
         case .intervals:

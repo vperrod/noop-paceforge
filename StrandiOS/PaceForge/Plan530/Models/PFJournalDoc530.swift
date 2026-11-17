@@ -63,6 +63,7 @@ struct PFJournalDoc530: Codable, Equatable {
         var title: String?
         var body: String?
         var open: Int?
+        var state: String?
     }
 
     /// One behaviour against one outcome on one device at one lag: days with the behaviour against days without, and for a count the same

@@ -259,6 +259,14 @@ final class PFJournalLogic530Tests: XCTestCase {
         XCTAssertEqual(Logic.series(insights, outcome: "recovery").map(\.title), ["Charge (WHOOP)", "Readiness (Garmin)"])
     }
 
+    func testPerformanceResultsHaveTheirOwnTabAndSeries() {
+        let result = insight("late caffeine", outcome: "performance", measure: "Effort", unit: "of 21",
+                             mean: (12, 14), diff: -2, clear: true)
+        XCTAssertTrue(Logic.outcomes.contains("performance"))
+        XCTAssertEqual(Logic.outcomeTitle("performance"), "Performance")
+        XCTAssertEqual(Logic.series([result], outcome: "performance").map(\.title), ["Effort (WHOOP)"])
+    }
+
     func testTheClearOnesComeFirstAndTheStrongestOfThemFirst() {
         let insights = [insight("weak", mean: (50, 55), diff: -5, clear: true), insight("none", mean: (53, 51), diff: 2, clear: false),
                         insight("strong", mean: (26, 61), diff: -35, clear: true)]

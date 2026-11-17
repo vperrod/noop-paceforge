@@ -6,6 +6,7 @@ import Foundation
 struct PFTodayJournal530: Decodable, Equatable {
     var week: [Day]?
     var prompts: [Prompt]?
+    var list: [Question]?
     var auto: [AutoDay]?
     var insights: [Insight]?
 
@@ -21,6 +22,19 @@ struct PFTodayJournal530: Decodable, Equatable {
         var title: String?
         var body: String?
         var open: Int?
+        var state: String?
+    }
+
+    struct Question: Decodable, Equatable {
+        var key: String?
+        var label: String?
+        var prompt: String?
+        var hint: String?
+        var kind: String?
+        var window: String?
+        var about: String?
+        var yes: String?
+        var no: String?
     }
 
     struct AutoDay: Decodable, Equatable {
@@ -43,11 +57,12 @@ struct PFTodayJournal530: Decodable, Equatable {
     }
 
     private enum CodingKeys: String, CodingKey {
-        case week, prompts, auto, insights
+        case week, prompts, list, auto, insights
     }
 
     fileprivate enum DayKeys: String, CodingKey { case date, logged }
-    fileprivate enum PromptKeys: String, CodingKey { case window, title, body, open }
+    fileprivate enum PromptKeys: String, CodingKey { case window, title, body, open, state }
+    fileprivate enum QuestionKeys: String, CodingKey { case key, label, prompt, hint, kind, window, about, yes, no }
     fileprivate enum AutoDayKeys: String, CodingKey { case date, answers }
     fileprivate enum AutoAnswerKeys: String, CodingKey { case id, label, answer }
     fileprivate enum InsightKeys: String, CodingKey { case behaviour, label, clear }
@@ -56,6 +71,7 @@ struct PFTodayJournal530: Decodable, Equatable {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         week = c.pfLossyList(Day.self, .week)
         prompts = c.pfLossyList(Prompt.self, .prompts)
+        list = c.pfLossyList(Question.self, .list)
         auto = c.pfLossyList(AutoDay.self, .auto)
         insights = c.pfLossyList(Insight.self, .insights)
     }
@@ -76,6 +92,22 @@ extension PFTodayJournal530.Prompt {
         title = c.pfLossy(String.self, .title)
         body = c.pfLossy(String.self, .body)
         open = c.pfLossy(Int.self, .open)
+        state = c.pfLossy(String.self, .state)
+    }
+}
+
+extension PFTodayJournal530.Question {
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: PFTodayJournal530.QuestionKeys.self)
+        key = c.pfLossy(String.self, .key)
+        label = c.pfLossy(String.self, .label)
+        prompt = c.pfLossy(String.self, .prompt)
+        hint = c.pfLossy(String.self, .hint)
+        kind = c.pfLossy(String.self, .kind)
+        window = c.pfLossy(String.self, .window)
+        about = c.pfLossy(String.self, .about)
+        yes = c.pfLossy(String.self, .yes)
+        no = c.pfLossy(String.self, .no)
     }
 }
 

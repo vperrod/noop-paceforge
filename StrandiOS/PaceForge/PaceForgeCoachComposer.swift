@@ -66,9 +66,9 @@ struct PFCoachComposer: View {
                 HStack(spacing: 10) {
                     TextField(mode.placeholder, text: $draft, axis: .vertical)
                         .textFieldStyle(.plain)
-                        .lineLimit(1...4)
+                        .lineLimit(3...6)
                         .padding(.horizontal, 14)
-                        .frame(minHeight: 44)
+                        .frame(minHeight: 88)
                         .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(StrandPalette.surfaceInset))
                         .accessibilityIdentifier("pf-chat-input")
                     Button {

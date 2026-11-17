@@ -35,6 +35,11 @@ extension PFJobInputs {
         return ["session_id": id, "action": "delete"]
     }
 
+    static func calendarRestore(sessionID id: String?) -> [String: Any]? {
+        guard let id = sessionID(id) else { return nil }
+        return ["session_id": id, "action": "restore"]
+    }
+
     /// `session-state`: accept an optional draft (`active`).
     static func sessionAccept(sessionID id: String?) -> [String: Any]? {
         guard let id = sessionID(id) else { return nil }

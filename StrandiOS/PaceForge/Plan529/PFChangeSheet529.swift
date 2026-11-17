@@ -9,6 +9,7 @@ struct PFChangeSheet529: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var router: NavRouter
     @StateObject private var lookup = PFChangeLookup529()
+    @State private var anotherVersion: PFSwapTarget529?
 
     var body: some View {
         ScrollView {
@@ -20,13 +21,15 @@ struct PFChangeSheet529: View {
                     PFWeekState529(kind: .empty, message: "This change is no longer waiting for you.")
                 case .failed:
                     PFWeekState529(kind: .failed, message: "The change could not be loaded.", retry: { Task { await lookup.load(id: changeId) } })
-                case .found(let change, _):
+                case .found(let change, let week):
                     Text(change.sheetTitle ?? change.title ?? "Change")
                         .font(LookFont.text(20, weight: .bold))
                         .foregroundStyle(NoopLook.textPrimary)
                         .fixedSize(horizontal: false, vertical: true)
                     PFChangeContent529(change: change, onAccepted: { dismiss() }, onKept: { dismiss() },
-                                       onTryAnother: nil, onAskCoach: { askCoach(change) })
+                                       onTryAnother: anotherTarget(change, week: week).map { target in
+                                           { anotherVersion = target }
+                                       }, onAskCoach: { askCoach(change) })
                 }
             }
             .padding(.horizontal, NoopLook.Metric.screenInset)
@@ -38,6 +41,7 @@ struct PFChangeSheet529: View {
         .navigationBarTitleDisplayMode(.inline)
         .containerIdentifier("plan529-change")
         .task { await lookup.load(id: changeId) }
+        .sheet(item: $anotherVersion) { target in PFChangeWorkoutSheet529(target: target) }
         // A change handled elsewhere (accepted from the Week page, answered in Needs you) closes its sheet.
         .onReceive(NotificationCenter.default.publisher(for: .pfPlan529Changed)) { _ in
             Task {
@@ -45,6 +49,12 @@ struct PFChangeSheet529: View {
                 if case .missing = lookup.state { dismiss() }
             }
         }
+    }
+
+    private func anotherTarget(_ change: PFPlanWeekDoc.Change, week: String) -> PFSwapTarget529? {
+        guard let day = change.day, let id = change.id else { return nil }
+        return PFSwapTarget529(week: week, date: day, sessionId: change.sessionIds?.first,
+                              title: change.before?.label, minutes: nil, againChangeId: id)
     }
 
     private func askCoach(_ change: PFPlanWeekDoc.Change) {
@@ -186,7 +196,7 @@ struct PFChangeContent529: View {
                 Task { if await decisions.decide(change.id ?? "", accept: true) { onAccepted() } }
             }
             if let onTryAnother {
-                PFWeekButton529(title: change.againLabel ?? "Try another", isDisabled: decisions.isBusy,
+                PFWeekButton529(title: change.againLabel ?? "Another version", isDisabled: decisions.isBusy,
                                 identifier: "plan529-change-again", action: onTryAnother)
                 PFWeekButton529(title: change.keepLabel ?? "Keep the original", isDisabled: decisions.isBusy,
                                 identifier: "plan529-change-keep") {

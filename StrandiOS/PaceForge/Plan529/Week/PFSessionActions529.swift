@@ -33,6 +33,7 @@ struct PFSessionActionBar529: View {
     @State private var asksToSkip = false
     @State private var asksToDrop = false
     @State private var note: String?
+    @State private var canUndoSkip = false
 
     init(target: PFSessionTarget529, actions: [PFSessionAction529], idPrefix: String, onMore: (() -> Void)? = nil,
          onChangeWorkout: @escaping () -> Void, onAskCoach: @escaping () -> Void) {
@@ -127,11 +128,18 @@ struct PFSessionActionBar529: View {
                 .accessibilityIdentifier("\(idPrefix)-failed")
         case .done:
             if let note {
-                Text(note)
-                    .font(LookFont.text(12.5, weight: .regular))
-                    .foregroundStyle(NoopLook.textSecondary)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .accessibilityIdentifier("\(idPrefix)-result")
+                HStack {
+                    Text(note)
+                        .font(LookFont.text(12.5, weight: .regular))
+                        .foregroundStyle(NoopLook.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .accessibilityIdentifier("\(idPrefix)-result")
+                    if canUndoSkip {
+                        PFWeekButton529(title: "Undo", identifier: "\(idPrefix)-undo") {
+                            Task { await undoSkip() }
+                        }
+                    }
+                }
             }
         case .idle:
             EmptyView()
@@ -165,7 +173,22 @@ struct PFSessionActionBar529: View {
     }
 
     @MainActor private func skip() async {
-        await run(.calendarEdit, PFJobInputs.calendarDelete(sessionID: target.sessionId), done: "Skipped.")
+        guard let inputs = PFJobInputs.calendarDelete(sessionID: target.sessionId) else { return }
+        note = nil
+        if case .success = await tracker.run(.calendarEdit, inputs: inputs) {
+            note = "Skipped."
+            canUndoSkip = true
+            await changed()
+        }
+    }
+
+    @MainActor private func undoSkip() async {
+        guard let inputs = PFJobInputs.calendarRestore(sessionID: target.sessionId) else { return }
+        if case .success = await tracker.run(.calendarEdit, inputs: inputs) {
+            note = "Back on your plan."
+            canUndoSkip = false
+            await changed()
+        }
     }
 
     @MainActor private func drop() async {

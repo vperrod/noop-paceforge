@@ -80,6 +80,7 @@ enum Plan529Route: Hashable {
     case review(week: String)
     /// The journal's morning sheet, evening reflection, behaviour insights and question editor (build 530).
     case journalMorning
+    case journalAfternoon
     case journalEvening
     case journalInsights
     case journalCustomise

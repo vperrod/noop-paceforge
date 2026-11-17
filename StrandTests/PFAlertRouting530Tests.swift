@@ -17,7 +17,7 @@ final class PFAlertRouting530Tests: XCTestCase {
     }
 
     func testTheTapOnTheAfternoonQuestionOpensTheEveningSheet() {
-        XCTAssertEqual(PFInboxRoute529(link: PFInboxLogic529.resolvedLink(of: item(window: "day"))), .journalEvening)
+        XCTAssertEqual(PFInboxRoute529(link: PFInboxLogic529.resolvedLink(of: item(window: "day"))), .journalAfternoon)
     }
 
     func testTheOldRouteNamesStillOpenTheirSheets() {

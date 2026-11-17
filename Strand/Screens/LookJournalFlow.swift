@@ -23,6 +23,8 @@ struct LookJournalFlow: View {
     /// The question editor was closed. The question list is read once when this view is made, so the parent makes it again to pick
     /// up a rename, a regroup or a new question.
     let onEditorClosed: () -> Void
+    /// Back-fill starts yesterday, so it cannot save answers for today's unfinished night.
+    var minimumDayOffset = -1
 
     @State private var savedAnswers: [String: Bool] = [:]
     @State private var savedNumbers: [String: Double] = [:]
@@ -132,7 +134,7 @@ struct LookJournalFlow: View {
     }
 
     private func stepButton(_ symbol: String, label: String, step: Int) -> some View {
-        let next = JournalFlowLogic.stepped(dayOffset, by: step)
+        let next = max(minimumDayOffset, JournalFlowLogic.stepped(dayOffset, by: step))
         let direction = step > 0 ? "earlier" : "later"
         return Button { dayOffset = next } label: {
             Image(systemName: symbol)
@@ -166,7 +168,7 @@ struct LookJournalFlow: View {
             keyFor: { Repository.localDayKey(date(forOffset: $0)) },
             partsFor: { (weekday: Self.weekday(date(forOffset: $0)), day: calendar.component(.day, from: date(forOffset: $0))) })
         return HStack(spacing: 0) {
-            ForEach(days, id: \.offset) { day in
+            ForEach(days.filter { $0.offset >= minimumDayOffset }, id: \.offset) { day in
                 Button { dayOffset = day.offset } label: {
                     VStack(spacing: 6) {
                         Text(day.weekday).font(LookFont.text(12.5, weight: .medium)).foregroundStyle(NoopLook.textSecondary)

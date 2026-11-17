@@ -58,6 +58,9 @@ struct PFWeekComing529: View {
             if hasChanges {
                 PFWeekChanges529(changes: doc.changes ?? [], decided: doc.decided ?? [], decisions: decisions)
             }
+            if let deleted = doc.deleted, !deleted.isEmpty {
+                PFWeekRecentlyDeleted529(rows: deleted)
+            }
             // Keyed by the day's date, not its position: a card keeps its own state (Skipped, a moved date) when the list around it changes.
             ForEach(days, id: \.date) { day in
                 PFWeekDay529(week: week, day: day, isToday: isToday(day), hooks: hooks, allowsEdits: allowsEdits(day))
@@ -150,5 +153,45 @@ struct PFWeekComing529: View {
             }
         }
         .containerIdentifier("plan529-bottom-buttons")
+    }
+}
+
+/// Sessions the server still holds for restore, matching the Week document's 30-day deleted list.
+private struct PFWeekRecentlyDeleted529: View {
+    let rows: [PFPlanWeekDoc.DeletedSession]
+    @StateObject private var tracker = PFJobTracker()
+    private var isBusy: Bool { tracker.phase == .sending || tracker.phase == .working }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            PFWeekOverline529(text: "Recently deleted")
+            ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
+                HStack(alignment: .center, spacing: 10) {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(row.title ?? "Session")
+                            .font(LookFont.text(14, weight: .semibold))
+                            .foregroundStyle(NoopLook.textPrimary)
+                        PFWeekSub529(text: [row.dow, row.date].compactMap { $0 }.joined(separator: " "))
+                    }
+                    Spacer(minLength: 8)
+                    PFWeekButton529(title: "Undo", isDisabled: isBusy,
+                                    identifier: "plan529-deleted-undo-\(row.sessionId ?? "")") {
+                        Task { await restore(row.sessionId) }
+                    }
+                }
+                if row.sessionId != rows.last?.sessionId { PFDivider529() }
+            }
+            if case .failed(let message) = tracker.phase { PFWeekSub529(text: message) }
+        }
+        .pfWeekCard()
+        .containerIdentifier("plan529-recently-deleted")
+    }
+
+    @MainActor private func restore(_ id: String?) async {
+        guard let inputs = PFJobInputs.calendarRestore(sessionID: id) else { return }
+        if case .success = await tracker.run(.calendarEdit, inputs: inputs) {
+            await PFUnified.model.refresh()
+            NotificationCenter.default.post(name: .pfPlan529Changed, object: nil)
+        }
     }
 }

@@ -18,8 +18,10 @@ final class PFJournalSession530: ObservableObject {
     @Published private(set) var isSaving = false
     /// The last save wrote everything on screen; the next edit clears it.
     @Published private(set) var didSave = false
+    @Published private(set) var saveFailed = false
 
     private var seededPrevious = false
+    private var needsSave = false
 
     // MARK: On screen
 
@@ -44,18 +46,21 @@ final class PFJournalSession530: ObservableObject {
         let current = staged(keys: keys, allowsPrevious: allowsPrevious)[key]
         edits[key] = Logic.choose(kind: kind, yes: yes, current: current, defaultTime: Self.minutesNow())
         didSave = false
+        saveFailed = false
     }
 
     func setNumber(key: String, _ number: Double?, keys: [String], allowsPrevious: Bool) {
         guard let current = staged(keys: keys, allowsPrevious: allowsPrevious)[key] else { return }
         edits[key] = .set(Logic.withNumber(current, number))
         didSave = false
+        saveFailed = false
     }
 
     func setNote(key: String, _ note: String?, keys: [String], allowsPrevious: Bool) {
         guard let current = staged(keys: keys, allowsPrevious: allowsPrevious)[key] else { return }
         edits[key] = .set(Logic.withNote(current, note))
         didSave = false
+        saveFailed = false
     }
 
     static func minutesNow() -> Double {
@@ -91,21 +96,47 @@ final class PFJournalSession530: ObservableObject {
         return out
     }
 
+    /// Offer a late Apple Health caffeine sample as a pre-filled positive answer. Save still requires a tap.
+    /// Absence of a sample is not a "No": Health permission or import may be incomplete.
+    func prefillCaffeineFromHealthKit(day: String, keys: [String]) {
+        let key = "Did you have caffeine late in the day?"
+        guard keys.contains(key), saved[key] == nil, edits[key] == nil else { return }
+        let bedtime = UserDefaults.standard.object(forKey: CaffeineLogCard.bedtimeMinutesKey) as? Int ?? 23 * 60
+        let late = CaffeineLogStore.shared.intakes.contains { intake in
+            guard intake.isImported, PFFormat.isoString(intake.at) == day else { return false }
+            let time = Calendar.current.dateComponents([.hour, .minute], from: intake.at)
+            return CaffeineDecay.isPastCutoff(intakeMinutes: (time.hour ?? 0) * 60 + (time.minute ?? 0), bedtimeMinutes: bedtime)
+        }
+        guard late else { return }
+        edits[key] = .set(Logic.Answer(yes: true, note: "Apple Health: past bedtime caffeine cutoff"))
+    }
+
     /// Writes what is on screen that the journal does not hold yet, then reads the day again.
     func commit(repo: Repository, day: String, keys: [String], allowsPrevious: Bool) async {
-        guard !isSaving else { return }
-        let writes = pending(keys: keys, allowsPrevious: allowsPrevious)
-        guard !writes.isEmpty else {
-            didSave = !saved.isEmpty
+        if isSaving {
+            needsSave = true
             return
         }
         isSaving = true
         defer { isSaving = false }
-        await Self.perform(writes, day: day, repo: repo)
-        // An answer the athlete took away stays away: "Same as yesterday" must not bring it back after the save.
-        edits = edits.filter { $0.value == .cleared }
-        await load(repo: repo, day: day, keys: keys, readsPrevious: allowsPrevious)
-        didSave = true
+        for _ in 0..<3 {
+            needsSave = false
+            let writes = pending(keys: keys, allowsPrevious: allowsPrevious)
+            guard !writes.isEmpty else { break }
+            let committedEdits = edits
+            await Self.perform(writes, day: day, repo: repo)
+            await load(repo: repo, day: day, keys: keys, readsPrevious: allowsPrevious)
+            // Keep edits made during the write, and any write the store did not actually retain.
+            edits = edits.filter { key, edit in
+                guard committedEdits[key] == edit else { return true }
+                if case .set(let answer) = edit { return saved[key] != answer }
+                return true
+            }
+            if pending(keys: keys, allowsPrevious: allowsPrevious) == writes && !needsSave { break }
+            if !needsSave && pending(keys: keys, allowsPrevious: allowsPrevious).isEmpty { break }
+        }
+        saveFailed = !pending(keys: keys, allowsPrevious: allowsPrevious).isEmpty
+        didSave = !saveFailed && !saved.isEmpty
     }
 
     /// The athlete taps a device answer: the phone's own answer replaces it, or goes again when it was already there.

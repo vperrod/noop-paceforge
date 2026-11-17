@@ -53,6 +53,7 @@ enum PFDeepLink529 {
         case "inbox": open(.sheet(.inbox))
         case "review": if let week = arg.first { open(.sheet(.review(week: week))) }
         case "journal-morning": open(.sheet(.journalMorning))
+        case "journal-afternoon": open(.sheet(.journalAfternoon))
         case "journal-evening": open(.sheet(.journalEvening))
         case "journal-insights": open(.sheet(.journalInsights))
         case "journal-customise": open(.sheet(.journalCustomise))

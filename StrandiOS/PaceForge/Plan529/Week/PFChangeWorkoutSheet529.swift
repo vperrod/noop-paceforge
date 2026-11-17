@@ -9,6 +9,16 @@ struct PFSwapTarget529: Identifiable, Equatable {
     let sessionId: String?
     let title: String?
     let minutes: Int?
+    let againChangeId: String?
+
+    init(week: String, date: String, sessionId: String?, title: String?, minutes: Int?, againChangeId: String? = nil) {
+        self.week = week
+        self.date = date
+        self.sessionId = sessionId
+        self.title = title
+        self.minutes = minutes
+        self.againChangeId = againChangeId
+    }
 
     var id: String { "\(date)-\(sessionId ?? "add")" }
     var isAdd: Bool { sessionId == nil }
@@ -196,7 +206,7 @@ struct PFChangeWorkoutSheet529: View {
     @MainActor private func ask(again: String?) async {
         guard let kind,
               let inputs = PFJobInputs.sessionSwap(date: target.date, sessionID: target.sessionId, kind: kind.rawValue,
-                                                   minutes: minutes, again: again) else { return }
+                                                   minutes: minutes, again: again ?? target.againChangeId) else { return }
         phase = .building
         switch await tracker.run(.sessionSwap, inputs: inputs) {
         case .failure(let error):

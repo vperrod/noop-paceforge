@@ -995,10 +995,8 @@ struct LiquidTodayView: View {
         if shows(.call) {
             PFTodayCards(cards: [.theCall, .needsYou], showsHiddenRow: false, onOpenNeedsYou: openNeedsYou, onReadWhy: readWhy)
         }
-        // The journal is the morning prompt: until today's is logged it sits right under the call with a one-tap way in, and it folds to a
-        // "Journal logged" row that opens Journal impact afterwards.
-        // With the hero (always, on this path) My Journal is mounted under the overview card instead; the old card stays when the hero is hidden.
-        if order.contains(.journal) && !hasHero { JournalReminderCard() }
+        // My Journal is always available, including when an older saved Today layout hid its legacy journal section.
+        if !hasHero { PFTodayJournalCard530() }
         if shows(.coachNoticed) { PFProactiveTodayCard() }
         if mountStage >= 1 {
             if hasHero {
@@ -1006,10 +1004,10 @@ struct LiquidTodayView: View {
                 if chargeLegacyRRGap { ChargeLegacyRRGapNote() }
                 // Build 530: below the rings, the My Day graph, the call and the Health and Stress tiles, none of which move: the Sunday
                 // review row (Sunday evening, Monday morning), the overview card (morning or evening), then My Journal. My Journal
-                // replaces the journal reminder card on this path (see above); it follows the same hide switch.
+                // replaces the journal reminder card on this path.
                 PFTodayReviewRow530()
                 PFTodayOverviewCard530()
-                if order.contains(.journal) { PFTodayJournalCard530() }
+                PFTodayJournalCard530()
             }
             if shows(.howYouAre) {
                 PFTodayCards(cards: [.howYouAre], drawsChrome: false, showsHiddenRow: false, containerID: "pf-today-cards-how",

@@ -215,9 +215,15 @@ struct InsightsView: View {
     /// True when the unified Insights screen hosts this one as a section: no scaffold, no title, no "what moves you" link
     /// (the sections are the way across). The loads and the day-rollover handling are unchanged.
     var embedded = false
+    /// The older all-questions logger is available only for dates whose night is already over.
+    var backfillOnly = false
 
     // Explicit, because the stored properties below are private and that would make the memberwise initializer private too.
-    init(embedded: Bool = false) { self.embedded = embedded }
+    init(embedded: Bool = false, backfillOnly: Bool = false, initialJournalDayOffset: Int? = nil) {
+        self.embedded = embedded
+        self.backfillOnly = backfillOnly
+        self._journalDayOffset = State(initialValue: backfillOnly ? max(1, initialJournalDayOffset ?? 1) : 0)
+    }
 
     @ViewBuilder private var screenContent: some View {
         if !loaded {
@@ -231,11 +237,14 @@ struct InsightsView: View {
                 // Native logging, always reachable: the account-free way into Insights.
                 #if os(iOS)
                 // The look's journal flow (week strip, grouped questions, SAVE JOURNAL); the previous card sits under its pencil.
-                LookJournalFlow(importedQuestions: importedQuestions,
-                                dayOffset: $journalDayOffset,
-                                onChanged: { Task { await load() } },
-                                onEditorClosed: { journalFlowEpoch += 1 })
-                    .id(journalFlowEpoch)
+                if backfillOnly {
+                    LookJournalFlow(importedQuestions: importedQuestions,
+                                    dayOffset: $journalDayOffset,
+                                    onChanged: { Task { await load() } },
+                                    onEditorClosed: { journalFlowEpoch += 1 },
+                                    minimumDayOffset: 1)
+                        .id(journalFlowEpoch)
+                }
                 #else
                 JournalLogCard(importedQuestions: importedQuestions,
                                answers: dayAnswers,
@@ -304,7 +313,7 @@ struct InsightsView: View {
             // at THAT day). Consumed once on arrival, then cleared. Reload explicitly — setting the offset
             // here doesn't run the pill's onChanged, and the `.task` keys on the day-key, not the offset.
             if let day = router.pendingJournalDayOffset {
-                journalDayOffset = day
+                journalDayOffset = backfillOnly ? max(1, day) : day
                 router.pendingJournalDayOffset = nil
                 Task { await load() }
             }

@@ -21,6 +21,7 @@ struct PFPlan529Destination: View {
         case .inbox: PFInbox529()
         case .review(let isoWeek): PFWeekReview530(week: isoWeek)
         case .journalMorning: PFJournalMorning530()
+        case .journalAfternoon: PFJournalDaySheet530(window: PFJournalLogic530.afternoon)
         case .journalEvening: PFJournalEvening530()
         case .journalInsights: PFJournalInsights530()
         case .journalCustomise: PFJournalCustomise530()

@@ -113,7 +113,16 @@ enum PFAPI {
             if let text = value as? String { return Data(text.utf8) }
             return try JSONSerialization.data(withJSONObject: value)
         }
-        let data = try await SelfHostedPushClient.paceForgeGet(path)
+        let data: Data
+        do {
+            data = try await SelfHostedPushClient.paceForgeGet(path)
+        } catch {
+            if !isCancelled(error) {
+                let code = (error as? URLError)?.errorCode ?? (error as NSError).code
+                NoopDiag.crumb("pf.doc failed \(path)", ["error_code": Double(code)])
+            }
+            throw error
+        }
         PFStore.write(data, path: path)
         // The big documents only (state, fitness, activities, ...), so one refresh does not fill the breadcrumb ring.
         if data.count >= 100_000 { NoopDiag.crumb("pf.doc \(path)", ["bytes": Double(data.count)]) }

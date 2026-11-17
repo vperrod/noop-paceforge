@@ -258,13 +258,16 @@ enum PFJournalLogic530 {
 
     // MARK: Insights
 
-    /// The server reads a behaviour against recovery and sleep; there is no performance outcome.
-    static let outcomes = ["recovery", "sleep"]
+    /// The outcomes published in the journal document, including performance and the component readings.
+    static let outcomes = ["recovery", "sleep", "performance", "hrv", "resting_hr"]
 
     static func outcomeTitle(_ outcome: String) -> String {
         switch outcome {
         case "recovery": return "Recovery"
         case "sleep": return "Sleep"
+        case "performance": return "Performance"
+        case "hrv": return "HRV"
+        case "resting_hr": return "Resting heart rate"
         default: return outcome.capitalized
         }
     }
@@ -272,6 +275,7 @@ enum PFJournalLogic530 {
     /// Recovery is read the morning after, sleep the night after.
     static func lagTitle(_ lag: Int, outcome: String = "recovery") -> String {
         if outcome == "sleep" { return lag == 2 ? "Two nights after" : "Night after" }
+        if outcome == "performance" { return lag == 2 ? "Two days after" : "Next day" }
         return lag == 2 ? "Morning after" : "Next morning"
     }
 

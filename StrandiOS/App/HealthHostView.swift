@@ -157,15 +157,35 @@ private struct HealthVitalsChip: View {
 }
 
 /// The journal (and the experiments in it), with Journal impact one tap away.
-private struct HealthJournalChip: View {
+struct HealthJournalChip: View {
+    @State private var showsBackfill = false
+
     var body: some View {
         VStack(alignment: .leading, spacing: NoopMetrics.sectionSpacing) {
-            IndexSection("Journal impact") {
-                IndexRow("Journal impact", "book.closed.fill", TabRoute.journalImpact, id: "health-journal-impact")
+            PFTodayJournalCard530()
+            IndexSection("Your journal") {
+                IndexRow("Morning questions", "sunrise.fill", TabRoute.plan529(.journalMorning), id: "health-journal-morning")
+                IndexRow("Afternoon questions", "sun.max.fill", TabRoute.plan529(.journalAfternoon), id: "health-journal-afternoon")
+                IndexRow("Evening reflection", "moon.stars.fill", TabRoute.plan529(.journalEvening), id: "health-journal-evening")
+                IndexRow("Behaviour insights", "chart.bar.fill", TabRoute.plan529(.journalInsights), id: "health-journal-impact")
+                IndexRow("Questions", "list.bullet", TabRoute.plan529(.journalCustomise), id: "health-journal-questions")
             }
-            InsightsView(embedded: true)
+            Button { showsBackfill = true } label: {
+                PFRow529(title: "Back-fill older days", sub: "The earlier journal, for days whose night has finished", showsChevron: true)
+                    .planCard529(padding: 4)
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("health-journal-backfill")
         }
         .containerIdentifier("health-chip-content-journal")
+        .sheet(isPresented: $showsBackfill) {
+            NavigationStack {
+                ScrollView { InsightsView(embedded: true, backfillOnly: true) }
+                    .navigationTitle("Back-fill journal")
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar { ToolbarItem(placement: .topBarTrailing) { Button("Done") { showsBackfill = false } } }
+            }
+        }
     }
 }
 

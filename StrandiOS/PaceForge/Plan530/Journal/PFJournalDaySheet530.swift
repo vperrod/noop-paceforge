@@ -4,7 +4,7 @@ import StrandDesign
 /// The morning sheet (5b) and the evening reflection (5d): one screen per window of the day. The morning one is about last night: what the
 /// devices answered, then the questions only the night can answer, pre-filled from the day before. The evening one is about today: the
 /// evening card, then the day's questions. Answers are saved to the day the behaviour happened (`PFJournalLogic530.behaviourDay`),
-/// through the journal's own store; Save, Done and leaving the screen all write what is on it.
+/// through the journal's own store. Only Save writes staged answers; leaving the sheet must not confirm a pre-fill.
 struct PFJournalDaySheet530: View {
     typealias Logic = PFJournalLogic530
 
@@ -16,10 +16,12 @@ struct PFJournalDaySheet530: View {
     @StateObject private var session = PFJournalSession530()
 
     private var isMorning: Bool { window == Logic.morning }
+    private var isEvening: Bool { window == Logic.evening }
     private var today: String { PFAPI.todayISO }
     private var identifier: String { "pf530-journal-\(window)" }
 
     private var title: String {
+        if window == Logic.afternoon { return "Afternoon questions" }
         guard isMorning else { return "Evening reflection" }
         let day = Logic.behaviourDay(about: nil, window: window, today: today)
         return "About \(Logic.dayName(day) ?? "yesterday")"
@@ -30,7 +32,7 @@ struct PFJournalDaySheet530: View {
             .planScreen529(title: title, identifier: identifier)
             .task {
                 await store.refresh()
-                if !isMorning { await cards.refresh() }
+                if isEvening { await cards.refresh() }
             }
             .reloadsAfterPull529 { await store.refresh() }
     }
@@ -53,6 +55,7 @@ struct PFJournalDaySheet530: View {
     // MARK: The loaded sheet
 
     @ViewBuilder private func loaded(_ doc: PFJournalDoc530) -> some View {
+        let isWaiting = doc.prompts?.first { $0.window == window }?.state == "waiting"
         let hidden = Set(JournalCatalogStore().hiddenQuestions)
         let questions = Logic.questions(in: doc.list, window: window, hidden: hidden, extra: PFJournalCustom530.questions())
         let keys = questions.compactMap(\.key)
@@ -62,24 +65,26 @@ struct PFJournalDaySheet530: View {
             if store.isStale { PFStaleNote529() }
             if isMorning {
                 autoCard(doc, day: day, keys: keys, autoIDs: autoIDs)
-            } else {
+            } else if isEvening {
                 eveningCard(doc)
             }
-            if questions.isEmpty {
+            if isWaiting {
+                PFDocPlaceholder529(kind: .empty, emptyTitle: "Questions open later",
+                                    emptyText: "This part of the day has not finished. Your answers open with its alert.")
+            } else if questions.isEmpty {
                 PFDocPlaceholder529(kind: .empty, emptyTitle: "Nothing to answer",
                                     emptyText: isMorning ? "No question is asked in the morning." : "No question is asked in the evening.")
             } else {
                 questionsCard(questions, keys: keys, day: day)
                 saveBar(keys: keys, day: day)
             }
-            if !isMorning { tonightCard }
+            if isEvening { tonightCard }
         }
         .task(id: "\(day)|\(keys.joined(separator: "|"))") {
             await session.load(repo: repo, day: day, keys: keys, readsPrevious: isMorning)
-        }
-        .onDisappear {
-            let writes = session.pending(keys: keys, allowsPrevious: isMorning)
-            if !writes.isEmpty { Task { await session.commit(repo: repo, day: day, keys: keys, allowsPrevious: isMorning) } }
+            if isEvening && doc.prompts?.first(where: { $0.window == window })?.state == "due" {
+                session.prefillCaffeineFromHealthKit(day: day, keys: keys)
+            }
         }
     }
 
@@ -175,6 +180,11 @@ struct PFJournalDaySheet530: View {
                     Task { await session.commit(repo: repo, day: day, keys: keys, allowsPrevious: isMorning) }
                 }
                 .accessibilityIdentifier("pf530-journal-save")
+            }
+            if session.saveFailed {
+                Text("Answers could not be saved. Try again.")
+                    .font(LookFont.text(12.5))
+                    .foregroundStyle(PFColor.warning)
             }
         }
     }

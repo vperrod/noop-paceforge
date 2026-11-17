@@ -17,8 +17,16 @@ struct PFPlanWeekDoc: Codable, Equatable {
     var strip: [StripDay]?
     var changes: [Change]?
     var decided: [String]?
+    var deleted: [DeletedSession]?
     var days: [Day]?
     var report: Report?
+
+    struct DeletedSession: Codable, Equatable {
+        var sessionId: String?
+        var title: String?
+        var dow: String?
+        var date: String?
+    }
 
     struct Phase: Codable, Equatable {
         var key: String?
