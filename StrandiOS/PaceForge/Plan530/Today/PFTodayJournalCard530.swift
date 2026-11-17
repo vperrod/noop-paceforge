@@ -171,15 +171,15 @@ struct PFTodayJournalCard530: View {
                     onChoose: { yes in
                         session.choose(key: question.key ?? "", kind: PFJournalLogic530.kind(question), yes: yes,
                                        keys: keys, allowsPrevious: false)
-                        Task { await session.commit(repo: repo, day: due.day, keys: keys, allowsPrevious: false) }
+                        Task { await session.commit(repo: repo, day: due.day, keys: [question.key ?? ""], allowsPrevious: false) }
                     },
                     onNumber: { number in
                         session.setNumber(key: question.key ?? "", number, keys: keys, allowsPrevious: false)
-                        Task { await session.commit(repo: repo, day: due.day, keys: keys, allowsPrevious: false) }
+                        Task { await session.commit(repo: repo, day: due.day, keys: [question.key ?? ""], allowsPrevious: false) }
                     },
                     onNote: { note in
                         session.setNote(key: question.key ?? "", note, keys: keys, allowsPrevious: false)
-                        Task { await session.commit(repo: repo, day: due.day, keys: keys, allowsPrevious: false) }
+                        Task { await session.commit(repo: repo, day: due.day, keys: [question.key ?? ""], allowsPrevious: false) }
                     })
             }
             if due.window == "morning", !session.previous.isEmpty {
