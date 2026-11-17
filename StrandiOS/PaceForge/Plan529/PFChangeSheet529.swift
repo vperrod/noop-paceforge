@@ -27,8 +27,12 @@ struct PFChangeSheet529: View {
                         .foregroundStyle(NoopLook.textPrimary)
                         .fixedSize(horizontal: false, vertical: true)
                     PFChangeContent529(change: change, onAccepted: { dismiss() }, onKept: { dismiss() },
-                                       onTryAnother: anotherTarget(change, week: week).map { target in
-                                           { anotherVersion = target }
+                                       onTryAnother: {
+                                           if change.requested == true, let target = anotherTarget(change, week: week) {
+                                               anotherVersion = target
+                                           } else {
+                                               askCoach(change, another: true)
+                                           }
                                        }, onAskCoach: { askCoach(change) })
                 }
             }
@@ -57,9 +61,11 @@ struct PFChangeSheet529: View {
                               title: change.before?.label, minutes: nil, againChangeId: id)
     }
 
-    private func askCoach(_ change: PFPlanWeekDoc.Change) {
+    private func askCoach(_ change: PFPlanWeekDoc.Change, another: Bool = false) {
         let title = change.sheetTitle ?? change.title ?? "this change"
-        PFChatPrefill.shared.text = "About your proposal \"\(title)\": why do you want this change, and what happens if I keep the session as it is?"
+        PFChatPrefill.shared.text = another
+            ? "Please make another version of your proposed change \"\(title)\". Keep the original plan in place until I accept a version."
+            : "About your proposal \"\(title)\": why do you want this change, and what happens if I keep the session as it is?"
         dismiss()
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { router.openCoach() }
     }
@@ -202,6 +208,8 @@ struct PFChangeContent529: View {
                                 identifier: "plan529-change-keep") {
                     Task { if await decisions.decide(change.id ?? "", accept: false) { onKept() } }
                 }
+                PFWeekButton529(title: "Ask the coach", isDisabled: decisions.isBusy,
+                                identifier: "plan529-change-ask", action: onAskCoach)
             } else {
                 PFWeekButton529(title: change.keepLabel ?? "Keep", isDisabled: decisions.isBusy, identifier: "plan529-change-keep") {
                     Task { if await decisions.decide(change.id ?? "", accept: false) { onKept() } }
