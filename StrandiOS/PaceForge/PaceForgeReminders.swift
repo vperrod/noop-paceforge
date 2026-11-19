@@ -87,7 +87,9 @@ enum PFReminders {
             center.removePendingNotificationRequests(withIdentifiers: [eveningId])
             return
         }
-        let todo = day.workouts.filter { $0.status != "optional" && $0.status != "done" && $0.status != "partial" }
+        // Optional sessions are still on the plan and must appear in the preview. Hiding them
+        // made a day containing only optional sessions look like a rest day.
+        let todo = day.workouts.filter { $0.status != "done" && $0.status != "partial" }
         let lines = s.races(on: target).map { "Race: \($0.name)" } + todo.map(describe)
         let body = lines.isEmpty ? "Tomorrow is a rest day. Recovery is training." : lines.joined(separator: "\n")
         await schedule(id: eveningId, at: fire, title: "Tomorrow on PaceForge", body: body, center: center)
@@ -95,7 +97,8 @@ enum PFReminders {
 
     private static func describe(_ w: PFWorkout) -> String {
         let bits = [w.name ?? "Workout", PFSummaryWriter.detail(w), PFSummaryWriter.primaryTarget(w)]
-        return bits.compactMap { $0 }.joined(separator: " \u{00B7} ")
+        let description = bits.compactMap { $0 }.joined(separator: " \u{00B7} ")
+        return w.status == "optional" ? "Optional: \(description)" : description
     }
 
     private static func schedule(id: String, at date: Date, title: String, body: String,
