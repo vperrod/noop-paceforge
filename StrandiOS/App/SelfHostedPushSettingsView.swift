@@ -103,7 +103,7 @@ struct SelfHostedPushSettingsView: View {
                             .foregroundStyle(StrandPalette.textPrimary)
                     }
                     .tint(StrandPalette.accent)
-                    Text("Only when today's brief is not in yet or PaceForge has not refreshed.")
+                    Text("Only when today's complete brief is ready and your feel check-in is unanswered.")
                         .font(StrandFont.caption)
                         .foregroundStyle(StrandPalette.textTertiary)
                     Toggle(isOn: $remindEvening) {
