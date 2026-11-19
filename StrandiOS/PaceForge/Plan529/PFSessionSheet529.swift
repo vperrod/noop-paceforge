@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 import StrandDesign
 
 /// W2, one session of a week: the actions at the top (Make it easier, Move, Skip, Make optional, Change workout, Ask the coach), five short
@@ -15,6 +16,10 @@ struct PFSessionSheet529: View {
     @State private var results: PFResultsTarget529?
     @State private var swap: PFSwapTarget529?
     @State private var showsMore = false
+    @State private var textEditDraft = ""
+    @State private var textEditSending = false
+    @State private var textEditStatus: String?
+    @State private var textEditTask: Task<Void, Never>?
     private let hiding = PFHiding()
 
     init(week: String, sessionId: String) {
@@ -67,6 +72,10 @@ struct PFSessionSheet529: View {
         .onReceive(NotificationCenter.default.publisher(for: .pfPlan529Changed)) { _ in
             Task { await store.refresh() }
         }
+        .onDisappear {
+            textEditTask?.cancel()
+            textEditTask = nil
+        }
     }
 
     // MARK: Content
@@ -95,9 +104,111 @@ struct PFSessionSheet529: View {
                                       },
                                       onAskCoach: { askCoach(item, date: date) })
             }
+            if !isDone, let id = item.sessionId {
+                textEdit(sessionID: id)
+            }
             blocks(item)
             more(item, date: date)
         }
+    }
+
+    private func textEdit(sessionID: String) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Change this workout in your words")
+                .font(LookFont.text(15, weight: .semibold))
+                .foregroundStyle(NoopLook.textPrimary)
+            Text("Describe the replacement. Coach will review it and file a proposed change for you to accept.")
+                .font(LookFont.text(12.5, weight: .regular))
+                .foregroundStyle(NoopLook.textTertiary)
+                .fixedSize(horizontal: false, vertical: true)
+            TextField("e.g. 40 minutes easy with 6 relaxed strides", text: $textEditDraft, axis: .vertical)
+                .textFieldStyle(.plain)
+                .lineLimit(2...4)
+                .font(LookFont.text(14, weight: .regular))
+                .padding(12)
+                .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(NoopLook.card))
+                .accessibilityLabel("Describe the replacement workout")
+                .accessibilityIdentifier("plan529-session-text-edit-input")
+                .onChange(of: textEditDraft) { _, value in
+                    if value.count > 1_600 { textEditDraft = String(value.prefix(1_600)) }
+                }
+            Button {
+                textEditTask = Task { await sendTextEdit(sessionID: sessionID) }
+            } label: {
+                HStack(spacing: 8) {
+                    if textEditSending { ProgressView().tint(NoopLook.textPrimary) }
+                    Text(textEditSending ? "Waiting for Coach…" : "Send to Coach")
+                        .font(LookFont.text(14, weight: .semibold))
+                }
+                .frame(maxWidth: .infinity, minHeight: 44)
+                .foregroundStyle(NoopLook.textPrimary)
+                .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(PFWeekColor529.teal.opacity(0.18)))
+            }
+            .buttonStyle(.plain)
+            .disabled(textEditSending || !CoachBriefScheduler.coachMasterEnabled
+                      || textEditDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            .accessibilityIdentifier("plan529-session-text-edit-send")
+            if let textEditStatus {
+                Text(textEditStatus)
+                    .font(LookFont.text(12.5, weight: .regular))
+                    .foregroundStyle(NoopLook.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier("plan529-session-text-edit-status")
+            }
+        }
+        .pfWeekCard()
+        .containerIdentifier("plan529-session-text-edit")
+    }
+
+    @MainActor private func sendTextEdit(sessionID: String) async {
+        let request = textEditDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !request.isEmpty, !textEditSending else { return }
+        guard CoachBriefScheduler.coachMasterEnabled else {
+            textEditStatus = "Coach is turned off in Settings."
+            return
+        }
+        let before = model.snapshot
+        let previousCoachTurn = before?.coach.chat.last(where: { $0.role == "coach" })?.ts
+        let needsBefore = before?.needsYou ?? []
+        textEditSending = true
+        textEditStatus = nil
+        defer { textEditSending = false }
+        do {
+            let message = "Replace this workout with: \(request)"
+            let result = try await PFAPI.postCoachMessage(message, sessionID: sessionID)
+            guard (200..<300).contains(result.status) else {
+                setTextEditStatus(PFJ(data: result.data)["message"].text
+                                  ?? "Coach refused the request (HTTP \(result.status)).")
+                return
+            }
+            textEditDraft = ""
+            setTextEditStatus("Sent. Your booked workout stays unchanged until you accept a Coach proposal.")
+            for _ in 0..<30 {
+                guard !Task.isCancelled else { return }
+                await model.refresh()
+                guard !Task.isCancelled else { return }
+                if let reply = PFCoachInstruction.reply(in: model.snapshot?.coach.chat ?? [], after: previousCoachTurn) {
+                    let proposals = PFCoachInstruction.newProposals(before: needsBefore, after: model.snapshot?.needsYou ?? [])
+                    let status = proposals.isEmpty
+                        ? "Coach replied: \(reply) Your booked workout stays unchanged until you accept a Coach proposal."
+                        : "Coach proposed: \(proposals.joined(separator: ", ")). Review it under Changes to decide."
+                    setTextEditStatus(status)
+                    NotificationCenter.default.post(name: .pfPlan529Changed, object: nil)
+                    await store.refresh()
+                    return
+                }
+                do { try await Task.sleep(nanoseconds: 3_000_000_000) } catch { return }
+            }
+            setTextEditStatus("Sent to Coach. Your booked workout is unchanged while it prepares a reply.")
+        } catch {
+            guard !Task.isCancelled else { return }
+            setTextEditStatus("Couldn't send that. \(PFAPI.failureDetail(error))")
+        }
+    }
+
+    @MainActor private func setTextEditStatus(_ status: String) {
+        textEditStatus = status
+        UIAccessibility.post(notification: .announcement, argument: status)
     }
 
     private func pills(_ item: PFPlanWeekDoc.Item, date: String) -> [(text: String, color: Color)] {

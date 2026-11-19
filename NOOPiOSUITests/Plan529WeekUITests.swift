@@ -161,6 +161,39 @@ final class Plan529WeekUITests: XCTestCase {
         attach(app, "W2 session sheet")
     }
 
+    func testSessionSheetShowsATextReplacementComposer() throws {
+        let app = try launch(open: "session:2026-W47:448dbb84")
+        app.openTab("Plan")
+        XCTAssertTrue(app.element("plan529-session-title").waitForExistence(timeout: 30))
+        let input = app.element("plan529-session-text-edit-input")
+        let send = app.element("plan529-session-text-edit-send")
+        XCTAssertTrue(reveal(input, in: app), "A planned workout should be editable in plain text from its own sheet.")
+        XCTAssertTrue(reveal(send, in: app))
+        XCTAssertFalse(send.isEnabled, "The coach request should stay disabled until text is entered.")
+        input.tap()
+        input.typeText("40 minutes easy with 6 relaxed strides")
+        XCTAssertTrue(reveal(send, in: app))
+        XCTAssertTrue(send.isEnabled, "The athlete should be able to submit the text change to Coach.")
+        app.terminate()
+    }
+
+    func testSessionSheetSubmitsTheTextReplacementToCoach() throws {
+        let app = try launch(open: "session:2026-W47:448dbb84")
+        app.openTab("Plan")
+        XCTAssertTrue(app.element("plan529-session-title").waitForExistence(timeout: 30))
+        let input = app.element("plan529-session-text-edit-input")
+        let send = app.element("plan529-session-text-edit-send")
+        XCTAssertTrue(reveal(input, in: app))
+        input.tap()
+        input.typeText("40 minutes easy with 6 relaxed strides")
+        XCTAssertTrue(reveal(send, in: app))
+        send.tap()
+        let status = app.element("plan529-session-text-edit-status")
+        XCTAssertTrue(status.waitForExistence(timeout: 10), "The app should acknowledge that Coach received the edit request.")
+        XCTAssertTrue(status.label.contains("Sent"), status.label)
+        app.terminate()
+    }
+
     func testChangeSheetShowsBeforeAfterAndTheThreeAnswers() throws {
         let app = try launch(open: "change:0dfc53f2")
         app.openTab("Plan")
