@@ -10,10 +10,11 @@ enum PFPrefs {
     static let alertsKey = "noop.paceforge.notify.alerts"
 }
 
-/// Two local reminders, planned after every PaceForge fetch (foreground or the background refresh):
+/// Local reminders, planned after every PaceForge fetch (foreground or background):
 ///
-/// - 09:00, only when it would still be true by then: today's brief is not in yet, or nothing has
-///   refreshed since yesterday. A refresh that finds today's brief before 09:00 removes it again.
+/// - 09:00, a check-in only when today's complete brief is already in the fetched snapshot and the
+///   athlete has not answered how they feel. Missing data is not scheduled as a notification because
+///   a local notification cannot re-check the server when it fires.
 /// - 20:00, a preview of tomorrow's session and its target.
 ///
 /// Both are plain local notifications riding the existing background refresh; no push is involved.
@@ -53,21 +54,19 @@ enum PFReminders {
             center.removePendingNotificationRequests(withIdentifiers: [morningId])
             return
         }
-        // The slot is today and today's brief is already here and complete: nothing to say about the brief,
-        // so the reminder only asks the one question still open, how he feels.
-        if PFFormat.isoString(fire) == s.todayISO, let brief = s.today.brief,
-           brief.date == s.todayISO, !brief.partial {
-            if feelIsUnanswered(s) {
-                await schedule(id: morningId, at: fire, title: "Good morning",
-                               body: "Tell me how you feel. One tap, 1 to 5, on PaceForge Today.", center: center)
-            } else {
-                center.removePendingNotificationRequests(withIdentifiers: [morningId])
-            }
+        // A pending local notification cannot check whether the server's brief became ready before
+        // its fire time. Schedule only a check-in for a brief already complete in today's snapshot;
+        // never queue a factual "brief missing" alert from data that can be stale by delivery.
+        guard PFFormat.isoString(fire) == s.todayISO,
+              let brief = s.today.brief,
+              brief.date == s.todayISO,
+              !brief.partial,
+              feelIsUnanswered(s) else {
+            center.removePendingNotificationRequests(withIdentifiers: [morningId])
             return
         }
-        await schedule(id: morningId, at: fire, title: "PaceForge needs a look",
-                       body: "Today's brief is not in yet or still waiting on data, or PaceForge has not refreshed. Open NOOP to update.",
-                       center: center)
+        await schedule(id: morningId, at: fire, title: "Good morning",
+                       body: "Tell me how you feel. One tap, 1 to 5, on PaceForge Today.", center: center)
     }
 
     /// Today's check-in is open: the server serves the feel summary and it has no answer for today yet.
