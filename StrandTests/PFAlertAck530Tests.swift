@@ -155,6 +155,68 @@ final class PFAlertAck530Tests: XCTestCase {
         XCTAssertEqual(mute.muted, ["plan"])
     }
 
+    func testServerMuteMergePreservesAnUnfinishedDismissalStreak() {
+        var mute = PFMuteState530()
+        mute.dismissed(id: "a", kind: "coach")
+        mute.merge(server: ["plan"])
+        XCTAssertEqual(mute.streaks["coach"], ["a"])
+    }
+
+    func testServerUnmuteClearsOnlyTheUnmutedKindsStreak() {
+        var mute = PFMuteState530()
+        mute.merge(server: ["coach", "plan"])
+        mute.streaks["coach"] = ["a", "b"]
+        mute.streaks["plan"] = ["c"]
+        mute.merge(server: ["plan"])
+        XCTAssertEqual(mute.muted, ["plan"])
+        XCTAssertEqual(mute.streaks["coach"], [])
+        XCTAssertEqual(mute.streaks["plan"], ["c"])
+    }
+
+    func testServerRefreshWithNoMutedKindsReconcilesAWebSideUnmute() {
+        var mute = PFMuteState530()
+        mute.merge(server: ["today"])
+        mute.streaks["today"] = ["a", "b"]
+        mute.merge(server: [])
+        XCTAssertTrue(mute.muted.isEmpty)
+        XCTAssertEqual(mute.streaks["today"], [])
+    }
+
+    func testAnOlderInFlightMuteSnapshotIsRejectedAfterANewerAck() {
+        let saved = PFAlertDates.parse("2026-11-16T19:30:01+00:00")!
+        let stale = PFAlertDates.parse("2026-11-16T19:30:00+00:00")!
+        XCTAssertFalse(PFMuteState530.acceptsServerRevision(stale, after: saved))
+        XCTAssertFalse(PFMuteState530.acceptsServerRevision(saved, after: saved))
+        XCTAssertTrue(PFMuteState530.acceptsServerRevision(saved.addingTimeInterval(0.000001), after: saved))
+    }
+
+    func testQueuedDismissalsProtectALocalMuteFromAStaleServerSnapshot() {
+        var queue = PFAckQueue530()
+        queue.addDismissed("coach:first")
+        queue.addDismissed("coach:second")
+        let items = [
+            PFInboxDoc.Item(id: "coach:first", ts: nil, kind: "coach", notify: true, title: nil, body: nil, listTitle: nil, listSub: nil, link: nil),
+            PFInboxDoc.Item(id: "coach:second", ts: nil, kind: "coach", notify: true, title: nil, body: nil, listTitle: nil, listSub: nil, link: nil)
+        ]
+        XCTAssertEqual(queue.reconciledMuted(server: [], local: ["coach"], items: items), ["coach"])
+    }
+
+    func testQueuedUnmuteWinsOverAStaleServerMute() {
+        var queue = PFAckQueue530()
+        queue.addUnmute("today")
+        let result = queue.reconciledMuted(server: ["today"], local: ["today"], items: [])
+        XCTAssertTrue(result.isEmpty)
+    }
+
+    func testQueuedDismissalsAfterAnAcceptedBatchProtectTheLocalMute() {
+        var queue = PFAckQueue530()
+        queue.addUnmute("today")
+        queue.addDismissed("today:first")
+        queue.addDismissed("today:second")
+        queue.settle(queue.next!)
+        XCTAssertEqual(queue.reconciledMuted(server: [], local: ["today"], items: []), ["today"])
+    }
+
     func testTheServerCannotMuteTheJournalHere() {
         var mute = PFMuteState530()
         mute.merge(server: ["journal"])
@@ -190,9 +252,16 @@ final class PFAlertAck530Tests: XCTestCase {
         XCTAssertEqual(ledger.countToday(now: noon, calendar: calendar), 0)
     }
 
-    func testTheLedgerForgetsAlertsOverThreeDaysOld() {
+    func testTheLedgerKeepsAWeeklyReportForFourteenDays() {
         var ledger = PFRaisedLedger530()
-        ledger.add(id: "old", kind: "coach", at: noon.addingTimeInterval(-4 * 86_400))
+        ledger.add(id: "weekly", kind: "review", at: noon.addingTimeInterval(-13 * 86_400))
+        ledger.add(id: "new", kind: "coach", at: noon)
+        XCTAssertEqual(ledger.ids, ["weekly", "new"])
+    }
+
+    func testTheLedgerForgetsAlertsOverFourteenDaysOld() {
+        var ledger = PFRaisedLedger530()
+        ledger.add(id: "old", kind: "review", at: noon.addingTimeInterval(-15 * 86_400))
         ledger.add(id: "new", kind: "coach", at: noon)
         XCTAssertEqual(ledger.ids, ["new"])
     }

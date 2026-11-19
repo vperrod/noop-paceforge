@@ -5,6 +5,10 @@ struct PFInboxDoc: Codable, Equatable {
     var version: Int?
     var generatedAt: String?
     var items: [Item]?
+    /// The current server-side automatic mutes, used to reconcile the phone after a web-side change.
+    var muted: [String]? = nil
+    /// Updated when the server changes the mute snapshot; stale in-flight inbox fetches are ignored.
+    var mutedAt: String? = nil
     /// Build 530: the athlete's usual sleep times, so the phone stays quiet while asleep.
     var quiet: Quiet?
 
@@ -24,6 +28,8 @@ struct PFInboxDoc: Codable, Equatable {
         var kind: String?
         /// True when the item raises a phone notification once.
         var notify: Bool?
+        /// Explicit server retry after a previously silent item was reopened by the athlete.
+        var retry: Bool? = nil
         var title: String?
         var body: String?
         var listTitle: String?

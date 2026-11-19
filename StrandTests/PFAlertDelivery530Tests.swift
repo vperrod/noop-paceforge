@@ -58,6 +58,34 @@ final class PFAlertDelivery530Tests: XCTestCase {
         XCTAssertEqual(verdict(item(ts: "08:00", window: "morning"), at: "13:00"), .drop)
     }
 
+    func testDailyReadinessAlertSurvivesItsOriginalWindow() {
+        XCTAssertEqual(verdict(item(kind: "today", ts: "08:00", window: "morning"), at: "15:00"), .deliver)
+    }
+
+    func testWeeklyReviewAlertSurvivesSeveralDaysAndItsOriginalWindow() {
+        XCTAssertEqual(verdict(item(kind: "review", ts: "18:00", window: "evening"), at: "10:00", day: "2026-11-19"), .deliver)
+    }
+
+    func testAWeeklyReviewStillWaitsForItsWindowStartOnTheSameDay() {
+        XCTAssertEqual(verdict(item(kind: "review", ts: "08:00", window: "evening"), at: "10:00"), .hold)
+    }
+
+    func testDailyReadinessAlertExpiresAfterEighteenHours() {
+        XCTAssertEqual(verdict(item(kind: "today", ts: "08:00", window: "morning"), at: "03:00", day: "2026-11-17"), .drop)
+    }
+
+    func testWeeklyReviewStillWaitsForQuietHoursToEnd() {
+        XCTAssertEqual(verdict(item(kind: "review", ts: "22:00", window: "evening"), at: "23:30"), .hold)
+    }
+
+    func testWeeklyReviewStillWaitsForItsNotBeforeTime() {
+        XCTAssertEqual(verdict(item(kind: "review", ts: "18:00", window: "evening", notBefore: "21:30"), at: "19:00"), .hold)
+    }
+
+    func testWeeklyReviewStillWaitsUntilAnActiveWorkoutEnds() {
+        XCTAssertEqual(verdict(item(kind: "review", ts: "18:00", window: "evening"), at: "19:00", recording: true), .hold)
+    }
+
     func testTheAfternoonQuestionIsDeliveredInTheDayWindow() {
         XCTAssertEqual(verdict(item(kind: "journal", ts: "15:00", window: "day"), at: "16:00"), .deliver)
     }

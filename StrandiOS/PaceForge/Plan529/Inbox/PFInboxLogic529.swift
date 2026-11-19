@@ -87,6 +87,8 @@ struct PFInboxRow529: Identifiable, Equatable {
 }
 
 enum PFInboxLogic529 {
+    static let reportKinds: Set<String> = ["today", "report", "review"]
+
     /// The unread dot on the Plan tab: a plan change, a report, or the morning verdict (which opens the daily report).
     static let planDotKinds: Set<String> = ["plan", "report", "today"]
     /// The unread dot on the Coach button: a coach note or a workout review.
@@ -174,12 +176,35 @@ enum PFInboxLogic529 {
         var notified: [String]
     }
 
+    static func maxNotificationAge(kind: String) -> TimeInterval {
+        switch kind {
+        case "today": return 18 * 3_600
+        case "report", "review": return 14 * 86_400
+        default: return 2 * 86_400
+        }
+    }
+
+    /// The newest item of each report kind, chosen by timestamp even if the document's array order changes.
+    /// If either timestamp is unreadable, preserve the first item in document order for that kind.
+    static func latestReportIDs(items: [PFInboxDoc.Item]) -> Set<String> {
+        var latest: [String: PFInboxDoc.Item] = [:]
+        for item in items {
+            guard let id = item.id, !id.isEmpty, let kind = item.kind, reportKinds.contains(kind) else { continue }
+            guard let current = latest[kind] else { latest[kind] = item; continue }
+            guard let currentDate = PFAlertDates.parse(current.ts), let candidateDate = PFAlertDates.parse(item.ts),
+                  candidateDate > currentDate else { continue }
+            latest[kind] = item
+        }
+        return Set(latest.values.compactMap(\.id))
+    }
+
     /// Which items raise a local notification. `notified` nil is the first run: every id is only recorded, so installing this build
-    /// does not replay the 14 days. After that an item is announced once: its id is new, `notify` is true, its kind is switched on,
-    /// it is under two days old (an older one is only recorded) and it was not already announced through the earlier alert path
-    /// (`legacyNotified`: the ids that path remembers). Every new id is recorded whether or not it is announced, so switching a kind
-    /// on later does not replay what came in while it was off.
+    /// does not replay the 14 days. An eligible item is announced when `notify` is true, its kind is switched on, it is recent, and it
+    /// was not already announced through the earlier alert path (`legacyNotified`: the ids that path remembers). A report item already
+    /// seen on this phone is reconsidered only when the server marks that item `retry`; among those, only the newest of each kind can retry.
+    /// Other items retain their one-shot seen-id behavior. The delivery ledger prevents repeats.
     static func decide(items: [PFInboxDoc.Item], notified: [String]?, enabledKinds: Set<String>, legacyNotified: Set<String>,
+                       raisedIDs: Set<String> = [],
                        now: Date, cap: Int = 300) -> NotifyDecision {
         let ids = items.compactMap { item -> String? in
             guard let id = item.id, !id.isEmpty else { return nil }
@@ -189,12 +214,19 @@ enum PFInboxLogic529 {
         var have = Set(notified)
         var fresh: [PFInboxDoc.Item] = []
         var newIDs: [String] = []
+        var processed: Set<String> = []
+        let latestIDs = latestReportIDs(items: items)
         for item in items {
-            guard let id = item.id, !id.isEmpty, have.insert(id).inserted else { continue }
-            newIDs.append(id)
-            guard item.notify == true, let kind = item.kind, enabledKinds.contains(kind) else { continue }
+            guard let id = item.id, !id.isEmpty, processed.insert(id).inserted else { continue }
+            let isNew = have.insert(id).inserted
+            if isNew { newIDs.append(id) }
+            guard let kind = item.kind else { continue }
+            let shouldCheck = isNew || (reportKinds.contains(kind) && latestIDs.contains(id) && item.retry == true)
+            guard shouldCheck else { continue }
+            guard !raisedIDs.contains(id) else { continue }
+            guard item.notify == true, enabledKinds.contains(kind) else { continue }
             guard !isAnnouncedByEarlierPath(id: id, legacyNotified: legacyNotified) else { continue }
-            if let when = PFAlertDates.parse(item.ts), now.timeIntervalSince(when) >= 2 * 86_400 { continue }
+            if let when = PFAlertDates.parse(item.ts), now.timeIntervalSince(when) >= maxNotificationAge(kind: kind) { continue }
             fresh.append(item)
         }
         let remembered = Array((notified + newIDs).suffix(cap))

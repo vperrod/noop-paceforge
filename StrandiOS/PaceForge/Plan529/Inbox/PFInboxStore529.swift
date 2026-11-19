@@ -20,6 +20,7 @@ final class PFInboxStore529: ObservableObject {
     private static let lastCheckKey = "noop.paceforge.inbox.lastCheck"
     private static let lastDelayKey = "noop.paceforge.inbox.lastNewDelay"
     private static let muteKey = "noop.paceforge.inbox.mute"
+    private static let muteRevisionKey = "noop.paceforge.inbox.muteRevision"
 
     @Published private(set) var items: [PFInboxDoc.Item] = []
     @Published private(set) var load: Load = .loading
@@ -133,6 +134,13 @@ final class PFInboxStore529: ObservableObject {
     /// Takes a document the notifier or the screen read.
     func apply(_ doc: PFInboxDoc) {
         items = doc.items ?? []
+        if let serverMuted = doc.muted, let revisionText = doc.mutedAt,
+           let revision = PFAlertDates.parse(revisionText), isNewerMuteRevision(revision) {
+            let merged = PFInboxAck530.reconcile(serverMuted: serverMuted, localMuted: mute.muted, items: items)
+            mute.merge(server: Array(merged))
+            defaults.set(revision, forKey: Self.muteRevisionKey)
+            saveMute()
+        }
         load = .loaded
         isStale = false
         lastFetch = Date()
@@ -220,9 +228,16 @@ final class PFInboxStore529: ObservableObject {
         saveMute()
     }
 
-    func mergeServerMuted(_ kinds: [String]) {
-        mute.merge(server: kinds)
+    func mergeServerMuted(_ kinds: [String], at revision: Date?) {
+        guard let revision, isNewerMuteRevision(revision) else { return }
+        let merged = PFInboxAck530.reconcile(serverMuted: kinds, localMuted: mute.muted, items: items)
+        mute.merge(server: Array(merged))
+        defaults.set(revision, forKey: Self.muteRevisionKey)
         saveMute()
+    }
+
+    private func isNewerMuteRevision(_ revision: Date) -> Bool {
+        PFMuteState530.acceptsServerRevision(revision, after: defaults.object(forKey: Self.muteRevisionKey) as? Date)
     }
 
     private func saveMute() {

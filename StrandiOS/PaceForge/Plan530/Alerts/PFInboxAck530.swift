@@ -81,24 +81,31 @@ enum PFInboxAck530 {
         while let batch = loadQueue().next {
             guard let reply = try? await SelfHostedPushClient.paceForgePostReturningStatus("api/app/inbox-ack", body: batch.body),
                   PFAckQueue530.isSettled(status: reply.status) else { return }
-            if (200..<300).contains(reply.status), let muted = mutedKinds(in: reply.data) {
-                PFInboxStore529.shared.mergeServerMuted(muted)
-            }
             var queue = loadQueue()
             queue.settle(batch)
             save(queue, key: queueKey)
+            if (200..<300).contains(reply.status), let snapshot = muteSnapshot(in: reply.data) {
+                PFInboxStore529.shared.mergeServerMuted(snapshot.kinds, at: snapshot.revision)
+            }
         }
     }
 
-    /// `{"ok": true, "muted": [kinds]}`.
-    private static func mutedKinds(in data: Data) -> [String]? {
+    /// `{"ok": true, "muted": [kinds], "muted_at": ISO8601 timestamp}`.
+    private static func muteSnapshot(in data: Data) -> (kinds: [String], revision: Date?)? {
         guard let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return nil }
-        return object["muted"] as? [String]
+        guard let kinds = object["muted"] as? [String] else { return nil }
+        let revision = (object["muted_at"] as? String).flatMap(PFAlertDates.parse)
+        return (kinds, revision)
     }
 
     // MARK: Raised today
 
     static func raisedLedger() -> PFRaisedLedger530 { loadLedger() }
+
+    /// Apply queued phone intent over a potentially stale mute snapshot from the server.
+    static func reconcile(serverMuted: [String], localMuted: Set<String>, items: [PFInboxDoc.Item]) -> Set<String> {
+        loadQueue().reconciledMuted(server: serverMuted, local: localMuted, items: items)
+    }
 
     // MARK: Storage
 

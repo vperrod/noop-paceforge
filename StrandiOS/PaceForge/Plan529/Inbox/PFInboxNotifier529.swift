@@ -41,24 +41,31 @@ enum PFInboxNotifier529 {
         let store = PFInboxStore529.shared
         store.apply(doc)
         let seenAt = Date()
-        let decision = PFInboxLogic529.decide(items: doc.items ?? [], notified: defaults.stringArray(forKey: notifiedKey),
-                                              enabledKinds: store.enabledKinds, legacyNotified: legacyNotified(defaults), now: seenAt)
         // Build 530: the delivery rules (`PFAlertDelivery530`). A held item is not remembered as announced, so the next contact asks again.
         let ledger = PFInboxAck530.raisedLedger()
+        let decision = PFInboxLogic529.decide(items: doc.items ?? [], notified: defaults.stringArray(forKey: notifiedKey),
+                                              enabledKinds: store.enabledKinds, legacyNotified: legacyNotified(defaults),
+                                              raisedIDs: ledger.ids, now: seenAt)
         let plan = PFAlertDelivery530.plan(items: decision.toNotify, now: seenAt, quiet: doc.quiet,
                                            isRecordingWorkout: PFAlertMoment530.isRecordingWorkout(now: seenAt), isAsleep: nil,
                                            enabledKinds: store.enabledKinds, raisedIDs: ledger.ids,
                                            raisedToday: ledger.countToday(now: seenAt, calendar: .current))
-        defaults.set(decision.notified.filter { !plan.held.contains($0) }, forKey: notifiedKey)
+        var held = plan.held
         let delay = plan.deliver.compactMap { PFInboxLogic529.delay(of: $0, now: seenAt) }.min()
         store.recordCheck(at: seenAt, newDelay: delay)
         if !plan.deliver.isEmpty, await canNotify() {
             await PFAlertCategoryRegistration530.register()
             for item in plan.deliver {
-                await post(item, defaults: defaults)
-                PFInboxAck530.raised(item, at: seenAt)
+                if await post(item, defaults: defaults) {
+                    PFInboxAck530.raised(item, at: seenAt)
+                } else if let id = item.id {
+                    held.insert(id)
+                }
             }
+        } else if !plan.deliver.isEmpty {
+            held.formUnion(plan.deliver.compactMap(\.id))
         }
+        defaults.set(decision.notified.filter { !held.contains($0) }, forKey: notifiedKey)
         // Acknowledgements the last contact could not send go with this one.
         await PFInboxAck530.flush()
     }
@@ -68,8 +75,9 @@ enum PFInboxNotifier529 {
         return status == .authorized || status == .provisional
     }
 
-    private static func post(_ item: PFInboxDoc.Item, defaults: UserDefaults) async {
-        guard let id = item.id else { return }
+    @discardableResult
+    private static func post(_ item: PFInboxDoc.Item, defaults: UserDefaults) async -> Bool {
+        guard let id = item.id else { return false }
         let content = UNMutableNotificationContent()
         // Hide numbers (Settings) applies to what a lock screen shows as well.
         let scores = defaults.bool(forKey: HideScoresPrefs.scoresKey)
@@ -81,8 +89,13 @@ enum PFInboxNotifier529 {
         content.userInfo = PFInboxPayload529.userInfo(for: item)
         // An alert the earlier path would announce under this identifier replaces it rather than doubling it.
         let identifier = id.hasPrefix("alert:") ? "paceforge.alert.\(id.dropFirst("alert:".count))" : "paceforge.inbox.\(id)"
-        rememberForEarlierPath(id: id, defaults: defaults)
-        try? await UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: identifier, content: content, trigger: nil))
+        do {
+            try await UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: identifier, content: content, trigger: nil))
+            rememberForEarlierPath(id: id, defaults: defaults)
+            return true
+        } catch {
+            return false
+        }
     }
 
     // MARK: Not twice

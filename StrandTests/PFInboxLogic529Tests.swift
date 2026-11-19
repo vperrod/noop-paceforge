@@ -12,8 +12,8 @@ final class PFInboxLogic529Tests: XCTestCase {
     }
 
     private func decide(_ items: [PFInboxDoc.Item], notified: [String]? = [], kinds: Set<String> = Set(PFInboxKind529.allCases.map(\.rawValue)),
-                        legacy: Set<String> = []) -> PFInboxLogic529.NotifyDecision {
-        PFInboxLogic529.decide(items: items, notified: notified, enabledKinds: kinds, legacyNotified: legacy, now: now)
+                        legacy: Set<String> = [], raised: Set<String> = []) -> PFInboxLogic529.NotifyDecision {
+        PFInboxLogic529.decide(items: items, notified: notified, enabledKinds: kinds, legacyNotified: legacy, raisedIDs: raised, now: now)
     }
 
     private func entry(_ id: String, source: PFAlertEntry.Source = .alert, date: String? = "2026-11-15T10:00:00+00:00") -> PFAlertEntry {
@@ -32,12 +32,49 @@ final class PFInboxLogic529Tests: XCTestCase {
         XCTAssertEqual(decide([item("a"), item("b")], notified: nil).notified, ["a", "b"])
     }
 
+    func testInboxDecodesServerMutesAndExplicitRetryFields() throws {
+        let data = Data(#"{"version":2,"muted":["today"],"muted_at":"2026-11-16T19:30:00+00:00","items":[{"id":"today:2026-11-16","kind":"today","notify":true,"retry":true}]}"#.utf8)
+        let doc = try PFPlan529Decoder.make().decode(PFInboxDoc.self, from: data)
+        XCTAssertEqual(doc.muted, ["today"])
+        XCTAssertEqual(doc.mutedAt, "2026-11-16T19:30:00+00:00")
+        XCTAssertEqual(doc.items?.first?.retry, true)
+    }
+
     func testANewItemWithNotifyOnAndItsKindOnIsAnnounced() {
         XCTAssertEqual(decide([item("a"), item("b")], notified: ["a"]).toNotify.map(\.id), ["b"])
     }
 
-    func testAnItemSeenBeforeIsNotAnnouncedAgain() {
+    func testAnOrdinaryItemSeenBeforeIsNotAnnouncedAgain() {
         XCTAssertEqual(decide([item("a")], notified: ["a"]).toNotify, [])
+    }
+
+    func testAnItemSeenWhileMutedNeedsAnExplicitServerRetryToBeReannounced() {
+        XCTAssertEqual(decide([item("daily", kind: "today", notify: false)]).toNotify, [])
+        XCTAssertEqual(decide([item("daily", kind: "today", notify: true)], notified: ["daily"]).toNotify, [])
+        var reopened = item("daily", kind: "today", notify: true)
+        reopened.retry = true
+        XCTAssertEqual(decide([reopened], notified: ["daily"]).toNotify.map(\.id), ["daily"])
+        XCTAssertEqual(decide([reopened], notified: ["daily"], raised: ["daily"]).toNotify, [])
+    }
+
+    func testAnUpgradeDoesNotReplayTheNewestRetainedReport() {
+        let older = item("today:old", kind: "today", ts: "2026-11-15T18:00:00+00:00")
+        let newest = item("today:new", kind: "today", ts: "2026-11-15T19:00:00+00:00")
+        XCTAssertEqual(decide([older, newest], notified: ["today:old", "today:new"]).toNotify, [])
+    }
+
+    func testOnlyTheNewestExplicitlyReopenedReportOfEachKindCanRetry() {
+        var older = item("today:old", kind: "today", ts: "2026-11-15T18:00:00+00:00")
+        var newest = item("today:new", kind: "today", ts: "2026-11-15T19:00:00+00:00")
+        older.retry = true
+        newest.retry = true
+        XCTAssertEqual(decide([older, newest], notified: ["today:old", "today:new"]).toNotify.map(\.id), ["today:new"])
+    }
+
+    func testLatestReportUsesFirstArrayEntryWhenItsTimestampCannotBeParsed() {
+        let unparsed = item("today:unparsed", kind: "today", ts: "not a time")
+        let parsed = item("today:parsed", kind: "today", ts: "2026-11-15T19:00:00+00:00")
+        XCTAssertEqual(PFInboxLogic529.latestReportIDs(items: [unparsed, parsed]), ["today:unparsed"])
     }
 
     func testAnItemWithNotifyOffIsNotAnnounced() {
@@ -54,6 +91,18 @@ final class PFInboxLogic529Tests: XCTestCase {
 
     func testAnItemOverTwoDaysOldIsOnlyRecorded() {
         XCTAssertEqual(decide([item("a", ts: "2026-11-12T10:00:00+00:00")]).toNotify, [])
+    }
+
+    func testAWeeklyReviewCanStillNotifyForFourteenDays() {
+        XCTAssertEqual(decide([item("review:2026-W46", kind: "review", ts: "2026-11-12T10:00:00+00:00")]).toNotify.map(\.id), ["review:2026-W46"])
+    }
+
+    func testAWeeklyReviewOlderThanFourteenDaysIsOnlyRecorded() {
+        XCTAssertEqual(decide([item("review:2026-W44", kind: "review", ts: "2026-10-31T10:00:00+00:00")]).toNotify, [])
+    }
+
+    func testAReadinessAlertOlderThanEighteenHoursIsOnlyRecorded() {
+        XCTAssertEqual(decide([item("today:yesterday", kind: "today", ts: "2026-11-14T23:59:00+00:00")]).toNotify, [])
     }
 
     func testAnItemWithNoReadableTimeIsAnnounced() {

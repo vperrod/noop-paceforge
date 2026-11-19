@@ -38,6 +38,29 @@ struct PFAckQueue530: Codable, Equatable {
 
     var next: PFAckBatch530? { batches.first }
 
+    func reconciledMuted(server: [String], local: Set<String>, items: [PFInboxDoc.Item]) -> Set<String> {
+        var kindByID: [String: String] = [:]
+        for item in items {
+            if let id = item.id, let kind = item.kind { kindByID[id] = kind }
+        }
+        var dismissedSinceUnmute: Set<String> = []
+        var unmuted: Set<String> = []
+        for batch in batches {
+            for id in batch.dismissed {
+                if let kind = kindByID[id] ?? id.split(separator: ":", maxSplits: 1).first.map(String.init) {
+                    dismissedSinceUnmute.insert(kind)
+                }
+            }
+            if let kind = batch.unmute {
+                dismissedSinceUnmute.remove(kind)
+                unmuted.insert(kind)
+            }
+        }
+        var result = Set(server).subtracting(unmuted)
+        result.formUnion(local.intersection(dismissedSinceUnmute))
+        return result.subtracting(["problem", "journal"])
+    }
+
     /// Takes out of the first batch what a send of `sent` carried. Anything added while the send was out stays for the next one.
     mutating func settle(_ sent: PFAckBatch530) {
         guard var first = batches.first else { return }
@@ -96,6 +119,11 @@ struct PFMuteState530: Codable, Equatable {
     static let never: Set<String> = ["problem", "journal"]
     static let after = 2
 
+    static func acceptsServerRevision(_ incoming: Date, after saved: Date?) -> Bool {
+        guard let saved else { return true }
+        return incoming > saved
+    }
+
     var muted: Set<String> = []
     /// Per kind, the item ids dismissed since the last open of that kind.
     var streaks: [String: [String]] = [:]
@@ -117,13 +145,16 @@ struct PFMuteState530: Codable, Equatable {
         streaks[kind] = []
     }
 
-    /// The server's list after it took an acknowledgement: what it muted stays muted here too.
+    /// The server's current mute list after it took an acknowledgement.
     mutating func merge(server kinds: [String]) {
-        muted.formUnion(Set(kinds).subtracting(Self.never))
+        let previouslyMuted = muted
+        let serverMuted = Set(kinds).subtracting(Self.never)
+        for kind in previouslyMuted.subtracting(serverMuted) { streaks[kind] = [] }
+        muted = serverMuted
     }
 }
 
-/// The alerts raised on this phone, kept for three days: the cap of six a day and "already raised" read it.
+/// The alerts raised on this phone, kept for fourteen days to deduplicate report retries; the daily cap still counts today's entries only.
 struct PFRaisedLedger530: Codable, Equatable {
     struct Entry: Codable, Equatable {
         var id: String
@@ -131,7 +162,7 @@ struct PFRaisedLedger530: Codable, Equatable {
         var at: Date
     }
 
-    static let keepDays = 3
+    static let keepDays = 15
     var entries: [Entry] = []
 
     var ids: Set<String> { Set(entries.map(\.id)) }

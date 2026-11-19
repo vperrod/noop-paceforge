@@ -17,9 +17,6 @@ enum PFAlertDelivery530 {
     static let dailyCap = 6
     /// The journal questions and the problems only the athlete can fix do not count toward the cap.
     static let capExemptKinds: Set<String> = ["journal", "problem"]
-    /// An item this old is only listed, as in `PFInboxLogic529.decide`.
-    static let maxAge: TimeInterval = 2 * 86_400
-
     /// What the phone assumes while the server sends no `quiet` block (fewer than seven recorded nights): the clock times of the proposal.
     static let fallbackBedtime = 23 * 60
     static let fallbackWake = 7 * 60
@@ -39,7 +36,7 @@ enum PFAlertDelivery530 {
         guard item.notify == true else { return .drop }
         guard let kind = item.kind, enabledKinds.contains(kind) else { return .drop }
         let written = PFAlertDates.parse(item.ts)
-        if let written, now.timeIntervalSince(written) >= maxAge { return .drop }
+        if let written, now.timeIntervalSince(written) >= PFInboxLogic529.maxNotificationAge(kind: kind) { return .drop }
         if !capExemptKinds.contains(kind), raisedToday >= dailyCap { return .drop }
 
         let times = Times(quiet)
@@ -47,8 +44,13 @@ enum PFAlertDelivery530 {
         // The window the item belongs to is the first one that ends after the item was written (and after its not_before): an item written
         // while the athlete slept waits for the morning window; one whose window has passed is never sent late.
         let reference = [written, notBefore].compactMap { $0 }.max() ?? now
-        let window = interval(of: item.window, after: reference, times: times, calendar: calendar)
-        if let window, now >= window.end { return .drop }
+        // Readiness and report alerts are delivered at the next awake contact, even if their original
+        // morning/evening window passed while iOS had not refreshed the app.
+        var window = interval(of: item.window, after: reference, times: times, calendar: calendar)
+        let reportKind = PFInboxLogic529.reportKinds.contains(kind)
+        if let window, now >= window.end {
+            if reportKind { window = nil } else { return .drop }
+        }
 
         if isRecordingWorkout { return .hold }
         if isAsleep ?? isQuietByClock(now, times: times, calendar: calendar) { return .hold }
