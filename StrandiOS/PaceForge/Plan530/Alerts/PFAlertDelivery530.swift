@@ -48,7 +48,7 @@ enum PFAlertDelivery530 {
         // morning/evening window passed while iOS had not refreshed the app.
         var window = interval(of: item.window, after: reference, times: times, calendar: calendar)
         let reportKind = PFInboxLogic529.reportKinds.contains(kind)
-        if let window, now >= window.end {
+        if let currentWindow = window, now >= currentWindow.end {
             if reportKind { window = nil } else { return .drop }
         }
 
