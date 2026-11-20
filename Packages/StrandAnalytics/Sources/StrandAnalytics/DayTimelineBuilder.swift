@@ -286,13 +286,9 @@ extension DayTimeline {
                 minuteBpm: DetectedSegmentClassifier.minuteMeans(samples: hrSeries, start: d.startTs, end: d.endTs),
                 gait: d.gait, profile: input.segmentProfile)
             let figures = "\(durationText(length)) \u{00B7} avg \(d.avgBpm) bpm"
-            // No recording, but a planned session holds this slot and the heart rate is above walking: the strap
-            // calls it a walk whatever it was, so offer the plan's name instead (confirmed only by the user).
-            let planned: String? = match != nil || !(d.avgBpm >= plannedEffortAvgBpm || d.peakBpm >= plannedEffortPeakBpm) ? nil :
-                input.planned.first { p in
-                    guard let start = p.startTs, let mins = p.durationMin else { return false }
-                    return overlapsEnough(aStart: d.startTs, aEnd: d.endTs, bStart: start, bEnd: start + mins * 60)
-                }?.title
+            // Time overlap and heart rate do not identify a sport or prove a planned workout happened.
+            // Only a recorded workout can confirm the plan association here.
+            let planned: String? = nil
             events.append(Event(
                 id: "detected-\(d.startTs)-\(d.endTs)", kind: .detected, start: date(d.startTs), end: date(d.endTs),
                 title: match?.sport ?? planned ?? (guess == .walk ? "Walk" : "Looks like a workout"),

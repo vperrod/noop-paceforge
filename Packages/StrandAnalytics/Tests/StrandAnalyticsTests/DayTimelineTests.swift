@@ -324,12 +324,13 @@ final class DayTimelineTests: XCTestCase {
                        ["Running", "Running", "Already recorded \u{00B7} 36 min \u{00B7} avg 150 bpm"])
     }
 
-    func testAnUnrecordedEffortWindowInsideAPlannedSlotIsOfferedAsThePlan() {
+    func testAnUnrecordedEffortWindowInsideAPlannedSlotIsNotClaimedAsThePlan() {
         var i = input()
         i.planned = [.init(id: "p", title: "Cardio Class", startTs: at(18), durationMin: 45)]
         i.detected = [.init(startTs: at(18, 2), endTs: at(18, 40), avgBpm: 120, peakBpm: 150)]
         let e = events(DayTimeline.build(i), .detected).first
-        XCTAssertEqual([e?.title, e?.suggestion?.plannedAs], ["Cardio Class", "Cardio Class"])
+        XCTAssertEqual(e?.title, "Looks like a workout")
+        XCTAssertNil(e?.suggestion?.plannedAs)
     }
 
     func testACalmWindowInsideAPlannedSlotStaysAWalk() {
