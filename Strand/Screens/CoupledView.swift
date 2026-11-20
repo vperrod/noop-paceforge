@@ -56,6 +56,16 @@ struct CoupledView: View {
     /// Today's day key, tracking the resolved row when one exists (the Today idiom).
     private var todayKey: String { day?.day ?? Repository.logicalDayKey(Date()) }
 
+    /// The strap-side Effort is an HR-based NOOP estimate; imported strain keeps its source visible.
+    private var effortSourceLabel: String {
+        switch repo.dailySourceLabel(day: todayKey, hasValue: { $0.strain != nil }) {
+        case "WHOOP strap": return String(localized: "NOOP estimate")
+        case "WHOOP": return String(localized: "Imported")
+        case .some(let label): return label
+        case .none: return "Effort"
+        }
+    }
+
     /// Recovery cold-start: nights banked so far while the HRV baseline still seeds, nil once recovery
     /// exists. The SAME pure helper Today's ring reads, so the two screens can't disagree.
     private var calibrationNights: Int? {
@@ -299,7 +309,7 @@ struct CoupledView: View {
                 // Only the gauge and stats read as one element; the effort-target line below keeps its own
                 // accessibility identity (a combined parent swallows its children's identifiers).
                 VStack(alignment: .leading, spacing: 14) {
-                    SectionHeader("Day Strain", overline: "Effort", trailing: strainBandWord)
+                    SectionHeader("Day Strain", overline: effortSourceLabel, trailing: strainBandWord)
                     HStack(alignment: .center, spacing: 16) {
                         // Left: the liquid vessel filled to the 0–21 Day-Strain fraction (Effort world), with the
                         // strain value counting up over the fluid — the coupled read on the classic 0–21 axis.

@@ -920,6 +920,13 @@ struct TodayView: View {
 
     /// The provider name behind a derived score, or nil when the attribution is unavailable.
     private func provenanceLabel(_ metricKey: String) -> String? {
+        if metricKey == "strain", let day = displayDay {
+            switch repo.dailySourceLabel(day: day.day, hasValue: { $0.strain != nil }) {
+            case "WHOOP strap": return String(localized: "NOOP estimate")
+            case "WHOOP": return String(localized: "Imported")
+            default: break
+            }
+        }
         guard let provider = providerByMetric[metricKey] else { return nil }
         return Self.todayScoreProviderLabel(sourceId: provider.sourceId, brand: provider.brand)
     }
@@ -3205,7 +3212,7 @@ struct TodayView: View {
         // generous spacing, mirroring the flat mockup. Sized off width so they stay equal on any phone.
         let ring = Self.heroRingDiameter(rowWidth: measured)
         HStack(alignment: .top, spacing: 22) {
-            // Component 4: Charge/Rest badge their real per-day merge winner; Effort has no badge.
+            // Component 4: show each score's real per-day source, including the NOOP Effort estimate.
             // A1 (#514/#706): the Charge ring is TAPPABLE (a small chevron cue overlays the ring's bottom
             // edge, INSIDE the ring frame so it adds no stacked height, keeping the #762 self-sizing row
             // untouched). It opens the Charge breakdown sheet (the existing ChargeBreakdownSection), built
@@ -3224,7 +3231,7 @@ struct TodayView: View {
                            onOpenBreakdown: { showChargeBreakdown = true }) {
                 chargeRing(score: score, d: d, diameter: ring).hiddenWhenPrivate(.scores, name: "Charge")
             }
-            heroRingColumn(section: .effort, domain: .effort,
+            heroRingColumn(section: .effort, domain: .effort, provenanceKey: "strain",
                            detailRoute: .metric(HeroRingMetric.effort)) { effortRing(d: d, diameter: ring).hiddenWhenPrivate(.scores, name: "Effort") }
             // `provenanceKey` spells the same string the route does and stays a literal on purpose: it
             // asks which SOURCE won this day, not which catalog entry to open. See `HeroRingMetric`.

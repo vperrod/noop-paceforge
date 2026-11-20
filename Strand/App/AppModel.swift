@@ -2194,6 +2194,10 @@ final class AppModel: ObservableObject {
     /// nil band → no target → no notification. Android twin: AppViewModel's days-collector call.
     func evaluateStrainTarget() {
         guard let row = repo.today else { return }
+        // A personal recovery-to-strain nudge is only meaningful when strain came from an imported
+        // WHOOP score. The strap-side score is NOOP's HR-only estimate, not WHOOP's native value; do not
+        // present that estimate as an authoritative target attainment.
+        guard repo.dailySourceLabel(day: row.day, hasValue: { $0.strain != nil }) == "WHOOP" else { return }
         StrainTargetNotifier.onDayUpdate(
             day: row.day,
             dayStrain21: row.strain.map { UnitFormatter.effortValue($0, scale: .whoop) },

@@ -2759,10 +2759,9 @@ struct LiquidTodayView: View {
         var seen = Set<String>()
         var labels: [String] = []
         for provider in providers {
-            let label = TodayView.todayScoreProviderLabel(
-                sourceId: provider.sourceId,
-                brand: provider.brand
-            )
+            let label = provider.sourceId.hasSuffix("-noop")
+                ? String(localized: "NOOP estimate")
+                : TodayView.todayScoreProviderLabel(sourceId: provider.sourceId, brand: provider.brand)
             if seen.insert(label).inserted { labels.append(label) }
             if labels.count == 2 { break }
         }
