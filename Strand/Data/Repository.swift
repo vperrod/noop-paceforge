@@ -1050,7 +1050,8 @@ final class Repository: ObservableObject {
                     into: Self.mergePaceForgeGarmin(
                         into: Self.mergeDaily(imported: imported, computed: computed,
                                               userEditedDays: editedDays),
-                        paceForgeGarmin),
+                            paceForgeGarmin,
+                            preserveRecoveryDays: Set(imported.filter { $0.recovery != nil }.map(\.day))),
                     activityFile),
                 // From the two buckets BEFORE `mergeDaily` blends them: the rule needs to know which nights
                 // are imported and which are the wearer's own.
@@ -1159,14 +1160,34 @@ final class Repository: ObservableObject {
         return byDay.values.sorted { $0.day < $1.day }
     }
 
-    /// Garmin metrics fetched through PaceForge fill missing fields only; they never replace NOOP/WHOOP data.
+    /// Garmin metrics fetched through PaceForge fill missing fields. When Garmin has enough overnight
+    /// measurements to score Charge, use that source-specific result instead of a strap-only estimate;
+    /// an imported WHOOP recovery score remains authoritative.
     nonisolated static func mergePaceForgeGarmin(into base: [DailyMetric],
-                                                 _ garmin: [DailyMetric]) -> [DailyMetric] {
+                                                 _ garmin: [DailyMetric],
+                                                 preserveRecoveryDays: Set<String> = []) -> [DailyMetric] {
         guard !garmin.isEmpty else { return base }
         var byDay = Dictionary(base.map { ($0.day, $0) }, uniquingKeysWith: { _, last in last })
         for row in paceForgeGarminRecoveryRows(garmin) {
             if let existing = byDay[row.day] {
-                byDay[row.day] = coalesceDay(existing, row)
+                var merged = coalesceDay(existing, row)
+                // `paceForgeGarminRecoveryRows` scores from Garmin's own overnight HRV/RHR/sleep history.
+                // The old merge retained a non-nil NOOP strap estimate, so Garmin could never affect a
+                // day that already had strap data. Preserve an actual imported recovery score; replace
+                // only NOOP-computed Charge and its component readings with the Garmin-sourced values.
+                if !preserveRecoveryDays.contains(row.day), let garminRecovery = row.recovery {
+                    merged.recovery = garminRecovery
+                    merged.avgHrv = row.avgHrv ?? merged.avgHrv
+                    merged.restingHr = row.restingHr ?? merged.restingHr
+                    merged.respRateBpm = row.respRateBpm ?? merged.respRateBpm
+                    merged.skinTempDevC = row.skinTempDevC ?? merged.skinTempDevC
+                    merged.spo2Pct = row.spo2Pct ?? merged.spo2Pct
+                    if row.totalSleepMin != nil || row.efficiency != nil || row.deepMin != nil
+                        || row.remMin != nil || row.lightMin != nil {
+                        merged = merged.takingSleepFields(from: row)
+                    }
+                }
+                byDay[row.day] = merged
             } else {
                 byDay[row.day] = row
             }
@@ -1174,10 +1195,9 @@ final class Repository: ObservableObject {
         return byDay.values.sorted { $0.day < $1.day }
     }
 
-    /// When Garmin is the only source for a night, derive NOOP's transparent recovery proxy from
-    /// Garmin's overnight HRV and resting HR. The baseline is Garmin-only and prior-night-only; this
-    /// never replaces an imported WHOOP/NOOP score because `coalesceDay` keeps the existing value.
-    /// Garmin's `avgHrv` is its overnight HRV (RMSSD), so this does not use Apple Watch/HealthKit data.
+    /// Derive NOOP's transparent Garmin-based recovery proxy from Garmin's overnight HRV and resting HR.
+    /// The baseline is Garmin-only and prior-night-only. Garmin's `avgHrv` is its overnight RMSSD, so this
+    /// does not mix Apple Watch/HealthKit values into a Garmin baseline.
     nonisolated static func paceForgeGarminRecoveryRows(_ rows: [DailyMetric]) -> [DailyMetric] {
         let ordered = rows.sorted { $0.day < $1.day }
         var scored: [DailyMetric] = []

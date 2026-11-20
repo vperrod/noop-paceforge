@@ -33,7 +33,7 @@ struct ScoreReadoutCard: View {
                         .foregroundStyle(NoopLook.textTertiary)
                         .accessibilityIdentifier("score-readout-calibrating")
                 }
-                Text("NOOP, from your WHOOP strap")
+                Text("NOOP estimate from available device metrics")
                     .font(LookFont.text(12, weight: .medium))
                     .foregroundStyle(NoopLook.textTertiary)
             }

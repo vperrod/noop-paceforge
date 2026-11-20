@@ -727,12 +727,9 @@ struct CoupledView: View {
 
     /// The pure recovery→optimal-strain band. Returns nil when recovery is unknown. Bands per the doc above.
     static func optimalStrainRange(recovery: Double?) -> ClosedRange<Int>? {
-        guard let r = recovery else { return nil }
-        switch r {
-        case 67...:   return 14...18
-        case 34..<67: return 10...14
-        default:      return 4...10
-        }
+        // Do not turn NOOP's unvalidated, baseline-derived Charge estimate into a strain target.
+        // A target needs an explicit, data-backed plan; recovery bands alone are not one.
+        return nil
     }
 
     /// The optimal band as display text ("14 to 18" / "—"). Byte-identical formatting to Android.
