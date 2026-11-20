@@ -309,7 +309,7 @@ struct CoupledView: View {
                 // Only the gauge and stats read as one element; the effort-target line below keeps its own
                 // accessibility identity (a combined parent swallows its children's identifiers).
                 VStack(alignment: .leading, spacing: 14) {
-                    SectionHeader("Day Strain", overline: effortSourceLabel, trailing: strainBandWord)
+                    SectionHeader("Day Strain", overline: LocalizedStringKey(effortSourceLabel), trailing: strainBandWord)
                     HStack(alignment: .center, spacing: 16) {
                         // Left: the liquid vessel filled to the 0–21 Day-Strain fraction (Effort world), with the
                         // strain value counting up over the fluid — the coupled read on the classic 0–21 axis.

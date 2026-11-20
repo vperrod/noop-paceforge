@@ -1170,24 +1170,16 @@ final class Repository: ObservableObject {
         var byDay = Dictionary(base.map { ($0.day, $0) }, uniquingKeysWith: { _, last in last })
         for row in paceForgeGarminRecoveryRows(garmin) {
             if let existing = byDay[row.day] {
-                var merged = coalesceDay(existing, row)
                 // `paceForgeGarminRecoveryRows` scores from Garmin's own overnight HRV/RHR/sleep history.
                 // The old merge retained a non-nil NOOP strap estimate, so Garmin could never affect a
                 // day that already had strap data. Preserve an actual imported recovery score; replace
                 // only NOOP-computed Charge and its component readings with the Garmin-sourced values.
-                if !preserveRecoveryDays.contains(row.day), let garminRecovery = row.recovery {
-                    merged.recovery = garminRecovery
-                    merged.avgHrv = row.avgHrv ?? merged.avgHrv
-                    merged.restingHr = row.restingHr ?? merged.restingHr
-                    merged.respRateBpm = row.respRateBpm ?? merged.respRateBpm
-                    merged.skinTempDevC = row.skinTempDevC ?? merged.skinTempDevC
-                    merged.spo2Pct = row.spo2Pct ?? merged.spo2Pct
-                    if row.totalSleepMin != nil || row.efficiency != nil || row.deepMin != nil
-                        || row.remMin != nil || row.lightMin != nil {
-                        merged = merged.takingSleepFields(from: row)
-                    }
-                }
-                byDay[row.day] = merged
+                // DailyMetric is immutable: choose Garmin as the winner only when it actually produced a
+                // score, then let the normal source coalescer fill any fields Garmin lacks.
+                let useGarminRecovery = !preserveRecoveryDays.contains(row.day) && row.recovery != nil
+                byDay[row.day] = useGarminRecovery
+                    ? coalesceDay(row, existing)
+                    : coalesceDay(existing, row)
             } else {
                 byDay[row.day] = row
             }
