@@ -162,7 +162,7 @@ private struct PFStepGoalCard: View {
     private var isWriting: Bool { job.phase == .sending || job.phase == .working }
 
     var body: some View {
-        PFCard(title: "Your daily step goal", icon: "figure.walk") {
+        PFCard("Your daily step goal", icon: "figure.walk") {
             VStack(alignment: .leading, spacing: 10) {
                 if let goal = document["target"].int {
                     Text(document["steps"].int.map { "\($0.formatted()) of \(goal.formatted()) steps" }
