@@ -448,11 +448,11 @@ private struct LiftExerciseRecordHistory: View {
     @Environment(\.dismiss) private var dismiss
 
     private struct Point: Identifiable {
-        let set: LiftSetRow
+        let row: LiftSetRow
         let date: Date
         let estimate: Double?
         let isRecord: Bool
-        var id: String { set.id }
+        var id: String { row.id }
     }
 
     private var points: [Point] {
@@ -468,7 +468,7 @@ private struct LiftExerciseRecordHistory: View {
                 ? LiftMetrics.estimatedOneRepMaxKg(weightKg: set.weightKg, reps: set.reps) : nil
             let record = estimate.map { value in best.map { value > $0 } ?? false } ?? false
             if let estimate { best = max(best ?? estimate, estimate) }
-            return Point(set: set, date: Date(timeIntervalSince1970: TimeInterval(dates[set.sessionId] ?? 0)),
+            return Point(row: set, date: Date(timeIntervalSince1970: TimeInterval(dates[set.sessionId] ?? 0)),
                          estimate: estimate, isRecord: record)
         }
     }
@@ -480,9 +480,9 @@ private struct LiftExerciseRecordHistory: View {
                     ForEach(points) { point in
                         VStack(alignment: .leading, spacing: 5) {
                             Text(point.date.formatted(date: .abbreviated, time: .shortened)).font(StrandFont.caption)
-                            Text("\(point.set.weightKg.map { LiftFormat.weight($0, system: unitSystem) } ?? "Weight not recorded") × \(point.set.reps.map(String.init) ?? "?") reps")
+                            Text("\(point.row.weightKg.map { LiftFormat.weight($0, system: unitSystem) } ?? "Weight not recorded") × \(point.row.reps.map(String.init) ?? "?") reps")
                                 .font(StrandFont.subhead)
-                            if point.set.isWarmup { Text("Warm-up · excluded from records").font(StrandFont.caption) }
+                            if point.row.isWarmup { Text("Warm-up · excluded from records").font(StrandFont.caption) }
                             if let estimate = point.estimate {
                                 Text("≈ \(LiftFormat.weight(estimate, system: unitSystem)) estimated 1RM\(point.isRecord ? " · new recorded best" : "")")
                                     .font(StrandFont.caption).foregroundStyle(StrandPalette.textSecondary)
