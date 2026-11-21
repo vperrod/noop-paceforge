@@ -3,6 +3,23 @@ import GRDB
 @testable import WhoopStore
 
 final class LiftLogStoreTests: XCTestCase {
+    func testRecordedHistoryExcludesUnfinishedAndOtherSourceSessions() async throws {
+        let store = try await WhoopStore.inMemory()
+        let finished = mkSession(id: "finished", startTs: 1000, endTs: 1600, programId: nil)
+        let running = mkSession(id: "running", startTs: 2000, programId: nil)
+        var other = mkSession(id: "other", startTs: 1200, endTs: 1800, programId: nil)
+        other.deviceId = "another-source"
+        _ = try await store.upsertLiftSessions([finished, running, other])
+        var foreignSet = mkSet(id: "foreign", sessionId: "other", ord: 0, setIndex: 1)
+        foreignSet.deviceId = "another-source"
+        _ = try await store.upsertLiftSets([
+            mkSet(id: "recorded", sessionId: "finished", ord: 0, setIndex: 1),
+            mkSet(id: "not-finished", sessionId: "running", ord: 0, setIndex: 1), foreignSet])
+        let records = try await store.finishedLiftSets(deviceId: dev, fromTs: 900, toTs: 2200)
+        XCTAssertEqual(records.map(\.id), ["recorded"])
+        let outside = try await store.finishedLiftSets(deviceId: dev, fromTs: 1700, toTs: 2200)
+        XCTAssertTrue(outside.isEmpty)
+    }
 
     // MARK: - v46 migration (additive: five new tables + indexes, nothing dropped)
 

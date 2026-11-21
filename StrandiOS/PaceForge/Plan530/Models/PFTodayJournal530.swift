@@ -4,6 +4,8 @@ import Foundation
 /// whether any behaviour has a clear result. Its own small reader, so the card does not depend on the journal sheets' model (it only reads
 /// the keys named in the build-530 contract). Every field is optional, every list keeps its good elements.
 struct PFTodayJournal530: Decodable, Equatable {
+    var asOf: String? = nil
+    var stale: Bool? = nil
     var week: [Day]?
     var prompts: [Prompt]?
     var list: [Question]?
@@ -23,6 +25,8 @@ struct PFTodayJournal530: Decodable, Equatable {
         var body: String?
         var open: Int?
         var state: String?
+        var selectedKeys: [String]? = nil
+        var openKeys: [String]? = nil
     }
 
     struct Question: Decodable, Equatable {
@@ -57,11 +61,11 @@ struct PFTodayJournal530: Decodable, Equatable {
     }
 
     private enum CodingKeys: String, CodingKey {
-        case week, prompts, list, auto, insights
+        case week, prompts, list, auto, insights, asOf, stale
     }
 
     fileprivate enum DayKeys: String, CodingKey { case date, logged }
-    fileprivate enum PromptKeys: String, CodingKey { case window, title, body, open, state }
+    fileprivate enum PromptKeys: String, CodingKey { case window, title, body, open, state, selectedKeys, openKeys }
     fileprivate enum QuestionKeys: String, CodingKey { case key, label, prompt, hint, kind, window, about, yes, no }
     fileprivate enum AutoDayKeys: String, CodingKey { case date, answers }
     fileprivate enum AutoAnswerKeys: String, CodingKey { case id, label, answer }
@@ -69,6 +73,8 @@ struct PFTodayJournal530: Decodable, Equatable {
 
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
+        asOf = c.pfLossy(String.self, .asOf)
+        stale = c.pfLossy(Bool.self, .stale)
         week = c.pfLossyList(Day.self, .week)
         prompts = c.pfLossyList(Prompt.self, .prompts)
         list = c.pfLossyList(Question.self, .list)
@@ -93,6 +99,8 @@ extension PFTodayJournal530.Prompt {
         body = c.pfLossy(String.self, .body)
         open = c.pfLossy(Int.self, .open)
         state = c.pfLossy(String.self, .state)
+        selectedKeys = c.pfLossy([String].self, .selectedKeys)
+        openKeys = c.pfLossy([String].self, .openKeys)
     }
 }
 
@@ -154,6 +162,22 @@ enum PFTodayJournalLogic530 {
         var isToday: Bool
         var isFuture: Bool
         var logged: Bool
+    }
+
+    struct DueAssignment: Equatable {
+        let window: String
+        let questions: [PFTodayJournal530.Question]
+    }
+
+    static func dueAssignment(_ doc: PFTodayJournal530?, today: String) -> DueAssignment? {
+        guard let doc, doc.stale != true, doc.asOf == nil || doc.asOf == today,
+              let due = (doc.prompts ?? []).first(where: { $0.state == "due" && ($0.open ?? 0) > 0 }),
+              let window = due.window else { return nil }
+        let assigned = due.openKeys ?? due.selectedKeys
+        let questions = (doc.list ?? []).filter {
+            $0.window == window && $0.key != nil && (assigned?.contains($0.key ?? "") ?? true)
+        }
+        return questions.isEmpty ? nil : DueAssignment(window: window, questions: questions)
     }
 
     private static let letters = ["M", "T", "W", "T", "F", "S", "S"]

@@ -12,6 +12,11 @@ import StrandDesign
 struct IntervalTimerView: View {
     @EnvironmentObject private var model: AppModel
     @EnvironmentObject private var live: LiveState
+    @Environment(\.scenePhase) private var scenePhase
+    @AppStorage("noop.intervalTimer.doubleTapAdvance") private var doubleTapAdvance = false
+    @State private var gestureOwner = UUID()
+    private struct SkippedPhase { let phase: Phase; let round: Int; let remaining: Int }
+    @State private var skippedPhase: SkippedPhase?
 
     // MARK: Config (persisted only in-view)
 
@@ -99,6 +104,7 @@ struct IntervalTimerView: View {
                     AnyView(stageCard),
                     AnyView(overviewCard),
                     AnyView(configCard),
+                    AnyView(gestureCard),
                 ]
                 ForEach(Array(cards.enumerated()), id: \.offset) { index, card in
                     card.staggeredAppear(index: index)
@@ -106,19 +112,33 @@ struct IntervalTimerView: View {
             }
         }
         .onReceive(ticker) { _ in tick() }
+        .onReceive(NotificationCenter.default.publisher(for: Notification.Name("noop.intervalTimer.advance"))) { note in
+            guard note.object as? UUID == gestureOwner, doubleTapAdvance, running,
+                  scenePhase == .active, !isFinished else { return }
+            skippedPhase = SkippedPhase(phase: phase, round: currentRound, remaining: remaining)
+            advancePhase()
+        }
+        .onChangeCompat(of: doubleTapAdvance) { _ in updateGestureClaim() }
+        .onChangeCompat(of: scenePhase) { _ in updateGestureClaim() }
         .onChangeCompat(of: workSeconds) { _ in if !running { resetToStart() } }
         .onChangeCompat(of: restSeconds) { _ in if !running { resetToStart() } }
         .onChangeCompat(of: rounds) { _ in
             if currentRound > rounds { currentRound = rounds }
             if !running { resetToStart() }
         }
-        .onAppear { if remaining == 0 { resetToStart() } }
+        .onAppear {
+            if remaining == 0 { resetToStart() }
+            updateGestureClaim()
+        }
         // Keep the screen awake while a session runs (no-op on macOS). One onChange covers
         // every running→false transition — manual pause, auto-finish, and reset — and the
         // onDisappear is a safety net so navigating away mid-run never leaves the idle timer
         // disabled app-wide.
-        .onChangeCompat(of: running) { ScreenIdle.keepAwake($0) }
-        .onDisappear { ScreenIdle.keepAwake(false) }
+        .onChangeCompat(of: running) { ScreenIdle.keepAwake($0); updateGestureClaim() }
+        .onDisappear {
+            ScreenIdle.keepAwake(false)
+            if model.intervalDoubleTapOwner == gestureOwner { model.intervalDoubleTapOwner = nil }
+        }
         #if os(iOS)
         // iPhone haptics: one modifier emits a different feel per cue, re-firing on every
         // token bump. Fires regardless of strap bond so the timer is fully usable unstrapped.
@@ -269,6 +289,39 @@ struct IntervalTimerView: View {
                 stopAndReset()
             }
             .disabled(!running && remaining == phaseDuration && currentRound == 1 && phase == .work && elapsed == 0)
+        }
+    }
+
+    private var gestureCard: some View {
+        StrandCard {
+            VStack(alignment: .leading, spacing: 10) {
+                Toggle("Double-tap strap to advance", isOn: $doubleTapAdvance)
+                Text("While this timer is open and running, a live double-tap skips to the next interval. Lift Log keeps priority during a lifting session. Your configured strap action resumes when you pause or leave.")
+                    .font(StrandFont.caption).foregroundStyle(StrandPalette.textSecondary)
+                if let skippedPhase {
+                    Button("Undo last interval skip") {
+                        phase = skippedPhase.phase
+                        currentRound = skippedPhase.round
+                        remaining = skippedPhase.remaining
+                        running = false
+                        self.skippedPhase = nil
+                        updateGestureClaim()
+                    }
+                    .buttonStyle(.bordered)
+                    Text("Undo restores the interval paused. Press Start to resume.")
+                        .font(StrandFont.caption).foregroundStyle(StrandPalette.textTertiary)
+                }
+            }
+        }
+    }
+
+    private func updateGestureClaim() {
+        if doubleTapAdvance && running && !isFinished && scenePhase == .active {
+            if model.intervalDoubleTapOwner == nil || model.intervalDoubleTapOwner == gestureOwner {
+                model.intervalDoubleTapOwner = gestureOwner
+            }
+        } else if model.intervalDoubleTapOwner == gestureOwner {
+            model.intervalDoubleTapOwner = nil
         }
     }
 
@@ -465,6 +518,7 @@ struct IntervalTimerView: View {
 
     /// Reset run state back to round 1 / start of work, using current config.
     private func resetToStart() {
+        skippedPhase = nil
         phase = .work
         currentRound = 1
         remaining = max(1, workSeconds)

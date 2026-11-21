@@ -165,6 +165,8 @@ struct PFWorkout: Identifiable {
     var notes: String?
     /// The Garmin activity this session was matched to, if it has been done.
     var activityId: String?
+    /// Every Garmin recording included in this planned session's combined comparison.
+    var matchedActivityIds: [String] = []
     /// The real planned/calendar session id, or nil for activity-only and synthetic review rows.
     var coachSessionID: String?
 
@@ -298,6 +300,7 @@ struct PFCoach {
     var take: PFTake?
     var weeklyReview: PFWeeklyReview?
     var chat: [PFChatTurn] = []
+    var workoutChat: [PFChatTurn] = []
 }
 struct PFBrief { var date: String?; var headline: String; var outlook: [String]?; var sourceContext: String? = nil }
 struct PFTake {
@@ -329,7 +332,10 @@ struct PFReviewSession { var date: String; var name: String; var completed: Bool
 struct PFFatigue { var kind: String?; var text: String }
 struct PFChatTurn: Identifiable {
     var role: String; var text: String; var ts: String
-    var id: String { ts + role }
+    var sessionID: String? = nil
+    var requestID: String? = nil
+    var proposalIDs: [String] = []
+    var id: String { (requestID ?? ts) + role + (sessionID ?? "") }
 }
 
 // MARK: Week

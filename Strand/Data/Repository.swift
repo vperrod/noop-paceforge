@@ -1192,6 +1192,12 @@ final class Repository: ObservableObject {
     /// does not mix Apple Watch/HealthKit values into a Garmin baseline.
     nonisolated static func paceForgeGarminRecoveryRows(_ rows: [DailyMetric]) -> [DailyMetric] {
         let ordered = rows.sorted { $0.day < $1.day }
+        let nightlyHours = ordered.compactMap { day -> Double? in
+            guard let minutes = day.totalSleepMin, minutes > 0 else { return nil }
+            return minutes / 60.0
+        }
+        let needHours = AnalyticsEngine.Rest.personalizedNeedHours(nightlyHours: nightlyHours, age: nil)
+        let consistency = VitalityEngine.sleepConsistency(nightlyHours: Array(nightlyHours.suffix(28)))
         var scored: [DailyMetric] = []
         for (index, day) in ordered.enumerated() {
             guard day.recovery == nil, let hrv = day.avgHrv else {
@@ -1207,7 +1213,8 @@ final class Repository: ObservableObject {
             let rhrBaseline = Baselines.foldHistory(prior.map { $0.restingHr.map(Double.init) },
                                                     cfg: Baselines.restingHRCfg)
             let respBaseline = Baselines.foldHistory(prior.map(\.respRateBpm), cfg: Baselines.respCfg)
-            let restQuality = AnalyticsEngine.Rest.composite(daily: day).map { $0 / 100.0 } ?? day.efficiency
+            let restQuality = AnalyticsEngine.Rest.composite(daily: day, needHours: needHours,
+                                                               consistency: consistency).map { $0 / 100.0 } ?? day.efficiency
             let recovery = RecoveryScorer.recovery(
                 hrv: hrv,
                 rhr: Double(day.restingHr ?? Int(rhrBaseline.baseline.rounded())),
@@ -2011,7 +2018,7 @@ final class Repository: ObservableObject {
         if source == "paceforge-garmin" {
             let rows = (try? await store.dailyMetrics(deviceId: source, from: from, to: to)) ?? []
             return rows.compactMap { row in
-                Self.dailyColumn(key: key, day: row).map { (day: row.day, value: $0) }
+                Self.dailyColumn(key: key, day: row, history: rows).map { (day: row.day, value: $0) }
             }
         }
         let pts: [MetricPoint]
@@ -2509,7 +2516,7 @@ final class Repository: ObservableObject {
         if let dailyRows = try? await store.dailyMetrics(deviceId: candidate.source,
                                                          from: from, to: Self.dayAfter(to)) {
             for row in dailyRows where byDay[row.day] == nil {
-                if let value = Self.dailyColumn(key: candidate.key, day: row) { byDay[row.day] = value }
+                if let value = Self.dailyColumn(key: candidate.key, day: row, history: dailyRows) { byDay[row.day] = value }
             }
         }
         return byDay.keys.sorted().compactMap { day in byDay[day].map { (day, $0) } }
@@ -2646,7 +2653,7 @@ final class Repository: ObservableObject {
         // Layer 3 (lowest): merged daily column for keys that have one. `self.days` is the published
         // imported ∪ computed daily cache (parameter `days` is the lookback window, not this).
         for d in self.days where byDay[d.day] == nil {
-            if let v = Self.dailyColumn(key: key, day: d) { byDay[d.day] = v }
+            if let v = Self.dailyColumn(key: key, day: d, history: self.days) { byDay[d.day] = v }
         }
         // Layer 2: computed metricSeries (covers sleep_performance, which has no daily column). UNION the
         // active strap's computed sibling + the canonical computed sibling (canonical first so the active
@@ -2768,7 +2775,8 @@ final class Repository: ObservableObject {
     /// Internal + nonisolated (not private) so the pure `EditMergePrecedenceTests` can exercise the #614
     /// derivation directly off the main actor, the same way Android's `internal fun dailyColumn` is
     /// unit-tested. No non-test caller outside this type.
-    nonisolated static func dailyColumn(key: String, day d: DailyMetric) -> Double? {
+    nonisolated static func dailyColumn(key: String, day d: DailyMetric,
+                                        history: [DailyMetric] = []) -> Double? {
         switch key {
         case "recovery":         return d.recovery
         case "hrv":              return d.avgHrv
@@ -2782,7 +2790,15 @@ final class Repository: ObservableObject {
         case "sleep_deep_min", "deep_min": return d.deepMin
         case "sleep_rem_min", "rem_min":   return d.remMin
         case "sleep_light_min", "core_min": return d.lightMin
-        case "sleep_performance": return AnalyticsEngine.Rest.composite(daily: d)
+        case "sleep_performance":
+            let rows = history.isEmpty ? [d] : history
+            let nightlyHours = rows.compactMap { row -> Double? in
+                guard let minutes = row.totalSleepMin, minutes > 0 else { return nil }
+                return minutes / 60.0
+            }
+            let need = AnalyticsEngine.Rest.personalizedNeedHours(nightlyHours: nightlyHours, age: nil)
+            let consistency = VitalityEngine.sleepConsistency(nightlyHours: Array(nightlyHours.suffix(28)))
+            return AnalyticsEngine.Rest.composite(daily: d, needHours: need, consistency: consistency)
         case "steps":            return d.steps.map(Double.init)
         case "active_kcal", "energy_kcal": return d.activeKcalEst
         default:                 return nil

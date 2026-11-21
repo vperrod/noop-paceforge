@@ -150,6 +150,19 @@ final class DayCycleRecoveryTests: XCTestCase {
         }
     }
 
+    func testPass2UsesTheSamePersonalSleepInputsAsTheDisplayedRest() {
+        let daily = recoveryDailyFixture()
+        let baselines = AnalyticsEngine.ProfileBaselines(hrv: recoveryBaseline(50, spread: 6))
+        let result = IntelligenceEngine.recomputeRecoveryDaily(
+            daily, nightlySkinTempC: nil, baselines: baselines,
+            needHours: 9, consistency: 0.8)
+        let rest = AnalyticsEngine.Rest.composite(daily: daily, needHours: 9, consistency: 0.8)
+        let expected = RecoveryScorer.recovery(
+            hrv: 48, rhr: 58, resp: 15, hrvBaseline: baselines.hrv!, rhrBaseline: nil,
+            respBaseline: nil, sleepPerf: rest.map { $0 / 100.0 }, skinTempDev: nil)
+        XCTAssertEqual(result.recovery, expected)
+    }
+
     private func recoveryBaseline(_ mean: Double, spread: Double,
                                   status: BaselineStatus = .trusted) -> BaselineState {
         BaselineState(baseline: mean, spread: spread,

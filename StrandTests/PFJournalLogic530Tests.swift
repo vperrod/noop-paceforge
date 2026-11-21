@@ -47,6 +47,18 @@ final class PFJournalLogic530Tests: XCTestCase {
         XCTAssertEqual(Logic.questions(in: list, window: "morning").compactMap(\.key), ["A", "C"])
     }
 
+    func testDailyAssignmentDoesNotReopenEveryQuestionInTheCatalog() {
+        let list = [question("A"), question("B"), question("C")]
+        XCTAssertEqual(Logic.questions(in: list, window: "morning", selectedKeys: ["B"]).compactMap(\.key), ["B"])
+        XCTAssertTrue(Logic.questions(in: list, window: "morning", selectedKeys: []).isEmpty)
+        XCTAssertEqual(Logic.questions(in: list, window: "morning").count, 3)
+    }
+
+    func testALocalQuestionAlreadySharedWithTheWebIsNotAskedTwice() {
+        let local = question("A")
+        XCTAssertEqual(Logic.questions(in: [local], window: "morning", extra: [local], selectedKeys: ["A"]).count, 1)
+    }
+
     func testAQuestionWithoutAKeyIsLeftOut() {
         let list = [question("A"), Question(key: nil, label: "x", prompt: "x", hint: nil, kind: nil, window: "morning", about: nil, yes: nil,
                                            no: nil, state: nil, stateSource: nil, nYes: nil, nNo: nil)]

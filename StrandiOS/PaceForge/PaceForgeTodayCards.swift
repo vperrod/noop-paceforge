@@ -363,7 +363,7 @@ private struct PFHowYouAreCard: View {
                 VStack(alignment: .leading, spacing: 10) {
                     HStack(alignment: .top, spacing: 12) {
                         column("Garmin", readiness.garmin, lines: readiness.garminLines)
-                        column("WHOOP", readiness.strap)
+                        column("NOOP", readiness.strap)
                     }
                     if let line = caption { Text(line).font(StrandFont.caption).foregroundStyle(StrandPalette.textTertiary)
                         .fixedSize(horizontal: false, vertical: true).accessibilityIdentifier("pf-how-own") }
@@ -415,7 +415,7 @@ private struct PFHowYouAreCard: View {
             Image(systemName: agrees ? "checkmark.circle.fill" : "arrow.triangle.branch")
                 .font(StrandFont.caption.weight(.semibold))
                 .accessibilityHidden(true)
-            Text(agrees ? "Garmin and WHOOP agree" : "Garmin and WHOOP differ")
+            Text(agrees ? "Garmin and NOOP agree" : "Garmin and NOOP differ")
                 .font(StrandFont.caption.weight(.semibold))
         }
         .foregroundStyle(agrees ? PFColor.positive : PFColor.warning)

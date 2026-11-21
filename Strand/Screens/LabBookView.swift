@@ -48,6 +48,7 @@ struct LabBookView: View {
     @State private var csvImporting = false
     @State private var csvSummary: String?
     @State private var csvFailed = false
+    @State private var pendingCsv: LabCsvPreview?
 
     var body: some View {
         ScreenScaffold(
@@ -91,6 +92,9 @@ struct LabBookView: View {
         }
         .sheet(isPresented: $showingDisclaimer) {
             LabBookDisclaimerView()
+        }
+        .sheet(item: $pendingCsv) { preview in
+            csvPreviewSheet(preview)
         }
         // macOS picker for the markers CSV; iOS goes through DocumentPicker (see
         // presentCsvImporter) for the iCloud download-on-pick behaviour (#179).
@@ -217,10 +221,7 @@ struct LabBookView: View {
         #endif
     }
 
-    /// Parse a markers CSV (LabMarkerCsvImport) and upsert the readings into the Lab Book
-    /// under this device id with the `lab-csv` provenance tag; the daily `lab-book`
-    /// projection rides the store's upsert, then a refresh lets Compare/Explore/Coach see
-    /// the new markers.
+    /// Parse into a reviewable draft. Only the preview's Save action writes readings.
     private func importMarkersCsv(url: URL) {
         csvImporting = true
         csvSummary = nil
@@ -250,59 +251,133 @@ struct LabBookView: View {
                     csvImporting = false
                     return
                 }
-                guard let store = await repo.storeHandle() else {
-                    csvSummary = String(localized: "Couldn't open the local store.")
-                    csvFailed = true
-                    csvImporting = false
-                    return
-                }
-                let rows = result.rows.map { r -> LabMarkerRow in
-                    // Local noon of the row's literal day: deterministic, so re-importing
-                    // the same file updates in place (natural key
-                    // deviceId+markerKey+takenAt+source) instead of duplicating.
-                    let epoch = LabBookFormat.noonEpoch(r.day)
-                    return LabMarkerRow(
-                        id: "\(r.markerKey)-\(epoch)-\(UUID().uuidString.prefix(8))",
-                        deviceId: repo.deviceId,
-                        markerKey: r.markerKey,
-                        category: r.category.rawValue,
-                        day: r.day,
-                        takenAt: epoch,
-                        value: r.value,
-                        valueText: nil,
-                        unit: r.unit,
-                        source: sourceId,
-                        note: r.note,
-                        referenceText: nil
-                    )
-                }
-                try await store.upsertLabMarkers(rows)
-                await repo.refresh()   // re-resolves the lab-book projection into Compare/Explore/Coach
-                await load()
-                var msg = String(localized: "Imported \(result.importedReadings) readings (\(result.distinctMarkers) markers)")
-                if let a = result.earliestDay, let b = result.latestDay, a != b { msg += " · \(a)-\(b)" }
-                if result.skippedRows > 0 {
-                    // Whole-phrase variants per count; the separator stays outside the localized key.
-                    msg += " · " + (result.skippedRows == 1
-                                    ? String(localized: "1 row skipped")
-                                    : String(localized: "\(result.skippedRows) rows skipped"))
-                }
-                // A vendor export's not-measured markers ("--" / "No Data Available") are absent by
-                // design, not malformed — reported apart so a clean import doesn't look broken.
-                if result.notMeasured > 0 {
-                    msg += " · " + (result.notMeasured == 1
-                                    ? String(localized: "1 not measured")
-                                    : String(localized: "\(result.notMeasured) not measured"))
-                }
-                csvSummary = msg
-                csvFailed = false
-                logImport("Lab Book CSV: \(result.importedReadings) readings, \(result.distinctMarkers) markers, \(result.skippedRows) rejected")
+                pendingCsv = LabCsvPreview(result: result, sourceID: sourceId)
             } catch {
                 csvSummary = String(localized: "Import failed: \(error.localizedDescription)")
                 csvFailed = true
                 logImport("Lab Book CSV failed: \(error.localizedDescription)")
             }
             csvImporting = false
+        }
+    }
+
+    private struct LabCsvPreview: Identifiable {
+        let id = UUID()
+        let result: LabMarkerCsvResult
+        let sourceID: String
+    }
+
+    private func csvPreviewSheet(_ preview: LabCsvPreview) -> some View {
+        let replacements = preview.result.rows.filter { row in
+            markers.contains { $0.markerKey == row.markerKey && $0.takenAt == LabBookFormat.noonEpoch(row.day)
+                && $0.source == preview.sourceID && $0.deviceId == repo.deviceId }
+        }.count
+        return NavigationStack {
+            List {
+                Section("Review import") {
+                    Text("\(preview.result.importedReadings) readings · \(preview.result.distinctMarkers) markers")
+                    Text("\(replacements) existing readings will be updated. Other sources stay separate.")
+                    Text("Units are kept exactly as written. Check the marker, date, value and unit before saving.")
+                        .foregroundStyle(StrandPalette.textSecondary)
+                    if preview.result.skippedRows > 0 {
+                        Text("\(preview.result.skippedRows) unreadable rows will be skipped.")
+                    }
+                    if preview.result.notMeasured > 0 {
+                        Text("\(preview.result.notMeasured) unmeasured entries will be omitted.")
+                    }
+                }
+                Section("Readings") {
+                    ForEach(Array(preview.result.rows.enumerated()), id: \.offset) { _, row in
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(row.markerKey).font(StrandFont.headline)
+                            Text("\(row.day) · \(row.value.formatted()) \(row.unit)")
+                                .font(StrandFont.subhead)
+                            if row.isCustomMarker {
+                                Text("Custom marker").font(StrandFont.caption)
+                                    .foregroundStyle(StrandPalette.textSecondary)
+                            }
+                        }
+                    }
+                }
+                if csvFailed, let csvSummary {
+                    Text(csvSummary).foregroundStyle(StrandPalette.statusWarning)
+                }
+            }
+            .navigationTitle("Confirm lab import")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { pendingCsv = nil }.disabled(csvImporting)
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(csvImporting ? "Saving…" : "Save readings") {
+                        Task { await commitCsv(preview) }
+                    }.disabled(csvImporting)
+                }
+            }
+            .interactiveDismissDisabled(csvImporting)
+        }
+    }
+
+    @MainActor private func commitCsv(_ preview: LabCsvPreview) async {
+        guard !csvImporting else { return }
+        csvImporting = true
+        csvFailed = false
+        defer { csvImporting = false }
+        let result = preview.result
+        let sourceId = preview.sourceID
+        do {
+            guard let store = await repo.storeHandle() else {
+                csvSummary = String(localized: "Couldn't open the local store.")
+                csvFailed = true
+                csvImporting = false
+                return
+            }
+            let rows = result.rows.map { r -> LabMarkerRow in
+                // Local noon of the row's literal day: deterministic, so re-importing
+                // the same file updates in place (natural key
+                // deviceId+markerKey+takenAt+source) instead of duplicating.
+                let epoch = LabBookFormat.noonEpoch(r.day)
+                return LabMarkerRow(
+                    id: "\(r.markerKey)-\(epoch)-\(UUID().uuidString.prefix(8))",
+                    deviceId: repo.deviceId,
+                    markerKey: r.markerKey,
+                    category: r.category.rawValue,
+                    day: r.day,
+                    takenAt: epoch,
+                    value: r.value,
+                    valueText: nil,
+                    unit: r.unit,
+                    source: sourceId,
+                    note: r.note,
+                    referenceText: nil
+                )
+            }
+            try await store.upsertLabMarkers(rows)
+            await repo.refresh()   // re-resolves the lab-book projection into Compare/Explore/Coach
+            await load()
+            var msg = String(localized: "Imported \(result.importedReadings) readings (\(result.distinctMarkers) markers)")
+            if let a = result.earliestDay, let b = result.latestDay, a != b { msg += " · \(a)-\(b)" }
+            if result.skippedRows > 0 {
+                // Whole-phrase variants per count; the separator stays outside the localized key.
+                msg += " · " + (result.skippedRows == 1
+                                ? String(localized: "1 row skipped")
+                                : String(localized: "\(result.skippedRows) rows skipped"))
+            }
+            // A vendor export's not-measured markers ("--" / "No Data Available") are absent by
+            // design, not malformed — reported apart so a clean import doesn't look broken.
+            if result.notMeasured > 0 {
+                msg += " · " + (result.notMeasured == 1
+                                ? String(localized: "1 not measured")
+                                : String(localized: "\(result.notMeasured) not measured"))
+            }
+            csvSummary = msg
+            csvFailed = false
+            logImport("Lab Book CSV: \(result.importedReadings) readings, \(result.distinctMarkers) markers, \(result.skippedRows) rejected")
+            pendingCsv = nil
+        } catch {
+            csvSummary = String(localized: "Import failed: \(error.localizedDescription)")
+            csvFailed = true
+            logImport("Lab Book CSV failed: \(error.localizedDescription)")
         }
     }
 

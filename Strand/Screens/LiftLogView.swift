@@ -34,6 +34,9 @@ struct LiftLogView: View {
     @State private var weekCounts: [LiftMuscle: Double] = [:]
     /// The session whose detail sheet is open.
     @State private var viewing: SessionDetailTarget?
+    @State private var recordedSets: [LiftSetRow] = []
+    @State private var recordsLoaded = false
+    @State private var recordExercise: ExerciseRecordTarget?
 
     @AppStorage(UnitPrefs.systemKey) private var unitSystemRaw = UnitSystem.metric.rawValue
     private var unitSystem: UnitSystem { UnitSystem(rawValue: unitSystemRaw) ?? .metric }
@@ -48,6 +51,7 @@ struct LiftLogView: View {
                 headerCard
                 programsSection
                 weekSection
+                recordSection
                 historySection
             }
         }
@@ -61,6 +65,9 @@ struct LiftLogView: View {
         }
         .sheet(isPresented: $importing) {
             LiftProgramImportSheet { await load() }
+        }
+        .sheet(item: $recordExercise) { target in
+            LiftExerciseRecordHistory(exercise: target.id, sets: recordedSets, sessions: history, unitSystem: unitSystem)
         }
         .sheet(item: $viewing) { target in
             LiftSessionDetailSheet(session: target.session) { await load() }
@@ -356,6 +363,41 @@ struct LiftLogView: View {
         }
     }
 
+    private var recordSection: some View {
+        VStack(alignment: .leading, spacing: NoopMetrics.gap) {
+            SectionHeader("Exercise bests", overline: "Lift Log · last 180 days")
+            if !loaded { ProgressView() }
+            else if !recordsLoaded {
+                Text("Could not load exercise records. Refresh to try again.")
+                    .font(StrandFont.caption).foregroundStyle(StrandPalette.textSecondary)
+            } else if recordedSets.isEmpty {
+                Text("Recorded working sets will build your exercise history here.")
+                    .font(StrandFont.caption).foregroundStyle(StrandPalette.textSecondary)
+            } else {
+                ForEach(LiftMetrics.perExercise(recordedSets).filter { $0.workingSets > 0 }, id: \.exercise) { summary in
+                    Button { recordExercise = ExerciseRecordTarget(id: summary.exercise) } label: {
+                        NoopCard {
+                            VStack(alignment: .leading, spacing: 5) {
+                                Text(summary.exercise).font(StrandFont.headline)
+                                if let weight = summary.bestWeightKg {
+                                    Text("\(LiftFormat.weight(weight, system: unitSystem)) × \(summary.bestReps.map(String.init) ?? "?" ) reps")
+                                        .font(StrandFont.subhead)
+                                }
+                                if let estimate = summary.bestEstimatedOneRepMaxKg {
+                                    Text("≈ \(LiftFormat.weight(estimate, system: unitSystem)) estimated 1RM")
+                                        .font(StrandFont.caption).foregroundStyle(StrandPalette.textSecondary)
+                                }
+                                Text("Open dated set history").font(StrandFont.caption)
+                            }.frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                    }.buttonStyle(.plain)
+                }
+            }
+            Text("Warm-ups and skipped sets do not set records. Estimates reuse the existing 1RM method and never change Effort. This view covers recorded Lift Log sets; older summary-only imports cannot supply missing sets.")
+                .font(StrandFont.caption).foregroundStyle(StrandPalette.textTertiary)
+        }
+    }
+
     // MARK: - Load
 
     private func load() async {
@@ -368,6 +410,10 @@ struct LiftLogView: View {
                                                   toTs: now)) ?? [])
             .filter { $0.endTs != nil }                 // an abandoned session is not history
             .sorted { $0.startTs > $1.startTs }
+        do {
+            recordedSets = try await store.finishedLiftSets(deviceId: repo.deviceId, fromTs: now - 180 * 86_400, toTs: now)
+            recordsLoaded = true
+        } catch { recordedSets = []; recordsLoaded = false }
         weekCounts = (try? await store.liftSetCounts(deviceId: repo.deviceId,
                                                       fromTs: now - 7 * 86_400,
                                                       toTs: now).fractional) ?? [:]
@@ -389,4 +435,66 @@ private struct SessionDetailTarget: Identifiable {
 private struct ProgramEditTarget: Identifiable {
     let id: String
     let program: LiftProgramRow?
+}
+
+
+private struct ExerciseRecordTarget: Identifiable { let id: String }
+
+private struct LiftExerciseRecordHistory: View {
+    let exercise: String
+    let sets: [LiftSetRow]
+    let sessions: [LiftSessionRow]
+    let unitSystem: UnitSystem
+    @Environment(\.dismiss) private var dismiss
+
+    private struct Point: Identifiable {
+        let set: LiftSetRow
+        let date: Date
+        let estimate: Double?
+        let isRecord: Bool
+        var id: String { set.id }
+    }
+
+    private var points: [Point] {
+        let dates = Dictionary(sessions.map { ($0.id, $0.startTs) }, uniquingKeysWith: { first, _ in first })
+        let candidates = sets.filter { $0.exercise == exercise && dates[$0.sessionId] != nil }
+            .sorted { a, b in
+                let left = dates[a.sessionId] ?? 0, right = dates[b.sessionId] ?? 0
+                return left == right ? a.ord < b.ord : left < right
+            }
+        var best: Double?
+        return candidates.map { set in
+            let estimate = !set.isWarmup && set.weightKg?.isFinite == true
+                ? LiftMetrics.estimatedOneRepMaxKg(weightKg: set.weightKg, reps: set.reps) : nil
+            let record = estimate.map { value in best.map { value > $0 } ?? false } ?? false
+            if let estimate { best = max(best ?? estimate, estimate) }
+            return Point(set: set, date: Date(timeIntervalSince1970: TimeInterval(dates[set.sessionId] ?? 0)),
+                         estimate: estimate, isRecord: record)
+        }
+    }
+
+    var body: some View {
+        NavigationStack {
+            List {
+                Section("Recorded sets · last 180 days") {
+                    ForEach(points) { point in
+                        VStack(alignment: .leading, spacing: 5) {
+                            Text(point.date.formatted(date: .abbreviated, time: .shortened)).font(StrandFont.caption)
+                            Text("\(point.set.weightKg.map { LiftFormat.weight($0, system: unitSystem) } ?? "Weight not recorded") × \(point.set.reps.map(String.init) ?? "?") reps")
+                                .font(StrandFont.subhead)
+                            if point.set.isWarmup { Text("Warm-up · excluded from records").font(StrandFont.caption) }
+                            if let estimate = point.estimate {
+                                Text("≈ \(LiftFormat.weight(estimate, system: unitSystem)) estimated 1RM\(point.isRecord ? " · new recorded best" : "")")
+                                    .font(StrandFont.caption).foregroundStyle(StrandPalette.textSecondary)
+                            }
+                        }
+                    }
+                }
+                Text("Best means best in this recorded period, for this exercise label. Different machines or technique may not be comparable. A missing set is never inferred.")
+                    .font(StrandFont.caption)
+            }
+            .navigationTitle(exercise)
+            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
+        }
+    }
 }

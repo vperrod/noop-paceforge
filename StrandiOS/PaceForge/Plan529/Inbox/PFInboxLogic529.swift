@@ -315,6 +315,9 @@ enum PFInboxPayload529 {
     static let inboxKind = "inbox"
     /// The item's kind, so a dismissal or an open of the notification can be counted per kind without the document.
     static let itemKindKey = "pf.item_kind"
+    static func dailyReport(date: String) -> [AnyHashable: Any] {
+        [kindKey: inboxKind, itemKindKey: "report", "pf.route": "report_daily", "pf.date": date]
+    }
     private static let keys: [(String, KeyPath<PFInboxDoc.Link, String?>)] = [
         ("pf.route", \.route), ("pf.week", \.week), ("pf.link_id", \.id), ("pf.date", \.date), ("pf.key", \.key),
         ("pf.activity_id", \.activityId),

@@ -75,7 +75,10 @@ struct SelfHostedPushSettingsView: View {
                         }
                         .buttonStyle(.bordered)
                     }
-                    if PFAPI.isConfigured { PFSyncGarminRow() }
+                    if PFAPI.isConfigured {
+                        PFSyncGarminRow()
+                        PFSourceCaptureStatus().id(lastSuccess)
+                    }
                     Text(status)
                         .font(StrandFont.caption)
                         .foregroundStyle(StrandPalette.textSecondary)
@@ -241,6 +244,80 @@ struct SelfHostedPushSettingsView: View {
         } catch {
             dataRows = []
             dataSummary = "Could not read the NOOP database: \(error.localizedDescription)"
+        }
+    }
+}
+
+/// Origin timestamps stay distinct from successful network contact.
+private struct PFSourceCaptureStatus: View {
+    @State private var clocks = PFJ(nil)
+    @State private var loading = false
+    @State private var failure: String?
+
+    var body: some View {
+        DisclosureGroup("Data capture and arrival") {
+            VStack(alignment: .leading, spacing: 10) {
+                captureRow("Latest strap HR sample", clocks["strap"]["sample"])
+                captureRow("Strap data received by PaceForge", clocks["strap"]["server_received"])
+                captureRow("Watch uploaded to Garmin", clocks["garmin"]["watch_upload"])
+                captureRow("PaceForge fetched Garmin", clocks["garmin"]["api_success"])
+                if clocks["activity_coverage"].exists {
+                    let coverage = clocks["activity_coverage"]
+                    Text("Garmin history: \(coverage["indexed"].int ?? 0) indexed activities")
+                    Text(coverage["window"]["state"].string == "reconciled"
+                         ? "Inventory checked from \(coverage["window"]["from"].string ?? "?") to \(coverage["window"]["through"].string ?? "?")."
+                         : "Garmin's upstream inventory has not been verified.")
+                    ForEach([("detail", "Workout details"), ("series", "Samples"),
+                             ("splits", "Splits"), ("original_fit", "Original FIT files")], id: \.0) { key, title in
+                        Text("\(title): \(coverage["missing"][key].array.count) missing")
+                    }
+                    Text(coverage["note"].text ?? "Missing data remains unknown.")
+                }
+                Text("A successful fetch does not prove the watch or strap supplied new measurements.")
+                    .foregroundStyle(StrandPalette.textTertiary)
+                if let failure { Text(failure).foregroundStyle(StrandPalette.statusWarning) }
+                Button(loading ? "Checking…" : "Check source times") {
+                    Task { await load() }
+                }.disabled(loading)
+            }
+            .font(StrandFont.caption)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.top, 8)
+        }
+        .task { await load() }
+    }
+
+    private func captureRow(_ title: String, _ point: PFJ) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(title).foregroundStyle(StrandPalette.textSecondary)
+            if point["state"].string == "clock_mismatch" {
+                Text("Device clock needs checking").foregroundStyle(StrandPalette.statusWarning)
+            } else if let stamp = point["at"].text {
+                Text(stamp)
+                if let minutes = point["age_min"].int {
+                    Text("\(minutes) minutes before this check")
+                        .foregroundStyle(StrandPalette.textTertiary)
+                }
+            } else {
+                Text("Not recorded").foregroundStyle(StrandPalette.textTertiary)
+            }
+        }
+    }
+
+    @MainActor private func load() async {
+        guard !loading else { return }
+        loading = true
+        defer { loading = false }
+        do {
+            let fetched = PFJ(data: try await PFAPI.fetch("api/freshness"))["source_clocks"]
+            guard fetched.exists else {
+                failure = "This PaceForge server does not provide capture times yet."
+                return
+            }
+            clocks = fetched
+            failure = nil
+        } catch {
+            failure = "Could not refresh source times. Previous values may be outdated."
         }
     }
 }

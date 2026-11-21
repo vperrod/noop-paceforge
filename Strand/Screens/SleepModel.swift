@@ -249,17 +249,19 @@ struct SleepModelInputs {
 // `SleepView` because they are reused by other screens/tests; these statics call them.
 extension SleepModel {
 
-    /// The browsable DAY list: every block grouped by the calendar day it ENDS on (matching the
-    /// dashboard's per-night merge), newest day first, blocks within a day oldest→newest. Each day
+    /// The browsable DAY list: short pre-midnight fragments follow their main
+    /// overnight block to its wake day, matching the dashboard. Each day
     /// is ONE ◀/▶ stop. Mirrors the former `SleepView.navDays`. (#170)
     static func navDays(navSessions: [CachedSleepSession]) -> [[CachedSleepSession]] {
         let cal = Calendar.current
-        func endDay(_ s: CachedSleepSession) -> Date {
-            cal.startOfDay(for: Date(timeIntervalSince1970: TimeInterval(s.endTs)))
+        let ends = SleepStageTotals.wakeDayEnds(
+            navSessions.map { SleepStageTotals.NightBlock(start: $0.effectiveStartTs, end: $0.endTs) },
+            offsetSec: TimeZone.current.secondsFromGMT())
+        let groups = Dictionary(grouping: navSessions.indices) { index in
+            cal.startOfDay(for: Date(timeIntervalSince1970: TimeInterval(ends[index])))
         }
-        let groups = Dictionary(grouping: navSessions, by: endDay)
         return groups.keys.sorted(by: >).map { key in
-            (groups[key] ?? []).sorted { $0.effectiveStartTs < $1.effectiveStartTs }
+            (groups[key] ?? []).map { navSessions[$0] }.sorted { $0.effectiveStartTs < $1.effectiveStartTs }
         }
     }
 
@@ -343,7 +345,7 @@ extension SleepModel {
     static func napSleepMinutesByDay(navDays: [[CachedSleepSession]], habitualMidsleepSec: Int?) -> [String: Double] {
         var result: [String: Double] = [:]
         for blocks in navDays {
-            guard let endTs = blocks.first?.endTs else { continue }
+            guard let endTs = blocks.last?.endTs else { continue }
             let day = Repository.localDayKey(Date(timeIntervalSince1970: TimeInterval(endTs)))
             result[day] = SleepView.napSleepMinutes(blocks, habitualMidsleepSec: habitualMidsleepSec)
         }
@@ -421,9 +423,16 @@ extension SleepModel {
     /// else the REAL resolved Rest composite for that day. (#614 follow-up)
     static func performanceSeries(days: [DailyMetric], importedSleep: [String: ImportedSleepFigures]) -> Metric {
         let imported = importedSleep
+        let nightlyHours = days.compactMap { day -> Double? in
+            guard let minutes = day.totalSleepMin, minutes > 0 else { return nil }
+            return minutes / 60.0
+        }
+        let need = AnalyticsEngine.Rest.personalizedNeedHours(nightlyHours: nightlyHours, age: nil)
+        let consistency = VitalityEngine.sleepConsistency(nightlyHours: Array(nightlyHours.suffix(28)))
         return metric(days: days) { d in
             if let p = imported[d.day]?.performancePct { return p }   // export-verbatim
-            return AnalyticsEngine.Rest.composite(daily: d)            // real resolved Rest composite
+            return AnalyticsEngine.Rest.composite(daily: d, needHours: need,
+                                                   consistency: consistency)
         }
     }
 

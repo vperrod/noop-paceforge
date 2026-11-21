@@ -74,12 +74,18 @@ enum PFJournalLogic530 {
 
     /// The questions a window asks, in the document's order. A question without a key cannot be stored and is left out, and so is one the
     /// athlete hid in the journal's own editor. `extra` (the questions added on the phone) follow, up to the ten the list holds.
-    static func questions(in list: [Question]?, window: String, hidden: Set<String> = [], extra: [Question] = []) -> [Question] {
-        let all = (list ?? []) + extra
+    static func questions(in list: [Question]?, window: String, hidden: Set<String> = [], extra: [Question] = [],
+                          selectedKeys: [String]? = nil) -> [Question] {
+        // nil supports older servers; an explicit empty assignment means no ask.
+        // Local-only legacy questions remain editable until they are shared.
+        let selected = selectedKeys.map(Set.init)
+        let server = (list ?? []).filter { selected?.contains($0.key ?? "") ?? true }
+        let all = server + extra
         let hiddenKeys = Set(hidden.map { norm($0) })
+        var seen = Set<String>()
         let kept = all.filter { question in
             guard let key = question.key, !key.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return false }
-            return !hiddenKeys.contains(norm(key))
+            return !hiddenKeys.contains(norm(key)) && seen.insert(norm(key)).inserted
         }
         let allowed = Array(kept.prefix(maxQuestions))
         // A question that names no window is asked in the evening.

@@ -548,9 +548,14 @@ public enum AnalyticsEngine {
             }
             allSessions = keptDetected + enrichedProvided
         }
-        // Sessions attributed to `day` = those whose end falls on `day` (LOCAL day, #277). `day` is
-        // the caller's local-day key; attribute by the same offset so the bucket and the key agree.
-        let matched = allSessions.filter { tsInDay($0.end) }
+        // A short pre-midnight sleep followed by the main overnight block belongs
+        // to that wake day too; otherwise the later main-night bridge never sees it.
+        let wakeEnds = SleepStageTotals.wakeDayEnds(
+            allSessions.map { SleepStageTotals.NightBlock(start: $0.start, end: $0.end) },
+            offsetSec: tzOffsetSeconds)
+        let matched = allSessions.enumerated().compactMap { index, session in
+            tsInDay(wakeEnds[index]) ? session : nil
+        }
 
         // ── The day's MAIN night (#525) ───────────────────────────────────────
         // A day can hold an overnight AND a daytime nap (both end on `day`, so both are in `matched`).

@@ -6,6 +6,15 @@ final class PaceForgeNewFieldsTests: XCTestCase {
 
     private func json(_ text: String) -> PFJ { PFJ(data: Data(text.utf8)) }
 
+    func testPlannedSessionKeepsEveryMatchedGarminRecording() {
+        let row = json(#"{"session_id":"circuit-1","scheduled_date":"2030-01-29","name":"Circuit","completed":true,"matched_activity_ids":[101,102,103],"completion_metrics":{"actual_km":3.86,"actual_min":39}}"#)
+        let workout = PFBuilder.workout(row, strength: json("{}"), today: "2030-01-29")
+        XCTAssertEqual(workout.activityId, "101")
+        XCTAssertEqual(workout.matchedActivityIds, ["101", "102", "103"])
+        XCTAssertEqual(workout.compliance?.actualKm, 3.86)
+        XCTAssertEqual(workout.compliance?.actualMin, 39)
+    }
+
     func testRunExplainerReadsTheTextKeys() {
         let j = json(#"{"looks_like": "easy_run", "purpose": "Aerobic base.", "feel": "Chatty.", "body": "Mitochondria.", "energy": "Fat.", "shape": "Even.", "payoff": "Base."}"#)
         let e = PFRunExplainer.parse(j)

@@ -500,7 +500,13 @@ struct SleepView: View {
         let wakeDay = Repository.localDayKey(Date(timeIntervalSince1970: TimeInterval(night.session.endTs)))
         if let p = repo.importedSleep[wakeDay]?.performancePct { return p }
         guard let daily = repo.days.last(where: { $0.day == wakeDay }) else { return nil }
-        return AnalyticsEngine.Rest.composite(daily: daily)
+        let nightlyHours = repo.days.compactMap { row -> Double? in
+            guard let minutes = row.totalSleepMin, minutes > 0 else { return nil }
+            return minutes / 60.0
+        }
+        let need = AnalyticsEngine.Rest.personalizedNeedHours(nightlyHours: nightlyHours, age: nil)
+        let consistency = VitalityEngine.sleepConsistency(nightlyHours: Array(nightlyHours.suffix(28)))
+        return AnalyticsEngine.Rest.composite(daily: daily, needHours: need, consistency: consistency)
     }
 
     /// Dispatch a reorderable Sleep section to its card. Naps rides with `.stages` (drawn inside the stages

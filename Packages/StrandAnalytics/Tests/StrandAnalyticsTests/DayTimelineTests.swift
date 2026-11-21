@@ -275,6 +275,21 @@ final class DayTimelineTests: XCTestCase {
         XCTAssertEqual([events(timeline, .planned).count, events(timeline, .workout).count], [0, 1])
     }
 
+    func testEveryRecordingMatchedToOnePlanCarriesItsPlanName() {
+        var i = input()
+        i.workouts = [
+            .init(key: "g1", startTs: at(7), endTs: at(7, 20), title: "Run part one",
+                  sources: [.garmin], externalId: "9001"),
+            .init(key: "g2", startTs: at(8), endTs: at(8, 20), title: "Run part two",
+                  sources: [.garmin], externalId: "9002")
+        ]
+        i.planned = [.init(id: "p1", title: "Easy run", matchedActivityIds: ["9001", "9002"])]
+        let timeline = DayTimeline.build(i)
+        XCTAssertEqual(events(timeline, .planned).count, 0)
+        XCTAssertEqual(events(timeline, .workout).count, 2)
+        XCTAssertTrue(events(timeline, .workout).allSatisfy { $0.subtitle.contains("Plan: Easy run") })
+    }
+
     func testAFoldedPlanAddsThePlanBadgeAndNamesItself() {
         var i = input()
         i.workouts = [.init(key: "g", startTs: at(7), endTs: at(7, 40), title: "Running",
@@ -297,6 +312,14 @@ final class DayTimelineTests: XCTestCase {
         i.planned = [.init(id: "p1", title: "Easy run", matchedActivityIds: ["9001"])]
         i.planActivities = [.init(id: "9001", startTs: at(7), endTs: at(7, 40))]
         XCTAssertEqual(events(DayTimeline.build(i), .planned).first?.status, .done)
+    }
+
+    func testAPlanLinkWithoutAnyRecordedActivityIsNotProofOfCompletion() {
+        var i = input()
+        i.planned = [.init(id: "p1", title: "Easy run", matchedActivityIds: ["missing-recording"])]
+        let event = events(DayTimeline.build(i), .planned).first
+        XCTAssertEqual(event?.status, .planned)
+        XCTAssertTrue(event?.subtitle.contains("Recording not available") == true)
     }
 
     func testADonePlanSitsWhereItsActivityHappened() {

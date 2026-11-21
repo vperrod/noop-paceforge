@@ -5,6 +5,7 @@ import Foundation
 /// its own, so a field the server changes costs that entry, never the document.
 /// Shapes follow the server (`journal_doc.py`, build 530): `insights` is one flat entry per behaviour, outcome, device and lag.
 struct PFJournalDoc530: Codable, Equatable {
+    var stale: Bool? = nil
     var version: Int?
     var generatedAt: String?
     var asOf: String?
@@ -14,6 +15,7 @@ struct PFJournalDoc530: Codable, Equatable {
     var prompts: [Prompt]?
     var insights: [Insight]?
     var suggestions: [Suggestion]?
+    var proposals: [Suggestion]? = nil
 
     /// One active question. `key` is the question text exactly as the phone stores it.
     struct Question: Codable, Equatable {
@@ -31,7 +33,7 @@ struct PFJournalDoc530: Codable, Equatable {
         var no: String?
         /// collecting | clear | no_effect
         var state: String?
-        /// The device(s) behind `state`, for example "WHOOP".
+        /// The device(s) behind `state`, for example "NOOP".
         var stateSource: String?
         /// Days in the last 90 answered yes and no.
         var nYes: Int?
@@ -64,11 +66,14 @@ struct PFJournalDoc530: Codable, Equatable {
         var body: String?
         var open: Int?
         var state: String?
+        /// The server's stable assignment for this day, after cooldown/context selection.
+        var selectedKeys: [String]? = nil
+        var openKeys: [String]? = nil
     }
 
     /// One behaviour against one outcome on one device at one lag: days with the behaviour against days without, and for a count the same
-    /// split by amount. `outcome`: recovery | sleep. `device`: WHOOP | Garmin. `lag`: 1 = the first morning or night after, 2 = the one after that.
-    /// `unit`: "%" (WHOOP Charge), "" (a Garmin score out of 100), "h" (hours asleep).
+    /// split by amount. `outcome`: recovery | sleep. `device`: NOOP | Garmin. `lag`: 1 = the first morning or night after, 2 = the one after that.
+    /// `unit`: "%" (NOOP Charge), "" (a Garmin score out of 100), "h" (hours asleep).
     struct Insight: Codable, Equatable {
         var behaviour: String?
         var label: String?
@@ -96,6 +101,8 @@ struct PFJournalDoc530: Codable, Equatable {
 
     /// A proposed change to the question list (add | drop | change); absent until the server turns suggestions on.
     struct Suggestion: Codable, Equatable {
+        var id: String? = nil
+        var canAccept: Bool? = nil
         var action: String?
         var key: String?
         var title: String?
@@ -103,11 +110,12 @@ struct PFJournalDoc530: Codable, Equatable {
     }
 
     private enum CodingKeys: String, CodingKey {
-        case version, generatedAt, asOf, list, auto, week, prompts, insights, suggestions
+        case version, generatedAt, asOf, list, auto, week, prompts, insights, suggestions, proposals, stale
     }
 
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
+        stale = try? c.decodeIfPresent(Bool.self, forKey: .stale)
         version = try? c.decodeIfPresent(Int.self, forKey: .version)
         generatedAt = try? c.decodeIfPresent(String.self, forKey: .generatedAt)
         asOf = try? c.decodeIfPresent(String.self, forKey: .asOf)
@@ -117,6 +125,7 @@ struct PFJournalDoc530: Codable, Equatable {
         prompts = (try? c.decodeIfPresent(PFLossyList530<Prompt>.self, forKey: .prompts))?.items
         insights = (try? c.decodeIfPresent(PFLossyList530<Insight>.self, forKey: .insights))?.items
         suggestions = (try? c.decodeIfPresent(PFLossyList530<Suggestion>.self, forKey: .suggestions))?.items
+        proposals = (try? c.decodeIfPresent(PFLossyList530<Suggestion>.self, forKey: .proposals))?.items
     }
 
     init(version: Int? = nil, generatedAt: String? = nil, asOf: String? = nil, list: [Question]? = nil, auto: [AutoDay]? = nil,

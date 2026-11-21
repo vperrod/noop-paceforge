@@ -188,6 +188,17 @@ public enum SleepStageTotals {
         public var midpointSec: Int { start + (end - start) / 2 }
     }
 
+    /// Bucket a pre-midnight fragment with the overnight block it continues, so
+    /// the daily score and Sleep tab can apply the same main-night bridge.
+    public static func wakeDayEnds(_ blocks: [NightBlock], offsetSec: Int) -> [Int] {
+        var ends = blocks.map(\.end)
+        for group in bridgedNightGroups(blocks, offsetSec: offsetSec) {
+            guard let end = group.indices.map({ blocks[$0].end }).max() else { continue }
+            for index in group.indices { ends[index] = end }
+        }
+        return ends
+    }
+
     // MARK: - Selection reason (explainability — WHY this block is the main night) (spec 2026-06-20)
 
     /// Why the selector chose the block it did, derived from the EXACT signals the score used, so the UI

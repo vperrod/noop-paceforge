@@ -132,6 +132,9 @@ struct PFChangeWorkoutSheet529: View {
 
     private var chooser: some View {
         VStack(alignment: .leading, spacing: 12) {
+            PFWeekTellCoach529(idPrefix: "plan529-edit-text", sessionID: target.sessionId,
+                               targetDate: target.date)
+                .pfWeekCard()
             Text("What would you rather do?")
                 .font(LookFont.text(20, weight: .bold))
                 .foregroundStyle(NoopLook.textPrimary)

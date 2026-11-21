@@ -242,9 +242,14 @@ extension DayTimeline {
         var clusters = clusterWorkouts(dayWorkouts, pairs: input.sameWorkoutPairs)
         var linkedPlanIds = Set<String>()
         for plan in input.planned where !plan.matchedActivityIds.isEmpty {
-            guard let idx = clusterIndex(for: plan, in: clusters, activities: input.planActivities) else { continue }
-            clusters[idx].planTitles.append(plan.title)
-            linkedPlanIds.insert(plan.id)
+            for id in plan.matchedActivityIds {
+                let one = Input.Planned(id: plan.id, title: plan.title, detail: plan.detail,
+                                        startTs: plan.startTs, durationMin: plan.durationMin,
+                                        matchedActivityIds: [id])
+                guard let idx = clusterIndex(for: one, in: clusters, activities: input.planActivities) else { continue }
+                if !clusters[idx].planTitles.contains(plan.title) { clusters[idx].planTitles.append(plan.title) }
+                linkedPlanIds.insert(plan.id)
+            }
         }
         for cluster in clusters {
             events.append(workoutEvent(cluster))
@@ -590,9 +595,10 @@ extension DayTimeline {
                                      dayStartTs: Int, dayEndTs: Int) -> Event {
         let ids = Set(plan.matchedActivityIds)
         let matched = activities.first { ids.contains($0.id) }
-        let isDone = !plan.matchedActivityIds.isEmpty
-        let status: Status = isDone ? .done : (dayIsOver ? .missed : .planned)
-        let lead = isDone ? "Done" : (dayIsOver ? "Missed" : "Planned")
+        let isDone = matched != nil
+        let awaitingRecording = !ids.isEmpty && matched == nil
+        let status: Status = isDone ? .done : (dayIsOver && !awaitingRecording ? .missed : .planned)
+        let lead = isDone ? "Done" : (awaitingRecording ? "Recording not available" : (dayIsOver ? "Missed" : "Planned"))
         let subtitle = ([lead] + [plan.detail].compactMap { $0 }).joined(separator: " \u{00B7} ")
 
         var start: Int?

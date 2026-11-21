@@ -17,12 +17,17 @@ struct PFCoachView: View {
     @EnvironmentObject private var noopCoach: AICoachEngine
     @State private var monthlyRead: PFMonthlyCoachRead?
     @State private var selectedWorkout: PFWorkout?
+    @State private var showsMemory = false
 
     private var coach: PFCoach { snapshot.coach }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             proposalsRow
+            Button { showsMemory = true } label: {
+                PFRow529(title: "What Coach knows", sub: "Review preferences, constraints and temporary context", showsChevron: true)
+                    .planCard529(padding: 8)
+            }.buttonStyle(.plain)
             PFPageNote(key: "coach", alwaysOpen: true)
             if coach.brief != nil || coach.take != nil { todayRead(brief: coach.brief, take: coach.take) }
             // Mounted here again after 622ffedd dropped the classic Today that drew them; each draws nothing without its document.
@@ -35,6 +40,7 @@ struct PFCoachView: View {
             if !recentWorkoutReads.isEmpty { workoutReadsCard }
         }
         .task(id: snapshot.todayISO) { await loadMonthlyRead() }
+        .sheet(isPresented: $showsMemory) { PFCoachMemorySheet() }
         .sheet(item: $selectedWorkout) { workout in
             PFResultsSheet(workout: workout, snapshot: snapshot, onAskCoach: { sessionID in
                 noopCoach.pendingSessionID = sessionID
@@ -538,5 +544,148 @@ private struct PFReviewLabelStyle: LabelStyle {
             configuration.icon.foregroundStyle(color)
             configuration.title.fixedSize(horizontal: false, vertical: true)
         }
+    }
+}
+
+
+/// Uses the existing PaceForge memory store; edits never infer a daily journal answer.
+private struct PFCoachMemorySheet: View {
+    @Environment(\.dismiss) private var dismiss
+    @StateObject private var job = PFJobTracker()
+    @State private var rows: [PFJ] = []
+    @State private var loaded = false
+    @State private var failure: String?
+    @State private var editingID: String?
+    @State private var text = ""
+    @State private var kind = "fact"
+    @State private var expires = ""
+    private let kinds = ["preference", "constraint", "injury", "goal", "fact", "lesson"]
+    private var isWriting: Bool { job.phase == .sending || job.phase == .working }
+    private var draftKey: String { "noop.coachMemoryDraft.\(SelfHostedPushClient.paceForgeHost ?? "local")" }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section(editingID == nil ? "Add context" : "Edit context") {
+                    Text("These are the preferences and facts Coach reads on both phone and web. Temporary context stops being used after its valid-through date.")
+                        .font(StrandFont.caption).foregroundStyle(StrandPalette.textSecondary)
+                    TextField("What should Coach know?", text: $text, axis: .vertical).lineLimit(2...6)
+                    Picker("Kind", selection: $kind) {
+                        ForEach(kinds, id: \.self) { Text($0.capitalized).tag($0) }
+                    }
+                    TextField("Valid through YYYY-MM-DD (optional)", text: $expires)
+                        .textInputAutocapitalization(.never).autocorrectionDisabled()
+                    Button(isWriting ? "Saving…" : "Save context") { Task { await save() } }
+                        .disabled(isWriting || text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || text.count > 400)
+                    if editingID != nil { Button("Cancel edit") { resetDraft() }.disabled(isWriting) }
+                }.disabled(isWriting)
+                if let failure {
+                    Section { Text(failure).foregroundStyle(StrandPalette.statusWarning) }
+                }
+                Section("Saved context") {
+                    if !loaded { ProgressView() }
+                    else if rows.isEmpty { Text("No saved context.") }
+                    ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
+                        memoryRow(row)
+                    }
+                }
+            }
+            .navigationTitle("What Coach knows")
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } }
+            }
+            .task {
+                let draft = UserDefaults.standard.dictionary(forKey: draftKey) as? [String: String] ?? [:]
+                text = draft["text"] ?? ""
+                kind = draft["kind"] ?? "fact"
+                expires = draft["expires"] ?? ""
+                editingID = draft["id"]
+                await load()
+            }
+            .onChange(of: text) { _, _ in rememberDraft() }
+            .onChange(of: kind) { _, _ in rememberDraft() }
+            .onChange(of: expires) { _, _ in rememberDraft() }
+            .onChange(of: editingID) { _, _ in rememberDraft() }
+            .refreshable { await load() }
+        }
+    }
+
+    private func memoryRow(_ row: PFJ) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(row["text"].text ?? "")
+            Text(row["kind"].text?.capitalized ?? "Fact").font(StrandFont.caption)
+                .foregroundStyle(StrandPalette.textSecondary)
+            if let expiry = row["expires"].text {
+                Text("Valid through \(expiry)").font(StrandFont.caption)
+            }
+            let retired = row["retired"].text
+            let expired = row["expires"].text.map { $0 < PFAPI.todayISO } ?? false
+            if let retired { Text("Retired \(retired)").font(StrandFont.caption) }
+            else {
+                if expired { Text("Expired · no longer used by Coach").font(StrandFont.caption) }
+                HStack {
+                    Button("Edit") {
+                        editingID = row["id"].idString
+                        text = row["text"].string ?? ""
+                        kind = row["kind"].string ?? "fact"
+                        expires = row["expires"].string ?? ""
+                    }
+                    Button("Retire") { Task { await retire(row) } }
+                }.buttonStyle(.borderless).disabled(isWriting)
+            }
+            if !row["history"].array.isEmpty {
+                DisclosureGroup("Previous versions") {
+                    ForEach(Array(row["history"].array.reversed().enumerated()), id: \.offset) { _, old in
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(old["changed_at"].string ?? "")
+                            Text(old["text"].string ?? "")
+                            Text("\(old["kind"].string ?? "fact") · valid through \(old["expires"].text ?? "no limit")")
+                        }.font(StrandFont.caption)
+                    }
+                }
+            }
+        }
+    }
+
+    @MainActor private func load() async {
+        do {
+            let document = PFJ(data: try await PFAPI.fetch("api/coach-memory"))
+            guard document.raw is [Any] else { throw CocoaError(.fileReadCorruptFile) }
+            rows = document.array
+            loaded = true
+            failure = nil
+        } catch {
+            failure = "Could not refresh saved context. Your draft stays on this phone."
+            loaded = true
+        }
+    }
+
+    @MainActor private func save() async {
+        var entry: [String: Any] = ["action": editingID == nil ? "add" : "edit", "text": text, "kind": kind,
+                                    "expires": expires.trimmingCharacters(in: .whitespacesAndNewlines)]
+        if let editingID { entry["id"] = editingID }
+        if case .success(let result) = await job.run(.saveMemory, inputs: ["data": entry]) {
+            rows = result["items"].array
+            loaded = true
+            failure = nil
+            resetDraft()
+        } else if case .failed(let message) = job.phase { failure = message }
+    }
+
+    @MainActor private func retire(_ row: PFJ) async {
+        guard let id = row["id"].idString else { return }
+        if case .success(let result) = await job.run(.saveMemory, inputs: ["data": ["action": "retire", "id": id]]) {
+            rows = result["items"].array
+            failure = nil
+            if editingID == id { resetDraft() }
+        } else if case .failed(let message) = job.phase { failure = message }
+    }
+
+    private func resetDraft() { text = ""; kind = "fact"; expires = ""; editingID = nil }
+    private func rememberDraft() {
+        if text.isEmpty { UserDefaults.standard.removeObject(forKey: draftKey); return }
+        var draft = ["text": text, "kind": kind, "expires": expires]
+        draft["id"] = editingID
+        UserDefaults.standard.set(draft, forKey: draftKey)
     }
 }

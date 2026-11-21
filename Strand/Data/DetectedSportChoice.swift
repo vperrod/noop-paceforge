@@ -9,7 +9,7 @@ import StrandAnalytics
 // sport's icon and dedupes like a hand-entered one.
 
 enum DetectedSportChoice: String, CaseIterable, Identifiable {
-    case walk, run, cycle, strength, hiit, yoga, hike, swim, other
+    case walk, run, cycle, strength, hiit, skiErg, physiotherapy, yoga, hike, swim, other
 
     var id: String { rawValue }
 
@@ -21,6 +21,8 @@ enum DetectedSportChoice: String, CaseIterable, Identifiable {
         case .cycle: return "Cycling"
         case .strength: return "Strength"
         case .hiit: return "HIIT"
+        case .skiErg: return "SkiErg"
+        case .physiotherapy: return "Physiotherapy"
         case .yoga: return "Yoga"
         case .hike: return "Hiking"
         case .swim: return "Pool swim"
@@ -35,6 +37,8 @@ enum DetectedSportChoice: String, CaseIterable, Identifiable {
         case .cycle: return String(localized: "Cycle")
         case .strength: return String(localized: "Strength")
         case .hiit: return String(localized: "HIIT / Cardio")
+        case .skiErg: return String(localized: "SkiErg")
+        case .physiotherapy: return String(localized: "Physiotherapy")
         case .yoga: return String(localized: "Yoga")
         case .hike: return String(localized: "Hike")
         case .swim: return String(localized: "Swim")

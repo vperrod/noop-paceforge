@@ -646,6 +646,19 @@ extension WhoopStore {
         }
     }
 
+    /// Sets from finished sessions of one source in a dated window, oldest first.
+    public func finishedLiftSets(deviceId: String, fromTs: Int, toTs: Int) async throws -> [LiftSetRow] {
+        try syncRead { db in
+            try Row.fetchAll(db, sql: """
+                SELECT s.* FROM liftSet s
+                JOIN liftSession sess ON sess.id = s.sessionId AND sess.deviceId = s.deviceId
+                WHERE s.deviceId = ? AND sess.endTs IS NOT NULL
+                  AND sess.startTs >= ? AND sess.startTs <= ?
+                ORDER BY sess.startTs ASC, s.ord ASC
+                """, arguments: [deviceId, fromTs, toTs]).map(LiftSetRow.decode)
+        }
+    }
+
     /// Every set in a session, in the order they were performed.
     public func liftSets(sessionId: String) async throws -> [LiftSetRow] {
         try syncRead { db in

@@ -110,12 +110,16 @@ private struct PFWeekTargetRow: View {
 
 struct PFLoadFocusCard: View {
     let focus: PFLoadFocus
+    @State private var showsPlanReview = false
 
     var body: some View {
         PFCard("Load Focus, Garmin's view", icon: "gauge") {
             VStack(alignment: .leading, spacing: 12) {
                 ForEach(focus.buckets) { bucket in PFLoadBucketRow(bucket: bucket) }
                 if let verdict = focus.verdict { PFParagraph(verdict) }
+                Button("Review a plan adjustment with Coach") { showsPlanReview = true }
+                    .buttonStyle(.bordered)
+                    .accessibilityIdentifier("pf-load-focus-propose")
                 if let note = focus.note {
                     Text(note)
                         .font(LookFont.text(12, weight: .medium))
@@ -125,6 +129,16 @@ struct PFLoadFocusCard: View {
             }
         }
         .containerIdentifier("pf-load-focus")
+        .sheet(isPresented: $showsPlanReview) {
+            NavigationStack {
+                ScrollView {
+                    PFWeekTellCoach529(idPrefix: "load-focus-plan", initialDraft:
+                        "Review Garmin's current Load Focus against my recorded training and next week's scheduled workouts. If the data is current and an adjustment is justified, propose specific workout changes with their reasons for me to review and accept. Preserve my fixed classes and commitments.")
+                        .padding(16)
+                }.navigationTitle("Review load and plan")
+                    .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { showsPlanReview = false } } }
+            }
+        }
     }
 }
 

@@ -98,6 +98,14 @@ final class Plan530TodayCardsTests: XCTestCase {
 
     // MARK: My Journal
 
+    func testInlineJournalHonorsTheServerAssignmentAndRejectsEarlierDays() throws {
+        let raw = #"{"as_of":"2030-03-13","list":[{"key":"A","window":"evening"},{"key":"B","window":"evening"}],"prompts":[{"window":"evening","state":"due","open":1,"selected_keys":["B"],"open_keys":["B"]}]}"#
+        let doc = try journal(raw)
+        XCTAssertEqual(PFTodayJournalLogic530.dueAssignment(doc, today: "2030-03-13")?.questions.compactMap(\.key), ["B"])
+        XCTAssertNil(PFTodayJournalLogic530.dueAssignment(doc, today: "2030-03-14"))
+        XCTAssertNil(PFTodayJournalLogic530.dueAssignment(try journal(raw.replacingOccurrences(of: "{\"as_of\"", with: "{\"stale\":true,\"as_of\"")), today: "2030-03-13"))
+    }
+
     private func journal(_ json: String) throws -> PFTodayJournal530 {
         try PFPlan529Decoder.make().decode(PFTodayJournal530.self, from: Data(json.utf8))
     }

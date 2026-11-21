@@ -514,7 +514,8 @@ enum PFBuilder {
         }
         out.completionAnalysis = w["completion_analysis"].text
         out.notes = w["notes"].text
-        out.activityId = w["matched_activity_ids"].array.compactMap { $0.idString }.first
+        out.matchedActivityIds = w["matched_activity_ids"].array.compactMap { $0.idString }
+        out.activityId = out.matchedActivityIds.first
             ?? w["manual_activity_ids"].array.compactMap { $0.idString }.first
             ?? cm["activity_id"].idString
         return out
@@ -866,10 +867,15 @@ enum PFBuilder {
                 fullRead: weekly["content_md"].text ?? weekly["content"].text,
                 sourceContext: weeklySourceContext)
         }
-        out.chat = state["chat"]["turns"].array.suffix(6).compactMap { t in
+        func turn(_ t: PFJ) -> PFChatTurn? {
             guard let role = t["role"].string, let text = t["text"].text, let ts = t["ts"].string else { return nil }
-            return PFChatTurn(role: role, text: text, ts: ts)
+            return PFChatTurn(role: role, text: text, ts: ts, sessionID: t["session_id"].string,
+                              requestID: t["request_id"].string, proposalIDs: t["proposals"].strings)
         }
+        let chat = state["chat"]["turns"].array.compactMap(turn)
+        out.chat = Array(chat.suffix(6))
+        let archived = state["chat"]["threads"].dict.values.flatMap { $0.array }.compactMap(turn)
+        out.workoutChat = archived.isEmpty ? chat.filter { $0.sessionID != nil } : archived
         return out
     }
 

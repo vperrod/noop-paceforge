@@ -29,16 +29,34 @@ struct PFResultsSheet: View {
     @EnvironmentObject private var model: PFModel
     @Environment(\.dismiss) private var dismiss
     @State private var results: PFSessionResults?
+    @State private var selectedActivityID: String?
+    @State private var commentDraft = ""
+    @State private var commentSending = false
+    @State private var commentStatus: String?
 
-    private var activity: PFActivity? { workout.activityId.flatMap { snapshot.activities[$0] } }
-    private var analysis: PFAnalysisRow? { workout.activityId.flatMap { snapshot.analyses[$0] } }
-    private var trimp: Double? { workout.activityId.flatMap { snapshot.trimp[$0] } }
-    private var rpe: Double? { workout.userRpe ?? workout.activityId.flatMap { snapshot.rpe[$0] } }
+    private var reviewID: String? { workout.coachSessionID ?? workout.activityId.map { "activity:\($0)" } }
+    private var draftKey: String { "noop.workoutCommentDraft.\(reviewID ?? workout.id)" }
+    private var discussion: [PFChatTurn] {
+        (model.snapshot?.coach.workoutChat ?? snapshot.coach.workoutChat).filter { $0.sessionID == reviewID }
+    }
+
+    private var currentSnapshot: PFSnapshot { model.snapshot ?? snapshot }
+    private var activeActivityID: String? { selectedActivityID ?? workout.activityId }
+    private var activity: PFActivity? { activeActivityID.flatMap { currentSnapshot.activities[$0] } }
+    private var analysis: PFAnalysisRow? { activeActivityID.flatMap { currentSnapshot.analyses[$0] } }
+    private var trimp: Double? { activeActivityID.flatMap { currentSnapshot.trimp[$0] } }
+    private var rpe: Double? { activeActivityID.flatMap { currentSnapshot.rpe[$0] } ?? workout.userRpe }
+    private var activeWorkout: PFWorkout {
+        var selected = workout
+        selected.activityId = activeActivityID
+        return selected
+    }
 
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
+                    if workout.matchedActivityIds.count > 1 { recordingSelector }
                     // A race has its own result card; the recording's own name and sport would only contradict it.
                     if results?.detail?.race == nil {
                         PFResultsHeader(workout: workout, activity: activity, weather: results?.detail?.weather)
@@ -69,7 +87,46 @@ struct PFResultsSheet: View {
             }
         }
         .task {
-            if let id = workout.activityId { results = await model.results(for: id) } else { results = PFSessionResults() }
+            commentDraft = UserDefaults.standard.string(forKey: draftKey) ?? ""
+            await model.refresh()
+        }
+        .task(id: activeActivityID) {
+            results = nil
+            if let id = activeActivityID {
+                let fetched = await model.results(for: id)
+                if id == activeActivityID { results = fetched }
+            }
+            else { results = PFSessionResults() }
+        }
+        .onChange(of: commentDraft) { _, value in
+            if value.isEmpty { UserDefaults.standard.removeObject(forKey: draftKey) }
+            else { UserDefaults.standard.set(value, forKey: draftKey) }
+        }
+    }
+
+    private var recordingSelector: some View {
+        PFCard("Garmin recordings", icon: "list.bullet") {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("All recordings count toward the plan comparison. Select one for its detailed charts and Coach review.")
+                    .font(StrandFont.caption)
+                    .foregroundStyle(StrandPalette.textSecondary)
+                ForEach(workout.matchedActivityIds, id: \.self) { id in
+                    Button {
+                        selectedActivityID = id
+                    } label: {
+                        HStack {
+                            Text(currentSnapshot.activities[id]?.name ?? "Garmin recording \(id)")
+                            Spacer()
+                            if activeActivityID == id { Image(systemName: "checkmark.circle.fill") }
+                        }
+                        .font(StrandFont.subhead)
+                        .foregroundStyle(activeActivityID == id ? StrandPalette.accent : StrandPalette.textPrimary)
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(commentSending)
+                    .accessibilityIdentifier("garmin-recording-\(id)")
+                }
+            }
         }
     }
 
@@ -83,7 +140,8 @@ struct PFResultsSheet: View {
             PFRaceSegmentsCard(race: race)
         }
         coachCard(results.analysis)
-        if let onAskCoach, let sessionID = workout.coachSessionID {
+        if reviewID != nil { workoutDiscussion }
+        if let onAskCoach, let sessionID = reviewID {
             Button {
                 dismiss()
                 onAskCoach(sessionID)
@@ -128,12 +186,123 @@ struct PFResultsSheet: View {
                 }
             }
         }
-        PFResultsRating(workout: workout, rpe: rpe, photoSummary: workout.activityId.flatMap { snapshot.photoSummaries[$0] })
+        PFResultsRating(workout: activeWorkout, rpe: rpe, photoSummary: activeActivityID.flatMap { currentSnapshot.photoSummaries[$0] })
+    }
+
+    private var workoutDiscussion: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Review this workout with Coach").font(StrandFont.subhead.weight(.semibold))
+            ForEach(discussion) { PFChatBubble(turn: $0) }
+            TextField("Add context or ask Coach to reassess", text: $commentDraft, axis: .vertical)
+                .lineLimit(3...6)
+                .textFieldStyle(.roundedBorder)
+                .accessibilityIdentifier("pf-workout-comment")
+            Button {
+                Task { await sendWorkoutComment() }
+            } label: {
+                Label(commentSending ? "Sending…" : "Send to Coach", systemImage: "paperplane")
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(StrandPalette.accent)
+            .disabled(commentSending || commentDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            .accessibilityIdentifier("pf-workout-comment-send")
+            if let commentStatus {
+                Text(commentStatus).font(StrandFont.caption).foregroundStyle(StrandPalette.textSecondary)
+            }
+        }
+        .padding(16)
+        .background(StrandPalette.surfaceInset, in: RoundedRectangle(cornerRadius: 16))
+    }
+
+    @MainActor private func sendWorkoutComment() async {
+        guard let reviewID, !commentSending else { return }
+        guard CoachBriefScheduler.coachMasterEnabled else {
+            commentStatus = "Coach is turned off in Settings. Your comment is saved here."
+            return
+        }
+        let typed = commentDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !typed.isEmpty else { return }
+        guard typed.count <= 2_000 else {
+            commentStatus = "Use 2,000 characters or fewer. Your draft is kept."
+            return
+        }
+        let previousAnalysis = results?.analysis
+        let previousReplies = Set(discussion.filter { $0.role == "coach" }.map(\.id))
+        commentSending = true
+        defer { commentSending = false }
+        do {
+            let recordedID = activeActivityID.flatMap { id in
+                !id.isEmpty && id.allSatisfy({ $0.isASCII && $0.isNumber }) ? id : nil
+            }
+            let response = try await PFAPI.postCoachMessage(typed, sessionID: reviewID, reassessActivityID: recordedID)
+            guard (200..<300).contains(response.status) else {
+                commentStatus = PFJ(data: response.data)["message"].text ?? "Comment not sent. Your draft is kept."
+                return
+            }
+            let responseBody = PFJ(data: response.data)
+            let requestID = responseBody["id"].idString
+            let reassessmentID = responseBody["reassessment_id"].idString
+            let reassessmentError = responseBody["reassessment_error"].text
+            var replied = false
+            if commentDraft.trimmingCharacters(in: .whitespacesAndNewlines) == typed { commentDraft = "" }
+            commentStatus = "Sent. Coach is reviewing this workout."
+            for _ in 0..<20 {
+                await model.refresh()
+                if discussion.contains(where: { turn in
+                    turn.role == "coach" && (requestID == nil
+                        ? !previousReplies.contains(turn.id) : turn.requestID == requestID)
+                }) {
+                    replied = true
+                    if reassessmentID == nil {
+                        commentStatus = reassessmentError
+                        return
+                    }
+                    commentStatus = "Coach replied. The workout analysis is being reassessed."
+                }
+                if let reassessmentID, case .success(let job) = await PFJobClient.status(id: reassessmentID) {
+                    if job.state == .failed {
+                        commentStatus = "Comment sent. " + PFJobError.failed(job.error).message
+                        if commentDraft.isEmpty { commentDraft = typed }
+                        return
+                    }
+                    if job.state == .done {
+                        if let id = recordedID, id == activeActivityID { results = await model.results(for: id) }
+                        await model.refresh()
+                        commentStatus = results?.analysis != previousAnalysis && results?.analysis != nil
+                            ? "Coach reassessed the workout. The analysis above has been refreshed."
+                            : "Reassessment finished without a changed analysis being available here. Your comment remains with this workout."
+                        return
+                    }
+                }
+                if !replied, let requestID, case .success(let job) = await PFJobClient.status(id: requestID) {
+                    if job.state == .failed {
+                        commentStatus = PFJobError.failed(job.error).message
+                        if commentDraft.isEmpty { commentDraft = typed }
+                        return
+                    }
+                    if job.state == .done {
+                        await model.refresh()
+                        if reassessmentID == nil {
+                            commentStatus = reassessmentError ?? "Coach finished. Refresh this workout to read the response."
+                            return
+                        }
+                    }
+                }
+                try await Task.sleep(nanoseconds: 3_000_000_000)
+            }
+            commentStatus = reassessmentID == nil
+                ? "Sent. The reply is not available here yet; it will remain with this workout."
+                : "Comment sent. Analysis reassessment is still pending; refresh this workout later."
+        } catch is CancellationError {
+            commentStatus = "Your sent comment remains with this workout."
+        } catch {
+            commentStatus = "Couldn't send. Your draft is kept. \(PFAPI.failureDetail(error))"
+        }
     }
 
     private func coachCard(_ markdown: String?) -> some View {
         PFCoachReviewCard(markdown: markdown, headline: analysis?.headline, completionAnalysis: workout.completionAnalysis,
-                          status: workout.activityId.flatMap { snapshot.analysisStatuses[$0] })
+                          status: activeActivityID.flatMap { currentSnapshot.analysisStatuses[$0] })
     }
 }
 
@@ -876,8 +1045,13 @@ private struct PFPlanVersusActual: View {
                             .fixedSize(horizontal: false, vertical: true)
                     }
                     if let compliance = workout.compliance { PFComplianceView(compliance: compliance) }
+                    if workout.matchedActivityIds.count > 1 {
+                        Text("Combined comparison includes \(workout.matchedActivityIds.count) Garmin recordings. Detailed charts show the selected recording.")
+                            .font(StrandFont.caption)
+                            .foregroundStyle(StrandPalette.textSecondary)
+                    }
                     if let analysis, analysis.plannedKm != nil || analysis.plannedMin != nil {
-                        Text(planLine(analysis))
+                        Text((workout.matchedActivityIds.count > 1 ? "Selected recording: " : "") + planLine(analysis))
                             .font(StrandFont.caption)
                             .foregroundStyle(StrandPalette.textSecondary)
                     }

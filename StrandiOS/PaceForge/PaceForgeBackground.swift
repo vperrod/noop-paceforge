@@ -94,6 +94,7 @@ enum PaceForgeBackground {
     /// item is not announced twice.
     static let notifiedAlertsKey = "noop.paceforge.notifiedAlerts"
     static let notifiedNeedsKey = "noop.paceforge.notifiedNeedsYou"
+    private static var isDelivering = false
 
     /// Register before launch finishes; the identifier is listed in BGTaskSchedulerPermittedIdentifiers.
     static func register() {
@@ -138,6 +139,9 @@ enum PaceForgeBackground {
     }
 
     private static func deliver(_ snapshot: PFSnapshot) async -> Bool {
+        guard !isDelivering else { return true }
+        isDelivering = true
+        defer { isDelivering = false }
         // One notification owner for the shared Coach. When the scheduled brief is enabled it
         // handles delivery and status; this background refresh must not send a second, differently
         // routed notification for the same brief. Keep the existing new/updated notices when the
@@ -175,17 +179,27 @@ enum PaceForgeBackground {
     private static func notifyIfUpdated(_ brief: PFDailyBrief, today: String) async {
         guard let updated = brief.updatedAt, brief.date == today else { return }
         let defaults = UserDefaults.standard
+        guard defaults.string(forKey: lastBriefKey) == today else { return }
         let last = defaults.string(forKey: lastBriefUpdateKey)
         guard last != updated else { return }
-        defaults.set(updated, forKey: lastBriefUpdateKey)
-        guard last != nil, await canNotify() else { return }
+        guard last != nil else {
+            defaults.set(updated, forKey: lastBriefUpdateKey)
+            return
+        }
+        guard await canNotify() else { return }
         let content = UNMutableNotificationContent()
         content.title = "Briefing updated"
         content.body = brief.headline
         content.sound = .default
         content.categoryIdentifier = notificationCategory
+        content.userInfo = PFInboxPayload529.dailyReport(date: today)
         let request = UNNotificationRequest(identifier: "paceforge.brief.update.\(updated)", content: content, trigger: nil)
-        try? await UNUserNotificationCenter.current().add(request)
+        do {
+            try await UNUserNotificationCenter.current().add(request)
+            defaults.set(updated, forKey: lastBriefUpdateKey)
+        } catch {
+            // Leave it pending for a later refresh after delivery can be scheduled.
+        }
     }
 
     /// One local notification for each open alert not seen before. Alerts older than two days are only
@@ -197,7 +211,8 @@ enum PaceForgeBackground {
         let fresh = alerts.filter { !seen.contains($0.id) }
         guard !fresh.isEmpty else { return }
         guard defaults.object(forKey: PFPrefs.alertsKey) as? Bool ?? true, await canNotify() else { return }
-        defaults.set(Array((Array(seen) + fresh.map(\.id)).suffix(200)), forKey: notifiedAlertsKey)
+        var remembered = defaults.stringArray(forKey: notifiedAlertsKey) ?? []
+        remembered.append(contentsOf: fresh.filter { !isRecent($0.createdAt) }.map(\.id))
         for alert in fresh where isRecent(alert.createdAt) {
             let content = UNMutableNotificationContent()
             content.title = alert.title
@@ -206,8 +221,14 @@ enum PaceForgeBackground {
             content.categoryIdentifier = notificationCategory
             content.userInfo = PFAlertRoute.userInfo(kind: PFAlertRoute.alertKind, id: alert.id, activityID: alert.activityID)
             let request = UNNotificationRequest(identifier: "paceforge.alert.\(alert.id)", content: content, trigger: nil)
-            try? await UNUserNotificationCenter.current().add(request)
+            do {
+                try await UNUserNotificationCenter.current().add(request)
+                remembered.append(alert.id)
+            } catch {
+                // Scheduling failed: retain eligibility on the next refresh.
+            }
         }
+        defaults.set(Array(remembered.suffix(200)), forKey: notifiedAlertsKey)
     }
 
     /// One local notification for each open Needs you item not announced before (see `PFNeedsNotify`). The server's list holds
@@ -222,8 +243,7 @@ enum PaceForgeBackground {
         }
         let fresh = PFNeedsNotify.fresh(items, seen: Set(stored))
         guard !fresh.isEmpty, defaults.object(forKey: PFPrefs.alertsKey) as? Bool ?? true, await canNotify() else { return }
-        defaults.set(PFNeedsNotify.remembering(stored, adding: fresh), forKey: notifiedNeedsKey)
-        PFAlertHistoryStore.shared.recordAnnounced(fresh)
+        var announced: [PFNeedsItem] = []
         for item in fresh {
             let content = UNMutableNotificationContent()
             content.title = item.title
@@ -232,8 +252,15 @@ enum PaceForgeBackground {
             content.categoryIdentifier = notificationCategory
             content.userInfo = PFAlertRoute.userInfo(kind: PFAlertRoute.needsYouKind, id: item.id, activityID: item.activityID)
             let request = UNNotificationRequest(identifier: "paceforge.needsyou.\(item.id)", content: content, trigger: nil)
-            try? await UNUserNotificationCenter.current().add(request)
+            do {
+                try await UNUserNotificationCenter.current().add(request)
+                announced.append(item)
+            } catch {
+                // Keep the item pending when iOS cannot schedule it.
+            }
         }
+        defaults.set(PFNeedsNotify.remembering(stored, adding: announced), forKey: notifiedNeedsKey)
+        PFAlertHistoryStore.shared.recordAnnounced(announced)
     }
 
     private static func isRecent(_ createdAt: String?) -> Bool {
@@ -242,13 +269,10 @@ enum PaceForgeBackground {
     }
 
     private static func notifyIfNew(_ brief: PFDailyBrief, today: String) async {
-        guard let date = brief.date else { return }
+        guard let date = brief.date, date == today else { return }
         let defaults = UserDefaults.standard
         let last = defaults.string(forKey: lastBriefKey)
         guard last != date else { return }
-        defaults.set(date, forKey: lastBriefKey)
-        // The first ever refresh only records the brief; it notifies only if the brief is today's.
-        if last == nil && date != today { return }
 
         let settings = await UNUserNotificationCenter.current().notificationSettings()
         guard settings.authorizationStatus == .authorized || settings.authorizationStatus == .provisional else { return }
@@ -257,7 +281,14 @@ enum PaceForgeBackground {
         content.body = brief.headline
         content.sound = .default
         content.categoryIdentifier = notificationCategory
+        content.userInfo = PFInboxPayload529.dailyReport(date: date)
         let request = UNNotificationRequest(identifier: "paceforge.brief.\(date)", content: content, trigger: nil)
-        try? await UNUserNotificationCenter.current().add(request)
+        do {
+            try await UNUserNotificationCenter.current().add(request)
+            defaults.set(date, forKey: lastBriefKey)
+            if let updated = brief.updatedAt { defaults.set(updated, forKey: lastBriefUpdateKey) }
+        } catch {
+            // Permission or scheduling failure must not consume today's delivery.
+        }
     }
 }

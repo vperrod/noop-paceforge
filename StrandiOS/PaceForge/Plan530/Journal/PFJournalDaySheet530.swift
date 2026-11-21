@@ -55,10 +55,15 @@ struct PFJournalDaySheet530: View {
     // MARK: The loaded sheet
 
     @ViewBuilder private func loaded(_ doc: PFJournalDoc530) -> some View {
-        let isWaiting = doc.prompts?.first { $0.window == window }?.state == "waiting"
+        let prompt = doc.prompts?.first { $0.window == window }
+        let isWaiting = prompt?.state == "waiting"
+        let isClosed = doc.stale == true || prompt?.state == "closed" || (doc.asOf != nil && doc.asOf != today)
         let hidden = Set(JournalCatalogStore().hiddenQuestions)
-        let questions = Logic.questions(in: doc.list, window: window, hidden: hidden, extra: PFJournalCustom530.questions())
+        let assignment = doc.prompts?.first { $0.window == window }?.selectedKeys
+        let questions = Logic.questions(in: doc.list, window: window, hidden: hidden,
+                                        extra: PFJournalCustom530.questions(), selectedKeys: assignment)
         let keys = questions.compactMap(\.key)
+        let serverKeys = Set((doc.list ?? []).compactMap(\.key))
         let day = Logic.day(window: window, questions: questions, today: today)
         let autoIDs = (doc.auto ?? []).first { $0.date == day }?.answers?.compactMap(\.id) ?? []
         VStack(alignment: .leading, spacing: 12) {
@@ -68,7 +73,10 @@ struct PFJournalDaySheet530: View {
             } else if isEvening {
                 eveningCard(doc)
             }
-            if isWaiting {
+            if isClosed {
+                PFDocPlaceholder529(kind: .empty, emptyTitle: "Journal needs refreshing",
+                                    emptyText: "These questions are closed or belong to an earlier day. Refresh to get today's selection; earlier answers remain in your journal log.")
+            } else if isWaiting {
                 PFDocPlaceholder529(kind: .empty, emptyTitle: "Questions open later",
                                     emptyText: "This part of the day has not finished. Your answers open with its alert.")
             } else if questions.isEmpty {
@@ -77,6 +85,9 @@ struct PFJournalDaySheet530: View {
             } else {
                 questionsCard(questions, keys: keys, day: day)
                 saveBar(keys: keys, day: day)
+                PFJournalTextCapture530(day: today, questions: keys.filter { serverKeys.contains($0) }) {
+                    await store.refresh()
+                }
             }
             if isEvening { tonightCard }
         }

@@ -6,6 +6,21 @@ import WhoopProtocol
 
 final class SleepStageTotalsTests: XCTestCase {
 
+    func testPreMidnightFragmentFollowsMainSleepToWakeDay() {
+        let day = 1_800_000_000 - 1_800_000_000 % 86_400
+        let nap = SleepStageTotals.NightBlock(start: day + 14 * 3_600, end: day + 16 * 3_600)
+        let early = SleepStageTotals.NightBlock(start: day + 21 * 3_600,
+                                                end: day + 22 * 3_600 + 7 * 60)
+        let main = SleepStageTotals.NightBlock(start: day + 23 * 3_600 + 10 * 60,
+                                               end: day + 86_400 + 6 * 3_600 + 4 * 60)
+        let ends = SleepStageTotals.wakeDayEnds([nap, early, main], offsetSec: 0)
+        XCTAssertEqual(ends, [nap.end, main.end, main.end])
+        let tooFar = SleepStageTotals.NightBlock(start: day + 20 * 3_600,
+                                                 end: day + 21 * 3_600)
+        XCTAssertEqual(SleepStageTotals.wakeDayEnds([tooFar, main], offsetSec: 0),
+                       [tooFar.end, main.end])
+    }
+
     func testMinutesFromSegmentArray() throws {
         let json = """
         [{"start":0,"end":600,"stage":"light"},

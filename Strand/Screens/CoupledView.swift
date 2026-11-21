@@ -112,7 +112,13 @@ struct CoupledView: View {
     private var sleepPerformance: Double? {
         guard let d = day else { return nil }
         if let p = repo.importedSleep[d.day]?.performancePct { return p }
-        return AnalyticsEngine.Rest.composite(daily: d)
+        let nightlyHours = repo.days.compactMap { row -> Double? in
+            guard let minutes = row.totalSleepMin, minutes > 0 else { return nil }
+            return minutes / 60.0
+        }
+        let need = AnalyticsEngine.Rest.personalizedNeedHours(nightlyHours: nightlyHours, age: nil)
+        let consistency = VitalityEngine.sleepConsistency(nightlyHours: Array(nightlyHours.suffix(28)))
+        return AnalyticsEngine.Rest.composite(daily: d, needHours: need, consistency: consistency)
     }
 
     /// On-device readiness, computed EXACTLY as Today does (ReadinessEngine.evaluate over the same rows,

@@ -151,6 +151,7 @@ private struct HealthVitalsChip: View {
                 IndexRow("Healthspan", "hourglass", TabRoute.healthspan, id: "health-vitals-healthspan")
             }
             HealthView()
+            if PFAPI.isConfigured { PFMovementCard() }
         }
         .containerIdentifier("health-chip-content-vitals")
     }

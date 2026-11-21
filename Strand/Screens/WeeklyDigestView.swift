@@ -35,11 +35,17 @@ enum WeeklyDigestSource {
         var rest: [String: Double] = [:]
         var rhr: [String: Double] = [:]
         var hrv: [String: Double] = [:]
+        let nightlyHours = days.compactMap { day -> Double? in
+            guard let minutes = day.totalSleepMin, minutes > 0 else { return nil }
+            return minutes / 60.0
+        }
+        let need = AnalyticsEngine.Rest.personalizedNeedHours(nightlyHours: nightlyHours, age: nil)
+        let consistency = VitalityEngine.sleepConsistency(nightlyHours: Array(nightlyHours.suffix(28)))
         for d in days {
             if let v = d.recovery { charge[d.day] = v }
             if let v = d.strain   { effort[d.day] = v }
             // Rest = the sleep-performance composite, recomputed on the persisted day.
-            if let r = restScore(for: d) { rest[d.day] = r }
+            if let r = restScore(for: d, need: need, consistency: consistency) { rest[d.day] = r }
             if let v = d.restingHr { rhr[d.day] = Double(v) }
             if let v = d.avgHrv    { hrv[d.day] = v }
         }
@@ -53,8 +59,8 @@ enum WeeklyDigestSource {
     /// helper (duration-vs-need / efficiency / restorative / consistency). Returns nil
     /// for a day with no in-bed sleep / missing efficiency, so non-sleep days are simply
     /// absent from the Rest series.
-    private static func restScore(for d: DailyMetric) -> Double? {
-        AnalyticsEngine.Rest.composite(daily: d)
+    private static func restScore(for d: DailyMetric, need: Double, consistency: Double?) -> Double? {
+        AnalyticsEngine.Rest.composite(daily: d, needHours: need, consistency: consistency)
     }
 }
 

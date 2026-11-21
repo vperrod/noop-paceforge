@@ -1885,6 +1885,8 @@ final class AppModel: ObservableObject {
     /// A double tap rather than a single one because a strap takes knocks against bars and benches all
     /// session, and two deliberate taps are not something a rack does by accident.
     var strapDoubleTapOverride: (@MainActor () -> Void)?
+    /// A visible, opted-in interval timer may claim taps without replacing Lift Log's handler.
+    var intervalDoubleTapOwner: UUID?
 
     private func handleDoubleTap() {
         let now = Date()
@@ -1897,6 +1899,11 @@ final class AppModel: ObservableObject {
         if let override = strapDoubleTapOverride {
             live.append(log: Self.stamped("Double-tap → Lift Log: next"))
             override()
+            return
+        }
+        if let owner = intervalDoubleTapOwner {
+            live.append(log: Self.stamped("Double-tap → Interval timer: next"))
+            NotificationCenter.default.post(name: Notification.Name("noop.intervalTimer.advance"), object: owner)
             return
         }
         live.append(log: Self.stamped("Double-tap → \(behavior.doubleTapAction.label)"))

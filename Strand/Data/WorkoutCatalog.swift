@@ -38,6 +38,8 @@ enum WorkoutCatalog {
         Sport(name: "Indoor cycle", isDistanceSport: false),
         Sport(name: "Pool swim", isDistanceSport: false),
         Sport(name: "Row machine", isDistanceSport: false),
+        Sport(name: "SkiErg", isDistanceSport: false),
+        Sport(name: "Physiotherapy", isDistanceSport: false),
         Sport(name: "Elliptical", isDistanceSport: false),
         Sport(name: "Strength", isDistanceSport: false),
         // Bodybuilding (#714). A strength-style session with no route, so GPS off.

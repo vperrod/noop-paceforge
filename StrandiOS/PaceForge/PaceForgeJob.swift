@@ -32,6 +32,12 @@ enum PFJobName: String, Equatable {
     case planHours = "plan-hours"
     case dayoffAdd = "dayoff-add"
     case dayoffRemove = "dayoff-remove"
+    case stepGoalSet = "step-goal-set"
+    case saveMemory = "save-memory"
+    case journalList = "journal-list"
+    case journalCapture = "journal-capture"
+    case journalCaptureConfirm = "journal-capture-confirm"
+    case journalProposal = "journal-proposal"
 
     /// How long a job is expected to take from the request to "done", in seconds, from the contract: a photo read is 5 s to about 4.5 min
     /// (the local vision model is shared), a Garmin sync about 8 s and a minute or more behind a Garmin rate limit, the rest run inline.
@@ -40,8 +46,9 @@ enum PFJobName: String, Equatable {
         case .analyzeWorkoutPhoto: return 270
         case .coach: return 300
         case .sync: return 120
+        case .journalCapture: return 90
         case .saveRpe, .adjustToday, .coachFeedback, .niggleAdd, .niggleResolve, .calendarEdit, .sessionState, .sessionDrop, .easyMode, .easyModeEnd, .saveEvents, .hyroxSimAdd,
-             .eventUpdate, .planHours, .dayoffAdd, .dayoffRemove: return 30
+             .eventUpdate, .planHours, .dayoffAdd, .dayoffRemove, .journalList, .journalProposal, .journalCaptureConfirm, .saveMemory, .stepGoalSet: return 30
         case .sessionSwap: return 60
         }
     }

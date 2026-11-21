@@ -210,13 +210,16 @@ enum PFAPI {
 
     /// Send one user message to the shared PaceForge Coach. The server runs the same coach job and
     /// stores its reply in `api/state`, which the iPhone refreshes into the existing transcript.
-    static func postCoachMessage(_ message: String, sessionID: String? = nil) async throws -> (status: Int, data: Data) {
+    static func postCoachMessage(_ message: String, sessionID: String? = nil,
+                                 proposalOnly: Bool = false, reassessActivityID: String? = nil) async throws -> (status: Int, data: Data) {
         if let fixture {
             guard let reply = fixture["api/app/chat"] else { throw CocoaError(.fileNoSuchFile) }
             return (200, try JSONSerialization.data(withJSONObject: reply))
         }
         var body: [String: Any] = ["message": String(message.prefix(2_000))]
         if let sessionID, !sessionID.isEmpty { body["session_id"] = sessionID }
+        if proposalOnly { body["proposal_only"] = true }
+        if let reassessActivityID { body["reassess_activity_id"] = reassessActivityID }
         return try await SelfHostedPushClient.paceForgePostReturningStatus("api/app/chat", body: body)
     }
 

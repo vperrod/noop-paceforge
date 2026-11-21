@@ -147,9 +147,9 @@ struct PFTodayJournalCard530: View {
 
     /// Only a due window draws answers. Waiting questions stay in their sheet until their alert moment.
     private func dueQuestions(_ doc: PFTodayJournal530?) -> DueQuestions? {
-        guard let doc, let due = (doc.prompts ?? []).first(where: { $0.state == "due" && ($0.open ?? 0) > 0 }),
-              let window = due.window else { return nil }
-        let questions = (doc.list ?? []).filter { $0.window == window && $0.key != nil }.map { q in
+        guard let assignment = PFTodayJournalLogic530.dueAssignment(doc, today: today) else { return nil }
+        let window = assignment.window
+        let questions = assignment.questions.map { q in
             PFJournalDoc530.Question(key: q.key, label: q.label, prompt: q.prompt, hint: q.hint, kind: q.kind,
                                      window: q.window, about: q.about, yes: q.yes, no: q.no,
                                      state: nil, stateSource: nil, nYes: nil, nNo: nil)

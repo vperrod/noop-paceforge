@@ -4,6 +4,12 @@ import XCTest
 /// The inbox's decisions (build 529): which items raise a notification, how often the server is asked, the rows and unread marks, and
 /// where a tap goes. All synthetic ids, titles and times.
 final class PFInboxLogic529Tests: XCTestCase {
+    func testLegacyBriefNotificationOpensItsDatedReport() {
+        let payload = PFInboxPayload529.dailyReport(date: "2026-11-20")
+        let link = PFInboxPayload529.link(from: payload)
+        XCTAssertEqual(link?.route, "report_daily")
+        XCTAssertEqual(link?.date, "2026-11-20")
+    }
     private let now = PFAlertDates.parse("2026-11-15T20:00:00+00:00")!
 
     private func item(_ id: String, kind: String = "coach", notify: Bool = true, ts: String = "2026-11-15T19:30:00+00:00",

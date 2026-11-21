@@ -119,7 +119,7 @@ struct PFDualReadinessPanel: View {
                 VStack(alignment: .leading, spacing: 12) {
                     HStack(alignment: .top, spacing: 12) {
                         column("Garmin", readiness.garmin)
-                        column("WHOOP", readiness.whoop)
+                        column("NOOP", readiness.whoop)
                     }
                     if let note = readiness.loadNote {
                         Text(note).font(StrandFont.caption).foregroundStyle(StrandPalette.textTertiary)
@@ -246,7 +246,7 @@ struct PFDualReadinessPanel: View {
             Image(systemName: agrees ? "checkmark.circle.fill" : "arrow.triangle.branch")
                 .font(StrandFont.scaled(13, weight: .semibold))
                 .accessibilityHidden(true)
-            Text(agrees ? "Garmin and WHOOP agree" : "Garmin and WHOOP split")
+            Text(agrees ? "Garmin and NOOP agree" : "Garmin and NOOP split")
                 .font(StrandFont.caption.weight(.semibold))
         }
         .foregroundStyle(agrees ? PFColor.positive : PFColor.warning)

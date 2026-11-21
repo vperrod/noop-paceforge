@@ -43,4 +43,17 @@ final class SleepNapDebtTests: XCTestCase {
 
         XCTAssertEqual(SleepView.napSleepMinutes([first, second, nap]), 48, accuracy: 1e-9)
     }
+
+    func testPreMidnightFragmentBelongsToNextMorningNotNapCredit() {
+        let day = Int(Calendar.current.startOfDay(for: Date(timeIntervalSince1970: 1_800_000_000)).timeIntervalSince1970)
+        let early = session(start: day + 21 * 3_600, durationMin: 67,
+                            stages: #"{"awake":7,"light":40,"deep":10,"rem":10}"#)
+        let main = session(start: day + 23 * 3_600 + 10 * 60, durationMin: 414,
+                           stages: #"{"awake":14,"light":220,"deep":80,"rem":100}"#)
+        let days = SleepModel.navDays(navSessions: [early, main])
+        XCTAssertEqual(days.count, 1)
+        XCTAssertEqual(days[0].map(\.startTs), [early.startTs, main.startTs])
+        let credit = SleepModel.napSleepMinutesByDay(navDays: days, habitualMidsleepSec: nil)
+        XCTAssertEqual(credit.values.first ?? -1, 0, accuracy: 1e-9)
+    }
 }

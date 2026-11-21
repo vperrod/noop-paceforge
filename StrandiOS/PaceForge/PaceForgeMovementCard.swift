@@ -34,7 +34,8 @@ struct PFMovementCard: View {
     @ObservedObject private var store = PFMovementStore.shared
 
     var body: some View {
-        Group {
+        VStack(alignment: .leading, spacing: 12) {
+            if PFAPI.isConfigured { PFStepGoalCard() }
             switch store.state {
             case .ready(let movement, _):
                 PFMovementBody(movement: movement)
@@ -146,5 +147,79 @@ struct PFMovementBody: View {
             }
         }
         .containerIdentifier("pf-movement-week")
+    }
+}
+
+
+/// An athlete-selected target from one source. Never creates a target or training-load input.
+private struct PFStepGoalCard: View {
+    @StateObject private var job = PFJobTracker()
+    @State private var document = PFJ(nil)
+    @State private var target = ""
+    @State private var source = "garmin"
+    @State private var message: String?
+    @State private var loading = false
+    private var isWriting: Bool { job.phase == .sending || job.phase == .working }
+
+    var body: some View {
+        PFCard(title: "Your daily step goal", icon: "figure.walk") {
+            VStack(alignment: .leading, spacing: 10) {
+                if let goal = document["target"].int {
+                    Text(document["steps"].int.map { "\($0.formatted()) of \(goal.formatted()) steps" }
+                         ?? "No count available for this date")
+                        .font(StrandFont.headline)
+                    if let fraction = document["fraction"].double { ProgressView(value: fraction) }
+                    Text("\(document["source_label"].string ?? "") · \(document["date"].string ?? "")")
+                        .font(StrandFont.caption).foregroundStyle(StrandPalette.textSecondary)
+                } else {
+                    Text(document["state"].exists ? "No goal set. Choose your own target." : "Goal status not loaded yet.")
+                        .font(StrandFont.subhead)
+                }
+                TextField("Daily target (100–100,000)", text: $target).keyboardType(.numberPad)
+                    .textFieldStyle(.roundedBorder)
+                Picker("Count from", selection: $source) {
+                    Text("Garmin").tag("garmin")
+                    Text("NOOP stored steps").tag("noop")
+                }
+                HStack {
+                    Button("Save goal") { Task { await save(clear: false) } }
+                    Button("Clear goal") { Task { await save(clear: true) } }
+                    Button("Refresh count") { Task { await load() } }
+                }.buttonStyle(.bordered).disabled(loading || isWriting)
+                Text("Only the selected source and date count. Sources are never added together. Missing steps stay unknown; some straps do not publish a count. This goal does not change recovery, Effort or training load.")
+                    .font(StrandFont.caption).foregroundStyle(StrandPalette.textTertiary)
+                if let message { Text(message).font(StrandFont.caption).foregroundStyle(StrandPalette.textSecondary) }
+            }
+        }
+        .task(id: PFAPI.todayISO) { await load() }
+    }
+
+    @MainActor private func load() async {
+        guard !loading else { return }
+        loading = true
+        defer { loading = false }
+        do {
+            let fetched = PFJ(data: try await PFAPI.fetch("api/step-goal"))
+            guard fetched["state"].exists else { throw CocoaError(.fileReadCorruptFile) }
+            document = fetched
+            target = fetched["target"].int.map(String.init) ?? ""
+            source = fetched["source"].string ?? "garmin"
+            message = nil
+        } catch { message = "Could not refresh the goal or count. Previous values may be outdated." }
+    }
+
+    @MainActor private func save(clear: Bool) async {
+        let trimmed = target.trimmingCharacters(in: .whitespacesAndNewlines)
+        let value = clear || trimmed.isEmpty ? nil : Int(trimmed)
+        if !clear && !trimmed.isEmpty && (value == nil || !(100...100_000).contains(value ?? 0)) {
+            message = "Enter a whole target from 100 to 100,000. Your input is kept."
+            return
+        }
+        let inputs: [String: Any] = ["target": value.map { $0 as Any } ?? NSNull(), "source": source]
+        if case .success(let result) = await job.run(.stepGoalSet, inputs: inputs) {
+            document = result
+            target = result["target"].int.map(String.init) ?? ""
+            message = "Goal saved."
+        } else if case .failed(let failure) = job.phase { message = failure }
     }
 }

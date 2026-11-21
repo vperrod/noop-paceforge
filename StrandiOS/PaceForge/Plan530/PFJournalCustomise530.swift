@@ -2,8 +2,8 @@ import SwiftUI
 import StrandDesign
 
 /// The journal's question editor (screen 5f): the list with when each question is asked and its yes and no count, the coach's suggestions
-/// (the card is absent while the server sends none), and "Add your own" with its question, kind and time of day. Renaming, regrouping and
-/// hiding stay in the journal's own editor, one tap away. A question added here is kept on the phone and asked in the window chosen.
+/// (the card is absent while the server sends none), and shared add/revise/retire actions. Legacy phone-only questions and the
+/// journal's display editor remain accessible; changing a measurement creates a separate question with its history preserved.
 struct PFJournalCustomise530: View {
     typealias Logic = PFJournalLogic530
 
@@ -15,6 +15,13 @@ struct PFJournalCustomise530: View {
     @State private var draftKind = "yes_no"
     @State private var draftWindow = Logic.evening
     @State private var showsEditor = false
+    @State private var revisingKey: String?
+    @StateObject private var job = PFJobTracker()
+    @State private var listMessage: String?
+
+    private var isWriting: Bool { job.phase == .sending || job.phase == .working }
+
+    private var draftStorageKey: String { "noop.journalQuestionDraft.\(SelfHostedPushClient.paceForgeHost ?? "local")" }
 
     private struct KindOption: Identifiable {
         let id: String
@@ -23,13 +30,30 @@ struct PFJournalCustomise530: View {
 
     private static let kinds = [
         KindOption(id: "yes_no", title: "Yes or no"), KindOption(id: "count", title: "How many"),
-        KindOption(id: "time", title: "A time"), KindOption(id: "scale", title: "1 to 5"),
+        KindOption(id: "scale", title: "1 to 5"),
     ]
 
     var body: some View {
         content
             .planScreen529(title: "Customise journal", identifier: "pf530-journal-customise")
-            .task { await store.refresh() }
+            .task {
+                await store.refresh()
+                let saved = UserDefaults.standard.dictionary(forKey: draftStorageKey) as? [String: String] ?? [:]
+                if draft.isEmpty {
+                    draft = saved["text"] ?? ""
+                    draftKind = saved["kind"] ?? "yes_no"
+                    draftWindow = saved["window"] ?? Logic.evening
+                    revisingKey = saved["key"]
+                }
+            }
+            .onDisappear {
+                if draft.isEmpty { UserDefaults.standard.removeObject(forKey: draftStorageKey) }
+                else {
+                    var saved = ["text": draft, "kind": draftKind, "window": draftWindow]
+                    saved["key"] = revisingKey
+                    UserDefaults.standard.set(saved, forKey: draftStorageKey)
+                }
+            }
             .onAppear { hidden = Set(JournalCatalogStore().hiddenQuestions) }
             .reloadsAfterPull529 { await store.refresh() }
             .sheet(isPresented: $showsEditor, onDismiss: { hidden = Set(JournalCatalogStore().hiddenQuestions) }) { editorSheet }
@@ -49,6 +73,9 @@ struct PFJournalCustomise530: View {
             VStack(alignment: .leading, spacing: 12) {
                 if store.isStale { PFStaleNote529() }
                 listCard(doc)
+                if let listMessage {
+                    Text(listMessage).font(StrandFont.caption).foregroundStyle(StrandPalette.textSecondary)
+                }
                 suggestionsCard(doc)
                 addCard(doc)
                 editorRow
@@ -60,23 +87,44 @@ struct PFJournalCustomise530: View {
 
     private func listCard(_ doc: PFJournalDoc530) -> some View {
         let questions = (doc.list ?? []).filter { !($0.key ?? "").isEmpty }
-        let visible = questions.filter { !hidden.contains($0.key ?? "") }.count + customs.count
+        let visible = questions.count
         return VStack(alignment: .leading, spacing: 0) {
-            PFOver529(text: "Your list · \(visible) of \(Logic.maxQuestions)")
+            PFOver529(text: "Shared list · \(visible) of \(Logic.maxQuestions)")
                 .padding(.bottom, 4)
                 .accessibilityIdentifier("pf530-journal-list-count")
             ForEach(Array(questions.enumerated()), id: \.offset) { index, question in
                 if index > 0 { PFDivider529() }
                 let key = question.key ?? ""
-                PFRow529(title: question.label ?? Logic.prompt(question), sub: asked(question), trailing: counts(question),
-                         trailingPill: hidden.contains(key) ? PFPill529(text: "Hidden", tone: .grey) : nil)
-                    .accessibilityElement(children: .combine)
-                    .accessibilityIdentifier("pf530-journal-list-row-\(key)")
+                VStack(alignment: .leading, spacing: 4) {
+                    PFRow529(title: question.label ?? Logic.prompt(question), sub: asked(question), trailing: counts(question),
+                             trailingPill: hidden.contains(key) ? PFPill529(text: "Hidden", tone: .grey) : nil)
+                        .accessibilityIdentifier("pf530-journal-list-row-\(key)")
+                    HStack {
+                        Button("Revise question") { beginRevision(question) }
+                        Button("Retire") {
+                            Task { await editList(["action": "retire", "key": key]) }
+                        }
+                    }
+                    .buttonStyle(.bordered)
+                    .disabled(isWriting)
+                }
             }
             ForEach(customs, id: \.key) { custom in
                 PFDivider529()
                 HStack(spacing: 8) {
-                    PFRow529(title: custom.key, sub: "\(when(window: custom.window, about: nil)) · added by you")
+                    PFRow529(title: custom.key, sub: "\(when(window: custom.window, about: nil)) · phone-only question")
+                    if ["yes_no", "count", "scale"].contains(custom.kind), [Logic.morning, Logic.evening].contains(custom.window) {
+                        Button("Share with web") {
+                            Task {
+                                if await editList(["action": "custom", "prompt": custom.key, "kind": custom.kind,
+                                                   "window": custom.window,
+                                                   "about": custom.window == Logic.morning ? "yesterday" : "today"]) {
+                                    customs.removeAll { $0.key == custom.key }
+                                    PFJournalCustom530.save(customs)
+                                }
+                            }
+                        }.disabled(isWriting)
+                    }
                     Button { remove(custom) } label: {
                         Text("Remove")
                             .font(LookFont.text(13, weight: .semibold))
@@ -116,7 +164,7 @@ struct PFJournalCustomise530: View {
     // MARK: The coach suggests
 
     @ViewBuilder private func suggestionsCard(_ doc: PFJournalDoc530) -> some View {
-        let open = (doc.suggestions ?? []).filter { !dismissed.contains(PFJournalCustom530.suggestionID($0)) && !($0.title ?? "").isEmpty }
+        let open = (doc.proposals ?? doc.suggestions ?? []).filter { !dismissed.contains(PFJournalCustom530.suggestionID($0)) && !($0.title ?? "").isEmpty }
         if !open.isEmpty {
             VStack(alignment: .leading, spacing: 10) {
                 PFOver529(text: "The coach suggests")
@@ -136,7 +184,15 @@ struct PFJournalCustomise530: View {
                         HStack(spacing: 8) {
                             PFPillButton529(title: actionTitle(suggestion), isMain: true) { act(on: suggestion, id: id) }
                                 .accessibilityIdentifier("pf530-journal-suggestion-go-\(id)")
-                            PFPillButton529(title: suggestion.action == "add" ? "Not now" : "Keep") { dismiss(id) }
+                            PFPillButton529(title: suggestion.action == "add" ? "Not now" : "Keep") {
+                                if let proposalID = suggestion.id {
+                                    Task {
+                                        if case .success = await job.run(.journalProposal, inputs: ["id": proposalID, "answer": "dismiss"]) {
+                                            await store.refresh()
+                                        }
+                                    }
+                                } else { dismiss(id) }
+                            }
                                 .accessibilityIdentifier("pf530-journal-suggestion-skip-\(id)")
                         }
                     }
@@ -156,13 +212,23 @@ struct PFJournalCustomise530: View {
         }
     }
 
-    /// Drop hides the question in the journal's catalog; add asks the new question in the evening; change does both.
+    /// Shared proposals change the shared list; a reword/amount suggestion opens a reviewed revision.
     private func act(on suggestion: PFJournalDoc530.Suggestion, id: String) {
-        let catalog = JournalCatalogStore()
-        if suggestion.action != "add", let key = suggestion.key, !key.isEmpty { catalog.remove(key) }
-        if suggestion.action != "drop", let title = suggestion.title { add(title, kind: "yes_no", window: Logic.evening, existing: existingKeys(nil)) }
-        hidden = Set(catalog.hiddenQuestions)
-        dismiss(id)
+        if suggestion.action == "change" {
+            if let key = suggestion.key, let question = store.doc?.list?.first(where: { $0.key == key }) {
+                beginRevision(question)
+            }
+            return
+        }
+        if let proposalID = suggestion.id {
+            Task {
+                if case .success = await job.run(.journalProposal, inputs: ["id": proposalID, "answer": "accept"]) {
+                    await store.refresh()
+                }
+            }
+        } else if let key = suggestion.key {
+            Task { await editList(["action": suggestion.action == "drop" ? "retire" : "add", "key": key]) }
+        }
     }
 
     private func dismiss(_ id: String) {
@@ -174,11 +240,15 @@ struct PFJournalCustomise530: View {
 
     private func addCard(_ doc: PFJournalDoc530) -> some View {
         let existing = existingKeys(doc)
-        let visible = (doc.list ?? []).filter { !hidden.contains($0.key ?? "") }.count
-        let fits = Logic.canAdd(listCount: visible, customCount: customs.count)
+        let fits = revisingKey != nil || (doc.list ?? []).count < Logic.maxQuestions
         let key = Logic.newKey(draft, existing: existing)
         return VStack(alignment: .leading, spacing: 10) {
-            PFOver529(text: "Add your own")
+            PFOver529(text: revisingKey == nil ? "Add your own" : "Revise question")
+            if let revisingKey {
+                Text("Previous: \(revisingKey). Use distinct wording; old answers keep their original meaning.")
+                    .font(StrandFont.caption).foregroundStyle(StrandPalette.textSecondary)
+                Button("Cancel revision") { self.revisingKey = nil; draft = "" }
+            }
             TextField("Describe it: \"Did you have a late work call?\"", text: $draft, axis: .vertical)
                 .font(LookFont.text(15))
                 .padding(12)
@@ -195,20 +265,27 @@ struct PFJournalCustomise530: View {
                 .pickerStyle(.menu)
                 .accessibilityIdentifier("pf530-journal-add-kind")
             }
-            SectionChips(options: Logic.windows, selection: $draftWindow, idPrefix: "pf530-journal-add-window",
+            SectionChips(options: [Logic.morning, Logic.evening], selection: $draftWindow, idPrefix: "pf530-journal-add-window",
                          id: { $0 }, title: { $0.capitalized })
             if !fits {
-                Text("The list holds \(Logic.maxQuestions) questions. Hide one in the editor below to make room.")
+                Text("The list holds \(Logic.maxQuestions) questions. Retire a shared question above to make room.")
                     .font(LookFont.text(12.5))
                     .foregroundStyle(NoopLook.textTertiary)
                     .fixedSize(horizontal: false, vertical: true)
                     .accessibilityIdentifier("pf530-journal-add-full")
             }
-            PFPillButton529(title: "Add question", isMain: true, isDisabled: key == nil || !fits) {
-                if let key { add(key, kind: draftKind, window: draftWindow, existing: existing) }
+            PFPillButton529(title: revisingKey == nil ? "Add question" : "Save revised question", isMain: true,
+                            isDisabled: key == nil || !fits || isWriting) {
+                Task {
+                    var inputs: [String: Any] = ["action": revisingKey == nil ? "custom" : "replace", "prompt": draft,
+                                                 "kind": draftKind, "window": draftWindow,
+                                                 "about": draftWindow == Logic.morning ? "yesterday" : "today"]
+                    if let revisingKey { inputs["key"] = revisingKey }
+                    if await editList(inputs) { draft = ""; revisingKey = nil }
+                }
             }
             .accessibilityIdentifier("pf530-journal-add")
-            Text("It is asked in the window you pick and saved under your own words.")
+            Text("Shared with PaceForge web. Old answers are preserved; revised questions start a separate measure.")
                 .font(LookFont.text(12.5))
                 .foregroundStyle(NoopLook.textTertiary)
         }
@@ -221,13 +298,24 @@ struct PFJournalCustomise530: View {
         return fromDoc + customs.map(\.key)
     }
 
-    /// Keeps the question on the phone and in the journal's catalog (a number question there when it asks for more than yes or no).
-    private func add(_ text: String, kind: String, window: String, existing: [String]) {
-        guard let key = Logic.newKey(text, existing: existing) else { return }
-        customs.append(Logic.Custom(key: key, kind: kind, window: window))
-        PFJournalCustom530.save(customs)
-        JournalCatalogStore().addCustom(key, kind: kind == "yes_no" ? .bool : .numeric(unitLabel: nil))
-        draft = ""
+    private func beginRevision(_ question: PFJournalDoc530.Question) {
+        revisingKey = question.key
+        draft = question.prompt ?? question.key ?? ""
+        let kind = question.kind ?? "yes_no"
+        draftKind = ["yes_no", "count", "scale"].contains(kind) ? kind : "yes_no"
+        draftWindow = question.window == Logic.morning ? Logic.morning : Logic.evening
+        listMessage = "Edit the revision below before saving."
+    }
+
+    @MainActor @discardableResult private func editList(_ inputs: [String: Any]) async -> Bool {
+        guard !isWriting else { return false }
+        guard case .success = await job.run(.journalList, inputs: inputs) else {
+            if case .failed(let message) = job.phase { listMessage = message }
+            return false
+        }
+        await store.refresh()
+        listMessage = "Question list saved. Earlier answers remain in your journal history."
+        return true
     }
 
     private func remove(_ custom: Logic.Custom) {
