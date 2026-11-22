@@ -114,7 +114,7 @@ private struct TrainHyroxContent: View {
     }
 }
 
-/// Strength: the strength programme (web only) one tap away, then the Lift Log.
+/// Strength: the strength programme (web only) one tap away, then the Lift Log, then PaceForge's imports and strength history.
 private struct TrainStrengthChip: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -123,6 +123,7 @@ private struct TrainStrengthChip: View {
                              icon: "dumbbell", route: PFWebPage.strength, identifier: "train-strength-programme")
             }
             LiftLogView()
+            PFStrengthSection()
         }
         .containerIdentifier("train-chip-content-strength")
     }

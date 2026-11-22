@@ -52,6 +52,7 @@ struct PFWeekReview530: View {
             PFReviewDid530(doc: doc, review: review)
             PFReviewSectionTitle530(text: "Week \(number) \u{00B7} your body")
             PFReviewBody530(doc: doc, review: review)
+            PFReviewOutcomes530(from: doc.from, to: doc.to)
             if let next = review.ahead?.week ?? doc.report?.nextWeek?.week, !next.isEmpty {
                 PFReviewAhead530(week: next, ahead: review.ahead)
             } else {

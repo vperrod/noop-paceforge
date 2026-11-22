@@ -1,12 +1,17 @@
 import SwiftUI
 
-/// A written journal entry proposes answers. The athlete chooses which answers to save.
+/// A written or spoken journal entry proposes answers. The athlete chooses which answers to save.
+/// Voice is the same route as typing: the phone transcribes on the device (`CoachVoiceInput`, no audio leaves it), the transcript lands in the
+/// box below where it can be corrected, and it goes to `journal-capture` as `text`. Only `journal-capture-confirm`, after the review, saves.
 struct PFJournalTextCapture530: View {
     let day: String
     let questions: [String]
     let saved: () async -> Void
 
     @StateObject private var job = PFJobTracker()
+    @StateObject private var voice = CoachVoiceInput()
+    /// What was in the box when the dictation began; the transcript goes after it.
+    @State private var textBeforeVoice = ""
     @State private var text = ""
     @State private var draft: Draft?
     @State private var selected: Set<String> = []
@@ -32,12 +37,20 @@ struct PFJournalTextCapture530: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Write your day").font(.headline)
-            Text("Write what happened. Review any proposed answers before saving them.")
+            Text("Write or say what happened. Review any proposed answers before saving them.")
                 .font(.subheadline).foregroundStyle(.secondary)
             TextEditor(text: $text)
                 .frame(minHeight: 92)
                 .overlay(RoundedRectangle(cornerRadius: 8).stroke(.secondary.opacity(0.3)))
                 .accessibilityLabel("Journal text")
+            if CoachVoiceInput.isSupported {
+                Button { toggleVoice() } label: {
+                    Label(voice.isRecording ? "Stop" : "Speak", systemImage: voice.isRecording ? "stop.circle.fill" : "mic.fill")
+                }
+                .disabled(busy || !(voice.isRecording || voice.canUseVoice || voice.authorization == .notDetermined))
+                .accessibilityIdentifier("pf530-journal-voice")
+                if let status = voice.statusMessage { Text(status).font(.caption).foregroundStyle(.secondary) }
+            }
             Button("Review answers") { Task { await review() } }
                 .disabled(busy || text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || questions.isEmpty)
             if let draft {
@@ -63,6 +76,33 @@ struct PFJournalTextCapture530: View {
             if let message { Text(message).font(.caption).foregroundStyle(.secondary) }
         }
         .planCard529()
+        .onDisappear { if voice.isRecording { voice.stopTranscribing { _ in } } }
+    }
+
+    /// Dictation fills the box live; stopping keeps the final transcript. Nothing is sent until "Review answers".
+    private func toggleVoice() {
+        if voice.isRecording {
+            voice.stopTranscribing { finalText in
+                let spoken = finalText.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !spoken.isEmpty { text = joined(textBeforeVoice, spoken) }
+            }
+            return
+        }
+        textBeforeVoice = text
+        let begin = {
+            voice.startTranscribing { partial in text = joined(textBeforeVoice, partial) }
+        }
+        if voice.authorization == .notDetermined {
+            voice.requestAuthorization { state in if state == .authorized { begin() } }
+        } else {
+            begin()
+        }
+    }
+
+    /// The box's text then the transcript, within the 2 000 characters `journal-capture` takes.
+    private func joined(_ before: String, _ spoken: String) -> String {
+        let parts = [before.trimmingCharacters(in: .whitespacesAndNewlines), spoken.trimmingCharacters(in: .whitespacesAndNewlines)]
+        return String(parts.filter { !$0.isEmpty }.joined(separator: " ").prefix(2000))
     }
 
     @MainActor private func review() async {

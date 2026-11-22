@@ -155,9 +155,16 @@ struct PFResultsSheet: View {
             .accessibilityIdentifier("pf-ask-coach-workout")
         }
         if let activity { PFStatTiles(activity: activity, hidesHeartRate: race != nil, race: race) }
+        if race == nil, let activity, PFActivityEditRules.recordingID(activity.id) != nil {
+            PFActivityEditEntry(activityID: activity.id, name: activity.name ?? workout.name ?? "Recording", type: activity.type,
+                                durationS: activity.durationS, others: PFEditCandidate.others(for: activity, in: currentSnapshot))
+        }
         if let detail {
             PFHeartRateCard(samples: detail.samples, splits: race == nil ? detail.splits : [], avgHr: activity?.avgHr, hrNote: race?.hrNote, isRace: race != nil)
             if race == nil, !detail.zones.isEmpty { PFZonesCard(zones: detail.zones) }
+            if race == nil, detail.zones.contains(where: { $0.secs > 0 }) {
+                PFZonesUsedLine(text: "Zones used: the ones Garmin recorded with this activity. A later change to your zone sets does not alter them.")
+            }
             if race == nil, let split = detail.ltSplit { PFLtSplitCard(split: split) }
         } else {
             PFCard("Heart rate", icon: "heart.fill") {
@@ -175,6 +182,10 @@ struct PFResultsSheet: View {
         }
         if race == nil, let explainer = detail?.runExplainer, workout.briefing == nil { PFRunExplainerCard(explainer: explainer) }
         if race == nil { PFPlanVersusActual(workout: workout, analysis: analysis) }
+        if race == nil, let activity, activity.isRun, PFActivityEditRules.recordingID(activity.id) != nil {
+            PFComparableSessionsCard(activityID: activity.id)
+            if let sessionID = workout.coachSessionID { PFRepsCard(sessionID: sessionID) }
+        }
         if race == nil, let detail {
             PFPaceCard(samples: detail.samples, splits: detail.splits)
             PFSplitsCard(splits: detail.splits)

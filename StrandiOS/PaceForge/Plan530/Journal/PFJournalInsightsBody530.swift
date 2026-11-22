@@ -36,6 +36,7 @@ struct PFJournalInsightsBody530: View {
             }
             results
             collecting
+            PFExperimentsCard530(questions: (doc.list ?? []).compactMap(\.key))
         }
         .containerIdentifier("pf530-insights-body")
         .onChange(of: outcome) { _, _ in seriesID = nil }

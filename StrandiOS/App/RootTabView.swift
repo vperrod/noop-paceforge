@@ -151,6 +151,22 @@ struct RootTabView: View {
         if let route { tabPaths[UnifiedNav.healthTab].append(route) }
     }
 
+    /// Where a PaceForge guide step points that is on Health or Train: the chip is chosen first, then the tab; the Lab Book is pushed.
+    private func openGuideTarget(_ raw: String?) {
+        let defaults = UserDefaults.standard
+        switch PFGuideTarget(rawValue: raw ?? "") {
+        case .healthSleep: showHealth(.sleep)
+        case .labBook: showHealth(.body, pushing: .labBook)
+        case .trainStrength:
+            defaults.set(TrainChip.strength.rawValue, forKey: TrainChip.storageKey)
+            go(to: UnifiedNav.trainTab)
+        case .trainWorkouts:
+            defaults.set(TrainChip.workouts.rawValue, forKey: TrainChip.storageKey)
+            go(to: UnifiedNav.trainTab)
+        default: break
+        }
+    }
+
     private func go(to tab: Int) {
         tabPaths[tab] = NavigationPath()
         withAnimation(.timingCurve(0.22, 1, 0.36, 1, duration: 0.24)) { selectedTab = tab }
@@ -268,6 +284,8 @@ struct RootTabView: View {
         }
         // PaceForge links and Control Center land on their requested section; brief taps route to the shared Coach.
         .onReceive(NotificationCenter.default.publisher(for: .pfOpenToday)) { _ in openPaceForgeToday() }
+        // A guide step's control on a tab the Plan section cannot reach itself (PaceForge guides, build 530).
+        .onReceive(NotificationCenter.default.publisher(for: .pfOpenGuideTarget)) { note in openGuideTarget(note.object as? String) }
         .onAppear { if PFDeepLink.pending { openPaceForgeToday() } }
         // `noop://myday` and PaceForge's "Open My Day" button land on Health's Day chip.
         .onReceive(NotificationCenter.default.publisher(for: .myDayOpen)) { _ in openMyDay() }

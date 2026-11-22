@@ -1135,6 +1135,7 @@ private struct AthleteZonesSheet: View {
                         }
                     }
                     .accessibilityIdentifier("athlete-zones-table")
+                    PFSportZonesEntry()
                     if zones.ltHr != nil || zones.maxHr != nil || zones.maxHrSeen != nil || zones.restingHr != nil { referenceCard }
                     ForEach(floorSets, id: \.sport) { set in setCard(set) }
                     PFCard("What it is", icon: "questionmark.circle") {

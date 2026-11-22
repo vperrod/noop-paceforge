@@ -21,6 +21,7 @@ struct PFPlanSettings529: View {
                 PFPlanSettingsContent529(doc: doc, reload: { await store.refresh() })
             }
             PFSeasonPlanCard()
+            PFGuidesLinkRow530()
         }
         .planScreen529(title: "How your plan is built", identifier: "plan529-plan-settings")
         .task {

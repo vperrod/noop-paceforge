@@ -260,6 +260,16 @@ targets:
       - StrandiOS/PaceForge/PaceForgePlanEdit.swift
       # Editing a planned session's details, adding a planned session, logging a workout by hand: the forms' rules and the inputs of calendar-edit (edit), add-session, manual-workout*.
       - StrandiOS/PaceForge/PaceForgeManualPlan.swift
+      # Editing a recorded activity without touching the recording (relabel, trim, split, group, undo): the forms' rules, the inputs of activity-edit-* and the activity-edits document.
+      - StrandiOS/PaceForge/PaceForgeActivityEdits.swift
+      # Training analytics: heart-rate zone sets per sport (hr-zones-add), comparable earlier runs, repetitions against the plan, a race's course and pacing notes.
+      - StrandiOS/PaceForge/PaceForgeTrainingAnalytics.swift
+      # Strength imports (strength-import-preview / strength-import) and GET strength-history: the inputs, how the preview and the history read.
+      - StrandiOS/PaceForge/PaceForgeStrength.swift
+      # Sourced Coach charts (query-chart), experiments (experiment) and their reviews: the inputs, the rows, the gaps, the caveat.
+      - StrandiOS/PaceForge/PaceForgeSourcedCharts.swift
+      # GET outcome-review and GET guides: how they read, which accepted proposals belong to a week, where a guide step's target is on the iPhone.
+      - StrandiOS/PaceForge/PaceForgeOutcomeGuides.swift
       # Easy mode from the app: the levels, the days offered and the inputs of easy-mode.
       - StrandiOS/PaceForge/PaceForgeEasyModeJobs.swift
       # Events and HYROX simulations logged from the app: the list kept whole for save-events, the times for hyrox-sim-add.

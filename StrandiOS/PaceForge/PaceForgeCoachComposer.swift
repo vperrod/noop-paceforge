@@ -313,6 +313,7 @@ struct PFChatBubble: View {
                     )
                 if !isAthlete { Spacer(minLength: 40) }
             }
+            if !isAthlete, let chart = turn.chart { PFCoachChartCard(chart: chart).padding(.top, 6) }
             if !isAthlete, !turn.ts.isEmpty { PFRateRow(kind: "chat", id: turn.ts) }
         }
     }

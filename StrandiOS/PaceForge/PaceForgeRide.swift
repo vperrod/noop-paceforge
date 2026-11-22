@@ -94,6 +94,8 @@ struct PFRide: Identifiable {
     var decoupling: PFRideDecoupling?
     var powerZones: [PFRideZone] = []
     var hrZones: [PFRideZone] = []
+    /// The zone definition the server used for `hrZones` (`hr_zone_def`); nil on a ride analysed before it was recorded.
+    var hrZoneDefinition: PFZoneDefinition?
     var mmp: [PFRideMMP] = []
     var laps: [PFRideLap] = []
     var compliance: String?
@@ -370,6 +372,7 @@ enum PFRideParse {
         }
         out.powerZones = r["power_zones"].array.compactMap { zone($0, lowKey: "lo_w", highKey: "hi_w") }
         out.hrZones = r["hr_zones"].array.compactMap { zone($0, lowKey: "low", highKey: "high") }
+        out.hrZoneDefinition = PFZoneDefinition.parse(r["hr_zone_def"])
         out.mmp = r["mmp"].dict.compactMap { key, value in
             guard let seconds = Int(key), let watts = value.double else { return nil }
             return PFRideMMP(seconds: seconds, watts: watts)

@@ -186,7 +186,10 @@ struct PFRideSheet: View {
                     headerCard
                     numbersCard
                     if !ride.powerZones.isEmpty { PFRideZonesCard(title: "Power zones", icon: "bolt.fill", zones: ride.powerZones, unit: "W", isPower: true) }
-                    if !ride.hrZones.isEmpty { PFRideZonesCard(title: "Heart-rate zones", icon: "heart.fill", zones: ride.hrZones, unit: "bpm", isPower: false) }
+                    if !ride.hrZones.isEmpty {
+                        PFRideZonesCard(title: "Heart-rate zones", icon: "heart.fill", zones: ride.hrZones, unit: "bpm", isPower: false,
+                                        definition: ride.hrZoneDefinition?.line)
+                    }
                     chartSection
                     if !ride.mmp.isEmpty { mmpCard }
                     if !laps.isEmpty { lapsCard }
@@ -453,6 +456,8 @@ struct PFRideZonesCard: View {
     let zones: [PFRideZone]
     let unit: String
     let isPower: Bool
+    /// Which zone definition the table was built from, when the analysis recorded it.
+    var definition: String? = nil
 
     var body: some View {
         let fractions = PFRideZones.fractions(zones)
@@ -488,6 +493,7 @@ struct PFRideZonesCard: View {
                     .accessibilityElement(children: .combine)
                     .accessibilityIdentifier("pf-ride-zone-\(isPower ? "power" : "hr")-\(zone.zone)")
                 }
+                if let definition { PFZonesUsedLine(text: "Zones used: " + definition) }
             }
         }
         .containerIdentifier(isPower ? "pf-ride-power-zones" : "pf-ride-hr-zones")

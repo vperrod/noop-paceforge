@@ -299,6 +299,10 @@ struct PFUpcomingRace529: View {
                 .accessibilityIdentifier("race-pack")
                 PFDivider529()
             }
+            if let date = race.date {
+                PFRaceCourseRow(date: date, name: race.name)
+                PFDivider529()
+            }
             Button { showsEdit = true } label: {
                 PFRow529(title: "Edit goal, date or partner", showsChevron: true).padding(.horizontal, 16)
             }

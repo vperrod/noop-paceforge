@@ -870,7 +870,8 @@ enum PFBuilder {
         func turn(_ t: PFJ) -> PFChatTurn? {
             guard let role = t["role"].string, let text = t["text"].text, let ts = t["ts"].string else { return nil }
             return PFChatTurn(role: role, text: text, ts: ts, sessionID: t["session_id"].string,
-                              requestID: t["request_id"].string, proposalIDs: t["proposals"].strings)
+                              requestID: t["request_id"].string, proposalIDs: t["proposals"].strings,
+                              chart: PFChartRef.parse(t["query_chart"]))
         }
         let chat = state["chat"]["turns"].array.compactMap(turn)
         out.chat = Array(chat.suffix(6))
