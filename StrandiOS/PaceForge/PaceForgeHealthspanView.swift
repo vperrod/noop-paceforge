@@ -26,14 +26,26 @@ struct PFBodyAgeBlob: View {
     let seed: Int
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.scenePhase) private var scenePhase
+    @ObservedObject private var motion = NoopMotionState.shared
 
     var body: some View {
-        // 12 fps is plenty for waves that move 0.5 rad/s, and the clock stops whenever the app is not in front: this redraws
-        // ~300 specks per tick, so it was the one always-running animation on the PaceForge screens.
-        TimelineView(.animation(minimumInterval: 1.0 / 12.0, paused: reduceMotion || scenePhase != .active)) { timeline in
-            let t = reduceMotion ? 0 : timeline.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: 600)
-            Canvas { context, size in
-                Self.draw(&context, size: size, time: t, color: color, seed: seed)
+        // The resting frame is drawn with no TimelineView behind it: a paused timeline still keeps the render server
+        // busy (see QuietMotionCoverageTests). Still for Reduce Motion, Low Power Mode, NOOP's quiet-motion setting, an
+        // obscured window, and whenever the app is not in front.
+        Group {
+            if motion.poseStill(reduceMotion) || scenePhase != .active {
+                Canvas { context, size in
+                    Self.draw(&context, size: size, time: 0, color: color, seed: seed)
+                }
+            } else {
+                // 12 fps is plenty for waves that move 0.5 rad/s: this redraws ~300 specks per tick, so it was the one
+                // always-running animation on the PaceForge screens.
+                TimelineView(.animation(minimumInterval: 1.0 / 12.0)) { timeline in
+                    let t = timeline.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: 600)
+                    Canvas { context, size in
+                        Self.draw(&context, size: size, time: t, color: color, seed: seed)
+                    }
+                }
             }
         }
         .accessibilityHidden(true)

@@ -54,6 +54,7 @@ struct PFWeekComing529: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             top
+            PFWeekAddRow529(addDate: addDate)
             if let hours = doc.hours { PFWeekHours529(hours: hours) }
             easyBanner
             if doc.state != "finished" { PFCoachWeekCard542() }

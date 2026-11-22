@@ -262,6 +262,8 @@ targets:
       - StrandiOS/PaceForge/PaceForgeTrueCoach.swift
       # Editing a planned session's details, adding a planned session, logging a workout by hand: the forms' rules and the inputs of calendar-edit (edit), add-session, manual-workout*.
       - StrandiOS/PaceForge/PaceForgeManualPlan.swift
+      # The description of any session, editable by the athlete (calendar-edit description / name / reassess / restore_coach_text): limits, inputs, kept draft, result.
+      - StrandiOS/PaceForge/PaceForgeSessionDescription.swift
       # Editing a recorded activity without touching the recording (relabel, trim, split, group, undo): the forms' rules, the inputs of activity-edit-* and the activity-edits document.
       - StrandiOS/PaceForge/PaceForgeActivityEdits.swift
       # Training analytics: heart-rate zone sets per sport (hr-zones-add), comparable earlier runs, repetitions against the plan, a race's course and pacing notes.

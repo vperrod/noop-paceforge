@@ -181,7 +181,7 @@ struct PFAddSessionSheet529: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            PFWeekSub529(text: "Your own session goes on the plan as you write it. The coach does not change it unless you ask.")
+            PFWeekSub529(text: "Your own workout goes on the plan as you write it, with the description you give. The coach does not change it unless you ask.")
             PFOwnField529("Day") {
                 DatePicker("Day", selection: pfDayBinding529($draft.date), in: pfWindow529(past: true, future: true), displayedComponents: .date)
                     .labelsHidden()
@@ -199,6 +199,10 @@ struct PFAddSessionSheet529: View {
                     .textFieldStyle(.roundedBorder)
                     .accessibilityIdentifier("plan529-add-name")
             }
+            PFOwnField529("What the workout is (optional)") {
+                PFLargeTextField529(placeholder: PFSessionDescription.addHint, text: $draft.descriptionText,
+                                    limit: PFSessionDescription.maxLength, height: 260, identifier: "plan529-add-description")
+            }
             Stepper(value: $draft.repeatWeeks, in: PFAddSessionDraft.repeatRange) {
                 Text(draft.repeatWeeks == 1 ? "Just once" : "Every week for \(draft.repeatWeeks) weeks")
                     .font(LookFont.text(14, weight: .regular))
@@ -212,7 +216,7 @@ struct PFAddSessionSheet529: View {
                 Task { await save() }
             }
         }
-        .pfOwnSheet529(title: "Add a session", id: "plan529-addsheet", dismiss: dismiss)
+        .pfOwnSheet529(title: "Add a workout", id: "plan529-addsheet", dismiss: dismiss)
     }
 
     @MainActor private func save() async {
@@ -361,10 +365,8 @@ struct PFLogWorkoutSheet529: View {
                     .accessibilityIdentifier("plan529-log-notes")
             }
             PFOwnField529("Details (optional, up to 2000 characters)") {
-                TextField("What you did, how it felt, anything the coach should know", text: $draft.detailsText, axis: .vertical)
-                    .textFieldStyle(.roundedBorder)
-                    .lineLimit(3...8)
-                    .accessibilityIdentifier("plan529-log-details")
+                PFLargeTextField529(placeholder: "What you did, how it felt, anything the coach should know", text: $draft.detailsText,
+                                    limit: PFManualWorkoutComments.maxDetailsLength, height: 200, identifier: "plan529-log-details")
             }
             if !candidates.isEmpty || draft.planSessionID != nil { linkPicker }
         }

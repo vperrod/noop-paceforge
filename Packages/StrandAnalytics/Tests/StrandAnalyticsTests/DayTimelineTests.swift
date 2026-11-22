@@ -350,7 +350,8 @@ final class DayTimelineTests: XCTestCase {
     func testAnUnrecordedEffortWindowInsideAPlannedSlotIsNotClaimedAsThePlan() {
         var i = input()
         i.planned = [.init(id: "p", title: "Cardio Class", startTs: at(18), durationMin: 45)]
-        i.detected = [.init(startTs: at(18, 2), endTs: at(18, 40), avgBpm: 120, peakBpm: 150)]
+        // A hard effort (avg above the default walk ceiling of 133 bpm); 120/150 reads as a calm walk to the classifier.
+        i.detected = [.init(startTs: at(18, 2), endTs: at(18, 40), avgBpm: 150, peakBpm: 175)]
         let e = events(DayTimeline.build(i), .detected).first
         XCTAssertEqual(e?.title, "Looks like a workout")
         XCTAssertNil(e?.suggestion?.plannedAs)

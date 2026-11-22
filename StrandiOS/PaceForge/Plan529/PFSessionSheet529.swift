@@ -107,6 +107,9 @@ struct PFSessionSheet529: View {
                                       },
                                       onAskCoach: { askCoach(item, date: date) })
             }
+            if let id = item.sessionId, item.kind == nil || item.kind == "session" {
+                PFEditDescriptionButton529(target: PFDescribeTarget529(item: item, sessionID: id), idPrefix: "plan529-sheet")
+            }
             if !isDone, let id = item.sessionId {
                 textEdit(sessionID: id)
             }

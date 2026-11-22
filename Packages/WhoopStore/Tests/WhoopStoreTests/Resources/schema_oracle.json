@@ -48,7 +48,8 @@
     "v44-ppg-waveform-base-code",
     "v45-rr-source-index",
     "v46-lift-log",
-    "v47-rr-whoop5-fill"
+    "v47-rr-whoop5-fill",
+    "v48-replica-change-journal"
   ],
   "divergenceReasons": {
     "android-orphan-synced-column": "REAL COLUMN DRIFT: `synced` exists on Android only. GRDB's v10 note is explicit that stepSample gets no `synced` column ('unused; see StreamStore'), and v12's ppgHrSample never had one either; the Room entities copied the flag from the older per-second entities. Nothing reads it on Android \u2014 the per-row upload flag belongs to an upload path that does not exist there \u2014 so it is dead width, not divergent data. Removing it needs a Room table rebuild.",
@@ -61,6 +62,193 @@
     "workout-route-polyline-android-only": "REAL COLUMN DRIFT \u2014 literally the case #775 was filed about: `workout.routePolyline` (encoded GPS route) was added by Room MIGRATION_3_4 and has no GRDB twin. A .noopbak exported from Android carries a column iOS's `workout` table cannot receive."
   },
   "tables": {
+    "__noop_sync_changes": {
+      "platform": "ios_only",
+      "reason": "Replica change capture for the PaceForge full-database sync (GRDB v48): the ordered journal of row changes the triggers write. Created by WhoopStore.installReplicaTriggers, never exported to a .noopbak; Android has no twin.",
+      "columns": [
+        {
+          "name": "seq",
+          "affinity": "INTEGER",
+          "notNull": false,
+          "default": null
+        },
+        {
+          "name": "tableName",
+          "affinity": "TEXT",
+          "notNull": true,
+          "default": null
+        },
+        {
+          "name": "keyJSON",
+          "affinity": "TEXT",
+          "notNull": true,
+          "default": null
+        },
+        {
+          "name": "operation",
+          "affinity": "TEXT",
+          "notNull": true,
+          "default": null
+        },
+        {
+          "name": "rowJSON",
+          "affinity": "TEXT",
+          "notNull": false,
+          "default": null
+        },
+        {
+          "name": "createdAt",
+          "affinity": "INTEGER",
+          "notNull": true,
+          "default": "strftime('%s','now')"
+        }
+      ],
+      "primaryKey": [
+        "seq"
+      ],
+      "indices": [
+        {
+          "name": "idx_noop_sync_changes_table_key",
+          "unique": false,
+          "columns": [
+            "tableName",
+            "keyJSON",
+            "seq"
+          ]
+        }
+      ]
+    },
+    "__noop_sync_conflicts": {
+      "platform": "ios_only",
+      "reason": "Replica change capture for the PaceForge full-database sync (GRDB v48): rows where the phone and the server disagreed. Created by WhoopStore.installReplicaTriggers, never exported to a .noopbak; Android has no twin.",
+      "columns": [
+        {
+          "name": "id",
+          "affinity": "INTEGER",
+          "notNull": false,
+          "default": null
+        },
+        {
+          "name": "peerId",
+          "affinity": "TEXT",
+          "notNull": true,
+          "default": null
+        },
+        {
+          "name": "clientSeq",
+          "affinity": "INTEGER",
+          "notNull": true,
+          "default": null
+        },
+        {
+          "name": "tableName",
+          "affinity": "TEXT",
+          "notNull": true,
+          "default": null
+        },
+        {
+          "name": "keyJSON",
+          "affinity": "TEXT",
+          "notNull": true,
+          "default": null
+        },
+        {
+          "name": "phoneJSON",
+          "affinity": "TEXT",
+          "notNull": false,
+          "default": null
+        },
+        {
+          "name": "serverJSON",
+          "affinity": "TEXT",
+          "notNull": false,
+          "default": null
+        },
+        {
+          "name": "createdAt",
+          "affinity": "INTEGER",
+          "notNull": true,
+          "default": "strftime('%s','now')"
+        }
+      ],
+      "primaryKey": [
+        "id"
+      ],
+      "indices": []
+    },
+    "__noop_sync_peers": {
+      "platform": "ios_only",
+      "reason": "Replica change capture for the PaceForge full-database sync (GRDB v48): each peer's cursor into the journal. Created by WhoopStore.installReplicaTriggers, never exported to a .noopbak; Android has no twin.",
+      "columns": [
+        {
+          "name": "peerId",
+          "affinity": "TEXT",
+          "notNull": false,
+          "default": null
+        },
+        {
+          "name": "clientCursor",
+          "affinity": "INTEGER",
+          "notNull": true,
+          "default": "0"
+        }
+      ],
+      "primaryKey": [
+        "peerId"
+      ],
+      "indices": []
+    },
+    "__noop_sync_received": {
+      "platform": "ios_only",
+      "reason": "Replica change capture for the PaceForge full-database sync (GRDB v48): the client sequence numbers already applied, per peer. Created by WhoopStore.installReplicaTriggers, never exported to a .noopbak; Android has no twin.",
+      "columns": [
+        {
+          "name": "peerId",
+          "affinity": "TEXT",
+          "notNull": true,
+          "default": null
+        },
+        {
+          "name": "clientSeq",
+          "affinity": "INTEGER",
+          "notNull": true,
+          "default": null
+        },
+        {
+          "name": "status",
+          "affinity": "TEXT",
+          "notNull": true,
+          "default": null
+        }
+      ],
+      "primaryKey": [
+        "peerId",
+        "clientSeq"
+      ],
+      "indices": []
+    },
+    "__noop_sync_state": {
+      "platform": "ios_only",
+      "reason": "Replica change capture for the PaceForge full-database sync (GRDB v48): the single-row flag that mutes the triggers while a peer's changes are applied. Created by WhoopStore.installReplicaTriggers, never exported to a .noopbak; Android has no twin.",
+      "columns": [
+        {
+          "name": "id",
+          "affinity": "INTEGER",
+          "notNull": false,
+          "default": null
+        },
+        {
+          "name": "applying",
+          "affinity": "INTEGER",
+          "notNull": true,
+          "default": "0"
+        }
+      ],
+      "primaryKey": [
+        "id"
+      ],
+      "indices": []
+    },
     "appleDaily": {
       "platform": "both",
       "columns": [

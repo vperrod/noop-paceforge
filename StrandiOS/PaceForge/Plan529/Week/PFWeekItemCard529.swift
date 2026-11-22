@@ -31,13 +31,15 @@ struct PFWeekDay529: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
+            HStack(alignment: .center, spacing: 8) {
                 Text(day.title ?? day.dow ?? "")
                     .lookCaps(13, weight: .bold)
                     .foregroundStyle(isToday ? PFWeekColor529.teal : NoopLook.textSecondary)
                 if let tag = day.tag, !tag.isEmpty {
                     Text(tag).font(LookFont.text(12, weight: .regular)).foregroundStyle(NoopLook.textTertiary)
                 }
+                Spacer(minLength: 4)
+                if allowsEdits, let date = day.date, !date.isEmpty { PFDayAddButton529(date: date) }
             }
             .padding(.horizontal, 2)
             // Keyed by the session id (a race by its date, else the position): a card keeps its own state when its neighbour changes.
@@ -92,6 +94,9 @@ struct PFWeekItemCard529: View {
             if let result = item.result { raceResult(result) }
             review
             actions
+            if kind == "session", let id = item.sessionId {
+                PFEditDescriptionButton529(target: PFDescribeTarget529(item: item, sessionID: id), idPrefix: "plan529-act-\(id)")
+            }
         }
         .pfWeekCard()
         .containerIdentifier("plan529-item-\(key)")

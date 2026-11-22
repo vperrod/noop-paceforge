@@ -146,6 +146,8 @@ struct PFAddSessionDraft: Equatable {
     var sport = "Run"
     var minutesText = "45"
     var name = ""
+    /// What the workout is, in the athlete's words (`description`, optional, up to 4000 characters, line breaks kept).
+    var descriptionText = ""
     /// 1 books it once; more books it again every week.
     var repeatWeeks = 1
 
@@ -164,15 +166,20 @@ struct PFAddSessionDraft: Equatable {
         if !(minutes.map { (5...480).contains($0) } ?? false) { return "Minutes must be a whole number from 5 to 480." }
         if name.trimmingCharacters(in: .whitespacesAndNewlines).count > Self.maxNameLength { return "The name is too long (120 characters at most)." }
         if !Self.repeatRange.contains(repeatWeeks) { return "Repeat for 1 to 52 weeks." }
+        if PFSessionDescription.length(PFSessionDescription.normalized(descriptionText)) > PFSessionDescription.maxLength {
+            return "The description is too long (4000 characters at most)."
+        }
         return nil
     }
 
-    /// The `add-session` inputs. `repeat_weeks` goes only when it is more than once.
+    /// The `add-session` inputs. `repeat_weeks` goes only when it is more than once, `description` only when something is written.
     func inputs(today: String) -> [String: Any]? {
         guard problem(today: today) == nil, let minutes else { return nil }
         var inputs: [String: Any] = ["date": date, "sport": sportName, "minutes": minutes]
         let title = name.trimmingCharacters(in: .whitespacesAndNewlines)
         if !title.isEmpty { inputs["name"] = title }
+        let written = PFSessionDescription.normalized(descriptionText)
+        if !written.isEmpty { inputs["description"] = written }
         if repeatWeeks > 1 { inputs["repeat_weeks"] = repeatWeeks }
         return inputs
     }

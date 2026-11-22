@@ -168,6 +168,9 @@ struct PFPlanWeekDoc: Codable, Equatable {
         var weekStart: String?
         var skippedMandatory: Bool?
         var coachRemoved: Bool?
+        /// The session's own written description (the athlete's, or the coach's text when he has not changed it), and whether he rewrote it.
+        var description: String?
+        var athleteEdited: Bool?
     }
 
     struct Done: Codable, Equatable {
