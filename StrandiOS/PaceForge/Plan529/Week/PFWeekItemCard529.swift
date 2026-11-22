@@ -209,7 +209,8 @@ struct PFWeekItemCard529: View {
     @ViewBuilder private var actions: some View {
         if allowsEdits, kind == "session", !isDone, let id = item.sessionId {
             PFSessionActionBar529(target: PFSessionTarget529(sessionId: id, title: item.title ?? "", date: date,
-                                                             status: item.status ?? "planned", isToday: isToday),
+                                                             status: item.status ?? "planned", isToday: isToday,
+                                                             minutes: item.minutes, rpe: item.rpe),
                                   actions: cardActions, idPrefix: "plan529-act-\(id)",
                                   onMore: { hooks.openSession(id) },
                                   onChangeWorkout: { hooks.openSwap(swapTarget(sessionId: id)) },

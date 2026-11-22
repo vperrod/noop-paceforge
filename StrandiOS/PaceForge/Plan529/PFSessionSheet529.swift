@@ -95,7 +95,8 @@ struct PFSessionSheet529: View {
                 }
             } else if let id = item.sessionId {
                 PFSessionActionBar529(target: PFSessionTarget529(sessionId: id, title: item.title ?? "", date: date,
-                                                                 status: item.status ?? "planned", isToday: store.doc?.strip?.first(where: { $0.date == date })?.today == true),
+                                                                 status: item.status ?? "planned", isToday: store.doc?.strip?.first(where: { $0.date == date })?.today == true,
+                                                                 minutes: item.minutes, rpe: item.rpe),
                                       actions: PFSessionAction529.forSession(status: item.status ?? "planned",
                                                                              isOptional: item.optional == true, includesAskCoach: true),
                                       idPrefix: "plan529-sheet",

@@ -10,13 +10,16 @@ struct PFSessionTarget529: Equatable {
     /// planned | optional | missed | ...
     let status: String
     let isToday: Bool
+    /// What the edit form starts from: the session's minutes and target effort (1 to 10), when the plan has them.
+    var minutes: Int? = nil
+    var rpe: Int? = nil
 }
 
 enum PFSessionAction529: String {
-    case more, easier, move, skip, optional, accept, drop, change, askCoach
+    case more, easier, move, edit, skip, optional, accept, drop, change, askCoach
 }
 
-/// The actions on one workout: Make it easier, Move, Skip, Make optional (or Accept and Drop on an optional draft), Change workout, Ask
+/// The actions on one workout: Make it easier, Move, Edit details, Skip, Make optional (or Accept and Drop on an optional draft), Change workout, Ask
 /// the coach. Every one is an existing job (`adjust-today`, `coach`, `calendar-edit`, `session-state`, `session-drop`); skipping and
 /// dropping ask first. After a job the plan is read again by every Week page (`.pfPlan529Changed`).
 struct PFSessionActionBar529: View {
@@ -29,6 +32,7 @@ struct PFSessionActionBar529: View {
 
     @StateObject private var tracker = PFJobTracker()
     @State private var isMoving = false
+    @State private var isEditing = false
     @State private var newDate: Date
     @State private var asksToSkip = false
     @State private var asksToDrop = false
@@ -62,6 +66,12 @@ struct PFSessionActionBar529: View {
             if isMoving { moveRow }
             status
         }
+        .sheet(isPresented: $isEditing) {
+            PFSessionEditSheet529(sessionID: target.sessionId, title: target.title, date: target.date,
+                                  minutes: target.minutes, rpe: target.rpe) {
+                Task { await changed() }
+            }
+        }
         .confirmationDialog("Skip this session? It is removed from your plan.", isPresented: $asksToSkip, titleVisibility: .visible) {
             Button("Skip session", role: .destructive) { Task { await skip() } }
         }
@@ -83,6 +93,8 @@ struct PFSessionActionBar529: View {
             PFWeekButton529(title: "Move", isDisabled: isBusy || !canEdit, identifier: "\(idPrefix)-move") {
                 withAnimation(.easeInOut(duration: 0.2)) { isMoving.toggle() }
             }
+        case .edit:
+            PFWeekButton529(title: "Edit details", isDisabled: isBusy || !canEdit, identifier: "\(idPrefix)-edit") { isEditing = true }
         case .skip:
             PFWeekButton529(title: "Skip", isDisabled: isBusy || !canEdit, identifier: "\(idPrefix)-skip") { asksToSkip = true }
         case .optional:
@@ -218,6 +230,7 @@ extension PFSessionAction529 {
         if ["planned", "optional", "missed"].contains(status) {
             out.append(.easier)
             out.append(.move)
+            out.append(.edit)
             out.append(.skip)
             if isOptional || status == "optional" {
                 out.append(contentsOf: [.accept, .drop])

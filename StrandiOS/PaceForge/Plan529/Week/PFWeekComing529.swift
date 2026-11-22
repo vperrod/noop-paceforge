@@ -12,6 +12,7 @@ struct PFWeekComing529: View {
     let reload: () async -> PFPlanWeekDoc?
 
     @ObservedObject private var model = PFUnified.model
+    @State private var ownForm: PFOwnForm529?
 
     private var days: [PFPlanWeekDoc.Day] { doc.days ?? [] }
     private var hasChanges: Bool { !(doc.changes ?? []).isEmpty || !(doc.decided ?? []).isEmpty }
@@ -150,6 +151,14 @@ struct PFWeekComing529: View {
             }
             PFWeekButton529(title: "+ Add", isDisabled: addDate.isEmpty, identifier: "plan529-add") {
                 hooks.openSwap(PFSwapTarget529(week: week, date: addDate, sessionId: nil, title: nil, minutes: nil))
+            }
+            PFWeekButton529(title: "Add my own", identifier: "plan529-add-own") { ownForm = .addSession }
+            PFWeekButton529(title: "Log a workout", identifier: "plan529-log-workout") { ownForm = .logWorkout }
+        }
+        .sheet(item: $ownForm) { form in
+            switch form {
+            case .addSession: PFAddSessionSheet529(startDate: addDate) { NotificationCenter.default.post(name: .pfPlan529Changed, object: nil) }
+            case .logWorkout: PFLogWorkoutSheet529 { NotificationCenter.default.post(name: .pfPlan529Changed, object: nil) }
             }
         }
         .containerIdentifier("plan529-bottom-buttons")
