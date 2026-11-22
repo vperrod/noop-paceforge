@@ -21,6 +21,14 @@ struct PFStrengthImportSheet: View {
     @State private var message: String?
     @State private var showsAllItems = false
     @State private var showsRows = false
+    /// The athlete's choices, file name -> library exercise id. Kept across a failed re-read, a new preview and a changed file kind; cleared for a new file.
+    @State private var chosen: [String: String] = [:]
+    /// The mapping the shown preview was made with; the confirm sends this one, so it is always the one the athlete saw.
+    @State private var applied: [String: String] = [:]
+    @State private var search: [String: String] = [:]
+    @State private var library: [PFStrengthLibraryExercise] = []
+    @State private var libraryLoaded = false
+    @State private var isSaving = false
 
     /// A file this big cannot be 400 000 characters; checked before the file is read into memory.
     private static let maxBytes = 1_700_000
@@ -72,7 +80,10 @@ struct PFStrengthImportSheet: View {
                 .accessibilityIdentifier("strength-import-provider")
                 .onChange(of: provider) { _, _ in
                     // The same file read as another kind is a different preview.
-                    if content != nil { Task { await runPreview() } }
+                    if content != nil {
+                        preview = nil
+                        Task { await runPreview() }
+                    }
                 }
                 Text(provider.hint)
                     .font(StrandFont.footnote).foregroundStyle(StrandPalette.textSecondary)
@@ -95,7 +106,7 @@ struct PFStrengthImportSheet: View {
     private var working: some View {
         HStack(spacing: 8) {
             ProgressView()
-            Text(preview == nil ? "Reading the file" : "Saving").font(StrandFont.subhead).foregroundStyle(StrandPalette.textSecondary)
+            Text(isSaving ? "Saving" : "Reading the file").font(StrandFont.subhead).foregroundStyle(StrandPalette.textSecondary)
         }
     }
 
@@ -143,7 +154,7 @@ struct PFStrengthImportSheet: View {
             Text(preview.confirmTitle).frame(maxWidth: .infinity)
         }
         .buttonStyle(NoopButtonStyle(.primary, fullWidth: true))
-        .disabled(!preview.canConfirm || isBusy)
+        .disabled(!preview.canConfirm || isBusy || isMappingChanged)
         .accessibilityIdentifier("strength-import-confirm")
         Text("Nothing is saved until you press this. Importing the same file again saves nothing new.")
             .font(StrandFont.footnote).foregroundStyle(StrandPalette.textTertiary)
@@ -162,22 +173,75 @@ struct PFStrengthImportSheet: View {
             VStack(alignment: .leading, spacing: 8) {
                 Text("Exercises in the file").font(StrandFont.headline).foregroundStyle(StrandPalette.textPrimary)
                 ForEach(preview.mapping) { row in
-                    VStack(alignment: .leading, spacing: 2) {
+                    VStack(alignment: .leading, spacing: 4) {
                         Text(row.providerName).font(StrandFont.subhead).foregroundStyle(StrandPalette.textPrimary)
                         Text(row.isMapped ? "Placed on \(row.name ?? "a library exercise") \u{00B7} \(row.rows) rows"
                              : "Not matched to a library exercise, so its \(row.rows) rows are rejected")
                             .font(StrandFont.caption)
                             .foregroundStyle(row.isMapped ? StrandPalette.textSecondary : PFColor.warning)
+                        if !row.isMapped || chosen[row.providerName] != nil || applied[row.providerName] != nil { mappingEditor(row) }
                     }
                 }
-                if !preview.unmapped.isEmpty {
-                    Text("Names are matched exactly, by the words in them. Rename the exercise in the file to match, then choose it again.")
+                if !preview.unmapped.isEmpty || !applied.isEmpty || !chosen.isEmpty {
+                    Text("Names are matched exactly, by the words in them. Choose the library exercise each unmatched name stands for, then read the file again.")
                         .font(StrandFont.footnote).foregroundStyle(StrandPalette.textTertiary)
                         .fixedSize(horizontal: false, vertical: true)
+                }
+                if isMappingChanged {
+                    Button("Read the file again with these choices") { Task { await runPreview() } }
+                        .buttonStyle(NoopButtonStyle(.secondary))
+                        .disabled(isBusy)
+                        .accessibilityIdentifier("strength-import-apply-mapping")
                 }
             }
         }
         .accessibilityIdentifier("strength-import-mapping")
+        .task { if !preview.unmapped.isEmpty { await loadLibrary() } }
+    }
+
+    private var isMappingChanged: Bool { PFStrengthExerciseMap.clean(chosen) != applied }
+
+    private func libraryName(_ id: String) -> String { library.first { $0.id == id }?.name ?? id }
+
+    /// Choose the library exercise a file name stands for: type to search the server's list (or the exercises already in the history), tap one.
+    private func mappingEditor(_ row: PFStrengthPreview.Mapping) -> some View {
+        let name = row.providerName
+        return VStack(alignment: .leading, spacing: 4) {
+            if let id = chosen[name] {
+                HStack {
+                    Text("Place on \(libraryName(id))").font(StrandFont.caption).foregroundStyle(StrandPalette.textPrimary)
+                    Spacer(minLength: 6)
+                    Button("Clear") { chosen[name] = nil }.font(StrandFont.caption)
+                }
+            }
+            TextField("Search the exercise list", text: Binding(get: { search[name] ?? "" }, set: { search[name] = $0 }))
+                .textFieldStyle(.roundedBorder)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+                .accessibilityIdentifier("strength-import-map-search")
+            ForEach(PFStrengthExerciseMap.matches(search[name] ?? "", in: library)) { exercise in
+                Button(exercise.name) {
+                    chosen[name] = exercise.id
+                    search[name] = ""
+                }
+                .font(StrandFont.subhead)
+            }
+            if libraryLoaded, library.isEmpty {
+                Text("The exercise list could not be loaded, so nothing can be chosen now. Try again later.")
+                    .font(StrandFont.caption).foregroundStyle(PFColor.warning)
+            }
+        }
+    }
+
+    @MainActor private func loadLibrary() async {
+        guard !libraryLoaded else { return }
+        if let data = try? await PFAPI.fetch("api/strength-library") {
+            library = PFStrengthExerciseMap.parseLibrary(PFJ(data: data))
+        }
+        if library.isEmpty, let data = try? await PFAPI.fetch("api/strength-history"), let history = PFStrengthHistory.parse(PFJ(data: data)) {
+            library = PFStrengthExerciseMap.library(from: history)
+        }
+        libraryLoaded = true
     }
 
     private func itemsCard(_ preview: PFStrengthPreview) -> some View {
@@ -301,6 +365,9 @@ struct PFStrengthImportSheet: View {
             fileName = url.lastPathComponent
             content = text
             preview = nil
+            chosen = [:]
+            applied = [:]
+            search = [:]
             saved = nil
             message = nil
             Task { await runPreview() }
@@ -308,15 +375,17 @@ struct PFStrengthImportSheet: View {
     }
 
     @MainActor private func runPreview() async {
-        guard let content, let inputs = PFJobInputs.strengthImportPreview(provider: provider, content: content) else { return }
+        let map = PFStrengthExerciseMap.clean(chosen)
+        guard let content, let inputs = PFJobInputs.strengthImportPreview(provider: provider, content: content, exerciseMap: map) else { return }
         message = nil
-        preview = nil
+        // The shown preview and the typed choices stay while the file is read again, so a failure loses neither.
         switch await tracker.run(.strengthImportPreview, inputs: inputs) {
         case .failure(let failure):
             message = failure.message
         case .success(let result):
             if let parsed = PFStrengthPreview.parse(result) {
                 preview = parsed
+                applied = map
                 showsAllItems = false
                 showsRows = false
             } else {
@@ -326,8 +395,10 @@ struct PFStrengthImportSheet: View {
     }
 
     @MainActor private func confirm(_ shown: PFStrengthPreview) async {
-        guard let content, let inputs = PFJobInputs.strengthImport(provider: provider, content: content, confirm: shown.previewID) else { return }
+        guard let content, let inputs = PFJobInputs.strengthImport(provider: provider, content: content, exerciseMap: applied, confirm: shown.previewID) else { return }
         message = nil
+        isSaving = true
+        defer { isSaving = false }
         switch await tracker.run(.strengthImport, inputs: inputs) {
         case .failure(let failure):
             // "The file or what is already saved changed since the preview": the preview is read again so the athlete confirms what is true now.
@@ -345,6 +416,7 @@ struct PFStrengthImportSheet: View {
     }
 
     @MainActor private func runPreview(keepingMessage text: String) async {
+        preview = nil
         await runPreview()
         message = text
     }

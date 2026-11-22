@@ -212,4 +212,52 @@ final class PaceForgeStrengthTests: XCTestCase {
     func testDurationsReadInMinutesThenHours() {
         XCTAssertEqual([PFStrengthHistory.durationText(seconds: 2700), PFStrengthHistory.durationText(seconds: 3900)], ["45 min", "1:05 h"])
     }
+
+    // MARK: Placing a file's exercise names
+
+    private let library = [PFStrengthLibraryExercise(id: "bb_bench_press", name: "Barbell bench press"),
+                           PFStrengthLibraryExercise(id: "db_row", name: "Dumbbell row"),
+                           PFStrengthLibraryExercise(id: "bb_row", name: "Barbell row")]
+
+    func testLibraryReadsTheIdAndNameOfEachExercise() {
+        let doc = json("{\"exercises\": [{\"id\": \"db_row\", \"name\": \"Dumbbell row\", \"pattern\": \"pull\"}, {\"name\": \"No id\"}]}")
+        XCTAssertEqual(PFStrengthExerciseMap.parseLibrary(doc), [PFStrengthLibraryExercise(id: "db_row", name: "Dumbbell row")])
+    }
+
+    func testLibraryFromHistoryHasOneEntryPerIdSortedByName() {
+        let doc = json("""
+        {"exercises": [{"key": "a", "name": "Row", "exercise_id": "db_row", "history": []},
+                       {"key": "b", "name": "Bench", "exercise_id": "bb_bench_press", "history": []},
+                       {"key": "c", "name": "Row again", "exercise_id": "db_row", "history": []},
+                       {"key": "d", "name": "Free text move", "history": []}]}
+        """)
+        let history = PFStrengthHistory.parse(doc)
+        XCTAssertEqual(history.map(PFStrengthExerciseMap.library(from:))?.map(\.id), ["bb_bench_press", "db_row"])
+    }
+
+    func testMatchesNeedEveryWordTypedInAnyCase() {
+        XCTAssertEqual(PFStrengthExerciseMap.matches("BARBELL row", in: library).map(\.id), ["bb_row"])
+    }
+
+    func testMatchesFindAnExerciseByItsId() {
+        XCTAssertEqual(PFStrengthExerciseMap.matches("db_row", in: library).map(\.id), ["db_row"])
+    }
+
+    func testMatchesOfBlankTextAreEmpty() {
+        XCTAssertEqual(PFStrengthExerciseMap.matches("  ", in: library), [])
+    }
+
+    func testMatchesStopAtTheLimit() {
+        XCTAssertEqual(PFStrengthExerciseMap.matches("row", in: library, limit: 1).count, 1)
+    }
+
+    func testCleanTrimsNamesAndDropsBlanks() {
+        XCTAssertEqual(PFStrengthExerciseMap.clean([" Bench ": "bb_bench_press", "  ": "db_row", "Row": ""]), ["Bench": "bb_bench_press"])
+    }
+
+    func testPreviewWithTheChosenMappingSendsItAndConfirmCarriesIt() {
+        let map = PFStrengthExerciseMap.clean(["Strange Machine Move": "db_row"])
+        let inputs = PFJobInputs.strengthImport(provider: .hevy, content: "a", exerciseMap: map, confirm: previewID)
+        XCTAssertEqual(inputs?["exercise_map"] as? [String: String], ["Strange Machine Move": "db_row"])
+    }
 }

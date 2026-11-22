@@ -67,6 +67,54 @@ extension PFJobInputs {
     }
 }
 
+// MARK: Placing a file's exercise names
+
+/// One library exercise a name in the file can be placed on: the id is what `exercise_map` carries.
+struct PFStrengthLibraryExercise: Equatable, Identifiable {
+    var id: String
+    var name: String
+}
+
+enum PFStrengthExerciseMap {
+    /// `GET strength-library`: `{exercises: [{id, name, ...}]}`, the server's own list (the only ids `exercise_map` accepts).
+    static func parseLibrary(_ doc: PFJ) -> [PFStrengthLibraryExercise] {
+        doc["exercises"].array.compactMap { row in
+            guard let id = row["id"].text, let name = row["name"].text else { return nil }
+            return PFStrengthLibraryExercise(id: id, name: name)
+        }
+    }
+
+    /// The fallback when the library cannot be fetched: the exercises already in `GET strength-history`, one per library id, by name.
+    static func library(from history: PFStrengthHistory) -> [PFStrengthLibraryExercise] {
+        var seen = Set<String>()
+        return history.exercises.compactMap { exercise -> PFStrengthLibraryExercise? in
+            guard let id = exercise.exerciseID, seen.insert(id).inserted else { return nil }
+            return PFStrengthLibraryExercise(id: id, name: exercise.name)
+        }
+        .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+    }
+
+    /// The exercises whose name or id holds every word typed (any case), at most `limit`; nothing for blank text.
+    static func matches(_ query: String, in library: [PFStrengthLibraryExercise], limit: Int = 8) -> [PFStrengthLibraryExercise] {
+        let words = query.lowercased().split(whereSeparator: { $0.isWhitespace || $0 == "_" })
+        guard !words.isEmpty else { return [] }
+        return Array(library.filter { exercise in
+            let haystack = (exercise.name + " " + exercise.id).lowercased().replacingOccurrences(of: "_", with: " ")
+            return words.allSatisfy { haystack.contains($0) }
+        }.prefix(limit))
+    }
+
+    /// The chosen mapping as the job sends it: names trimmed, blank names and ids dropped.
+    static func clean(_ chosen: [String: String]) -> [String: String] {
+        var out: [String: String] = [:]
+        for (name, id) in chosen {
+            let key = name.trimmingCharacters(in: .whitespaces)
+            if !key.isEmpty, !id.isEmpty { out[key] = id }
+        }
+        return out
+    }
+}
+
 // MARK: The preview
 
 /// What `strength-import-preview` says saving the file would do.

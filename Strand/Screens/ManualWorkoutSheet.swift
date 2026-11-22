@@ -60,6 +60,13 @@ struct ManualWorkoutSheet: View {
     /// (a settled choice), so the form isn't permanently half-covered.
     @FocusState private var sportFocused: Bool
 
+    #if os(iOS)
+    /// "Also send to Coach" (iPhone only: the PaceForge client is iOS-only). The local save always happens first and never waits on this.
+    private enum CoachSend: Equatable { case idle, sending, failed(String) }
+    @State private var alsoSendToCoach = false
+    @State private var coachSend = CoachSend.idle
+    #endif
+
     /// Measured natural height of the floating suggestion panel's content, so the overlay can size
     /// itself (capped at 168) instead of being squeezed to the text field's height. See `suggestionList`.
     @State private var suggestionsHeight: CGFloat = 0
@@ -194,6 +201,9 @@ struct ManualWorkoutSheet: View {
                     }
                 }
             }
+            #if os(iOS)
+            if editing == nil, PFAPI.isConfigured { coachRow }
+            #endif
             if let validationNote { noteRow(validationNote) }
             if avgHrEditedNote { noteRow(String(localized: "Avg HR is shown as typed. The HR graph, zones and Effort stay from the recorded session.")) }
             footer
@@ -345,12 +355,26 @@ struct ManualWorkoutSheet: View {
         HStack(spacing: NoopMetrics.space3) {
             NoopButton("Cancel", kind: .tertiary) { dismiss() }
             Spacer()
-            NoopButton(editing == nil ? "Add" : "Save", systemImage: "checkmark", kind: .primary) {
-                save()
+            #if os(iOS)
+            if case .failed = coachSend {
+                // The workout is already on this iPhone; only the Coach copy failed, so the sheet can only be closed (a second Add would save twice).
+                NoopButton("Done", systemImage: "checkmark", kind: .primary) { dismiss() }
+                    .accessibilityLabel("Done")
+            } else {
+                addButton
             }
-            .disabled(builtRow == nil)
-            .accessibilityLabel(editing == nil ? "Add workout" : "Save workout")
+            #else
+            addButton
+            #endif
         }
+    }
+
+    private var addButton: some View {
+        NoopButton(editing == nil ? "Add" : "Save", systemImage: "checkmark", kind: .primary) {
+            save()
+        }
+        .disabled(builtRow == nil || saveLocked)
+        .accessibilityLabel(editing == nil ? "Add workout" : "Save workout")
     }
 
     private func field<Content: View>(_ label: String, @ViewBuilder _ content: () -> Content) -> some View {
@@ -497,8 +521,66 @@ struct ManualWorkoutSheet: View {
         // #297: a confirmed save is a real selection — fold the (validated) sport into the recents.
         RecentSportsPrefs.recordSelection(row.sport)
         onSave(row, editing)
+        #if os(iOS)
+        if alsoSendToCoach, editing == nil, let inputs = coachInputs {
+            coachSend = .sending
+            Task { @MainActor in await sendToCoach(inputs) }
+            return
+        }
+        #endif
         dismiss()
     }
+
+    /// Whether the sheet has already saved and must not save again.
+    private var saveLocked: Bool {
+        #if os(iOS)
+        return coachSend != .idle
+        #else
+        return false
+        #endif
+    }
+
+    #if os(iOS)
+    // MARK: - Also send to Coach
+
+    /// The `manual-workout` payload for the form as it stands, built by PaceForge's one builder (PFManualWorkoutDraft); nil when Coach
+    /// cannot read this workout (a sport outside run/bike/swim/strength/HIIT/cardio, or a length outside 1 to 600 minutes).
+    private var coachInputs: [String: Any]? {
+        PFManualWorkoutDraft(savedOnPhone: sport, start: start, end: end,
+                             distanceKm: distanceMeters.map { $0 / 1000.0 }, avgHR: avgHr)?
+            .inputs(today: PFAPI.todayISO)
+    }
+
+    private var coachRow: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Toggle(isOn: $alsoSendToCoach) {
+                Text("Also send to Coach").font(StrandFont.body).foregroundStyle(StrandPalette.textPrimary)
+            }
+            .disabled(coachInputs == nil || coachSend != .idle)
+            .accessibilityIdentifier("manual-workout-also-send-to-coach")
+            if coachInputs == nil {
+                Text("Coach reads run, bike, swim, strength, HIIT and cardio sessions of 1 to 600 minutes.")
+                    .font(StrandFont.footnote).foregroundStyle(StrandPalette.textTertiary)
+            }
+            switch coachSend {
+            case .idle: EmptyView()
+            case .sending: Text("Saved on this iPhone. Sending to Coach\u{2026}").font(StrandFont.footnote).foregroundStyle(StrandPalette.textSecondary)
+            case .failed(let reason):
+                Text("Saved on this iPhone. Not sent to Coach: \(reason)")
+                    .font(StrandFont.footnote).foregroundStyle(StrandPalette.statusWarning)
+                    .accessibilityIdentifier("manual-workout-coach-note")
+            }
+        }
+    }
+
+    /// After the local save: a failure here never touches the saved row, it only leaves a note.
+    @MainActor private func sendToCoach(_ inputs: [String: Any]) async {
+        switch await PFJobClient.submit(.manualWorkout, inputs: inputs) {
+        case .success: dismiss()
+        case .failure(let failure): coachSend = .failed(failure.message)
+        }
+    }
+    #endif
 }
 
 #if DEBUG

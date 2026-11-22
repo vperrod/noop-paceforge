@@ -319,3 +319,63 @@ final class PaceForgeManualPlanTests: XCTestCase {
                        [false, false, false, false])
     }
 }
+
+/// "Also send to Coach": the phone's own Add Workout sheet filled into the one manual-workout payload. Made-up values, UTC so the day and clock are fixed.
+final class PaceForgeSendToCoachTests: XCTestCase {
+    private let utc = TimeZone(identifier: "UTC")!
+    private let start = Date(timeIntervalSince1970: 1_899_532_800)
+
+    private func draft(sport: String = "Running", minutes: Double = 45, km: Double? = nil, avgHR: Int? = nil) -> PFManualWorkoutDraft? {
+        PFManualWorkoutDraft(savedOnPhone: sport, start: start, end: start.addingTimeInterval(minutes * 60), distanceKm: km, avgHR: avgHR, timeZone: utc)
+    }
+
+    func testPhoneSportRunningIsRun() {
+        XCTAssertEqual(PFManualPlan.coachSport(forPhoneSport: "Running"), "Run")
+    }
+
+    func testPhoneSportCyclingIsBike() {
+        XCTAssertEqual(PFManualPlan.coachSport(forPhoneSport: "Cycling"), "Bike")
+    }
+
+    func testPhoneSportWeightliftingIsStrength() {
+        XCTAssertEqual(PFManualPlan.coachSport(forPhoneSport: "Weightlifting"), "Strength")
+    }
+
+    func testPhoneSportPadelIsNotSent() {
+        XCTAssertNil(PFManualPlan.coachSport(forPhoneSport: "Padel"))
+    }
+
+    func testDraftReadsTheDayAndClockOfTheStart() {
+        XCTAssertEqual(draft()?.date, "2030-03-12")
+        XCTAssertEqual(draft()?.startTime, "08:00")
+    }
+
+    func testDraftTurnsStartAndEndIntoMinutes() {
+        XCTAssertEqual(draft(minutes: 45)?.minutesText, "45")
+    }
+
+    func testDraftUnderOneMinuteIsSkipped() {
+        XCTAssertNil(draft(minutes: 0.4))
+    }
+
+    func testDraftOverSixHundredMinutesIsSkipped() {
+        XCTAssertNil(draft(minutes: 601))
+    }
+
+    func testDraftWithAnUnknownSportIsSkipped() {
+        XCTAssertNil(draft(sport: "Padel"))
+    }
+
+    func testPayloadCarriesSportMinutesDistanceAndHeartRate() {
+        let inputs = draft(km: 8.456, avgHR: 150)?.inputs(today: "2030-03-13")
+        XCTAssertEqual(inputs as NSDictionary?, ["date": "2030-03-12", "sport": "Run", "minutes": 45, "start_time": "08:00", "km": 8.46, "avg_hr": 150] as NSDictionary)
+    }
+
+    func testZeroDistanceIsLeftOutNotRefused() {
+        XCTAssertNil(draft(km: 0)?.inputs(today: "2030-03-13")?["km"])
+    }
+
+    func testHeartRateOutsideTheServersRangeIsLeftOutNotRefused() {
+        XCTAssertNil(draft(avgHR: 25)?.inputs(today: "2030-03-13")?["avg_hr"])
+    }
+}

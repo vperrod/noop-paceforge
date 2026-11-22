@@ -313,3 +313,43 @@ enum PFDraftKeeping {
         return try? JSONDecoder().decode(PFManualWorkoutDraft.self, from: data)
     }
 }
+
+// MARK: "Also send to Coach" from the phone's own Add Workout sheet
+
+extension PFManualPlan {
+    /// The `manual-workout` sport (one of `sports`) for the name typed or picked in the phone's own sheet ("Running", "Cycling", "Weightlifting"),
+    /// or nil for a sport the server's activity types do not cover. Never guessed beyond these families.
+    static func coachSport(forPhoneSport name: String) -> String? {
+        let text = name.lowercased()
+        func has(_ words: [String]) -> Bool { words.contains { text.contains($0) } }
+        if has(["hiit", "interval training"]) { return "HIIT" }
+        if has(["strength", "weight", "lifting", "gym"]) { return "Strength" }
+        if has(["run", "jog"]) { return "Run" }
+        if has(["cycl", "bike", "biking", "ride"]) { return "Bike" }
+        if has(["swim"]) { return "Swim" }
+        if has(["cardio", "elliptical", "rowing"]) { return "Cardio" }
+        return nil
+    }
+}
+
+extension PFManualWorkoutDraft {
+    /// The form filled from a workout just saved on the phone, so `inputs(today:)` is the one payload builder. nil when Coach cannot read it:
+    /// a sport the server does not take, or a length outside 1 to 600 whole minutes. An optional number the server would refuse (a distance not
+    /// above 0 or over 500 km, a heart rate outside 30 to 230) is left out instead of losing the workout.
+    init?(savedOnPhone sport: String, start: Date, end: Date, distanceKm: Double?, avgHR: Int?, timeZone: TimeZone = .current) {
+        guard let coachSport = PFManualPlan.coachSport(forPhoneSport: sport) else { return nil }
+        let minutes = Int((end.timeIntervalSince(start) / 60).rounded())
+        guard (1...600).contains(minutes) else { return nil }
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = timeZone
+        formatter.dateFormat = "yyyy-MM-dd"
+        self.init(date: formatter.string(from: start))
+        formatter.dateFormat = "HH:mm"
+        startTime = formatter.string(from: start)
+        self.sport = coachSport
+        minutesText = String(minutes)
+        if let distanceKm, distanceKm > 0, distanceKm <= 500 { kmText = String(format: "%.2f", distanceKm) }
+        if let avgHR, (30...230).contains(avgHR) { avgHRText = String(avgHR) }
+    }
+}
