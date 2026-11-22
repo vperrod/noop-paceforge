@@ -87,7 +87,12 @@ struct PFPlanReportsContent529: View {
                                     emptyText: "The daily report is written each morning after the Garmin sync, the week report on Sunday evening and the month report on the 1st.")
             }
             if let today = doc.today, let key = today.key {
-                section("Today", rows: [reportRow(id: "today:\(key)", lead: today.day, verdict: today.verdict, sub: today.sub, ts: today.ts) {
+                // Listed either way; shown as finished only when the server says it is ready (`today.ready`), else pending with its reason.
+                let isReady = PFReportReadiness529.isReady(today)
+                section("Today", rows: [reportRow(id: "today:\(key)", lead: today.day,
+                                                  verdict: isReady ? today.verdict : PFReportReadiness529.pendingTitle,
+                                                  sub: isReady ? today.sub : PFReportReadiness529.pendingSub(today), ts: today.ts,
+                                                  isFinished: isReady) {
                     PFPlan529Router.shared.sheet = .dailyReport(date: key)
                 }])
             }
@@ -141,8 +146,10 @@ struct PFPlanReportsContent529: View {
         return out
     }
 
-    private func reportRow(id: String, lead: String?, verdict: String?, sub: String?, ts: String?, open: @escaping () -> Void) -> AnyView {
-        let isNew = seen.isNew(id: id, ts: ts)
+    private func reportRow(id: String, lead: String?, verdict: String?, sub: String?, ts: String?, isFinished: Bool = true,
+                           open: @escaping () -> Void) -> AnyView {
+        // A report that is not ready carries no "new" dot: nothing has been announced about it.
+        let isNew = isFinished && seen.isNew(id: id, ts: ts)
         return AnyView(
             Button {
                 seen.markOpened(id: id, ts: ts)

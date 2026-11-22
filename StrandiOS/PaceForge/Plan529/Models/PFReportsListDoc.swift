@@ -17,6 +17,10 @@ struct PFReportsListDoc: Codable, Equatable {
         var verdict: String?
         var sub: String?
         var ts: String?
+        /// Only on `today`: true when the report is finished and written from a device reading. The row is listed either way.
+        var ready: Bool?
+        /// Only on `today`: why it is not ready (null when it is).
+        var reason: String?
     }
 
     struct RaceRow: Codable, Equatable {

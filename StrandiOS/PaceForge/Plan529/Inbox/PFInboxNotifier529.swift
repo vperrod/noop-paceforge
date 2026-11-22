@@ -43,7 +43,9 @@ enum PFInboxNotifier529 {
         let seenAt = Date()
         // Build 530: the delivery rules (`PFAlertDelivery530`). A held item is not remembered as announced, so the next contact asks again.
         let ledger = PFInboxAck530.raisedLedger()
-        let decision = PFInboxLogic529.decide(items: doc.items ?? [], notified: defaults.stringArray(forKey: notifiedKey),
+        // A daily report is announced only when the reports list says it is ready; a held item is not remembered, so a later contact asks again.
+        let announceable = await PFReportGate529.announceable(doc.items ?? [])
+        let decision = PFInboxLogic529.decide(items: announceable, notified: defaults.stringArray(forKey: notifiedKey),
                                               enabledKinds: store.enabledKinds, legacyNotified: legacyNotified(defaults),
                                               raisedIDs: ledger.ids, now: seenAt)
         let plan = PFAlertDelivery530.plan(items: decision.toNotify, now: seenAt, quiet: doc.quiet,

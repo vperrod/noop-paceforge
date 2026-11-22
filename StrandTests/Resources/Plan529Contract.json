@@ -315,7 +315,7 @@
   "data/reports/list.json": {
     "version": 1,
     "generated_at": "2026-11-15T19:05:00+00:00",
-    "today": {"key": "2026-11-15", "day": "Sun 15", "verdict": "Rest today", "sub": "Both devices low after the doubles", "ts": "2026-11-15T06:33:31+00:00"},
+    "today": {"key": "2026-11-15", "day": "Sun 15", "verdict": "Rest today", "sub": "Both devices low after the doubles", "ts": "2026-11-15T06:33:31+00:00", "ready": true, "reason": null},
     "weeks": [
       {"key": "2026-W46", "day": "W46", "verdict": "Two races in four days", "sub": "Doubles 6 minutes inside goal", "ts": "2026-11-15T19:00:22+00:00"},
       {"key": "2026-W45", "day": "W45", "verdict": "Taper week", "sub": "5 h 22", "ts": "2026-11-09T06:43:00+00:00"}

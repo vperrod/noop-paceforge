@@ -89,6 +89,7 @@ struct PFSessionSheet529: View {
                 .foregroundStyle(NoopLook.textPrimary)
                 .accessibilityIdentifier("plan529-session-title")
             PFWeekPills529(pills: pills(item, date: date))
+            if !isDone { PFWatchChip529(sessionID: item.sessionId) }
             if isDone, let activityId = item.activityId {
                 PFWeekButton529(title: "Open the results", isProminent: true, identifier: "plan529-session-results") {
                     results = PFResultsTarget529(id: activityId, title: item.title, date: date)

@@ -77,6 +77,7 @@ struct PFWeekItemCard529: View {
         VStack(alignment: .leading, spacing: 10) {
             headerRow
             pills
+            if !isDone, kind != "race", kind != "rest" { PFWatchChip529(sessionID: item.sessionId) }
             if let thin = thinWorkout, let snapshot = model.snapshot, PFWorkoutBadges.hasAny(thin, snapshot) {
                 PFWorkoutBadges(workout: thin, snapshot: snapshot)
             }

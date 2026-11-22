@@ -491,3 +491,44 @@ enum PFActivityEdits {
         return doc
     }
 }
+
+// MARK: A Coach turn's edit
+
+/// The recording a proposal concerns, named from its preview: what the existing edit sheet needs to open.
+struct PFEditTarget: Equatable {
+    let activityID: String
+    let name: String
+    let type: String?
+    let durationS: Double?
+}
+
+extension PFActivityEdits {
+    /// The proposal a Coach turn points at: `activity_edit: {proposal_id}` on the turn. nil when it is absent or not a proposal id.
+    static func proposalID(_ j: PFJ) -> String? {
+        PFActivityEditRules.hexID(j["proposal_id"].text)
+    }
+
+    /// The recording to open the edit sheet on; nil when the proposal names none (the sheet is keyed by a recording).
+    static func target(for proposal: PFEditProposal) -> PFEditTarget? {
+        guard let id = proposal.spec.activityID ?? proposal.spec.activityIDs.first else { return nil }
+        let row = proposal.preview.before.first { $0.id == id } ?? proposal.preview.before.first
+        return PFEditTarget(activityID: id, name: row?.name ?? "Recording", type: row?.type, durationS: row?.durationS)
+    }
+
+    /// The card's heading: the call to review only while the proposal is still waiting.
+    static func cardTitle(isPending: Bool) -> String {
+        isPending ? "The Coach prepared an edit \u{2014} review" : "The Coach prepared an edit"
+    }
+
+    /// What became of a proposal that is no longer waiting; nil while it is pending.
+    static func cardStatus(state: String) -> String? {
+        switch state {
+        case "pending": return nil
+        case "confirmed": return "You applied this edit."
+        case "rejected": return "You declined this edit. Nothing was changed."
+        case "stale": return "Another edit landed first, so this one is out of date. Nothing was changed."
+        case "expired": return "This edit expired after 7 days. Nothing was changed."
+        default: return "Nothing was changed."
+        }
+    }
+}

@@ -142,7 +142,9 @@
       "day": "Sun 15",
       "verdict": "Rest today",
       "sub": "Both devices low after the doubles",
-      "ts": "2026-11-15T06:33:31+00:00"
+      "ts": "2026-11-15T06:33:31+00:00",
+      "ready": true,
+      "reason": null
     },
     "weeks": [
       {

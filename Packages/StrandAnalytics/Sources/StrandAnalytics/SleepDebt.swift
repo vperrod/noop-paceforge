@@ -80,13 +80,14 @@ public enum SleepDebt {
     /// main-night total used by Rest and the sleep headline; separately-recorded naps
     /// add repayment credit without changing that canonical figure. A day with no
     /// usable main sleep stays missing, and a malformed negative nap total is ignored.
+    /// A day's naps credit at most `SleepPlanner.napCreditMaxMin`, the same cap as tonight's nap line.
     ///
     /// This is deliberately arithmetic rather than a physiological model: callers
     /// classify the day's main-night group and pass only asleep minutes from blocks
     /// outside that group. Mirrored value-for-value in Kotlin `SleepDebt`.
     public static func creditedSleepMin(mainSleepMin: Double?, napSleepMin: Double = 0) -> Double? {
         guard let mainSleepMin, mainSleepMin > 0 else { return nil }
-        return mainSleepMin + max(napSleepMin, 0)
+        return mainSleepMin + min(max(napSleepMin, 0), SleepPlanner.napCreditMaxMin)
     }
 
     /// Debt values oldest → newest for local fallback surfaces. The returned history is

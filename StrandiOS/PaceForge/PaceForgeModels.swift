@@ -337,6 +337,8 @@ struct PFChatTurn: Identifiable {
     var proposalIDs: [String] = []
     /// The chart the Coach asked to show with this turn (`query_chart`); the rows come from the `query-chart` job.
     var chart: PFChartRef? = nil
+    /// The pending edit of a recording the Coach prepared with this turn (`activity_edit.proposal_id`); nothing applies until the athlete confirms.
+    var activityEditProposalID: String? = nil
     var id: String { (requestID ?? ts) + role + (sessionID ?? "") }
 }
 

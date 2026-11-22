@@ -67,10 +67,9 @@ final class SleepContractFixturesTests: XCTestCase {
         XCTAssertEqual(SleepPlanner.napCreditMin(napMin: 195), 60)
     }
 
-    func testAPastDaysNapsAreNotCappedInTheLedger() {
-        // Contract section 2: naps are uncapped in the ledger, as in native `creditedSleepMin`. Whether the cap should reach the ledger is an
-        // open decision (section "Unreconciled" 2); server and native would change together.
-        XCTAssertEqual(SleepDebt.creditedSleepMin(mainSleepMin: 420, napSleepMin: 195), 615)
+    func testAPastDaysNapsAreCappedAtSixtyMinutesInTheLedger() {
+        // Contract section 2: the ledger caps a day's naps at 60 minutes, the same as tonight's nap line.
+        XCTAssertEqual(SleepDebt.creditedSleepMin(mainSleepMin: 420, napSleepMin: 195), 480)
     }
 
     func testAMainNightPlusAFortyFiveMinuteNapCreditsFourHundredSixtyFive() {

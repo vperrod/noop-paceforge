@@ -186,7 +186,7 @@ enum PaceForgeBackground {
             defaults.set(updated, forKey: lastBriefUpdateKey)
             return
         }
-        guard await canNotify() else { return }
+        guard await canNotify(), await PFReportGate529.isReady(today) else { return }
         let content = UNMutableNotificationContent()
         content.title = "Briefing updated"
         content.body = brief.headline
@@ -276,6 +276,8 @@ enum PaceForgeBackground {
 
         let settings = await UNUserNotificationCenter.current().notificationSettings()
         guard settings.authorizationStatus == .authorized || settings.authorizationStatus == .provisional else { return }
+        // Announced only when the reports list says today's report is ready; otherwise today's delivery stays unspent for a later refresh.
+        guard await PFReportGate529.isReady(date) else { return }
         let content = UNMutableNotificationContent()
         content.title = "PaceForge daily brief"
         content.body = brief.headline

@@ -871,7 +871,8 @@ enum PFBuilder {
             guard let role = t["role"].string, let text = t["text"].text, let ts = t["ts"].string else { return nil }
             return PFChatTurn(role: role, text: text, ts: ts, sessionID: t["session_id"].string,
                               requestID: t["request_id"].string, proposalIDs: t["proposals"].strings,
-                              chart: PFChartRef.parse(t["query_chart"]))
+                              chart: PFChartRef.parse(t["query_chart"]),
+                              activityEditProposalID: PFActivityEdits.proposalID(t["activity_edit"]))
         }
         let chat = state["chat"]["turns"].array.compactMap(turn)
         out.chat = Array(chat.suffix(6))
