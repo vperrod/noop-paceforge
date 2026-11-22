@@ -34,6 +34,7 @@ final class PaceForgeFullGapNativeTests: XCTestCase {
           {"role": "athlete", "text": "That was a walk", "ts": "2030-03-13T07:00:00"},
           {"role": "coach", "text": "I prepared an edit.", "ts": "2030-03-13T07:00:05", "activity_edit": {"proposal_id": "\(proposalID)"}}]}}
         """)
+        raw.fitness = json("{}")
         let snapshot = try XCTUnwrap(PFBuilder.snapshot(from: raw, today: "2030-03-13"))
         XCTAssertEqual(snapshot.coach.chat.last?.activityEditProposalID, proposalID)
     }
@@ -44,6 +45,7 @@ final class PaceForgeFullGapNativeTests: XCTestCase {
         {"generated_at": "2030-03-13T08:00:00", "chat": {"turns": [
           {"role": "athlete", "text": "That was a walk", "ts": "2030-03-13T07:00:00"}]}}
         """)
+        raw.fitness = json("{}")
         let snapshot = try XCTUnwrap(PFBuilder.snapshot(from: raw, today: "2030-03-13"))
         XCTAssertNil(snapshot.coach.chat.first?.activityEditProposalID)
     }
