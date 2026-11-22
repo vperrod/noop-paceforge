@@ -20,6 +20,7 @@ struct PFPlanSettings529: View {
                 if store.isStale { PFStaleNote529() }
                 PFPlanSettingsContent529(doc: doc, reload: { await store.refresh() })
             }
+            PFWeeklyRhythmCard542()
             PFSeasonPlanCard()
             PFGuidesLinkRow530()
         }

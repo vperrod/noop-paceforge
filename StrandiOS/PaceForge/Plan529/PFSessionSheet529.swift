@@ -89,6 +89,7 @@ struct PFSessionSheet529: View {
                 .foregroundStyle(NoopLook.textPrimary)
                 .accessibilityIdentifier("plan529-session-title")
             PFWeekPills529(pills: pills(item, date: date))
+            PFCoachSessionNote542(item: item, idPrefix: "plan529-sheet-coach")
             if !isDone { PFWatchChip529(sessionID: item.sessionId) }
             if isDone, let activityId = item.activityId {
                 PFWeekButton529(title: "Open the results", isProminent: true, identifier: "plan529-session-results") {
@@ -97,7 +98,7 @@ struct PFSessionSheet529: View {
             } else if let id = item.sessionId {
                 PFSessionActionBar529(target: PFSessionTarget529(sessionId: id, title: item.title ?? "", date: date,
                                                                  status: item.status ?? "planned", isToday: store.doc?.strip?.first(where: { $0.date == date })?.today == true,
-                                                                 minutes: item.minutes, rpe: item.rpe),
+                                                                 minutes: item.minutes, rpe: item.rpe, isMandatory: item.mandatory == true),
                                       actions: PFSessionAction529.forSession(status: item.status ?? "planned",
                                                                              isOptional: item.optional == true, includesAskCoach: true),
                                       idPrefix: "plan529-sheet",
@@ -109,6 +110,7 @@ struct PFSessionSheet529: View {
             if !isDone, let id = item.sessionId {
                 textEdit(sessionID: id)
             }
+            if let details = PFCoachSession.details(item.coachDetails) { PFCoachDetailsCard542(details: details) }
             blocks(item)
             more(item, date: date)
         }
@@ -220,7 +222,9 @@ struct PFSessionSheet529: View {
             let word = PFFormat.capitalized(effort)
             out.append((hiding.text(item.rpe.map { "\(word) \u{00B7} \($0) of 10" } ?? word), PFWeekColor529.effort(effort)))
         }
-        for pill in item.pills ?? [] { out.append((pill, NoopLook.textTertiary)) }
+        let isCoach = item.coachAssigned == true
+        if isCoach { out.append((PFCoachSession.badge, PFWeekColor529.teal)) }
+        for pill in item.pills ?? [] where !(isCoach && pill.lowercased() == "truecoach") { out.append((pill, NoopLook.textTertiary)) }
         return out
     }
 

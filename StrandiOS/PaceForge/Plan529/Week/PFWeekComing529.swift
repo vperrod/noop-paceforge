@@ -56,6 +56,7 @@ struct PFWeekComing529: View {
             top
             if let hours = doc.hours { PFWeekHours529(hours: hours) }
             easyBanner
+            if doc.state != "finished" { PFCoachWeekCard542() }
             if hasChanges {
                 PFWeekChanges529(changes: doc.changes ?? [], decided: doc.decided ?? [], decisions: decisions)
             }

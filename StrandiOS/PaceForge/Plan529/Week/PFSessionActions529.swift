@@ -13,6 +13,8 @@ struct PFSessionTarget529: Equatable {
     /// What the edit form starts from: the session's minutes and target effort (1 to 10), when the plan has them.
     var minutes: Int? = nil
     var rpe: Int? = nil
+    /// A session from the athlete's coach: Skip and a move out of its week ask first and are recorded as such.
+    var isMandatory = false
 }
 
 enum PFSessionAction529: String {
@@ -38,6 +40,11 @@ struct PFSessionActionBar529: View {
     @State private var asksToDrop = false
     @State private var note: String?
     @State private var canUndoSkip = false
+    /// The confirmation the server asked for and the request it refused, kept apart from the dialog's own state so the confirm button still
+    /// has them when the dialog has closed.
+    @State private var pendingConfirm: PFMandatoryConfirm?
+    @State private var refusedInputs: [String: Any]?
+    @State private var refusedDone = ""
 
     init(target: PFSessionTarget529, actions: [PFSessionAction529], idPrefix: String, onMore: (() -> Void)? = nil,
          onChangeWorkout: @escaping () -> Void, onAskCoach: @escaping () -> Void) {
@@ -52,6 +59,9 @@ struct PFSessionActionBar529: View {
 
     private var isBusy: Bool { tracker.phase == .sending || tracker.phase == .working }
     private var newDay: String { PFFormat.isoString(newDate) }
+    private var asksToConfirm: Binding<Bool> {
+        Binding(get: { pendingConfirm != nil }, set: { if !$0 { pendingConfirm = nil } })
+    }
     private var canEdit: Bool { PFPlanEdit.applies(status: target.status, sessionID: target.sessionId) }
     private var window: ClosedRange<Date> {
         let day: TimeInterval = 86_400
@@ -78,6 +88,14 @@ struct PFSessionActionBar529: View {
         .confirmationDialog("Drop this optional session?", isPresented: $asksToDrop, titleVisibility: .visible) {
             Button("Drop session", role: .destructive) { Task { await drop() } }
         }
+        // Its own host view: stacked presentation modifiers on one view can leave only the last one working.
+        .background {
+            Color.clear.confirmationDialog(pendingConfirm?.question ?? "", isPresented: asksToConfirm, titleVisibility: .visible) {
+                if let confirm = pendingConfirm {
+                    Button(confirm.confirmTitle, role: .destructive) { Task { await resend(confirm) } }
+                }
+            }
+        }
         .containerIdentifier("\(idPrefix)-actions")
     }
 
@@ -96,7 +114,16 @@ struct PFSessionActionBar529: View {
         case .edit:
             PFWeekButton529(title: "Edit details", isDisabled: isBusy || !canEdit, identifier: "\(idPrefix)-edit") { isEditing = true }
         case .skip:
-            PFWeekButton529(title: "Skip", isDisabled: isBusy || !canEdit, identifier: "\(idPrefix)-skip") { asksToSkip = true }
+            PFWeekButton529(title: "Skip", isDisabled: isBusy || !canEdit, identifier: "\(idPrefix)-skip") {
+                if target.isMandatory {
+                    // The coach's session: ask the coach's question at once; the delete is sent only with the athlete's confirmation.
+                    refusedInputs = PFJobInputs.calendarDelete(sessionID: target.sessionId)
+                    refusedDone = PFSessionActionBar529.skippedCoachNote
+                    pendingConfirm = .skipMandatory
+                } else {
+                    asksToSkip = true
+                }
+            }
         case .optional:
             PFWeekButton529(title: "Make optional", isDisabled: isBusy || !canEdit, identifier: "\(idPrefix)-optional") {
                 Task { await run(.sessionState, PFJobInputs.sessionOptional(sessionID: target.sessionId), done: "Now optional.") }
@@ -181,17 +208,36 @@ struct PFSessionActionBar529: View {
     @MainActor private func move() async {
         guard let inputs = PFJobInputs.calendarMove(sessionID: target.sessionId, to: newDay) else { return }
         isMoving = false
-        await run(.calendarEdit, inputs, done: "Moved to \(PFFormat.dayTitle(newDay)).")
+        await edit(inputs, done: "Moved to \(PFFormat.dayTitle(newDay)).")
     }
 
     @MainActor private func skip() async {
         guard let inputs = PFJobInputs.calendarDelete(sessionID: target.sessionId) else { return }
+        await edit(inputs, done: "Skipped.", undoable: true)
+    }
+
+    /// A `calendar-edit` that the server may refuse until the athlete confirms (a coach's session moved out of its week or skipped): the
+    /// refusal opens the confirmation instead of an error, and the request goes again with the flag only after the confirm tap.
+    @MainActor private func edit(_ inputs: [String: Any], done: String, undoable: Bool = false) async {
         note = nil
-        if case .success = await tracker.run(.calendarEdit, inputs: inputs) {
-            note = "Skipped."
-            canUndoSkip = true
+        canUndoSkip = false
+        switch await tracker.run(.calendarEdit, inputs: inputs) {
+        case .success:
+            note = done
+            canUndoSkip = undoable
             await changed()
+        case .failure(let error):
+            guard let confirm = PFMandatoryConfirm.needed(by: error) else { return }
+            tracker.reset()
+            refusedInputs = inputs
+            refusedDone = done
+            pendingConfirm = confirm
         }
+    }
+
+    @MainActor private func resend(_ confirm: PFMandatoryConfirm) async {
+        guard let inputs = PFJobInputs.confirmed(refusedInputs, confirm) else { return }
+        await edit(inputs, done: refusedDone, undoable: confirm == .skipMandatory)
     }
 
     @MainActor private func undoSkip() async {
@@ -220,6 +266,10 @@ struct PFSessionActionBar529: View {
         await PFUnified.model.refresh()
         NotificationCenter.default.post(name: .pfPlan529Changed, object: nil)
     }
+}
+
+extension PFSessionActionBar529 {
+    static let skippedCoachNote = "Skipped. It counts as missed."
 }
 
 extension PFSessionAction529 {

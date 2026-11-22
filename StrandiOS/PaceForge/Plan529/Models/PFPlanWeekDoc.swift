@@ -160,6 +160,14 @@ struct PFPlanWeekDoc: Codable, Equatable {
         var lastTime: LastTime?
         /// Build 530: true when the coach filled the slot and it is not booked.
         var proposed: Bool?
+        /// Build 542, a session from the athlete's TrueCoach plan: true, mandatory in its week (`weekStart` is that week's Monday), with the
+        /// coach's text verbatim. `skippedMandatory` and `coachRemoved` are read when the server sends them.
+        var coachAssigned: Bool?
+        var mandatory: Bool?
+        var coachDetails: String?
+        var weekStart: String?
+        var skippedMandatory: Bool?
+        var coachRemoved: Bool?
     }
 
     struct Done: Codable, Equatable {

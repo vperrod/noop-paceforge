@@ -12,6 +12,8 @@ enum PFDocPath529 {
     static let todayCards = "data/today-cards.json"
     /// Where each upcoming planned session stands on the way to the watch (read-only, no Garmin call).
     static let watchStatus = "api/watch-status"
+    /// The coach's TrueCoach week: last read, count, any error and what the last replan did around it.
+    static let trueCoachStatus = "api/truecoach-status"
 
     /// "2026-W47"
     static func week(_ isoWeek: String) -> String { "data/plan-week/\(isoWeek).json" }

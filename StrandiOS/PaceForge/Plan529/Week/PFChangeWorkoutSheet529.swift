@@ -67,6 +67,9 @@ struct PFChangeWorkoutSheet529: View {
     @State private var kind: PFSwapKind529?
     /// nil is "Same length".
     @State private var minutes: Int?
+    /// The swap of a coach's session waits for the athlete's confirmation; `replaceAgain` is the "Try another" id the refused request carried.
+    @State private var asksToReplace = false
+    @State private var replaceAgain: String?
 
     private var heading: String { target.isAdd ? "Add a workout" : "Change workout" }
 
@@ -90,6 +93,11 @@ struct PFChangeWorkoutSheet529: View {
             }
         }
         .containerIdentifier("plan529-swap")
+        .confirmationDialog(PFMandatoryConfirm.replaceMandatory.question, isPresented: $asksToReplace, titleVisibility: .visible) {
+            Button(PFMandatoryConfirm.replaceMandatory.confirmTitle, role: .destructive) {
+                Task { await ask(again: replaceAgain, confirmReplace: true) }
+            }
+        }
     }
 
     @ViewBuilder private var content: some View {
@@ -206,13 +214,21 @@ struct PFChangeWorkoutSheet529: View {
     // MARK: Asking
 
     /// Posts `session-swap`, then reads the week document the server rewrote before it answered and opens the change it filed.
-    @MainActor private func ask(again: String?) async {
+    /// A coach's session is refused until the athlete confirms; the refusal opens the confirmation and the request goes again with the flag.
+    @MainActor private func ask(again: String?, confirmReplace: Bool = false) async {
         guard let kind,
-              let inputs = PFJobInputs.sessionSwap(date: target.date, sessionID: target.sessionId, kind: kind.rawValue,
+              var inputs = PFJobInputs.sessionSwap(date: target.date, sessionID: target.sessionId, kind: kind.rawValue,
                                                    minutes: minutes, again: again ?? target.againChangeId) else { return }
+        if confirmReplace, let confirmed = PFJobInputs.confirmed(inputs, .replaceMandatory) { inputs = confirmed }
         phase = .building
         switch await tracker.run(.sessionSwap, inputs: inputs) {
         case .failure(let error):
+            if PFMandatoryConfirm.needed(by: error) == .replaceMandatory, !confirmReplace {
+                phase = .choosing
+                replaceAgain = again
+                asksToReplace = true
+                return
+            }
             phase = .failed(error.message)
         case .success(let result):
             guard let changeId = result["change_id"].text else {

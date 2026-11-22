@@ -56,6 +56,9 @@ enum PFJobName: String, Equatable {
     case strengthImport = "strength-import"
     case queryChart = "query-chart"
     case experiment
+    /// TrueCoach week import (build 542): read the coach's plan now; slow lane, the page read takes seconds to minutes. Undo puts back the draft sessions the replan removed.
+    case truecoachSync = "truecoach-sync"
+    case truecoachReplanUndo = "truecoach-replan-undo"
 
     /// How long a job is expected to take from the request to "done", in seconds, from the contract: a photo read is 5 s to about 4.5 min
     /// (the local vision model is shared), a Garmin sync about 8 s and a minute or more behind a Garmin rate limit, the rest run inline.
@@ -71,6 +74,9 @@ enum PFJobName: String, Equatable {
         case .strengthImportPreview, .strengthImport: return 60
         case .activityEditPropose, .activityEditConfirm, .activityEditReject, .activityEditUndo, .hrZonesAdd: return 30
         case .sessionSwap, .addSession: return 60
+        // The scraper reads for no more than about 330 s (the contract); the undo is a calendar write.
+        case .truecoachSync: return 340
+        case .truecoachReplanUndo: return 30
         }
     }
 

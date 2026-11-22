@@ -77,6 +77,7 @@ struct PFWeekItemCard529: View {
         VStack(alignment: .leading, spacing: 10) {
             headerRow
             pills
+            PFCoachSessionNote542(item: item, idPrefix: "plan529-coach-\(key)")
             if !isDone, kind != "race", kind != "rest" { PFWatchChip529(sessionID: item.sessionId) }
             if let thin = thinWorkout, let snapshot = model.snapshot, PFWorkoutBadges.hasAny(thin, snapshot) {
                 PFWorkoutBadges(workout: thin, snapshot: snapshot)
@@ -156,7 +157,10 @@ struct PFWeekItemCard529: View {
         case "missed": out.append(("Missed", PFWeekColor529.red))
         default: break
         }
-        for pill in item.pills ?? [] { out.append((pill, NoopLook.textTertiary)) }
+        let isCoach = item.coachAssigned == true
+        if isCoach { out.append((PFCoachSession.badge, PFWeekColor529.teal)) }
+        // The server's own "TrueCoach" pill says the same as the Coach badge.
+        for pill in item.pills ?? [] where !(isCoach && pill.lowercased() == "truecoach") { out.append((pill, NoopLook.textTertiary)) }
         if let change = item.changePill, !change.isEmpty { out.append((change, PFWeekColor529.amber)) }
         return out
     }
@@ -211,7 +215,7 @@ struct PFWeekItemCard529: View {
         if allowsEdits, kind == "session", !isDone, let id = item.sessionId {
             PFSessionActionBar529(target: PFSessionTarget529(sessionId: id, title: item.title ?? "", date: date,
                                                              status: item.status ?? "planned", isToday: isToday,
-                                                             minutes: item.minutes, rpe: item.rpe),
+                                                             minutes: item.minutes, rpe: item.rpe, isMandatory: item.mandatory == true),
                                   actions: cardActions, idPrefix: "plan529-act-\(id)",
                                   onMore: { hooks.openSession(id) },
                                   onChangeWorkout: { hooks.openSwap(swapTarget(sessionId: id)) },
