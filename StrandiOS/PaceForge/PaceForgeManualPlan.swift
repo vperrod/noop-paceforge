@@ -2,7 +2,7 @@ import Foundation
 
 // Three things the athlete can do from the iPhone that used to be web-only: change the details of a planned session, add a planned session,
 // and log a workout he did himself so the coach can read it. Foundation only, so it is compiled into the macOS unit-test bundle.
-// Jobs: `calendar-edit` (action `edit`), `add-session`, `manual-workout`, `manual-workout-edit`, `manual-workout-delete` (PaceForgeJob.swift);
+// Jobs: `calendar-edit` (action `edit`), `add-session`, `manual-workout`, `manual-workout-edit`, `manual-workout-delete`, `manual-workout-comment` (PaceForgeJob.swift);
 // the list of logged workouts is `GET manual-workouts`. Every limit below is the server's own, so the app never sends what it would refuse.
 
 enum PFManualPlan {
@@ -78,6 +78,13 @@ extension PFJobInputs {
         var inputs = changes
         inputs["id"] = id
         return inputs
+    }
+
+    /// `manual-workout-comment`: a note added to a logged workout afterwards. The text is 1 to 2000 characters once trimmed; the server re-queues
+    /// the Coach's reassessment.
+    static func manualWorkoutComment(id: String?, text: String) -> [String: Any]? {
+        guard let id = sessionID(id), PFManualWorkoutComments.problem(text: text, existing: 0) == nil else { return nil }
+        return ["id": id, "text": text.trimmingCharacters(in: .whitespacesAndNewlines)]
     }
 }
 
@@ -173,6 +180,20 @@ struct PFAddSessionDraft: Equatable {
 
 // MARK: A workout logged by hand
 
+/// One dated comment on a logged workout (`comments[]` of `GET manual-workouts`: `{ts, text}`).
+struct PFManualWorkoutComment: Equatable {
+    /// The server's timestamp as text (ISO-8601); a number of seconds or milliseconds is turned into one.
+    let ts: String
+    let text: String
+
+    /// "12 Mar 07:30", or just the day when the clock is unreadable, or "" when the stamp is.
+    var whenText: String {
+        guard ts.count >= 10, PFJobInputs.isDay(String(ts.prefix(10))) else { return "" }
+        let day = PFFormat.shortDate(ts)
+        return PFFormat.timeOfDay(ts).map { "\(day) \($0)" } ?? day
+    }
+}
+
 /// One workout the athlete logged himself, as `GET manual-workouts` lists it.
 struct PFManualWorkout: Identifiable, Equatable {
     let id: String
@@ -186,6 +207,70 @@ struct PFManualWorkout: Identifiable, Equatable {
     let rpe: Int?
     let notes: String?
     let planSessionID: String?
+    /// The longer account added later (`details`), the dated comments (`comments`) and whether the Coach has written it up (`analysed`; nil from a server that does not say).
+    var details: String? = nil
+    var comments: [PFManualWorkoutComment] = []
+    var analysed: Bool? = nil
+
+    /// The line under the row: whether the Coach has read the workout in its present state. nil when the server did not say.
+    var reviewLine: String? {
+        guard let analysed else { return nil }
+        return analysed ? "Coach has reviewed this" : "Coach review pending"
+    }
+}
+
+/// Comments on a logged workout: the server's limits and the sentences the app shows.
+enum PFManualWorkoutComments {
+    static let maxLength = 2000
+    static let maxCount = 50
+    static let maxDetailsLength = 2000
+    static let sentNote = "Saved. The Coach is reading it again; the updated review appears on that day."
+    static let partialNote = "Saved \u{2014} the Coach could not be reached yet, saving another comment retries."
+
+    /// What is wrong with a comment about to be sent, or nil. `existing` is how many comments the workout already has.
+    static func problem(text: String, existing: Int) -> String? {
+        let count = text.trimmingCharacters(in: .whitespacesAndNewlines).count
+        if count == 0 { return "Write something first." }
+        if count > maxLength { return "A comment is 2000 characters at most." }
+        if existing >= maxCount { return "This workout already has 50 comments." }
+        return nil
+    }
+
+    static func isManualID(_ id: String) -> Bool { id.hasPrefix("manual:") }
+
+    /// The sentence for a `manual-workout-comment` result: the plain one, or the partial one when the comment was kept but the Coach could not be queued.
+    static func note(for result: PFJ) -> String {
+        result["partial"].bool == true ? partialNote : sentNote
+    }
+
+    /// Comments in the order served, a timestamp read as ISO text or as epoch seconds / milliseconds; entries without text are left out.
+    static func parse(_ comments: PFJ) -> [PFManualWorkoutComment] {
+        comments.array.compactMap { row in
+            guard let text = row["text"].text else { return nil }
+            return PFManualWorkoutComment(ts: stamp(row["ts"]), text: text)
+        }
+    }
+
+    private static func stamp(_ value: PFJ) -> String {
+        if let text = value.string { return text }
+        guard let number = value.double, number.isFinite, number > 0 else { return "" }
+        let seconds = number > 1e11 ? number / 1000 : number
+        return PFFormat.isoPlain.string(from: Date(timeIntervalSince1970: seconds))
+    }
+}
+
+/// The small "Add details / comment" form for one logged workout. Codable so what was typed can stay on the phone until the server takes it.
+struct PFManualWorkoutCommentDraft: Codable, Equatable {
+    var id: String
+    var text = ""
+
+    func problem(existing: Int) -> String? { PFManualWorkoutComments.problem(text: text, existing: existing) }
+
+    /// The `manual-workout-comment` inputs. nil when the text or the count is not acceptable.
+    func inputs(existing: Int) -> [String: Any]? {
+        guard problem(existing: existing) == nil else { return nil }
+        return PFJobInputs.manualWorkoutComment(id: id, text: text)
+    }
 }
 
 enum PFManualWorkouts {
@@ -206,7 +291,9 @@ enum PFManualWorkouts {
                   let minutes = row["minutes"].int else { return nil }
             return PFManualWorkout(id: id, date: date, startTime: row["start_time"].text, sport: sport, minutes: minutes,
                                    km: row["km"].double, avgHR: row["avg_hr"].int, maxHR: row["max_hr"].int,
-                                   rpe: row["rpe"].int, notes: row["notes"].text, planSessionID: row["plan_session_id"].text)
+                                   rpe: row["rpe"].int, notes: row["notes"].text, planSessionID: row["plan_session_id"].text,
+                                   details: row["details"].text, comments: PFManualWorkoutComments.parse(row["comments"]),
+                                   analysed: row["analysed"].bool)
         }
         return parsed.sorted { ($0.date, $0.startTime ?? "") > ($1.date, $1.startTime ?? "") }
     }
@@ -224,8 +311,16 @@ struct PFManualWorkoutDraft: Codable, Equatable {
     var rpeText = ""
     var notes = ""
     var planSessionID: String?
+    /// The longer account (`details`, up to 2000 characters). Optional so a draft kept on the phone before this field existed still reads back.
+    var details: String?
 
     static let maxNotesLength = 500
+
+    /// The details field as a form binding: blank reads and writes as no details.
+    var detailsText: String {
+        get { details ?? "" }
+        set { details = newValue.isEmpty ? nil : newValue }
+    }
 
     init(date: String) { self.date = date }
 
@@ -241,11 +336,13 @@ struct PFManualWorkoutDraft: Codable, Equatable {
         rpeText = workout.rpe.map(String.init) ?? ""
         notes = workout.notes ?? ""
         planSessionID = workout.planSessionID
+        details = workout.details
     }
 
     private func isBlank(_ text: String) -> Bool { text.trimmingCharacters(in: .whitespaces).isEmpty }
     private var sportName: String { sport.trimmingCharacters(in: .whitespacesAndNewlines) }
     private var noteText: String { notes.trimmingCharacters(in: .whitespacesAndNewlines) }
+    private var detailsTrimmed: String { detailsText.trimmingCharacters(in: .whitespacesAndNewlines) }
 
     /// The sentence that says what is wrong with the form, or nil when it can be sent. A workout cannot be on a day that has not come.
     func problem(today: String) -> String? {
@@ -260,6 +357,7 @@ struct PFManualWorkoutDraft: Codable, Equatable {
         if let avg = PFManualPlan.whole(avgHRText), let top = PFManualPlan.whole(maxHRText), top < avg { return "Max heart rate cannot be below the average." }
         if !isBlank(rpeText), !(PFManualPlan.whole(rpeText).map { (1...10).contains($0) } ?? false) { return "Effort must be a whole number from 1 to 10." }
         if noteText.count > Self.maxNotesLength { return "Notes are too long (500 characters at most)." }
+        if detailsTrimmed.count > PFManualWorkoutComments.maxDetailsLength { return "Details are too long (2000 characters at most)." }
         if let planSessionID, PFJobInputs.sessionID(planSessionID) == nil { return "That planned session cannot be linked." }
         return nil
     }
@@ -274,6 +372,7 @@ struct PFManualWorkoutDraft: Codable, Equatable {
         if let top = PFManualPlan.whole(maxHRText) { inputs["max_hr"] = top }
         if let rpe = PFManualPlan.whole(rpeText) { inputs["rpe"] = rpe }
         if !noteText.isEmpty { inputs["notes"] = noteText }
+        if !detailsTrimmed.isEmpty { inputs["details"] = detailsTrimmed }
         if let planSessionID { inputs["plan_session_id"] = planSessionID }
         return inputs
     }
@@ -285,7 +384,7 @@ struct PFManualWorkoutDraft: Codable, Equatable {
         let before = PFManualWorkoutDraft(editing: saved)
         guard let was = before.inputs(today: "9999-12-31") else { return nil }
         var changes: [String: Any] = [:]
-        for key in ["date", "start_time", "sport", "minutes", "km", "avg_hr", "max_hr", "rpe", "notes", "plan_session_id"] {
+        for key in ["date", "start_time", "sport", "minutes", "km", "avg_hr", "max_hr", "rpe", "notes", "details", "plan_session_id"] {
             let new = now[key], old = was[key]
             if new == nil, old != nil {
                 changes[key] = NSNull()

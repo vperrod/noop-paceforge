@@ -43,6 +43,8 @@ enum PFJobName: String, Equatable {
     case manualWorkout = "manual-workout"
     case manualWorkoutEdit = "manual-workout-edit"
     case manualWorkoutDelete = "manual-workout-delete"
+    /// A dated comment on a logged workout; the server re-queues the Coach's reassessment.
+    case manualWorkoutComment = "manual-workout-comment"
     // Activity edits (a recording is never changed, an edit is an overlay) and heart-rate zone sets per sport: PaceForgeActivityEdits.swift, PaceForgeTrainingAnalytics.swift.
     case activityEditPropose = "activity-edit-propose"
     case activityEditConfirm = "activity-edit-confirm"
@@ -65,7 +67,7 @@ enum PFJobName: String, Equatable {
         case .journalCapture: return 90
         case .saveRpe, .adjustToday, .coachFeedback, .niggleAdd, .niggleResolve, .calendarEdit, .sessionState, .sessionDrop, .easyMode, .easyModeEnd, .saveEvents, .hyroxSimAdd,
              .eventUpdate, .planHours, .dayoffAdd, .dayoffRemove, .journalList, .journalProposal, .journalCaptureConfirm, .saveMemory, .stepGoalSet,
-             .manualWorkout, .manualWorkoutEdit, .manualWorkoutDelete, .queryChart, .experiment: return 30
+             .manualWorkout, .manualWorkoutEdit, .manualWorkoutDelete, .manualWorkoutComment, .queryChart, .experiment: return 30
         case .strengthImportPreview, .strengthImport: return 60
         case .activityEditPropose, .activityEditConfirm, .activityEditReject, .activityEditUndo, .hrZonesAdd: return 30
         case .sessionSwap, .addSession: return 60

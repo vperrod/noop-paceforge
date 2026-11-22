@@ -227,8 +227,10 @@ struct PFAddSessionSheet529: View {
 
 /// Logs a workout the athlete did himself (`manual-workout`), so the coach reads it like a recorded one, and lists what he logged so he can
 /// change (`manual-workout-edit`) or remove (`manual-workout-delete`) it. A failed send keeps the form, and the form is kept on the phone
-/// until a send goes through.
+/// until a send goes through. Each logged workout also takes details and dated comments afterwards (`manual-workout-comment`), which the
+/// coach reads again. With `focusID` the sheet shows only that logged workout (opened from its coach analysis), not the new-workout form.
 struct PFLogWorkoutSheet529: View {
+    let focusID: String?
     let onSaved: () -> Void
 
     private static let draftKey = "noop.paceforge.manualWorkoutDraft"
@@ -243,14 +245,28 @@ struct PFLogWorkoutSheet529: View {
     @State private var removing: PFManualWorkout?
     @State private var asksToRemove = false
     @State private var note: String?
+    @State private var commenting: PFManualWorkout?
+    @State private var listLoaded = false
+    @State private var pollToken = 0
 
-    init(onSaved: @escaping () -> Void) {
+    init(focusID: String? = nil, onSaved: @escaping () -> Void) {
+        self.focusID = focusID
         self.onSaved = onSaved
         let kept = PFDraftKeeping.decode(UserDefaults.standard.data(forKey: Self.draftKey))
         _draft = State(initialValue: kept ?? PFManualWorkoutDraft(date: PFAPI.todayISO))
     }
 
     private var problem: String? { draft.problem(today: PFAPI.todayISO) }
+
+    /// The new-workout form shows unless the sheet was opened for one logged workout; changing that workout brings the form back.
+    private var showsForm: Bool { focusID == nil || editing != nil }
+
+    private var visibleLogged: [PFManualWorkout] { focusID.map { id in logged.filter { $0.id == id } } ?? logged }
+
+    private var title: String {
+        if editing != nil { return "Edit workout" }
+        return focusID == nil ? "Log a workout" : "Your logged workout"
+    }
 
     /// The planned sessions on the chosen day that this workout can be linked to.
     private var candidates: [PFWorkout] {
@@ -260,11 +276,11 @@ struct PFLogWorkoutSheet529: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            PFWeekSub529(text: editing == nil
-                         ? "Something you did that is not on your watch or your plan. The coach reads it and adds it to your week."
-                         : "Changing a workout you logged. The coach reads it again.")
-            form
-            if let problem { PFWeekSub529(text: problem) }
+            PFWeekSub529(text: introText)
+            if showsForm {
+                form
+                if let problem { PFWeekSub529(text: problem) }
+            }
             PFEditMessage529(runner: runner)
             if let note {
                 Text(note)
@@ -273,24 +289,44 @@ struct PFLogWorkoutSheet529: View {
                     .fixedSize(horizontal: false, vertical: true)
                     .accessibilityIdentifier("plan529-log-note")
             }
-            HStack(spacing: 8) {
-                PFWeekButton529(title: runner.isBusy ? "Saving" : (editing == nil ? "Log workout" : "Save changes"), isProminent: true,
-                                isDisabled: runner.isBusy || problem != nil, identifier: "plan529-log-save") {
-                    Task { await submit() }
-                }
-                if editing != nil {
-                    PFWeekButton529(title: "Stop editing", isDisabled: runner.isBusy, identifier: "plan529-log-stop") { stopEditing() }
+            if showsForm {
+                HStack(spacing: 8) {
+                    PFWeekButton529(title: runner.isBusy ? "Saving" : (editing == nil ? "Log workout" : "Save changes"), isProminent: true,
+                                    isDisabled: runner.isBusy || problem != nil, identifier: "plan529-log-save") {
+                        Task { await submit() }
+                    }
+                    if editing != nil {
+                        PFWeekButton529(title: "Stop editing", isDisabled: runner.isBusy, identifier: "plan529-log-stop") { stopEditing() }
+                    }
                 }
             }
             loggedList
         }
-        .pfOwnSheet529(title: editing == nil ? "Log a workout" : "Edit workout", id: "plan529-log", dismiss: dismiss)
+        .pfOwnSheet529(title: title, id: "plan529-log", dismiss: dismiss)
+        .sheet(item: $commenting) { workout in
+            PFWorkoutCommentSheet529(workout: workout) { sentNote in
+                note = sentNote
+                pollToken += 1
+                Task {
+                    await loadList()
+                    await pfOwnChanged529()
+                    onSaved()
+                }
+            }
+        }
         .confirmationDialog("Remove this workout? The coach stops counting it.", isPresented: $asksToRemove, titleVisibility: .visible) {
             Button("Remove workout", role: .destructive) {
                 if let removing { Task { await remove(removing) } }
             }
         }
         .task { await loadList() }
+        .task(id: pollToken) { await pollForReview() }
+    }
+
+    private var introText: String {
+        if editing != nil { return "Changing a workout you logged. The coach reads it again." }
+        if focusID != nil { return "Edit this workout, or add details or a comment afterwards. The coach reads it again and updates its review." }
+        return "Something you did that is not on your watch or your plan. The coach reads it and adds it to your week."
     }
 
     // MARK: Form
@@ -323,6 +359,12 @@ struct PFLogWorkoutSheet529: View {
                     .textFieldStyle(.roundedBorder)
                     .lineLimit(2...4)
                     .accessibilityIdentifier("plan529-log-notes")
+            }
+            PFOwnField529("Details (optional, up to 2000 characters)") {
+                TextField("What you did, how it felt, anything the coach should know", text: $draft.detailsText, axis: .vertical)
+                    .textFieldStyle(.roundedBorder)
+                    .lineLimit(3...8)
+                    .accessibilityIdentifier("plan529-log-details")
             }
             if !candidates.isEmpty || draft.planSessionID != nil { linkPicker }
         }
@@ -359,29 +401,64 @@ struct PFLogWorkoutSheet529: View {
     // MARK: Logged workouts
 
     @ViewBuilder private var loggedList: some View {
-        if !logged.isEmpty || listFailed {
+        if !visibleLogged.isEmpty || listFailed || (focusID != nil && listLoaded) {
             VStack(alignment: .leading, spacing: 10) {
-                PFWeekOverline529(text: "Logged by you")
+                PFWeekOverline529(text: focusID == nil ? "Logged by you" : "This workout")
                 if listFailed { PFWeekSub529(text: "Your logged workouts could not be loaded.") }
-                ForEach(logged) { workout in
+                else if visibleLogged.isEmpty { PFWeekSub529(text: "This workout is no longer in your logged list.") }
+                ForEach(visibleLogged) { workout in
                     VStack(alignment: .leading, spacing: 6) {
                         Text("\(workout.sport) \u{00B7} \(PFFormat.shortDate(workout.date)) \u{00B7} \(workout.minutes) min")
                             .font(LookFont.text(14, weight: .semibold))
                             .foregroundStyle(NoopLook.textPrimary)
                         if let line = detail(workout) { PFWeekSub529(text: line) }
+                        if let details = workout.details {
+                            Text(details)
+                                .font(LookFont.text(13, weight: .regular))
+                                .foregroundStyle(NoopLook.textPrimary)
+                                .fixedSize(horizontal: false, vertical: true)
+                                .accessibilityIdentifier("plan529-log-details-\(workout.id)")
+                        }
+                        commentHistory(workout)
+                        if let review = workout.reviewLine {
+                            PFWeekSub529(text: review).accessibilityIdentifier("plan529-log-review-\(workout.id)")
+                        }
                         HStack(spacing: 8) {
                             PFWeekButton529(title: "Edit", isDisabled: runner.isBusy, identifier: "plan529-log-edit-\(workout.id)") { startEditing(workout) }
+                            PFWeekButton529(title: "Add details / comment",
+                                            isDisabled: runner.isBusy || workout.comments.count >= PFManualWorkoutComments.maxCount,
+                                            identifier: "plan529-log-comment-\(workout.id)") { commenting = workout }
                             PFWeekButton529(title: "Remove", isDisabled: runner.isBusy, identifier: "plan529-log-remove-\(workout.id)") {
                                 removing = workout
                                 asksToRemove = true
                             }
                         }
+                        if workout.comments.count >= PFManualWorkoutComments.maxCount {
+                            PFWeekSub529(text: "This workout has the most comments it can hold (50).")
+                        }
                     }
-                    if workout.id != logged.last?.id { PFDivider529() }
+                    if workout.id != visibleLogged.last?.id { PFDivider529() }
                 }
             }
             .pfWeekCard()
             .containerIdentifier("plan529-log-list")
+        }
+    }
+
+    @ViewBuilder private func commentHistory(_ workout: PFManualWorkout) -> some View {
+        if !workout.comments.isEmpty {
+            VStack(alignment: .leading, spacing: 6) {
+                ForEach(Array(workout.comments.enumerated()), id: \.offset) { _, comment in
+                    VStack(alignment: .leading, spacing: 2) {
+                        if !comment.whenText.isEmpty { PFWeekOverline529(text: comment.whenText) }
+                        Text(comment.text)
+                            .font(LookFont.text(13, weight: .regular))
+                            .foregroundStyle(NoopLook.textPrimary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+            }
+            .accessibilityIdentifier("plan529-log-comments-\(workout.id)")
         }
     }
 
@@ -403,6 +480,20 @@ struct PFLogWorkoutSheet529: View {
         } catch {
             listFailed = true
         }
+        listLoaded = true
+    }
+
+    /// After a comment the Coach writes its review again: read the list (its `analysed` flag) every few seconds until none is waiting, then
+    /// read the plan and the analyses once more so the updated review shows. Ends with the sheet.
+    @MainActor private func pollForReview() async {
+        guard pollToken > 0 else { return }
+        for _ in 0..<8 {
+            try? await Task.sleep(nanoseconds: 8_000_000_000)
+            if Task.isCancelled { return }
+            await loadList()
+            if !logged.contains(where: { $0.analysed == false }) { break }
+        }
+        await pfOwnChanged529()
     }
 
     private func startEditing(_ workout: PFManualWorkout) {
@@ -443,6 +534,7 @@ struct PFLogWorkoutSheet529: View {
         editing = nil
         draft = PFManualWorkoutDraft(date: today)
         note = "Saved. The coach is reading it; the analysis appears on that day."
+        pollToken += 1
         await loadList()
         await pfOwnChanged529()
         onSaved()
@@ -456,5 +548,65 @@ struct PFLogWorkoutSheet529: View {
         await loadList()
         await pfOwnChanged529()
         onSaved()
+        if focusID != nil { dismiss() }
+    }
+}
+
+
+// MARK: Add details or a comment to a logged workout
+
+/// One multiline comment on a logged workout (`manual-workout-comment`, 1 to 2000 characters, 50 per workout). The text stays on the phone
+/// until the server takes it. A comment the server kept but whose Coach re-read it could not queue (`partial`) counts as sent, with its own note.
+private struct PFWorkoutCommentSheet529: View {
+    let workout: PFManualWorkout
+    let onSent: (String) -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @StateObject private var runner = PFPlanEditRunner529()
+    @State private var draft: PFManualWorkoutCommentDraft
+
+    private var draftKey: String { "noop.paceforge.manualWorkoutComment.\(workout.id)" }
+
+    init(workout: PFManualWorkout, onSent: @escaping (String) -> Void) {
+        self.workout = workout
+        self.onSent = onSent
+        let kept = UserDefaults.standard.string(forKey: "noop.paceforge.manualWorkoutComment.\(workout.id)") ?? ""
+        _draft = State(initialValue: PFManualWorkoutCommentDraft(id: workout.id, text: kept))
+    }
+
+    private var problem: String? {
+        draft.text.isEmpty ? nil : draft.problem(existing: workout.comments.count)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            PFWeekSub529(text: "\(workout.sport) \u{00B7} \(PFFormat.shortDate(workout.date)) \u{00B7} \(workout.minutes) min. Add what you remember or what changed; the coach reads the workout again with it.")
+            PFOwnField529("Details or comment (up to 2000 characters)") {
+                TextField("e.g. Legs were heavy from the start, the last 10 minutes were easy", text: $draft.text, axis: .vertical)
+                    .textFieldStyle(.roundedBorder)
+                    .lineLimit(5...12)
+                    .accessibilityIdentifier("plan529-comment-text")
+            }
+            if let problem { PFWeekSub529(text: problem) }
+            PFEditMessage529(runner: runner)
+            PFWeekButton529(title: runner.isBusy ? "Sending" : "Send to the coach", isProminent: true,
+                            isDisabled: runner.isBusy || draft.problem(existing: workout.comments.count) != nil,
+                            identifier: "plan529-comment-send") {
+                Task { await send() }
+            }
+        }
+        .pfOwnSheet529(title: "Add details", id: "plan529-comment", dismiss: dismiss)
+    }
+
+    @MainActor private func send() async {
+        let tookIt = await runner.run(.manualWorkoutComment, inputs: draft.inputs(existing: workout.comments.count))
+        if let kept = PFDraftKeeping.afterSend(draft, tookIt: tookIt) {
+            UserDefaults.standard.set(kept.text, forKey: draftKey)
+            return
+        }
+        UserDefaults.standard.removeObject(forKey: draftKey)
+        let sentNote = PFManualWorkoutComments.note(for: runner.lastResult)
+        onSent(sentNote)
+        dismiss()
     }
 }

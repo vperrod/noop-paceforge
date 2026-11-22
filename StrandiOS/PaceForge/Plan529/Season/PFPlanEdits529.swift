@@ -64,6 +64,8 @@ final class PFPlanEditRunner529: ObservableObject {
     private let tracker = PFJobTracker()
     /// The `id` the last successful job's result carried (a day off the server just made), if any.
     private(set) var lastResultID: String?
+    /// The last successful job's whole `result` (`partial`, `analysis_error` ...), empty before the first.
+    private(set) var lastResult = PFJ(nil)
 
     func clear() { message = nil }
 
@@ -80,8 +82,10 @@ final class PFPlanEditRunner529: ObservableObject {
         message = nil
         defer { isBusy = false }
         lastResultID = nil
+        lastResult = PFJ(nil)
         switch await tracker.run(job, inputs: inputs) {
         case .success(let result):
+            lastResult = result
             lastResultID = result["id"].idString
             return true
         case .failure(let failure):

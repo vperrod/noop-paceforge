@@ -379,3 +379,199 @@ final class PaceForgeSendToCoachTests: XCTestCase {
         XCTAssertNil(draft(avgHR: 25)?.inputs(today: "2030-03-13")?["avg_hr"])
     }
 }
+
+/// Details and dated comments on a logged workout (`manual-workout-comment`, `details`, `comments[]`, `analysed`). Made-up values.
+final class PaceForgeManualWorkoutCommentTests: XCTestCase {
+    private let today = "2030-03-13"
+
+    private func assertSame(_ actual: [String: Any]?, _ expected: [String: Any], file: StaticString = #filePath, line: UInt = #line) {
+        XCTAssertEqual((actual ?? [:]) as NSDictionary, expected as NSDictionary, file: file, line: line)
+    }
+
+    private func list(_ json: String) -> [PFManualWorkout] { PFManualWorkouts.parse(json.data(using: .utf8)) }
+
+    private func draft(_ change: (inout PFManualWorkoutDraft) -> Void = { _ in }) -> PFManualWorkoutDraft {
+        var draft = PFManualWorkoutDraft(date: "2030-03-12")
+        draft.minutesText = "45"
+        change(&draft)
+        return draft
+    }
+
+    private let saved = PFManualWorkout(id: "manual:abc123", date: "2030-03-12", startTime: nil, sport: "Run", minutes: 45, km: nil,
+                                        avgHR: nil, maxHR: nil, rpe: nil, notes: nil, planSessionID: nil, details: "Hilly loop")
+
+    // MARK: Payload builders
+
+    func testACommentIsSentWithItsWorkoutAndTrimmedText() {
+        assertSame(PFJobInputs.manualWorkoutComment(id: "manual:abc123", text: "  Legs heavy \n"), ["id": "manual:abc123", "text": "Legs heavy"])
+    }
+
+    func testACommentWithoutAWorkoutIdIsNotBuilt() {
+        XCTAssertNil(PFJobInputs.manualWorkoutComment(id: nil, text: "Legs heavy"))
+    }
+
+    func testABlankCommentIsNotBuilt() {
+        XCTAssertNil(PFJobInputs.manualWorkoutComment(id: "manual:abc123", text: "  \n "))
+    }
+
+    func testDetailsGoWithANewWorkoutTrimmed() {
+        assertSame(draft { $0.details = " Hilly loop " }.inputs(today: today), ["date": "2030-03-12", "sport": "Run", "minutes": 45, "details": "Hilly loop"])
+    }
+
+    func testBlankDetailsAreLeftOutOfANewWorkout() {
+        assertSame(draft { $0.details = "   " }.inputs(today: today), ["date": "2030-03-12", "sport": "Run", "minutes": 45])
+    }
+
+    func testChangedDetailsAreTheOnlyEditSent() {
+        var form = PFManualWorkoutDraft(editing: saved)
+        form.details = "Hilly loop, then strides"
+        assertSame(form.editInputs(from: saved, today: today), ["id": "manual:abc123", "details": "Hilly loop, then strides"])
+    }
+
+    func testClearedDetailsAreSentAsNull() {
+        var form = PFManualWorkoutDraft(editing: saved)
+        form.detailsText = ""
+        assertSame(form.editInputs(from: saved, today: today), ["id": "manual:abc123", "details": NSNull()])
+    }
+
+    func testUnchangedDetailsAreNotAnEdit() {
+        XCTAssertNil(PFManualWorkoutDraft(editing: saved).editInputs(from: saved, today: today))
+    }
+
+    // MARK: Limits
+
+    func testACommentOfTwoThousandCharactersIsAccepted() {
+        XCTAssertNil(PFManualWorkoutComments.problem(text: String(repeating: "a", count: 2000), existing: 0))
+    }
+
+    func testACommentOfTwoThousandAndOneCharactersIsRefused() {
+        XCTAssertNotNil(PFManualWorkoutComments.problem(text: String(repeating: "a", count: 2001), existing: 0))
+    }
+
+    func testAnEmptyCommentIsRefused() {
+        XCTAssertEqual(PFManualWorkoutComments.problem(text: "", existing: 0), "Write something first.")
+    }
+
+    func testTheFiftiethCommentIsAccepted() {
+        XCTAssertNil(PFManualWorkoutComments.problem(text: "ok", existing: 49))
+    }
+
+    func testTheFiftyFirstCommentIsRefused() {
+        XCTAssertEqual(PFManualWorkoutComments.problem(text: "ok", existing: 50), "This workout already has 50 comments.")
+    }
+
+    func testDetailsOfTwoThousandAndOneCharactersBlockTheForm() {
+        XCTAssertNotNil(draft { $0.details = String(repeating: "a", count: 2001) }.problem(today: today))
+    }
+
+    func testDetailsOfTwoThousandCharactersPassTheForm() {
+        XCTAssertNil(draft { $0.details = String(repeating: "a", count: 2000) }.problem(today: today))
+    }
+
+    func testACommentDraftAtTheCountLimitBuildsNothing() {
+        XCTAssertNil(PFManualWorkoutCommentDraft(id: "manual:abc123", text: "ok").inputs(existing: 50))
+    }
+
+    // MARK: Draft retention
+
+    func testACommentTheServerDidNotTakeIsKept() {
+        let typed = PFManualWorkoutCommentDraft(id: "manual:abc123", text: "typed")
+        XCTAssertEqual(PFDraftKeeping.afterSend(typed, tookIt: false), typed)
+    }
+
+    func testACommentTheServerTookIsCleared() {
+        XCTAssertNil(PFDraftKeeping.afterSend(PFManualWorkoutCommentDraft(id: "manual:abc123", text: "typed"), tookIt: true))
+    }
+
+    func testDetailsTypedInAKeptFormReadBackTheSame() {
+        let form = draft { $0.details = "Hilly loop" }
+        XCTAssertEqual(PFDraftKeeping.decode(PFDraftKeeping.encode(form))?.details, "Hilly loop")
+    }
+
+    func testAFormKeptBeforeDetailsExistedStillReadsBack() {
+        let old = #"{"date":"2030-03-12","startTime":"","sport":"Run","minutesText":"45","kmText":"","avgHRText":"","maxHRText":"","rpeText":"","notes":""}"#
+        XCTAssertEqual(PFDraftKeeping.decode(old.data(using: .utf8))?.minutesText, "45")
+    }
+
+    // MARK: Parsing
+
+    func testDetailsCommentsAndAnalysedAreRead() {
+        let rows = list(#"[{"id":"manual:a","date":"2030-03-12","sport":"Run","minutes":45,"details":"Hilly loop","analysed":true,"comments":[{"ts":"2030-03-12T18:30:00Z","text":"Legs heavy"}]}]"#)
+        XCTAssertEqual(rows.first?.details, "Hilly loop")
+        XCTAssertEqual(rows.first?.analysed, true)
+        XCTAssertEqual(rows.first?.comments, [PFManualWorkoutComment(ts: "2030-03-12T18:30:00Z", text: "Legs heavy")])
+    }
+
+    func testARowWithoutThemReadsAsNoDetailsNoCommentsAndUnknownReview() {
+        let row = list(#"[{"id":"manual:a","date":"2030-03-12","sport":"Run","minutes":45}]"#).first
+        XCTAssertEqual(row?.details, nil)
+        XCTAssertEqual(row?.comments, [])
+        XCTAssertEqual(row?.analysed, nil)
+    }
+
+    func testACommentTimestampInSecondsReadsAsIsoText() {
+        let rows = list(#"[{"id":"manual:a","date":"2030-03-12","sport":"Run","minutes":45,"comments":[{"ts":1899532800,"text":"x"}]}]"#)
+        XCTAssertEqual(rows.first?.comments.first?.ts, "2030-03-12T08:00:00Z")
+    }
+
+    func testACommentTimestampInMillisecondsReadsTheSame() {
+        let rows = list(#"[{"id":"manual:a","date":"2030-03-12","sport":"Run","minutes":45,"comments":[{"ts":1899532800000,"text":"x"}]}]"#)
+        XCTAssertEqual(rows.first?.comments.first?.ts, "2030-03-12T08:00:00Z")
+    }
+
+    func testACommentWithoutTextIsLeftOut() {
+        let rows = list(#"[{"id":"manual:a","date":"2030-03-12","sport":"Run","minutes":45,"comments":[{"ts":"2030-03-12T18:30:00Z"},{"ts":"2030-03-13T08:00:00Z","text":"ok"}]}]"#)
+        XCTAssertEqual(rows.first?.comments.map { $0.text }, ["ok"])
+    }
+
+    func testCommentsKeepTheOrderServed() {
+        let rows = list(#"[{"id":"manual:a","date":"2030-03-12","sport":"Run","minutes":45,"comments":[{"ts":"2030-03-12T18:30:00Z","text":"first"},{"ts":"2030-03-13T08:00:00Z","text":"second"}]}]"#)
+        XCTAssertEqual(rows.first?.comments.map { $0.text }, ["first", "second"])
+    }
+
+    func testAnUnreadableCommentStampShowsNoDate() {
+        XCTAssertEqual(PFManualWorkoutComment(ts: "", text: "x").whenText, "")
+    }
+
+    func testReviewedReadsAsReviewed() {
+        XCTAssertEqual(PFManualWorkout(id: "m", date: "2030-03-12", startTime: nil, sport: "Run", minutes: 5, km: nil, avgHR: nil, maxHR: nil,
+                                       rpe: nil, notes: nil, planSessionID: nil, analysed: true).reviewLine, "Coach has reviewed this")
+    }
+
+    func testNotYetAnalysedReadsAsPending() {
+        XCTAssertEqual(PFManualWorkout(id: "m", date: "2030-03-12", startTime: nil, sport: "Run", minutes: 5, km: nil, avgHR: nil, maxHR: nil,
+                                       rpe: nil, notes: nil, planSessionID: nil, analysed: false).reviewLine, "Coach review pending")
+    }
+
+    func testAnUnknownReviewStateShowsNoLine() {
+        XCTAssertNil(saved.reviewLine)
+    }
+
+    func testAPartialResultGetsTheCouldNotBeReachedNote() {
+        let result = PFJ(data: #"{"id":"manual:a","partial":true,"analysis_error":"queue down"}"#.data(using: .utf8))
+        XCTAssertEqual(PFManualWorkoutComments.note(for: result), "Saved \u{2014} the Coach could not be reached yet, saving another comment retries.")
+    }
+
+    func testAnOrdinaryResultGetsTheReadingAgainNote() {
+        let result = PFJ(data: #"{"id":"manual:a","partial":false,"analysis_id":"j1"}"#.data(using: .utf8))
+        XCTAssertEqual(PFManualWorkoutComments.note(for: result), PFManualWorkoutComments.sentNote)
+    }
+
+    func testOnlyManualIdsOpenTheWorkoutActions() {
+        XCTAssertEqual(["manual:abc123", "1234567", "bike:2030-03-12"].map { PFManualWorkoutComments.isManualID($0) }, [true, false, false])
+    }
+
+    // MARK: Job
+
+    func testTheCommentJobIsNamedAsOnTheServer() {
+        XCTAssertEqual(PFJobName.manualWorkoutComment.rawValue, "manual-workout-comment")
+    }
+
+    func testTheCommentJobIsNeverSentAgainBehindTheUsersBack() {
+        XCTAssertFalse(PFJobName.manualWorkoutComment.isQueueable)
+    }
+
+    func testTheCommentJobIsExpectedToBeFast() {
+        XCTAssertEqual(PFJobName.manualWorkoutComment.expectedSeconds, 30)
+    }
+}

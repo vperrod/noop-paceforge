@@ -33,6 +33,7 @@ struct PFResultsSheet: View {
     @State private var commentDraft = ""
     @State private var commentSending = false
     @State private var commentStatus: String?
+    @State private var managesManual = false
 
     private var reviewID: String? { workout.coachSessionID ?? workout.activityId.map { "activity:\($0)" } }
     private var draftKey: String { "noop.workoutCommentDraft.\(reviewID ?? workout.id)" }
@@ -84,6 +85,16 @@ struct PFResultsSheet: View {
                     Button("Done") { dismiss() }
                         .foregroundStyle(StrandPalette.accent)
                 }
+            }
+        }
+        .sheet(isPresented: $managesManual, onDismiss: {
+            Task {
+                await model.refresh()
+                if let id = activeActivityID { results = await model.results(for: id) }
+            }
+        }) {
+            if let id = activeActivityID {
+                PFLogWorkoutSheet529(focusID: id) { NotificationCenter.default.post(name: .pfPlan529Changed, object: nil) }
             }
         }
         .task {
@@ -140,6 +151,16 @@ struct PFResultsSheet: View {
             PFRaceSegmentsCard(race: race)
         }
         coachCard(results.analysis)
+        if let id = activeActivityID, PFManualWorkoutComments.isManualID(id) {
+            Button { managesManual = true } label: {
+                Label("Edit this workout or add details", systemImage: "square.and.pencil")
+                    .font(StrandFont.subhead.weight(.semibold))
+                    .frame(maxWidth: .infinity, minHeight: 48)
+            }
+            .buttonStyle(.bordered)
+            .tint(StrandPalette.accent)
+            .accessibilityIdentifier("pf-manual-workout-manage")
+        }
         if reviewID != nil { workoutDiscussion }
         if let onAskCoach, let sessionID = reviewID {
             Button {
