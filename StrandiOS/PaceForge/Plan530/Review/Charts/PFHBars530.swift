@@ -24,7 +24,7 @@ struct PFHBars530: View {
             ForEach(rows) { row in
                 HStack(spacing: 8) {
                     Text(row.label)
-                        .font(LookFont.text(12, weight: .regular))
+                        .font(PFPlanFont543.text(12, weight: .regular))
                         .foregroundStyle(NoopLook.textSecondary)
                         .lineLimit(1)
                         .minimumScaleFactor(0.75)
@@ -39,7 +39,7 @@ struct PFHBars530: View {
                     }
                     .frame(height: 10)
                     Text(row.valueText)
-                        .font(LookFont.text(12, weight: .semibold))
+                        .font(PFPlanFont543.text(12, weight: .semibold))
                         .foregroundStyle(NoopLook.textPrimary)
                         .frame(minWidth: 44, alignment: .trailing)
                 }

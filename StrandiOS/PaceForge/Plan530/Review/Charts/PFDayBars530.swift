@@ -26,8 +26,8 @@ struct PFDayBars530: View {
             HStack(spacing: 4) {
                 ForEach(bars) { bar in
                     Text(bar.label)
-                        .font(LookFont.text(10, weight: .regular))
-                        .foregroundStyle(NoopLook.textTertiary)
+                        .font(PFPlanFont543.text(10, weight: .regular))
+                        .foregroundStyle(NoopLook.textSecondary)
                         .lineLimit(1)
                         .minimumScaleFactor(0.7)
                         .frame(maxWidth: .infinity)

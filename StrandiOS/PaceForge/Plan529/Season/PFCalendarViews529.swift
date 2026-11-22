@@ -138,7 +138,7 @@ struct PFCalendarContent529: View {
                 .accessibilityLabel("Previous month")
                 .accessibilityIdentifier("calendar-month-prev")
                 Text(PFCalendarMath529.title(monthStart))
-                    .lookCaps(15)
+                    .pfCaps(15)
                     .foregroundStyle(NoopLook.textPrimary)
                     .frame(maxWidth: .infinity)
                     .accessibilityIdentifier("calendar-month-title")
@@ -167,13 +167,13 @@ struct PFCalendarContent529: View {
         HStack(spacing: 4) {
             ForEach(Array(["M", "T", "W", "T", "F", "S", "S"].enumerated()), id: \.offset) { _, name in
                 Text(name)
-                    .font(LookFont.text(10, weight: .semibold))
-                    .foregroundStyle(NoopLook.textTertiary)
+                    .font(PFPlanFont543.text(10, weight: .semibold))
+                    .foregroundStyle(NoopLook.textSecondary)
                     .frame(maxWidth: .infinity)
             }
             Text("hours")
-                .font(LookFont.text(10, weight: .semibold))
-                .foregroundStyle(NoopLook.textTertiary)
+                .font(PFPlanFont543.text(10, weight: .semibold))
+                .foregroundStyle(NoopLook.textSecondary)
                 .frame(width: 44)
         }
         .accessibilityHidden(true)
@@ -189,8 +189,8 @@ struct PFCalendarContent529: View {
                                   strip: doc?.strip?.first { $0.date == day }) { selected = day }
             }
             Text(hoursText(doc))
-                .font(LookFont.text(11))
-                .foregroundStyle(NoopLook.textTertiary)
+                .font(PFPlanFont543.text(11))
+                .foregroundStyle(NoopLook.textSecondary)
                 .frame(width: 44, alignment: .trailing)
                 .accessibilityIdentifier("calendar-week-hours-\(days[0])")
         }
@@ -208,8 +208,8 @@ struct PFCalendarContent529: View {
             LookFlowLayout(spacing: 12, lineSpacing: 2) {
                 ForEach(["solid = done", "outline = planned", "dashed = optional", "height = minutes"], id: \.self) { text in
                     Text(text)
-                        .font(LookFont.text(11))
-                        .foregroundStyle(NoopLook.textTertiary)
+                        .font(PFPlanFont543.text(11))
+                        .foregroundStyle(NoopLook.textSecondary)
                 }
             }
             LookFlowLayout(spacing: 12, lineSpacing: 2) {
@@ -217,8 +217,8 @@ struct PFCalendarContent529: View {
                     HStack(spacing: 4) {
                         Circle().fill(PFEffort529.color(effort)).frame(width: 7, height: 7)
                         Text(effort)
-                            .font(LookFont.text(11))
-                            .foregroundStyle(NoopLook.textTertiary)
+                            .font(PFPlanFont543.text(11))
+                            .foregroundStyle(NoopLook.textSecondary)
                     }
                 }
             }
@@ -249,7 +249,7 @@ struct PFCalendarCell529: View {
         Button(action: onTap) {
             VStack(spacing: 2) {
                 Text(PFCalendarMath529.dayNumber(day))
-                    .font(LookFont.text(11, weight: isNow ? .bold : .medium))
+                    .font(PFPlanFont543.text(11, weight: isNow ? .bold : .medium))
                     .foregroundStyle(isInMonth ? NoopLook.textPrimary : NoopLook.textMuted)
                 Spacer(minLength: 0)
                 HStack(alignment: .bottom, spacing: 2) {
@@ -292,7 +292,7 @@ struct PFCalendarBar529: View {
             case "missed":
                 shape.fill(PFColor.critical.opacity(0.35))
             case "optional":
-                shape.strokeBorder(NoopLook.textTertiary, style: StrokeStyle(lineWidth: 1.5, dash: [3, 2]))
+                shape.strokeBorder(NoopLook.textSecondary, style: StrokeStyle(lineWidth: 1.5, dash: [3, 2]))
             default:
                 shape.strokeBorder(color, lineWidth: 1.5)
             }
@@ -327,8 +327,8 @@ struct PFCalendarDayPanel529: View {
                 if isFailed && doc == nil {
                     HStack(spacing: 10) {
                         Text("This week could not be loaded.")
-                            .font(LookFont.text(14))
-                            .foregroundStyle(NoopLook.textTertiary)
+                            .font(PFPlanFont543.text(14))
+                            .foregroundStyle(NoopLook.textSecondary)
                             .accessibilityIdentifier("calendar-day-failed")
                         Spacer(minLength: 6)
                         PFPillButton529(title: "Try again") { Task { await reload() } }
@@ -338,8 +338,8 @@ struct PFCalendarDayPanel529: View {
                 } else {
                     // Still loading only while the week is being asked for; a week the server does not serve holds nothing.
                     Text(doc == nil && week != nil && !isAbsent ? "Loading" : "Nothing scheduled")
-                        .font(LookFont.text(14))
-                        .foregroundStyle(NoopLook.textTertiary)
+                        .font(PFPlanFont543.text(14))
+                        .foregroundStyle(NoopLook.textSecondary)
                         .padding(.vertical, 8)
                 }
             }
@@ -456,7 +456,7 @@ struct PFDayOffSheet529: View {
                                 .accessibilityIdentifier("day-off-end")
                         }
                     }
-                    .font(LookFont.text(15))
+                    .font(PFPlanFont543.text(15))
                     .planCard529()
                     PFEditMessage529(runner: runner)
                     PFPillButton529(title: "Add day off", isMain: true, isDisabled: runner.isBusy) { Task { await save() } }

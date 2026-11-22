@@ -23,7 +23,7 @@ struct PFChangeSheet529: View {
                     PFWeekState529(kind: .failed, message: "The change could not be loaded.", retry: { Task { await lookup.load(id: changeId) } })
                 case .found(let change, let week):
                     Text(change.sheetTitle ?? change.title ?? "Change")
-                        .font(LookFont.text(20, weight: .bold))
+                        .font(PFPlanFont543.text(20, weight: .bold))
                         .foregroundStyle(NoopLook.textPrimary)
                         .fixedSize(horizontal: false, vertical: true)
                     PFChangeContent529(change: change, onAccepted: { dismiss() }, onKept: { dismiss() },
@@ -98,7 +98,7 @@ struct PFChangeContent529: View {
             buttons
             if let failure = decisions.failure {
                 Text(failure)
-                    .font(LookFont.text(12.5, weight: .regular))
+                    .font(PFPlanFont543.text(12.5, weight: .regular))
                     .foregroundStyle(PFWeekColor529.amber)
                     .fixedSize(horizontal: false, vertical: true)
                     .accessibilityIdentifier("plan529-change-failed")
@@ -113,22 +113,21 @@ struct PFChangeContent529: View {
     private var beforeAfter: some View {
         HStack(alignment: .center, spacing: 6) {
             side(heading: "Now", side: change.before, id: "plan529-change-before")
-            Text("\u{2192}").font(LookFont.text(16, weight: .regular)).foregroundStyle(NoopLook.textTertiary)
+            Text("\u{2192}").font(PFPlanFont543.text(16, weight: .regular)).foregroundStyle(NoopLook.textSecondary)
             side(heading: "Proposed", side: change.after, id: "plan529-change-after")
         }
     }
 
     private func side(heading: String, side: PFPlanWeekDoc.Side?, id: String) -> some View {
         VStack(alignment: .leading, spacing: 3) {
-            Text(heading).font(LookFont.text(11, weight: .regular)).foregroundStyle(NoopLook.textTertiary)
+            Text(heading).font(PFPlanFont543.text(11, weight: .regular)).foregroundStyle(NoopLook.textSecondary)
             Text(side?.label ?? "")
-                .font(LookFont.text(20, weight: .bold))
+                .font(PFPlanFont543.text(20, weight: .bold))
                 .foregroundStyle(NoopLook.textPrimary)
-                .minimumScaleFactor(0.7)
-                .lineLimit(2)
+                .fixedSize(horizontal: false, vertical: true)
             Text(side?.sub ?? "")
-                .font(LookFont.text(11, weight: .regular))
-                .foregroundStyle(NoopLook.textTertiary)
+                .font(PFPlanFont543.text(11, weight: .regular))
+                .foregroundStyle(NoopLook.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
         .padding(10)
@@ -142,7 +141,7 @@ struct PFChangeContent529: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 Text(detail.title ?? "")
-                    .font(LookFont.text(17, weight: .bold))
+                    .font(PFPlanFont543.text(17, weight: .bold))
                     .foregroundStyle(NoopLook.textPrimary)
                     .accessibilityIdentifier("plan529-change-built-title")
                 Spacer(minLength: 6)
@@ -177,7 +176,7 @@ struct PFChangeContent529: View {
                         .foregroundStyle(PFWeekColor529.amber)
                         .accessibilityHidden(true)
                     Text(hiding.text(warning))
-                        .font(LookFont.text(14, weight: .regular))
+                        .font(PFPlanFont543.text(14, weight: .regular))
                         .foregroundStyle(PFWeekColor529.amber)
                         .fixedSize(horizontal: false, vertical: true)
                         .accessibilityIdentifier("plan529-change-warning")

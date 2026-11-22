@@ -29,7 +29,7 @@ struct PFReviewOutcomes530: View {
         VStack(alignment: .leading, spacing: 8) {
             PFWeekOverline529(text: "Accepted \(PFFormat.dayTitle(row.acceptedDay))")
             Text(hiding.text(row.title))
-                .font(LookFont.text(15, weight: .semibold))
+                .font(PFPlanFont543.text(15, weight: .semibold))
                 .foregroundStyle(NoopLook.textPrimary)
                 .fixedSize(horizontal: false, vertical: true)
             ForEach(Array(row.changes.enumerated()), id: \.offset) { _, change in PFWeekSub529(text: change) }
@@ -49,7 +49,7 @@ struct PFReviewOutcomes530: View {
             PFWeekOverline529(text: heading)
             ForEach(list) { reading in
                 Text("\(reading.label): \(hiding.shown(reading.text, .scores))")
-                    .font(LookFont.text(13.5, weight: .regular))
+                    .font(PFPlanFont543.text(13.5, weight: .regular))
                     .foregroundStyle(NoopLook.textSecondary)
             }
         }

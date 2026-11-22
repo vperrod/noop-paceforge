@@ -80,10 +80,10 @@ struct PFTrueCoachStatus: Equatable {
 
 /// The words of the Coach week card.
 enum PFTrueCoachWording {
-    static let title = "Coach week"
+    static let title = "Your coach's week"
     static let syncButton = "Sync now"
     static let undoButton = "Undo"
-    static let checkThese = "Check these"
+    static let checkThese = "Overlaps"
 
     /// "Last read 3 h ago" from the server's `last_sync`; "Not read yet" before the first read or when the time cannot be read.
     static func lastSync(_ timestamp: String?, now: Date = Date()) -> String {
@@ -151,7 +151,7 @@ enum PFWeeklyRhythm {
     static let title = "Weekly rhythm"
 
     static let text = "Sunday 19:00 week analysis \u{2192} 19:15 your TrueCoach week is read \u{2192} 19:30 next week is drafted from that analysis "
-        + "and your coach's sessions \u{2192} 20:00 Coach review. Your coach's sessions are mandatory in their week but can move to any day of it."
+        + "and your coach's sessions \u{2192} 20:00 Coach review. Your coach's sessions are required in their week but can move to any day of it."
 
     /// "Your TrueCoach week was last read 3 h ago." from `last_sync`; nil when the server never read it.
     static func lastRead(_ timestamp: String?, now: Date = Date()) -> String? {

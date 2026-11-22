@@ -55,7 +55,7 @@ struct PFPlanSettingsContent529: View {
                 VStack(alignment: .leading, spacing: 6) {
                     PFOver529(text: "Your paces and zones")
                     Text(paces)
-                        .font(LookFont.text(13.5))
+                        .font(PFPlanFont543.text(13.5))
                         .foregroundStyle(NoopLook.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -209,13 +209,13 @@ struct PFHoursSheet529: View {
                     VStack(alignment: .leading, spacing: 6) {
                         Stepper(value: $hours, in: 1...40, step: 0.5) {
                             Text("\(PFHours529.text(hours)) a week")
-                                .font(LookFont.text(17, weight: .semibold))
+                                .font(PFPlanFont543.text(17, weight: .semibold))
                                 .foregroundStyle(NoopLook.textPrimary)
                         }
                         .accessibilityIdentifier("hours-stepper")
                         Text("The coach keeps each week at or under this, and never more than 15 % above your typical week.")
-                            .font(LookFont.text(12.5))
-                            .foregroundStyle(NoopLook.textTertiary)
+                            .font(PFPlanFont543.text(12.5))
+                            .foregroundStyle(NoopLook.textSecondary)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                     .planCard529()
@@ -292,8 +292,8 @@ struct PFDaysOffSheet529: View {
                     VStack(alignment: .leading, spacing: 0) {
                         if days.isEmpty {
                             Text("No days off are set.")
-                                .font(LookFont.text(14))
-                                .foregroundStyle(NoopLook.textTertiary)
+                                .font(PFPlanFont543.text(14))
+                                .foregroundStyle(NoopLook.textSecondary)
                         }
                         ForEach(Array(days.enumerated()), id: \.offset) { index, day in
                             if index > 0 { PFDivider529() }

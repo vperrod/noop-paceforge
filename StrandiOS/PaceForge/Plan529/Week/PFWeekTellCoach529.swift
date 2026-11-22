@@ -27,11 +27,11 @@ struct PFWeekTellCoach529: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Edit by text").font(LookFont.text(16, weight: .semibold))
+            Text("Edit by text").font(PFPlanFont543.text(16, weight: .semibold))
             TextField("Describe the workout or changes you want…", text: $draft, axis: .vertical)
                 .textFieldStyle(.plain)
                 .lineLimit(3...6)
-                .font(LookFont.text(14.5, weight: .regular))
+                .font(PFPlanFont543.text(14.5, weight: .regular))
                 .padding(14)
                 .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(NoopLook.card))
                 .accessibilityIdentifier("\(idPrefix)-input")
@@ -50,10 +50,10 @@ struct PFWeekTellCoach529: View {
             .accessibilityIdentifier("\(idPrefix)-send")
             PFWeekSub529(text: "Review the proposed changes before accepting. Your draft stays here if sending fails.")
             if let failure {
-                Text(failure).font(LookFont.text(14, weight: .regular)).foregroundStyle(PFWeekColor529.amber)
+                Text(failure).font(PFPlanFont543.text(14, weight: .regular)).foregroundStyle(PFWeekColor529.amber)
             }
             if let reply {
-                Text(reply).font(LookFont.text(14, weight: .regular)).foregroundStyle(NoopLook.textSecondary)
+                Text(reply).font(PFPlanFont543.text(14, weight: .regular)).foregroundStyle(NoopLook.textSecondary)
                     .accessibilityIdentifier("\(idPrefix)-reply")
             }
             ForEach(proposals.proposals.filter { filedIDs.contains($0.id) }) { proposal in

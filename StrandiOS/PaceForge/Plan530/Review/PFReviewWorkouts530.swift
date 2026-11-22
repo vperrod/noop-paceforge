@@ -31,8 +31,8 @@ struct PFReviewWorkouts530: View {
     private func dayRow(_ day: PFPlanWeekDoc.Day) -> some View {
         HStack(alignment: .top, spacing: 10) {
             Text(day.title ?? "")
-                .lookCaps(12, weight: .semibold)
-                .foregroundStyle(NoopLook.textTertiary)
+                .pfCaps(12, weight: .semibold)
+                .foregroundStyle(NoopLook.textSecondary)
                 .frame(width: 58, alignment: .leading)
             VStack(alignment: .leading, spacing: 10) {
                 ForEach((day.items ?? []).indices, id: \.self) { index in
@@ -64,21 +64,21 @@ struct PFReviewWorkouts530: View {
                 HStack(spacing: 6) {
                     if !isRest { Circle().fill(PFWeekColor529.effort(item.effort)).frame(width: 8, height: 8) }
                     Text(title(item))
-                        .font(LookFont.text(15, weight: .semibold))
+                        .font(PFPlanFont543.text(15, weight: .semibold))
                         .foregroundStyle(NoopLook.textPrimary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 if let line = small(item, day: day, isRest: isRest) { PFWeekSub529(text: line) }
                 if let pill = item.changePill, !pill.isEmpty {
                     Text(hiding.text(pill))
-                        .font(LookFont.text(12, weight: .medium))
+                        .font(PFPlanFont543.text(12, weight: .medium))
                         .foregroundStyle(PFWeekColor529.amber)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
             Spacer(minLength: 6)
             Text(item.minutes.map { String($0) } ?? "\u{00B7}")
-                .font(LookFont.text(14, weight: .semibold))
+                .font(PFPlanFont543.text(14, weight: .semibold))
                 .foregroundStyle(NoopLook.textSecondary)
         }
         .frame(minHeight: 44, alignment: .top)

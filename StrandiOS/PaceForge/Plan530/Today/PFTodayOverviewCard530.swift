@@ -32,7 +32,7 @@ struct PFTodayOverviewCard530: View {
             HStack(spacing: 10) {
                 ProgressView()
                 Text("Loading")
-                    .font(LookFont.text(13.5))
+                    .font(PFPlanFont543.text(13.5))
                     .foregroundStyle(NoopLook.textSecondary)
             }
             .planCard529()
@@ -92,7 +92,7 @@ struct PFTodayOverviewCard530: View {
                 if let title = morning.title { PFOver529(text: hiding.text(title)) }
                 if let verdict = morning.verdict {
                     Text(hiding.text(verdict))
-                        .font(LookFont.text(19, weight: .bold))
+                        .font(PFPlanFont543.text(19, weight: .bold))
                         .foregroundStyle(NoopLook.textPrimary)
                         .multilineTextAlignment(.leading)
                         .fixedSize(horizontal: false, vertical: true)
@@ -120,7 +120,7 @@ struct PFTodayOverviewCard530: View {
             }
             if let reading = morning.reading {
                 Text(hiding.text(reading))
-                    .font(LookFont.text(13.5))
+                    .font(PFPlanFont543.text(13.5))
                     .foregroundStyle(NoopLook.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
                     .accessibilityIdentifier("today-overview-reading")
@@ -143,16 +143,16 @@ struct PFTodayOverviewCard530: View {
     private func deviceTile(_ device: PFDailyShort.Device, band: String?) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             Text([device.source, device.label.map(Self.firstWord)].compactMap { $0 }.joined(separator: " "))
-                .font(LookFont.text(11, weight: .semibold))
-                .foregroundStyle(NoopLook.textTertiary)
+                .font(PFPlanFont543.text(11, weight: .semibold))
+                .foregroundStyle(NoopLook.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
             Text(hiding.shown(device.value ?? "\u{2013}", .scores))
                 .font(LookFont.numeral(24))
                 .foregroundStyle(Self.color(band) ?? NoopLook.textPrimary)
             ForEach(Array((device.lines ?? []).prefix(2).enumerated()), id: \.offset) { _, line in
                 Text(hiding.text(line))
-                    .font(LookFont.text(11.5))
-                    .foregroundStyle(NoopLook.textTertiary)
+                    .font(PFPlanFont543.text(11.5))
+                    .foregroundStyle(NoopLook.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
@@ -174,7 +174,7 @@ struct PFTodayOverviewCard530: View {
                     ForEach(Array(values.enumerated()), id: \.offset) { index, value in
                         let band = (trend.bands ?? []).indices.contains(index) ? (trend.bands ?? [])[index] : nil
                         RoundedRectangle(cornerRadius: 3, style: .continuous)
-                            .fill(value == nil ? NoopLook.textTertiary.opacity(0.25) : (Self.color(band) ?? NoopLook.textTertiary))
+                            .fill(value == nil ? NoopLook.textTertiary.opacity(0.25) : (Self.color(band) ?? NoopLook.textSecondary))
                             .frame(maxWidth: .infinity)
                             .frame(height: Self.barHeight(value))
                     }
@@ -192,18 +192,18 @@ struct PFTodayOverviewCard530: View {
             HStack(spacing: 8) {
                 VStack(alignment: .leading, spacing: 1) {
                     Text(row.title ?? "")
-                        .font(LookFont.text(14, weight: .semibold))
+                        .font(PFPlanFont543.text(14, weight: .semibold))
                         .foregroundStyle(NoopLook.textPrimary)
                     Text(hiding.text(row.text ?? ""))
-                        .font(LookFont.text(12.5))
-                        .foregroundStyle(NoopLook.textTertiary)
+                        .font(PFPlanFont543.text(12.5))
+                        .foregroundStyle(NoopLook.textSecondary)
                         .multilineTextAlignment(.leading)
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 Spacer(minLength: 4)
                 Image(systemName: "chevron.right")
                     .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(NoopLook.textTertiary)
+                    .foregroundStyle(NoopLook.textSecondary)
                     .accessibilityHidden(true)
             }
             .padding(.vertical, 8)
@@ -257,7 +257,7 @@ struct PFTodayEveningCard530: View {
             if let title = card.title { PFOver529(text: hiding.text("Your day \u{00B7} \(title)")) }
             if let verdict = card.verdict {
                 Text(hiding.text(verdict))
-                    .font(LookFont.text(19, weight: .bold))
+                    .font(PFPlanFont543.text(19, weight: .bold))
                     .foregroundStyle(NoopLook.textPrimary)
                     .multilineTextAlignment(.leading)
                     .fixedSize(horizontal: false, vertical: true)
@@ -268,12 +268,12 @@ struct PFTodayEveningCard530: View {
             if let found = card.found, !found.isEmpty {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Found for your journal")
-                        .font(LookFont.text(12, weight: .semibold))
+                        .font(PFPlanFont543.text(12, weight: .semibold))
                         .foregroundStyle(NoopLook.textPrimary)
                     PFTodayTagFlow530(spacing: 6) {
                         ForEach(Array(found.enumerated()), id: \.offset) { _, tag in
                             Text(hiding.text(tag))
-                                .font(LookFont.text(12))
+                                .font(PFPlanFont543.text(12))
                                 .foregroundStyle(NoopLook.textSecondary)
                                 .padding(.horizontal, 10)
                                 .padding(.vertical, 4)
@@ -302,10 +302,10 @@ struct PFTodayEveningCard530: View {
         if let text, !text.isEmpty {
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
-                    .font(LookFont.text(12, weight: .semibold))
+                    .font(PFPlanFont543.text(12, weight: .semibold))
                     .foregroundStyle(NoopLook.textPrimary)
                 Text(hiding.text(text))
-                    .font(LookFont.text(13.5))
+                    .font(PFPlanFont543.text(13.5))
                     .foregroundStyle(NoopLook.textSecondary)
                     .multilineTextAlignment(.leading)
                     .fixedSize(horizontal: false, vertical: true)

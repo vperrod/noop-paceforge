@@ -14,9 +14,13 @@ enum PFSessionDescription {
     static let partialNote = "Saved \u{2014} the Coach could not be reached yet, saving again retries."
     static let restoredNote = "The Coach's text is back."
     static let editedLine = "Edited by you"
-    static let restoreTitle = "Restore coach text"
+    static let restoreTitle = "Restore your coach's text"
     static let restoreQuestion = "Replace your text with the one your coach wrote? What you wrote is lost."
-    static let restoreConfirmTitle = "Restore coach text"
+    static let restoreConfirmTitle = "Restore your coach's text"
+    /// The example in the Plan a workout form (drawing 3.10).
+    static let planHint = "Example: 10 min easy, then 5 x 4 min hard on the SkiErg with 2 min rest, cooldown 5 min."
+    /// The hint in the Log what I did form (drawing 3.11).
+    static let logHint = "What you did, piece by piece. The Coach reads it and may ask you a question."
     static let addHint = "Write what the workout is: warm-up, sets x reps, intervals, effort, anything the Coach should know"
 
     /// Length as the server counts it: characters (code points), not what the keyboard shows as one letter.

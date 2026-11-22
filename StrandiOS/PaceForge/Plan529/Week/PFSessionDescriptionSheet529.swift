@@ -22,15 +22,15 @@ struct PFLargeTextField529: View {
             ZStack(alignment: .topLeading) {
                 TextEditor(text: $text)
                     .scrollContentBackground(.hidden)
-                    .font(LookFont.text(15, weight: .regular))
+                    .font(PFPlanFont543.text(15, weight: .regular))
                     .foregroundStyle(NoopLook.textPrimary)
                     .padding(8)
                     .frame(height: height)
                     .accessibilityIdentifier(identifier)
                 if text.isEmpty {
                     Text(placeholder)
-                        .font(LookFont.text(15, weight: .regular))
-                        .foregroundStyle(NoopLook.textTertiary)
+                        .font(PFPlanFont543.text(15, weight: .regular))
+                        .foregroundStyle(NoopLook.textSecondary)
                         .padding(.horizontal, 13)
                         .padding(.vertical, 16)
                         .allowsHitTesting(false)
@@ -40,8 +40,8 @@ struct PFLargeTextField529: View {
             .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(NoopLook.card))
             .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(NoopLook.divider, lineWidth: 1))
             Text("\(count) / \(limit)")
-                .font(LookFont.text(11, weight: .regular))
-                .foregroundStyle(count > limit ? PFWeekColor529.amber : NoopLook.textTertiary)
+                .font(PFPlanFont543.text(11, weight: .regular))
+                .foregroundStyle(count > limit ? PFWeekColor529.amber : NoopLook.textSecondary)
                 .accessibilityIdentifier("\(identifier)-count")
         }
     }
@@ -63,43 +63,6 @@ struct PFDescribeTarget529: Equatable {
         isDone = ["done", "partial"].contains(item.status ?? "")
         isCoach = item.coachAssigned == true
         isEdited = item.athleteEdited == true
-    }
-}
-
-/// "Edit description" and the sentence under it after a save. Its own host view for the sheet: stacked presentation modifiers on one view can
-/// leave only the last one working.
-struct PFEditDescriptionButton529: View {
-    let target: PFDescribeTarget529
-    let idPrefix: String
-
-    @State private var isOpen = false
-    @State private var note: String?
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 8) {
-                PFWeekButton529(title: "Edit description", identifier: "\(idPrefix)-describe") { isOpen = true }
-                if target.isCoach, target.isEdited, note == nil {
-                    Text(PFSessionDescription.editedLine)
-                        .font(LookFont.text(12, weight: .regular))
-                        .foregroundStyle(NoopLook.textTertiary)
-                        .accessibilityIdentifier("\(idPrefix)-describe-edited")
-                }
-            }
-            if let note {
-                Text(note)
-                    .font(LookFont.text(12.5, weight: .regular))
-                    .foregroundStyle(NoopLook.textSecondary)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .accessibilityIdentifier("\(idPrefix)-describe-result")
-            }
-        }
-        .sheet(isPresented: $isOpen) {
-            PFSessionDescriptionSheet529(target: target) { sentNote in
-                note = sentNote
-                UIAccessibility.post(notification: .announcement, argument: sentNote)
-            }
-        }
     }
 }
 
@@ -137,7 +100,7 @@ struct PFSessionDescriptionSheet529: View {
                             .accessibilityIdentifier("plan529-describe-name")
                     }
                     VStack(alignment: .leading, spacing: 6) {
-                        PFWeekOverline529(text: "Description")
+                        PFWeekOverline529(text: "What the workout is")
                         PFLargeTextField529(placeholder: PFSessionDescription.addHint, text: $draft.description,
                                             limit: PFSessionDescription.maxLength, height: 300,
                                             identifier: "plan529-describe-text")
@@ -153,7 +116,7 @@ struct PFSessionDescriptionSheet529: View {
             }
             .scrollDismissesKeyboard(.interactively)
             .lookScreenBackground()
-            .navigationTitle("Edit description")
+            .navigationTitle("Edit workout")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
@@ -177,32 +140,35 @@ struct PFSessionDescriptionSheet529: View {
 
     private var intro: String {
         if target.isDone { return "\(target.title). Add what you did and how it felt, or correct the text. Save and reassess asks the Coach to read the workout again with it." }
-        return "\(target.title). Change the text as you like, add details or comments. Only what you change is sent."
+        return "\(target.title). Change the text as you like. Only what you change is sent."
     }
 
+    /// "Edited by you. Restore your coach's text": the line and the way back, in one place.
     private var editedRow: some View {
-        Text(PFSessionDescription.editedLine)
-            .font(LookFont.text(12, weight: .regular))
-            .foregroundStyle(NoopLook.textTertiary)
-            .accessibilityIdentifier("plan529-describe-edited")
+        VStack(alignment: .leading, spacing: 6) {
+            Text(PFSessionDescription.editedLine)
+                .font(PFPlanFont543.text(15, weight: .regular))
+                .foregroundStyle(NoopLook.textSecondary)
+                .accessibilityIdentifier("plan529-describe-edited")
+            if PFSessionDescription.canRestoreCoachText(isCoachAssigned: target.isCoach) {
+                PFWeekButton529(title: PFSessionDescription.restoreTitle, isDisabled: runner.isBusy,
+                                identifier: "plan529-describe-restore") { asksToRestore = true }
+            }
+        }
     }
 
     private var buttons: some View {
         VStack(alignment: .leading, spacing: 8) {
             LookFlowLayout(spacing: 6, lineSpacing: 6) {
-                PFWeekButton529(title: runner.isBusy ? "Saving" : "Save", isProminent: !target.isDone,
-                                isDisabled: runner.isBusy || !draft.canSend, identifier: "plan529-describe-save") {
-                    Task { await save(reassess: false) }
-                }
                 if target.isDone {
                     PFWeekButton529(title: runner.isBusy ? "Saving" : "Save and reassess", isProminent: true,
                                     isDisabled: runner.isBusy || !draft.canSend, identifier: "plan529-describe-save-reassess") {
                         Task { await save(reassess: true) }
                     }
                 }
-                if PFSessionDescription.canRestoreCoachText(isCoachAssigned: target.isCoach) {
-                    PFWeekButton529(title: PFSessionDescription.restoreTitle, isDisabled: runner.isBusy,
-                                    identifier: "plan529-describe-restore") { asksToRestore = true }
+                PFWeekButton529(title: runner.isBusy ? "Saving" : (target.isDone ? "Save only" : "Save"), isProminent: !target.isDone,
+                                isDisabled: runner.isBusy || !draft.canSend, identifier: "plan529-describe-save") {
+                    Task { await save(reassess: false) }
                 }
                 if draft.hasChanges {
                     PFWeekButton529(title: "Start over", isDisabled: runner.isBusy, identifier: "plan529-describe-reset") {

@@ -14,7 +14,7 @@ struct PFWeekHeader529: View {
             arrow("chevron.left", enabled: canGoBack, id: "plan529-week-prev", name: "Previous week", action: goBack)
             Spacer(minLength: 4)
             Text(label)
-                .lookCaps(15, weight: .bold)
+                .pfCaps(15, weight: .bold)
                 .foregroundStyle(NoopLook.textPrimary)
                 .multilineTextAlignment(.center)
                 .accessibilityIdentifier("plan529-week-label")
@@ -46,7 +46,7 @@ enum PFWeekPhase529 {
         case "race": return PFWeekColor529.red
         case "build": return PFWeekColor529.blue
         case "sharpen": return PFColor.violet
-        default: return NoopLook.textTertiary
+        default: return NoopLook.textSecondary
         }
     }
 }

@@ -51,12 +51,12 @@ struct PFSeasonBarCard529: View {
                 VStack(alignment: .leading, spacing: 3) {
                     if let line = now.line {
                         Text(line)
-                            .font(LookFont.text(15, weight: .bold))
+                            .font(PFPlanFont543.text(15, weight: .bold))
                             .foregroundStyle(NoopLook.textPrimary)
                     }
                     if let detail = now.detail {
                         Text(detail)
-                            .font(LookFont.text(14))
+                            .font(PFPlanFont543.text(14))
                             .foregroundStyle(NoopLook.textSecondary)
                     }
                 }
@@ -95,7 +95,7 @@ struct PFNextRaceCard529: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 Text(heading)
-                    .lookCaps(14)
+                    .pfCaps(14)
                     .foregroundStyle(NoopLook.textPrimary)
                     .fixedSize(horizontal: false, vertical: true)
                 Spacer(minLength: 6)
@@ -103,23 +103,23 @@ struct PFNextRaceCard529: View {
             }
             if let sub = race.sub {
                 Text(sub)
-                    .font(LookFont.text(12.5))
-                    .foregroundStyle(NoopLook.textTertiary)
+                    .font(PFPlanFont543.text(12.5))
+                    .foregroundStyle(NoopLook.textSecondary)
             }
             if let bar = race.bar, !bar.isEmpty { PFPhaseBar529(segments: bar) }
             if let lines = race.phaseLines, !lines.isEmpty {
                 LookFlowLayout(spacing: 12, lineSpacing: 2) {
                     ForEach(Array(lines.enumerated()), id: \.offset) { _, line in
                         Text(line)
-                            .font(LookFont.text(12.5))
+                            .font(PFPlanFont543.text(12.5))
                             .foregroundStyle(NoopLook.textSecondary)
                     }
                 }
             }
             if let note = race.priorityNote {
                 Text(note)
-                    .font(LookFont.text(12.5))
-                    .foregroundStyle(NoopLook.textTertiary)
+                    .font(PFPlanFont543.text(12.5))
+                    .foregroundStyle(NoopLook.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
             HStack(spacing: 6) {
@@ -190,7 +190,7 @@ struct PFSeasonHoursCard529: View {
                                 .strokeBorder(PFColor.sky, lineWidth: 1.5)
                                 .frame(height: height(week.planned, top: top))
                             RoundedRectangle(cornerRadius: 3, style: .continuous)
-                                .fill(week.race == true ? PFColor.critical : NoopLook.textTertiary)
+                                .fill(week.race == true ? PFColor.critical : NoopLook.textSecondary)
                                 .frame(height: height(week.done, top: top))
                         }
                         .frame(maxWidth: .infinity, minHeight: barHeight, maxHeight: barHeight, alignment: .bottom)
@@ -201,16 +201,16 @@ struct PFSeasonHoursCard529: View {
                 HStack(spacing: 4) {
                     ForEach(Array(weeks.enumerated()), id: \.offset) { _, week in
                         Text(week.label ?? "")
-                            .font(LookFont.text(9.5))
-                            .foregroundStyle(NoopLook.textTertiary)
+                            .font(PFPlanFont543.text(9.5))
+                            .foregroundStyle(NoopLook.textSecondary)
                             .frame(maxWidth: .infinity)
                     }
                 }
                 .accessibilityHidden(true)
                 if let note = hours.note {
                     Text(note)
-                        .font(LookFont.text(12.5))
-                        .foregroundStyle(NoopLook.textTertiary)
+                        .font(PFPlanFont543.text(12.5))
+                        .foregroundStyle(NoopLook.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }

@@ -264,6 +264,9 @@ targets:
       - StrandiOS/PaceForge/PaceForgeManualPlan.swift
       # The description of any session, editable by the athlete (calendar-edit description / name / reassess / restore_coach_text): limits, inputs, kept draft, result.
       - StrandiOS/PaceForge/PaceForgeSessionDescription.swift
+      # The Plan screens of build 543: row badges and sentences, the needs-you strip, week notes, overlap, confirm wording, the Coach's workout questions (flow, payload), asked-against-did and the notes thread.
+      - StrandiOS/PaceForge/Plan529/Week/PFPlanLogic543.swift
+      - StrandiOS/PaceForge/Plan529/Week/PFWorkoutQuestions543.swift
       # Editing a recorded activity without touching the recording (relabel, trim, split, group, undo): the forms' rules, the inputs of activity-edit-* and the activity-edits document.
       - StrandiOS/PaceForge/PaceForgeActivityEdits.swift
       # Training analytics: heart-rate zone sets per sport (hr-zones-add), comparable earlier runs, repetitions against the plan, a race's course and pacing notes.

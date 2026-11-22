@@ -89,7 +89,7 @@ final class UnifiedNavUITests: XCTestCase {
         // The tab reopens on the chip it was left on, so the chip is chosen rather than assumed.
         choose("week", prefix: "calendar", in: app)
         XCTAssertTrue(element(app, "calendar-chip-content-week").waitForExistence(timeout: 30), "The Week chip should mount.")
-        XCTAssertTrue(element(app, "plan529-why").waitForExistence(timeout: 30), "The current week's plan should show.")
+        XCTAssertTrue(element(app, "plan529-week-notes").waitForExistence(timeout: 30), "The current week's plan should show.")
         XCTAssertTrue(element(app, "plan529-week-next").exists, "Next week is one arrow away.")
     }
 

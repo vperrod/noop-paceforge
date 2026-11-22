@@ -274,7 +274,7 @@ final class PaceForgeTrueCoachTests: XCTestCase {
 
     func testTheCardsButtonsAndHeadingAreTheAgreedWords() {
         XCTAssertEqual([PFTrueCoachWording.title, PFTrueCoachWording.syncButton, PFTrueCoachWording.undoButton, PFTrueCoachWording.checkThese],
-                       ["Coach week", "Sync now", "Undo", "Check these"])
+                       ["Your coach's week", "Sync now", "Undo", "Overlaps"])
     }
 
     // MARK: A coach's session
@@ -350,7 +350,7 @@ final class PaceForgeTrueCoachTests: XCTestCase {
         XCTAssertEqual(PFWeeklyRhythm.text,
                        "Sunday 19:00 week analysis \u{2192} 19:15 your TrueCoach week is read \u{2192} 19:30 next week is drafted from that analysis "
                        + "and your coach's sessions \u{2192} 20:00 Coach review. "
-                       + "Your coach's sessions are mandatory in their week but can move to any day of it.")
+                       + "Your coach's sessions are required in their week but can move to any day of it.")
     }
 
     func testTheRhythmNamesTheLastReadWhenTheServerGivesIt() throws {

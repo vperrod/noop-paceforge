@@ -23,8 +23,8 @@ struct PFOver529: View {
 
     var body: some View {
         Text(text)
-            .lookCaps(10.5, weight: .semibold)
-            .foregroundStyle(NoopLook.textTertiary)
+            .pfCaps(10.5, weight: .semibold)
+            .foregroundStyle(NoopLook.textSecondary)
             .fixedSize(horizontal: false, vertical: true)
             .accessibilityAddTraits(.isHeader)
     }
@@ -40,7 +40,7 @@ struct PFPill529: View {
         switch tone {
         case .teal: return NoopLook.trendUp
         case .amber: return NoopLook.trendDown
-        case .grey: return NoopLook.textTertiary
+        case .grey: return NoopLook.textSecondary
         case .red: return NoopLook.alert
         case .blue: return Color(hex: NoopLook.Hex.coachBlue)
         }
@@ -48,12 +48,12 @@ struct PFPill529: View {
 
     var body: some View {
         Text(text)
-            .lookCaps(10, weight: .semibold)
+            .pfCaps(10, weight: .semibold)
             .foregroundStyle(color)
             .padding(.horizontal, 8)
             .padding(.vertical, 3)
             .background(Capsule().fill(color.opacity(0.16)))
-            .lineLimit(1)
+            .fixedSize(horizontal: false, vertical: true)
     }
 }
 
@@ -73,8 +73,8 @@ struct PFRow529: View {
         HStack(alignment: .top, spacing: 10) {
             if let lead {
                 Text(lead)
-                    .lookCaps(12, weight: .semibold)
-                    .foregroundStyle(NoopLook.textTertiary)
+                    .pfCaps(12, weight: .semibold)
+                    .foregroundStyle(NoopLook.textSecondary)
                     .frame(width: leadWidth, alignment: .leading)
                     .padding(.top, 1)
             }
@@ -89,15 +89,15 @@ struct PFRow529: View {
                             .accessibilityHidden(true)
                     }
                     Text(title)
-                        .font(LookFont.text(15, weight: .semibold))
+                        .font(PFPlanFont543.text(15, weight: .semibold))
                         .foregroundStyle(NoopLook.textPrimary)
                         .multilineTextAlignment(.leading)
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 if let sub, !sub.isEmpty {
                     Text(sub)
-                        .font(LookFont.text(12.5))
-                        .foregroundStyle(NoopLook.textTertiary)
+                        .font(PFPlanFont543.text(12.5))
+                        .foregroundStyle(NoopLook.textSecondary)
                         .multilineTextAlignment(.leading)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -106,14 +106,14 @@ struct PFRow529: View {
             if let trailingPill { trailingPill }
             if let trailing {
                 Text(trailing)
-                    .font(LookFont.text(12.5))
-                    .foregroundStyle(NoopLook.textTertiary)
-                    .lineLimit(1)
+                    .font(PFPlanFont543.text(12.5))
+                    .foregroundStyle(NoopLook.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             if showsChevron {
                 Image(systemName: "chevron.right")
                     .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(NoopLook.textTertiary)
+                    .foregroundStyle(NoopLook.textSecondary)
                     .accessibilityHidden(true)
             }
         }
@@ -140,10 +140,13 @@ struct PFPillButton529: View {
     var body: some View {
         Button(action: action) {
             Text(title)
-                .lookCaps(11, weight: .semibold)
+                .pfCaps(11, weight: .semibold)
                 .foregroundStyle(isMain ? Color.black.opacity(0.85) : NoopLook.textPrimary)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
                 .padding(.horizontal, 14)
-                .frame(minHeight: 36)
+                .padding(.vertical, 6)
+                .frame(minHeight: 44)
                 .background(Capsule().fill(isMain ? StrandPalette.accent : Color.clear))
                 .overlay(Capsule().strokeBorder(isMain ? Color.clear : NoopLook.divider, lineWidth: 1))
                 .contentShape(Capsule())
@@ -176,7 +179,7 @@ enum PFPhase529 {
         case "sharpen": return PFColor.violet
         case "taper": return PFColor.warning
         case "race": return PFColor.critical
-        default: return NoopLook.textTertiary
+        default: return NoopLook.textSecondary
         }
     }
 }
@@ -189,7 +192,7 @@ enum PFEffort529 {
         case "moderate": return PFColor.sky
         case "hard": return PFColor.warning
         case "race": return PFColor.critical
-        default: return NoopLook.textTertiary
+        default: return NoopLook.textSecondary
         }
     }
 }
@@ -246,8 +249,8 @@ struct PFPhaseLegend529: View {
                 HStack(spacing: 5) {
                     Circle().fill(PFPhase529.color(entry.key)).frame(width: 8, height: 8)
                     Text(entry.label)
-                        .font(LookFont.text(11.5))
-                        .foregroundStyle(NoopLook.textTertiary)
+                        .font(PFPlanFont543.text(11.5))
+                        .foregroundStyle(NoopLook.textSecondary)
                 }
             }
         }
@@ -266,7 +269,7 @@ struct PFStoryBlocks529: View {
         VStack(alignment: .leading, spacing: 10) {
             if let story, !story.isEmpty {
                 Text(hiding.text(story))
-                    .font(LookFont.text(14.5))
+                    .font(PFPlanFont543.text(14.5))
                     .foregroundStyle(NoopLook.textPrimary)
                     .fixedSize(horizontal: false, vertical: true)
                     .accessibilityIdentifier("report-story")
@@ -274,11 +277,11 @@ struct PFStoryBlocks529: View {
             ForEach(Array(insights.enumerated()), id: \.offset) { _, insight in
                 VStack(alignment: .leading, spacing: 2) {
                     Text(hiding.text(insight.title))
-                        .font(LookFont.text(13.5, weight: .semibold))
+                        .font(PFPlanFont543.text(13.5, weight: .semibold))
                         .foregroundStyle(NoopLook.textPrimary)
                         .fixedSize(horizontal: false, vertical: true)
                     Text(hiding.text(insight.text))
-                        .font(LookFont.text(13))
+                        .font(PFPlanFont543.text(13))
                         .foregroundStyle(NoopLook.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -330,28 +333,28 @@ struct PFDocPlaceholder529: View {
                 HStack(spacing: 10) {
                     ProgressView()
                     Text("Loading")
-                        .font(LookFont.text(14.5))
+                        .font(PFPlanFont543.text(14.5))
                         .foregroundStyle(NoopLook.textSecondary)
                 }
             case .empty:
                 Text(emptyTitle)
-                    .font(LookFont.text(15, weight: .semibold))
+                    .font(PFPlanFont543.text(15, weight: .semibold))
                     .foregroundStyle(NoopLook.textPrimary)
                 if !emptyText.isEmpty {
                     Text(emptyText)
-                        .font(LookFont.text(13.5))
+                        .font(PFPlanFont543.text(13.5))
                         .foregroundStyle(NoopLook.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             case .failed:
                 Text(failedText)
-                    .font(LookFont.text(14))
+                    .font(PFPlanFont543.text(14))
                     .foregroundStyle(NoopLook.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
                 if let retry {
                     Button(action: retry) {
                         Text("Try again")
-                            .font(LookFont.text(14, weight: .semibold))
+                            .font(PFPlanFont543.text(14, weight: .semibold))
                             .foregroundStyle(StrandPalette.accent)
                             .frame(minHeight: 44, alignment: .leading)
                     }
@@ -369,7 +372,7 @@ struct PFDocPlaceholder529: View {
 struct PFStaleNote529: View {
     var body: some View {
         Text("Showing the copy saved on this phone. PaceForge could not be reached.")
-            .font(LookFont.text(12))
+            .font(PFPlanFont543.text(12))
             .foregroundStyle(PFColor.warning)
             .fixedSize(horizontal: false, vertical: true)
             .accessibilityIdentifier("plan529-stale")

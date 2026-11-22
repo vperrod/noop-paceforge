@@ -59,6 +59,8 @@ final class PFTrueCoachStore542: ObservableObject {
 struct PFCoachSessionNote542: View {
     let item: PFPlanWeekDoc.Item
     let idPrefix: String
+    /// The "Required this week" badge already says it on the session screen, so only the dates line is left out there when asked.
+    var showsMustLine = true
 
     @ObservedObject private var store = PFTrueCoachStore542.shared
     @StateObject private var tracker = PFJobTracker()
@@ -74,7 +76,7 @@ struct PFCoachSessionNote542: View {
                 if isSkipped {
                     HStack(alignment: .center, spacing: 10) {
                         Label(PFCoachSession.skippedLine, systemImage: "xmark.circle")
-                            .font(LookFont.text(13, weight: .medium))
+                            .font(PFPlanFont543.text(13, weight: .medium))
                             .foregroundStyle(PFWeekColor529.amber)
                             .fixedSize(horizontal: false, vertical: true)
                             .accessibilityIdentifier("\(idPrefix)-skipped")
@@ -83,9 +85,9 @@ struct PFCoachSessionNote542: View {
                             Task { await undo() }
                         }
                     }
-                } else if item.mandatory == true {
+                } else if item.mandatory == true, showsMustLine {
                     Label(PFCoachSession.mustLine(weekStart: item.weekStart), systemImage: "calendar")
-                        .font(LookFont.text(13, weight: .medium))
+                        .font(PFPlanFont543.text(13, weight: .medium))
                         .foregroundStyle(NoopLook.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                         .accessibilityIdentifier("\(idPrefix)-must")
@@ -104,35 +106,6 @@ struct PFCoachSessionNote542: View {
             await PFUnified.model.refresh()
             NotificationCenter.default.post(name: .pfPlan529Changed, object: nil)
         }
-    }
-}
-
-/// The coach's prescription as he wrote it, readable in full; a long one scrolls inside its card.
-struct PFCoachDetailsCard542: View {
-    let details: String
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            PFWeekOverline529(text: PFCoachSession.detailsTitle)
-            if PFCoachSession.needsScroll(details) {
-                ScrollView { text }
-                    .frame(height: 320)
-            } else {
-                text
-            }
-        }
-        .pfWeekCard()
-        .containerIdentifier("plan529-session-coach-details")
-    }
-
-    private var text: some View {
-        Text(details)
-            .font(LookFont.text(14, weight: .regular))
-            .foregroundStyle(NoopLook.textPrimary)
-            .lineSpacing(2)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .fixedSize(horizontal: false, vertical: true)
-            .accessibilityIdentifier("plan529-session-coach-details-text")
     }
 }
 
@@ -161,7 +134,7 @@ struct PFCoachWeekCard542: View {
         VStack(alignment: .leading, spacing: 10) {
             PFWeekOverline529(text: PFTrueCoachWording.title)
             Text(PFTrueCoachWording.count(status))
-                .font(LookFont.text(15, weight: .semibold))
+                .font(PFPlanFont543.text(15, weight: .semibold))
                 .foregroundStyle(NoopLook.textPrimary)
                 .accessibilityIdentifier("plan529-coachweek-count")
             PFWeekSub529(text: store.isStale
@@ -170,7 +143,7 @@ struct PFCoachWeekCard542: View {
                 .accessibilityIdentifier("plan529-coachweek-last")
             if let error = PFTrueCoachWording.error(status) {
                 Text(error)
-                    .font(LookFont.text(13, weight: .regular))
+                    .font(PFPlanFont543.text(13, weight: .regular))
                     .foregroundStyle(PFWeekColor529.amber)
                     .fixedSize(horizontal: false, vertical: true)
                     .accessibilityIdentifier("plan529-coachweek-error")
@@ -195,7 +168,7 @@ struct PFCoachWeekCard542: View {
             HStack(alignment: .center, spacing: 10) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(removed)
-                        .font(LookFont.text(13.5, weight: .regular))
+                        .font(PFPlanFont543.text(13.5, weight: .regular))
                         .foregroundStyle(NoopLook.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                         .accessibilityIdentifier("plan529-coachweek-removed")
@@ -210,10 +183,10 @@ struct PFCoachWeekCard542: View {
         if !replan.conflicts.isEmpty {
             VStack(alignment: .leading, spacing: 4) {
                 PFWeekOverline529(text: PFTrueCoachWording.checkThese)
-                PFWeekSub529(text: "These booked classes overlap your coach's sessions.")
+                PFWeekSub529(text: "These classes overlap your coach's sessions.")
                 ForEach(Array(replan.conflicts.enumerated()), id: \.offset) { _, line in
                     Text(line)
-                        .font(LookFont.text(13.5, weight: .regular))
+                        .font(PFPlanFont543.text(13.5, weight: .regular))
                         .foregroundStyle(PFWeekColor529.amber)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -229,7 +202,7 @@ struct PFCoachWeekCard542: View {
             PFWeekSub529(text: "Reading your TrueCoach plan. This can take a few minutes.")
         case .failed(let message):
             Text(message)
-                .font(LookFont.text(12.5, weight: .regular))
+                .font(PFPlanFont543.text(12.5, weight: .regular))
                 .foregroundStyle(PFWeekColor529.amber)
                 .fixedSize(horizontal: false, vertical: true)
                 .accessibilityIdentifier("plan529-coachweek-failed")
@@ -273,14 +246,14 @@ struct PFWeeklyRhythmCard542: View {
         VStack(alignment: .leading, spacing: 6) {
             PFOver529(text: PFWeeklyRhythm.title)
             Text(PFWeeklyRhythm.text)
-                .font(LookFont.text(13.5))
+                .font(PFPlanFont543.text(13.5))
                 .foregroundStyle(NoopLook.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
                 .accessibilityIdentifier("settings-rhythm-text")
             if let last = PFWeeklyRhythm.lastRead(store.status?.lastSync) {
                 Text(last)
-                    .font(LookFont.text(12.5))
-                    .foregroundStyle(NoopLook.textTertiary)
+                    .font(PFPlanFont543.text(12.5))
+                    .foregroundStyle(NoopLook.textSecondary)
                     .accessibilityIdentifier("settings-rhythm-last")
             }
         }

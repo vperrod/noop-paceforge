@@ -109,7 +109,7 @@ struct PFChangeWorkoutSheet529: View {
                 HStack(spacing: 10) {
                     ProgressView()
                     Text("The coach is building it\u{2026}")
-                        .font(LookFont.text(15, weight: .medium))
+                        .font(PFPlanFont543.text(15, weight: .medium))
                         .foregroundStyle(NoopLook.textPrimary)
                 }
                 PFWeekSub529(text: "It uses your week, your readings and what you still need. This can take a minute.")
@@ -118,7 +118,7 @@ struct PFChangeWorkoutSheet529: View {
             .accessibilityIdentifier("plan529-swap-building")
         case .result(let change):
             Text(change.sheetTitle ?? change.title ?? heading)
-                .font(LookFont.text(20, weight: .bold))
+                .font(PFPlanFont543.text(20, weight: .bold))
                 .foregroundStyle(NoopLook.textPrimary)
                 .fixedSize(horizontal: false, vertical: true)
             PFChangeContent529(change: change, onAccepted: { dismiss() }, onKept: { dismiss() },
@@ -126,7 +126,7 @@ struct PFChangeWorkoutSheet529: View {
         case .failed(let message):
             VStack(alignment: .leading, spacing: 10) {
                 Text(message)
-                    .font(LookFont.text(14, weight: .regular))
+                    .font(PFPlanFont543.text(14, weight: .regular))
                     .foregroundStyle(PFWeekColor529.amber)
                     .fixedSize(horizontal: false, vertical: true)
                     .accessibilityIdentifier("plan529-swap-failed")
@@ -144,7 +144,7 @@ struct PFChangeWorkoutSheet529: View {
                                targetDate: target.date)
                 .pfWeekCard()
             Text("What would you rather do?")
-                .font(LookFont.text(20, weight: .bold))
+                .font(PFPlanFont543.text(20, weight: .bold))
                 .foregroundStyle(NoopLook.textPrimary)
             if let title = target.title, !target.isAdd {
                 PFWeekSub529(text: "Now: \(title) on \(PFFormat.dayTitle(target.date)). It stays as it is until you accept the new one.")
@@ -179,7 +179,7 @@ struct PFChangeWorkoutSheet529: View {
                     .foregroundStyle(isSelected ? PFWeekColor529.teal : NoopLook.textSecondary)
                     .accessibilityHidden(true)
                 Text(option.title)
-                    .font(LookFont.text(15, weight: .semibold))
+                    .font(PFPlanFont543.text(15, weight: .semibold))
                     .foregroundStyle(NoopLook.textPrimary)
                     .multilineTextAlignment(.leading)
             }
@@ -198,10 +198,10 @@ struct PFChangeWorkoutSheet529: View {
         let isSelected = minutes == value
         return Button { minutes = value } label: {
             Text(title)
-                .lookCaps(11, weight: .semibold)
+                .pfCaps(11, weight: .semibold)
                 .foregroundStyle(isSelected ? Color(hex: "#06231A") : NoopLook.textPrimary)
                 .padding(.horizontal, 12)
-                .frame(minHeight: 40)
+                .frame(minHeight: 44)
                 .background(Capsule(style: .continuous).fill(isSelected ? PFWeekColor529.teal : Color.clear))
                 .overlay(Capsule(style: .continuous).stroke(isSelected ? PFWeekColor529.teal : NoopLook.divider, lineWidth: 1))
         }

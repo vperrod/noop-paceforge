@@ -70,7 +70,7 @@ struct PFWeekReview530: View {
     private func top(_ doc: PFPlanWeekDoc) -> some View {
         var pills: [(text: String, color: Color)] = []
         if let pill = doc.phase?.pill { pills.append((pill, PFWeekPhase529.color(doc.phase?.key))) }
-        if let range = PFReviewFormat530.range(from: doc.from, to: doc.to) { pills.append((range, NoopLook.textTertiary)) }
+        if let range = PFReviewFormat530.range(from: doc.from, to: doc.to) { pills.append((range, NoopLook.textSecondary)) }
         return VStack(alignment: .leading, spacing: 10) {
             PFReviewPills530(pills: pills)
             if let verdict = doc.report?.verdict, !verdict.isEmpty {
@@ -84,12 +84,12 @@ struct PFWeekReview530: View {
         NavigationLink(value: TabRoute.reports("\(PFReportKind.weekly.rawValue):\(week)")) {
             HStack {
                 Text("What each expert read")
-                    .font(LookFont.text(15, weight: .medium))
+                    .font(PFPlanFont543.text(15, weight: .medium))
                     .foregroundStyle(NoopLook.textPrimary)
                 Spacer(minLength: 8)
                 Image(systemName: "chevron.right")
                     .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(NoopLook.textTertiary)
+                    .foregroundStyle(NoopLook.textSecondary)
                     .accessibilityHidden(true)
             }
             .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)

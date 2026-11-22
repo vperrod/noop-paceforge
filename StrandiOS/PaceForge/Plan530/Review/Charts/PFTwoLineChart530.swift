@@ -33,8 +33,8 @@ struct PFTwoLineChart530: View {
             HStack(spacing: 0) {
                 ForEach(days.indices, id: \.self) { index in
                     Text(days[index])
-                        .font(LookFont.text(10, weight: .regular))
-                        .foregroundStyle(NoopLook.textTertiary)
+                        .font(PFPlanFont543.text(10, weight: .regular))
+                        .foregroundStyle(NoopLook.textSecondary)
                         .frame(maxWidth: .infinity)
                 }
             }
@@ -139,7 +139,7 @@ struct PFTwoLineChart530: View {
     private func label(_ text: String, at point: CGPoint, leading: Bool, above: Bool, color: Color, size: CGSize) -> some View {
         let y = above ? max(8, point.y - 14) : min(size.height - 8, point.y + 14)
         return Text(text)
-            .font(LookFont.text(10.5, weight: .semibold))
+            .font(PFPlanFont543.text(10.5, weight: .semibold))
             .foregroundStyle(color)
             .fixedSize()
             .frame(maxWidth: .infinity, alignment: leading ? .leading : .trailing)

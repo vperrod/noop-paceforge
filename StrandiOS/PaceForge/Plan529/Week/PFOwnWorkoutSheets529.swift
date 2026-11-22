@@ -64,10 +64,10 @@ private struct PFSportField529: View {
         let isSelected = sport.trimmingCharacters(in: .whitespaces).lowercased() == name.lowercased()
         return Button { sport = name } label: {
             Text(name)
-                .lookCaps(11, weight: .semibold)
+                .pfCaps(11, weight: .semibold)
                 .foregroundStyle(isSelected ? Color(hex: "#06231A") : NoopLook.textPrimary)
                 .padding(.horizontal, 12)
-                .frame(minHeight: 40)
+                .frame(minHeight: 44)
                 .background(Capsule(style: .continuous).fill(isSelected ? PFWeekColor529.teal : Color.clear))
                 .overlay(Capsule(style: .continuous).stroke(isSelected ? PFWeekColor529.teal : NoopLook.divider, lineWidth: 1))
         }
@@ -181,7 +181,7 @@ struct PFAddSessionSheet529: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            PFWeekSub529(text: "Your own workout goes on the plan as you write it, with the description you give. The coach does not change it unless you ask.")
+            PFWeekSub529(text: "For a day that has not happened. It goes on your plan as you write it. The Coach does not change it unless you ask.")
             PFOwnField529("Day") {
                 DatePicker("Day", selection: pfDayBinding529($draft.date), in: pfWindow529(past: true, future: true), displayedComponents: .date)
                     .labelsHidden()
@@ -199,24 +199,24 @@ struct PFAddSessionSheet529: View {
                     .textFieldStyle(.roundedBorder)
                     .accessibilityIdentifier("plan529-add-name")
             }
-            PFOwnField529("What the workout is (optional)") {
-                PFLargeTextField529(placeholder: PFSessionDescription.addHint, text: $draft.descriptionText,
+            PFOwnField529("Description") {
+                PFLargeTextField529(placeholder: PFSessionDescription.planHint, text: $draft.descriptionText,
                                     limit: PFSessionDescription.maxLength, height: 260, identifier: "plan529-add-description")
             }
             Stepper(value: $draft.repeatWeeks, in: PFAddSessionDraft.repeatRange) {
-                Text(draft.repeatWeeks == 1 ? "Just once" : "Every week for \(draft.repeatWeeks) weeks")
-                    .font(LookFont.text(14, weight: .regular))
+                Text(draft.repeatWeeks == 1 ? "Repeat weekly: off" : "Repeat weekly for \(draft.repeatWeeks) weeks")
+                    .font(PFPlanFont543.text(14, weight: .regular))
                     .foregroundStyle(NoopLook.textPrimary)
             }
             .accessibilityIdentifier("plan529-add-repeat")
             if let problem { PFWeekSub529(text: problem) }
             PFEditMessage529(runner: runner)
-            PFWeekButton529(title: runner.isBusy ? "Adding" : "Add to my plan", isProminent: true,
+            PFWeekButton529(title: runner.isBusy ? "Adding" : "Add to my week", isProminent: true,
                             isDisabled: runner.isBusy || problem != nil, identifier: "plan529-add-save") {
                 Task { await save() }
             }
         }
-        .pfOwnSheet529(title: "Add a workout", id: "plan529-addsheet", dismiss: dismiss)
+        .pfOwnSheet529(title: "Plan a workout", id: "plan529-addsheet", dismiss: dismiss)
     }
 
     @MainActor private func save() async {
@@ -269,7 +269,7 @@ struct PFLogWorkoutSheet529: View {
 
     private var title: String {
         if editing != nil { return "Edit workout" }
-        return focusID == nil ? "Log a workout" : "Your logged workout"
+        return focusID == nil ? "Log what I did" : "Your logged workout"
     }
 
     /// The planned sessions on the chosen day that this workout can be linked to.
@@ -288,14 +288,14 @@ struct PFLogWorkoutSheet529: View {
             PFEditMessage529(runner: runner)
             if let note {
                 Text(note)
-                    .font(LookFont.text(12.5, weight: .regular))
+                    .font(PFPlanFont543.text(12.5, weight: .regular))
                     .foregroundStyle(NoopLook.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
                     .accessibilityIdentifier("plan529-log-note")
             }
             if showsForm {
                 HStack(spacing: 8) {
-                    PFWeekButton529(title: runner.isBusy ? "Saving" : (editing == nil ? "Log workout" : "Save changes"), isProminent: true,
+                    PFWeekButton529(title: runner.isBusy ? "Saving" : (editing == nil ? "Save and ask the Coach" : "Save changes"), isProminent: true,
                                     isDisabled: runner.isBusy || problem != nil, identifier: "plan529-log-save") {
                         Task { await submit() }
                     }
@@ -330,7 +330,7 @@ struct PFLogWorkoutSheet529: View {
     private var introText: String {
         if editing != nil { return "Changing a workout you logged. The coach reads it again." }
         if focusID != nil { return "Edit this workout, or add details or a comment afterwards. The coach reads it again and updates its review." }
-        return "Something you did that is not on your watch or your plan. The coach reads it and adds it to your week."
+        return "Something you already finished. The Coach reads it, assesses it like a Garmin workout and may ask you a question."
     }
 
     // MARK: Form
@@ -357,15 +357,15 @@ struct PFLogWorkoutSheet529: View {
                 number("Average heart rate", "optional", $draft.avgHRText, id: "avg")
                 number("Max heart rate", "optional", $draft.maxHRText, id: "max")
             }
-            number("How hard it felt (1 to 10)", "optional", $draft.rpeText, id: "rpe")
+            number("Felt effort (1 to 10)", "optional", $draft.rpeText, id: "rpe")
             PFOwnField529("Notes (optional)") {
                 TextField("How it went", text: $draft.notes, axis: .vertical)
                     .textFieldStyle(.roundedBorder)
                     .lineLimit(2...4)
                     .accessibilityIdentifier("plan529-log-notes")
             }
-            PFOwnField529("Details (optional, up to 2000 characters)") {
-                PFLargeTextField529(placeholder: "What you did, how it felt, anything the coach should know", text: $draft.detailsText,
+            PFOwnField529("Details (up to 2000 characters)") {
+                PFLargeTextField529(placeholder: PFSessionDescription.logHint, text: $draft.detailsText,
                                     limit: PFManualWorkoutComments.maxDetailsLength, height: 200, identifier: "plan529-log-details")
             }
             if !candidates.isEmpty || draft.planSessionID != nil { linkPicker }
@@ -385,9 +385,9 @@ struct PFLogWorkoutSheet529: View {
     }
 
     private var linkPicker: some View {
-        PFOwnField529("Counts as a planned session (optional)") {
+        PFOwnField529("Was this one of my planned sessions?") {
             Picker("Planned session", selection: $draft.planSessionID) {
-                Text("None").tag(String?.none)
+                Text("No").tag(String?.none)
                 ForEach(candidates, id: \.id) { workout in
                     Text(workout.name ?? "Session").tag(workout.coachSessionID)
                 }
@@ -411,12 +411,12 @@ struct PFLogWorkoutSheet529: View {
                 ForEach(visibleLogged) { workout in
                     VStack(alignment: .leading, spacing: 6) {
                         Text("\(workout.sport) \u{00B7} \(PFFormat.shortDate(workout.date)) \u{00B7} \(workout.minutes) min")
-                            .font(LookFont.text(14, weight: .semibold))
+                            .font(PFPlanFont543.text(14, weight: .semibold))
                             .foregroundStyle(NoopLook.textPrimary)
                         if let line = detail(workout) { PFWeekSub529(text: line) }
                         if let details = workout.details {
                             Text(details)
-                                .font(LookFont.text(13, weight: .regular))
+                                .font(PFPlanFont543.text(13, weight: .regular))
                                 .foregroundStyle(NoopLook.textPrimary)
                                 .fixedSize(horizontal: false, vertical: true)
                                 .accessibilityIdentifier("plan529-log-details-\(workout.id)")
@@ -454,7 +454,7 @@ struct PFLogWorkoutSheet529: View {
                     VStack(alignment: .leading, spacing: 2) {
                         if !comment.whenText.isEmpty { PFWeekOverline529(text: comment.whenText) }
                         Text(comment.text)
-                            .font(LookFont.text(13, weight: .regular))
+                            .font(PFPlanFont543.text(13, weight: .regular))
                             .foregroundStyle(NoopLook.textPrimary)
                             .fixedSize(horizontal: false, vertical: true)
                     }

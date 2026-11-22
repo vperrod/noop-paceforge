@@ -58,7 +58,7 @@ struct PFReviewAhead530: View {
     private func pills(_ doc: PFPlanWeekDoc) -> some View {
         var out: [(text: String, color: Color)] = []
         if let pill = doc.phase?.pill { out.append((pill, PFWeekPhase529.color(doc.phase?.key))) }
-        if let pill = doc.nextRace?.pill { out.append((pill, NoopLook.textTertiary)) }
+        if let pill = doc.nextRace?.pill { out.append((pill, NoopLook.textSecondary)) }
         return PFReviewPills530(pills: out)
     }
 
@@ -80,8 +80,8 @@ struct PFReviewAhead530: View {
                     HStack(spacing: 5) {
                         Circle().fill(PFReviewFormat530.phaseColor(calendar[index].phase)).frame(width: 8, height: 8)
                         Text(legend(calendar, index))
-                            .font(LookFont.text(11.5, weight: .regular))
-                            .foregroundStyle(NoopLook.textTertiary)
+                            .font(PFPlanFont543.text(11.5, weight: .regular))
+                            .foregroundStyle(NoopLook.textSecondary)
                     }
                 }
             }
@@ -177,7 +177,7 @@ struct PFReviewAhead530: View {
             }
             if let failure = decisions.failure {
                 Text(failure)
-                    .font(LookFont.text(12.5, weight: .regular))
+                    .font(PFPlanFont543.text(12.5, weight: .regular))
                     .foregroundStyle(PFWeekColor529.amber)
                     .fixedSize(horizontal: false, vertical: true)
                     .accessibilityIdentifier("review530-changes-failed")
@@ -195,7 +195,7 @@ struct PFReviewAhead530: View {
                 side(small: caption, big: change.before?.label, sub: change.before?.sub)
                 Image(systemName: "arrow.right")
                     .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(NoopLook.textTertiary)
+                    .foregroundStyle(NoopLook.textSecondary)
                     .padding(.top, 20)
                     .accessibilityHidden(true)
                 side(small: "Coach proposes", big: change.after?.label, sub: change.after?.sub)
@@ -217,11 +217,11 @@ struct PFReviewAhead530: View {
 
     private func side(small: String, big: String?, sub: String?) -> some View {
         VStack(alignment: .leading, spacing: 2) {
-            Text(small).font(LookFont.text(11.5, weight: .regular)).foregroundStyle(NoopLook.textTertiary)
+            Text(small).font(PFPlanFont543.text(11.5, weight: .regular)).foregroundStyle(NoopLook.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
-            Text(hiding.text(big ?? "")).font(LookFont.text(20, weight: .bold)).foregroundStyle(NoopLook.textPrimary)
+            Text(hiding.text(big ?? "")).font(PFPlanFont543.text(20, weight: .bold)).foregroundStyle(NoopLook.textPrimary)
             if let sub, !sub.isEmpty {
-                Text(hiding.text(sub)).font(LookFont.text(11.5, weight: .regular)).foregroundStyle(NoopLook.textSecondary)
+                Text(hiding.text(sub)).font(PFPlanFont543.text(11.5, weight: .regular)).foregroundStyle(NoopLook.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }

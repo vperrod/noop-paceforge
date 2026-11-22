@@ -67,7 +67,7 @@ struct PFTodayJournalCard530: View {
     private func header(target: PFTodayJournalTarget530, dueWindow: String?, allDone: Bool) -> some View {
         HStack(spacing: 8) {
             Text("My journal")
-                .lookCaps(12.5)
+                .pfCaps(12.5)
                 .foregroundStyle(NoopLook.textPrimary)
                 .accessibilityAddTraits(.isHeader)
             Spacer(minLength: 4)
@@ -98,20 +98,20 @@ struct PFTodayJournalCard530: View {
         let offset = PFFormat.daysBetween(day.date, today)
         let cell = VStack(spacing: 4) {
             Text(day.letter)
-                .font(LookFont.text(10.5, weight: .semibold))
-                .foregroundStyle(day.isToday ? NoopLook.textPrimary : NoopLook.textTertiary)
+                .font(PFPlanFont543.text(10.5, weight: .semibold))
+                .foregroundStyle(day.isToday ? NoopLook.textPrimary : NoopLook.textSecondary)
             if day.logged {
                 Circle()
                     .fill(StrandPalette.accent)
                     .frame(width: 10, height: 10)
             } else if day.isToday {
                 Text("now")
-                    .font(LookFont.text(10.5, weight: .semibold))
+                    .font(PFPlanFont543.text(10.5, weight: .semibold))
                     .foregroundStyle(StrandPalette.accent)
             } else {
                 Text("\u{00B7}")
-                    .font(LookFont.text(14))
-                    .foregroundStyle(NoopLook.textTertiary)
+                    .font(PFPlanFont543.text(14))
+                    .foregroundStyle(NoopLook.textSecondary)
             }
         }
         .frame(maxWidth: .infinity, minHeight: 44)
@@ -187,7 +187,7 @@ struct PFTodayJournalCard530: View {
                     session.usePrevious = true
                     Task { await session.commit(repo: repo, day: due.day, keys: keys, allowsPrevious: true) }
                 }
-                .font(LookFont.text(13.5, weight: .semibold))
+                .font(PFPlanFont543.text(13.5, weight: .semibold))
                 .foregroundStyle(StrandPalette.accent)
                 .frame(minHeight: 44)
                 .accessibilityIdentifier("today-journal-use-previous")
@@ -196,14 +196,14 @@ struct PFTodayJournalCard530: View {
                 Button(session.saveFailed ? "Retry saving" : "Save answers") {
                     Task { await session.commit(repo: repo, day: due.day, keys: keys, allowsPrevious: false) }
                 }
-                .font(LookFont.text(13.5, weight: .semibold))
+                .font(PFPlanFont543.text(13.5, weight: .semibold))
                 .foregroundStyle(StrandPalette.accent)
                 .frame(minHeight: 44)
                 .accessibilityIdentifier("today-journal-save")
             }
             if session.saveFailed {
                 Text("Answers could not be saved. Try again.")
-                    .font(LookFont.text(12.5))
+                    .font(PFPlanFont543.text(12.5))
                     .foregroundStyle(PFColor.warning)
             }
         }
@@ -223,20 +223,20 @@ struct PFTodayJournalCard530: View {
             HStack(spacing: 8) {
                 ProgressView().controlSize(.small)
                 Text("Loading")
-                    .font(LookFont.text(13))
+                    .font(PFPlanFont543.text(13))
                     .foregroundStyle(NoopLook.textSecondary)
             }
             .accessibilityIdentifier("today-journal-loading")
         case .failed:
             HStack(spacing: 8) {
                 Text("PaceForge could not be reached. The row shows what is on this phone.")
-                    .font(LookFont.text(12.5))
+                    .font(PFPlanFont543.text(12.5))
                     .foregroundStyle(PFColor.warning)
                     .fixedSize(horizontal: false, vertical: true)
                 Spacer(minLength: 4)
                 Button { Task { await store.refresh() } } label: {
                     Text("Try again")
-                        .font(LookFont.text(13, weight: .semibold))
+                        .font(PFPlanFont543.text(13, weight: .semibold))
                         .foregroundStyle(StrandPalette.accent)
                         .frame(minHeight: 44)
                 }
@@ -246,7 +246,7 @@ struct PFTodayJournalCard530: View {
             .accessibilityIdentifier("today-journal-failed")
         case .empty:
             Text("Questions will appear here once PaceForge has today's journal.")
-                .font(LookFont.text(13))
+                .font(PFPlanFont543.text(13))
                 .foregroundStyle(NoopLook.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
                 .accessibilityIdentifier("today-journal-empty")
@@ -269,7 +269,7 @@ struct PFTodayJournalCard530: View {
             text = Text(line).foregroundStyle(NoopLook.textSecondary)
         }
         return text
-            .font(LookFont.text(13.5))
+            .font(PFPlanFont543.text(13.5))
             .fixedSize(horizontal: false, vertical: true)
             .frame(maxWidth: .infinity, alignment: .leading)
             .accessibilityIdentifier("today-journal-line")
@@ -280,12 +280,12 @@ struct PFTodayJournalCard530: View {
             HStack(spacing: 8) {
                 VStack(alignment: .leading, spacing: 1) {
                     Text("Behaviour insights")
-                        .font(LookFont.text(14, weight: .semibold))
+                        .font(PFPlanFont543.text(14, weight: .semibold))
                         .foregroundStyle(NoopLook.textPrimary)
                     if let sub = PFTodayJournalLogic530.insightsLine(doc) {
                         Text(sub)
-                            .font(LookFont.text(12.5))
-                            .foregroundStyle(NoopLook.textTertiary)
+                            .font(PFPlanFont543.text(12.5))
+                            .foregroundStyle(NoopLook.textSecondary)
                             .multilineTextAlignment(.leading)
                             .fixedSize(horizontal: false, vertical: true)
                     }
@@ -293,7 +293,7 @@ struct PFTodayJournalCard530: View {
                 Spacer(minLength: 4)
                 Image(systemName: "chevron.right")
                     .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(NoopLook.textTertiary)
+                    .foregroundStyle(NoopLook.textSecondary)
                     .accessibilityHidden(true)
             }
             .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)

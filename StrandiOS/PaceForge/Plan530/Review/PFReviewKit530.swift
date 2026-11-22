@@ -59,7 +59,7 @@ enum PFReviewFormat530 {
         case "strength": return PFReviewColor530.violet
         case "running": return PFWeekColor529.teal
         case "cycling": return PFWeekColor529.blue
-        default: return NoopLook.textTertiary
+        default: return NoopLook.textSecondary
         }
     }
 
@@ -71,7 +71,7 @@ enum PFReviewFormat530 {
         case "sharpen", "sharpening": return PFReviewColor530.violet
         case "taper": return PFWeekColor529.amber
         case "race": return PFWeekColor529.red
-        default: return NoopLook.textTertiary
+        default: return NoopLook.textSecondary
         }
     }
 }
@@ -93,7 +93,7 @@ struct PFReviewReading530: View {
     var body: some View {
         if let text, !text.isEmpty {
             Text(attributed(hiding.text(text)))
-                .font(LookFont.text(13.5, weight: .regular))
+                .font(PFPlanFont543.text(13.5, weight: .regular))
                 .foregroundStyle(NoopLook.textSecondary)
                 .lineSpacing(2)
                 .fixedSize(horizontal: false, vertical: true)
@@ -107,7 +107,7 @@ struct PFReviewReading530: View {
         guard let stop = text.range(of: ". ") else { return out }
         let lead = String(text[..<text.index(before: stop.upperBound)])
         if let range = out.range(of: lead) {
-            out[range].font = LookFont.text(13.5, weight: .semibold)
+            out[range].font = PFPlanFont543.text(13.5, weight: .semibold)
             out[range].foregroundColor = NoopLook.textPrimary
         }
         return out
@@ -122,7 +122,7 @@ struct PFReviewHeadline530: View {
 
     var body: some View {
         Text(hiding.text(text))
-            .font(LookFont.text(22, weight: .bold))
+            .font(PFPlanFont543.text(22, weight: .bold))
             .foregroundStyle(NoopLook.textPrimary)
             .lineSpacing(1)
             .fixedSize(horizontal: false, vertical: true)
@@ -137,7 +137,7 @@ struct PFReviewSectionTitle530: View {
 
     var body: some View {
         Text(text)
-            .font(LookFont.text(17, weight: .semibold))
+            .font(PFPlanFont543.text(17, weight: .semibold))
             .foregroundStyle(NoopLook.textPrimary)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.top, 8)
@@ -155,10 +155,11 @@ struct PFReviewWideButton530: View {
     var body: some View {
         Button(action: action) {
             Text(title)
-                .lookCaps(12, weight: .semibold)
+                .pfCaps(12, weight: .semibold)
                 .foregroundStyle(Color(hex: "#06231A"))
-                .lineLimit(1)
-                .minimumScaleFactor(0.8)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.vertical, 8)
                 .frame(maxWidth: .infinity, minHeight: 46)
                 .background(Capsule(style: .continuous).fill(PFWeekColor529.teal))
                 .contentShape(Capsule(style: .continuous))

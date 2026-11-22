@@ -23,7 +23,7 @@ struct PFWatchChip529: View {
         if let id = sessionID, let session = store.doc?.session(id), let line = PFWatchStatus529.line(session) {
             if store.isStale {
                 row(text: "Watch status could not be refreshed", detail: "Open this again with a connection to see where it stands.",
-                    color: NoopLook.textTertiary, id: id)
+                    color: NoopLook.textSecondary, id: id)
             } else {
                 row(text: line.text, detail: line.detail, color: color(line.tone), id: id)
             }
@@ -33,13 +33,13 @@ struct PFWatchChip529: View {
     private func row(text: String, detail: String?, color: Color, id: String) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             Label(text, systemImage: "applewatch")
-                .font(LookFont.text(13, weight: .medium))
+                .font(PFPlanFont543.text(13, weight: .medium))
                 .foregroundStyle(color)
                 .fixedSize(horizontal: false, vertical: true)
             if let detail {
                 Text(detail)
-                    .font(LookFont.text(12, weight: .regular))
-                    .foregroundStyle(NoopLook.textTertiary)
+                    .font(PFPlanFont543.text(12, weight: .regular))
+                    .foregroundStyle(NoopLook.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
@@ -51,7 +51,7 @@ struct PFWatchChip529: View {
         switch tone {
         case .onWatch: return PFWeekColor529.teal
         case .pending: return NoopLook.textSecondary
-        case .blocked: return NoopLook.textTertiary
+        case .blocked: return NoopLook.textSecondary
         case .failed: return PFWeekColor529.amber
         }
     }

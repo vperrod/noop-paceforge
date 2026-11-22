@@ -43,6 +43,7 @@ struct PFNeedsYouCard: View {
         case .question: PFNeedsQuestionRow(item: item)
         case .rpe: PFNeedsScaleRow(item: item, values: Array(1...10), columns: 5, prefix: "rpe")
         case .feel: PFNeedsScaleRow(item: item, values: Array(1...5), columns: 5, prefix: "feel")
+        case .workoutQuestions: PFNeedsWorkoutRow(item: item)
         }
     }
 }
@@ -221,6 +222,30 @@ private struct PFNeedsQuestionRow: View {
     private func answer(_ answer: PFNeedsAnswer) {
         guard item.questionID != nil else { return }
         send(model, answer, for: item)
+    }
+}
+
+// MARK: Workout questions
+
+/// The Coach's typed questions about a finished workout (build 543): the card says what it is about and opens the questions one at a time.
+private struct PFNeedsWorkoutRow: View {
+    let item: PFNeedsItem
+
+    @EnvironmentObject private var model: PFModel
+    @State private var isOpen = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            PFNeedsHeader(item: item)
+            HStack(spacing: 10) {
+                PFNeedsButton(title: "Answer", prominent: true, id: "pf-needs-workout-answer-\(item.id)") { isOpen = true }
+                PFNeedsButton(title: "Skip", id: "pf-needs-workout-skip-\(item.id)") {
+                    guard let id = item.activityID else { return }
+                    send(model, .workoutSkip(activityID: id), for: item)
+                }
+            }
+        }
+        .sheet(isPresented: $isOpen) { PFWorkoutQuestionSheet543(item: item) }
     }
 }
 

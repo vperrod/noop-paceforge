@@ -108,7 +108,7 @@ struct PFEditMessage529: View {
     var body: some View {
         if let message = runner.message {
             Text(message)
-                .font(LookFont.text(12.5))
+                .font(PFPlanFont543.text(12.5))
                 .foregroundStyle(PFColor.warning)
                 .fixedSize(horizontal: false, vertical: true)
                 .accessibilityIdentifier("plan529-edit-message")

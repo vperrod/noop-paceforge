@@ -20,6 +20,46 @@ struct PFPlanWeekDoc: Codable, Equatable {
     var deleted: [DeletedSession]?
     var days: [Day]?
     var report: Report?
+    /// Build 543: the one strip above Monday and the collapsed "Week notes". Both are optional; the phone derives what it can from the items
+    /// when the server does not send them yet.
+    var needsYou: NeedsYou?
+    var notes: Notes?
+
+    struct NeedsYou: Codable, Equatable {
+        var count: Int?
+        var items: [NeedsYouItem]?
+    }
+
+    struct NeedsYouItem: Codable, Equatable {
+        /// question | overlap | change | ... (read leniently)
+        var kind: String?
+        var title: String?
+        var sessionId: String?
+        var activityId: String?
+    }
+
+    struct Notes: Codable, Equatable {
+        var coachWeek: CoachWeek?
+        var changes: Counted?
+        var hours: NotesHours?
+        var rhythm: String?
+        var deleted: Counted?
+    }
+
+    struct CoachWeek: Codable, Equatable {
+        var lastSync: String?
+        var count: Int?
+        var error: String?
+    }
+
+    struct Counted: Codable, Equatable {
+        var count: Int?
+    }
+
+    struct NotesHours: Codable, Equatable {
+        var plannedH: Double?
+        var estimated: Bool?
+    }
 
     struct DeletedSession: Codable, Equatable {
         var sessionId: String?
@@ -171,6 +211,33 @@ struct PFPlanWeekDoc: Codable, Equatable {
         /// The session's own written description (the athlete's, or the coach's text when he has not changed it), and whether he rewrote it.
         var description: String?
         var athleteEdited: Bool?
+        /// Build 543: the workout written out as numbered pieces, the word for its state, who it comes from ("From your coach", "Mine",
+        /// "Class", "Draft"), whether it must be done this week, the overlap with another session and whether it waits for an answer.
+        var pieces: [Piece]?
+        var stateLabel: String?
+        var sourceLabel: String?
+        var requiredThisWeek: Bool?
+        var overlap: Overlap?
+        var needsYou: Bool?
+        /// The athlete wrote this workout himself (add-session).
+        var athleteCreated: Bool?
+    }
+
+    /// One numbered piece of a workout: "Warm-up 2 km", its detail, its effort word and the band the Coach will judge it against.
+    struct Piece: Codable, Equatable {
+        var n: Int?
+        var label: String?
+        var text: String?
+        var effort: String?
+        var band: String?
+        /// The description does not say enough to judge this piece.
+        var unknown: Bool?
+    }
+
+    /// Two sessions that sit on the same day: the names of the other session(s) and why it matters.
+    struct Overlap: Codable, Equatable {
+        var with: [String]?
+        var reason: String?
     }
 
     struct Done: Codable, Equatable {

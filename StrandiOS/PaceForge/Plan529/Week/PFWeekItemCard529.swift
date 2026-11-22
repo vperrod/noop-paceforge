@@ -1,7 +1,7 @@
 import SwiftUI
 import StrandDesign
 
-/// What a card needs from the page around it.
+/// What a row needs from the page around it.
 struct PFWeekHooks529 {
     var openResults: (PFResultsTarget529) -> Void
     var openSession: (String) -> Void
@@ -9,16 +9,28 @@ struct PFWeekHooks529 {
     var askCoach: (String) -> Void
 }
 
-/// One day of the week: its title, the tag ("Day 2 after the race") and every workout of the day written out as a card.
+/// The two sessions of a day an "Overlaps" chip is about.
+struct PFOverlapTarget543: Identifiable, Equatable {
+    let week: String
+    let day: PFPlanWeekDoc.Day
+    let item: PFPlanWeekDoc.Item
+
+    var id: String {
+        PFNeedsStrip543.overlapKey(date: day.date, title: item.title, overlap: item.overlap ?? PFPlanWeekDoc.Overlap())
+    }
+}
+
+/// One day of the week: its title and every session of the day as a row of one or two lines (build 543, drawing 3.1).
 struct PFWeekDay529: View {
     let week: String
     let day: PFPlanWeekDoc.Day
     let isToday: Bool
     let hooks: PFWeekHooks529
-    /// False in a finished week: its sessions are history, so no edit is offered.
+    /// False in a finished week: its sessions are history, so no change is offered.
     var allowsEdits = true
 
     @ObservedObject private var model = PFUnified.model
+    @State private var overlap: PFOverlapTarget543?
 
     private var items: [PFPlanWeekDoc.Item] { day.items ?? [] }
     private var keyedItems: [(key: String, item: PFPlanWeekDoc.Item)] {
@@ -26,25 +38,39 @@ struct PFWeekDay529: View {
             (item.sessionId ?? "\(day.date ?? "")-\(item.kind ?? "")-\(item.raceDate ?? String(offset))", item)
         }
     }
-    /// Bike rides of the day from the ride metrics: they are not planned sessions, so they sit beside the cards as before.
+    /// Bike rides of the day from the ride metrics: they are not planned sessions, so they sit beside the rows as before.
     private var rides: [PFRide] { model.snapshot?.rides(on: day.date ?? "") ?? [] }
+
+    private var countText: String? {
+        let sessions = items.filter { PFPlanRow543.isSession($0) }.count
+        guard sessions > 0 else { return nil }
+        return sessions == 1 ? "1 session" : "\(sessions) sessions"
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            HStack(alignment: .center, spacing: 8) {
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
                 Text(day.title ?? day.dow ?? "")
-                    .lookCaps(13, weight: .bold)
-                    .foregroundStyle(isToday ? PFWeekColor529.teal : NoopLook.textSecondary)
+                    .font(PFPlanFont543.text(17, weight: .bold))
+                    .foregroundStyle(isToday ? PFWeekColor529.teal : NoopLook.textPrimary)
+                    .fixedSize(horizontal: false, vertical: true)
+                if isToday { Text("Today").font(PFPlanFont543.text(15, weight: .semibold)).foregroundStyle(PFWeekColor529.teal) }
                 if let tag = day.tag, !tag.isEmpty {
-                    Text(tag).font(LookFont.text(12, weight: .regular)).foregroundStyle(NoopLook.textTertiary)
+                    Text(tag).font(PFPlanFont543.text(15, weight: .regular)).foregroundStyle(NoopLook.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
                 Spacer(minLength: 4)
-                if allowsEdits, let date = day.date, !date.isEmpty { PFDayAddButton529(date: date) }
+                if let countText {
+                    Text(countText).font(PFPlanFont543.text(15, weight: .regular)).foregroundStyle(NoopLook.textSecondary)
+                }
             }
             .padding(.horizontal, 2)
-            // Keyed by the session id (a race by its date, else the position): a card keeps its own state when its neighbour changes.
+            .accessibilityElement(children: .combine)
+            .accessibilityAddTraits(.isHeader)
+            // Keyed by the session id (a race by its date, else the position): a row keeps its own state when its neighbour changes.
             ForEach(keyedItems, id: \.key) { entry in
-                PFWeekItemCard529(week: week, day: day, item: entry.item, isToday: isToday, hooks: hooks, allowsEdits: allowsEdits)
+                PFWeekItemCard529(week: week, day: day, item: entry.item, isToday: isToday, hooks: hooks, allowsEdits: allowsEdits,
+                                  onOverlap: { overlap = PFOverlapTarget543(week: week, day: day, item: entry.item) })
                     .id(entry.key)
             }
             if let snapshot = model.snapshot {
@@ -53,11 +79,12 @@ struct PFWeekDay529: View {
             if items.isEmpty && rides.isEmpty { PFWeekSub529(text: "Nothing planned.") }
         }
         .containerIdentifier("plan529-day-\(day.date ?? "")")
+        .background { Color.clear.sheet(item: $overlap) { PFOverlapSheet543(target: $0) } }
     }
 }
 
-/// A workout, a race or a rest day, written out: the title and its effort, the pills, the change waiting, then Why / How hard / Do /
-/// If you wake up red, and the actions. Nothing to tap to understand the week.
+/// A session, a race or a rest day as a row: the title, one line of what it is, and its badges. Everything else is one tap away on the
+/// session's own screen.
 struct PFWeekItemCard529: View {
     let week: String
     let day: PFPlanWeekDoc.Day
@@ -65,6 +92,7 @@ struct PFWeekItemCard529: View {
     let isToday: Bool
     let hooks: PFWeekHooks529
     var allowsEdits = true
+    var onOverlap: () -> Void = {}
 
     @ObservedObject private var model = PFUnified.model
     private let hiding = PFHiding()
@@ -72,63 +100,118 @@ struct PFWeekItemCard529: View {
     private var kind: String { item.kind ?? "session" }
     private var date: String { day.date ?? "" }
     private var key: String { item.sessionId ?? "\(date)-\(kind)" }
-    private var isDone: Bool { ["done", "partial"].contains(item.status ?? "") }
-    private var color: Color { PFWeekColor529.effort(kind == "race" ? "race" : item.effort) }
+    private var isDone: Bool { PFPlanRow543.isDone(item) }
+    private var isCoach: Bool { PFPlanRow543.isCoach(item) }
+    /// The overlap unless the athlete chose "Keep both" for this pair on this day.
+    private var shownOverlap: PFPlanWeekDoc.Overlap? {
+        guard let overlap = item.overlap else { return nil }
+        return UserDefaults.standard.bool(forKey: PFOverlap543.keptKey(date: day.date, title: item.title, overlap: overlap)) ? nil : overlap
+    }
+    private var opensSomething: Bool { kind != "rest" && (item.activityId != nil || item.sessionId != nil) }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            headerRow
-            pills
-            PFCoachSessionNote542(item: item, idPrefix: "plan529-coach-\(key)")
-            if !isDone, kind != "race", kind != "rest" { PFWatchChip529(sessionID: item.sessionId) }
-            if let thin = thinWorkout, let snapshot = model.snapshot, PFWorkoutBadges.hasAny(thin, snapshot) {
-                PFWorkoutBadges(workout: thin, snapshot: snapshot)
+        if kind == "rest" {
+            restRow
+        } else {
+            VStack(alignment: .leading, spacing: 6) {
+                Button(action: open) { mainRow }
+                    .buttonStyle(.plain)
+                    .disabled(!opensSomething)
+                    .accessibilityElement(children: .combine)
+                    .accessibilityLabel(PFPlanRow543.sentence(item, dow: day.dow))
+                    .accessibilityHint(opensSomething ? "Opens the session" : "")
+                    .accessibilityIdentifier(openIdentifier)
+                if kind == "session", !isDone { PFWatchChip529(sessionID: item.sessionId).padding(.horizontal, 12) }
+                if let overlap = shownOverlap { overlapButton(overlap) }
             }
-            lines
-            if let done = item.done?.line, !done.isEmpty {
-                Label(hiding.text(done), systemImage: "checkmark.circle")
-                    .font(LookFont.text(13, weight: .medium))
-                    .foregroundStyle(PFWeekColor529.teal)
-                    .accessibilityIdentifier("plan529-done-\(key)")
+            .padding(.vertical, 6)
+            .background(RoundedRectangle(cornerRadius: NoopLook.Metric.tileRadius, style: .continuous).fill(NoopLook.card))
+            .overlay(alignment: .leading) {
+                if isCoach {
+                    Rectangle().fill(PFPlanCoachEdge543.color).frame(width: 5).accessibilityHidden(true)
+                }
             }
-            if let result = item.result { raceResult(result) }
-            review
-            actions
-            if kind == "session", let id = item.sessionId {
-                PFEditDescriptionButton529(target: PFDescribeTarget529(item: item, sessionID: id), idPrefix: "plan529-act-\(id)")
-            }
+            .clipShape(RoundedRectangle(cornerRadius: NoopLook.Metric.tileRadius, style: .continuous))
+            .containerIdentifier("plan529-item-\(key)")
         }
-        .pfWeekCard()
-        .containerIdentifier("plan529-item-\(key)")
     }
 
-    // MARK: Header
+    // MARK: Rows
 
-    private var headerRow: some View {
-        Button(action: open) {
+    private var mainRow: some View {
+        VStack(alignment: .leading, spacing: 6) {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
-                Circle().fill(color).frame(width: 8, height: 8).accessibilityHidden(true)
                 Text(item.title ?? "")
-                    .font(LookFont.text(17, weight: .bold))
+                    .font(PFPlanFont543.text(17, weight: .bold))
                     .foregroundStyle(NoopLook.textPrimary)
                     .multilineTextAlignment(.leading)
                     .fixedSize(horizontal: false, vertical: true)
                 Spacer(minLength: 6)
-                if let label = item.effortLabel, !label.isEmpty {
-                    PFChip(text: label, color: color)
-                }
                 if opensSomething {
                     Image(systemName: "chevron.right")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(NoopLook.textTertiary)
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(NoopLook.textSecondary)
                         .accessibilityHidden(true)
                 }
             }
+            if let line = summaryLine {
+                Text(hiding.text(line))
+                    .font(PFPlanFont543.text(15, weight: .regular))
+                    .foregroundStyle(NoopLook.textSecondary)
+                    .multilineTextAlignment(.leading)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier("plan529-summary-\(key)")
+            }
+            let badges = rowBadges
+            if !badges.isEmpty { PFPlanBadgeRow543(badges: badges) }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 6)
+        .padding(.leading, isCoach ? 4 : 0)
+        .contentShape(Rectangle())
+    }
+
+    private var restRow: some View {
+        Text(item.title ?? "Rest day")
+            .font(PFPlanFont543.text(15, weight: .regular))
+            .foregroundStyle(NoopLook.textSecondary)
+            .padding(.horizontal, 2)
+            .accessibilityIdentifier("plan529-item-\(key)")
+    }
+
+    /// A session's one line; a race's result; the finished race's time.
+    private var summaryLine: String? {
+        if kind == "race" {
+            if let result = item.result, let time = result.time { return [time, result.delta].compactMap { $0 }.joined(separator: " \u{00B7} ") }
+            return item.raceDate.map { "Race on \(PFFormat.dayTitle($0))" }
+        }
+        return PFPlanRow543.summary(item)
+    }
+
+    /// The badges of a row without the overlap chip: that one is its own button.
+    private var rowBadges: [PFPlanBadge543] {
+        PFPlanRow543.badges(item).filter { $0.tone != .overlap }
+    }
+
+    private func overlapButton(_ overlap: PFPlanWeekDoc.Overlap) -> some View {
+        Button(action: onOverlap) {
+            HStack(spacing: 6) {
+                PFPlanBadgeView543(badge: PFPlanBadge543(text: PFPlanRow543.overlapText(overlap), tone: .overlap))
+                Spacer(minLength: 0)
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(NoopLook.textSecondary)
+                    .accessibilityHidden(true)
+            }
+            .frame(minHeight: 44)
+            .padding(.horizontal, 12)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .disabled(!opensSomething)
-        .accessibilityIdentifier(openIdentifier)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(PFPlanRow543.overlapText(overlap)). Opens the overlap.")
+        .accessibilityIdentifier("plan529-overlap-\(key)")
     }
 
     /// A session keeps the identifier its row had (`pf-workout-<id>`), a race too (`pf-week-race-<date>`).
@@ -137,111 +220,12 @@ struct PFWeekItemCard529: View {
         return item.sessionId.map { "pf-workout-\($0)" } ?? "plan529-open-\(key)"
     }
 
-    private var opensSomething: Bool { kind != "rest" && (item.activityId != nil || item.sessionId != nil) }
-
-    /// A finished workout or race opens the existing results sheet; a planned session opens its sheet (W2).
+    /// A session opens its own screen (planned or finished); a race or a recording without a session opens the results sheet.
     private func open() {
-        if isDone || (kind == "race" && item.activityId != nil), let id = item.activityId {
-            hooks.openResults(PFResultsTarget529(id: id, title: item.title, date: date, isRace: kind == "race"))
-        } else if let id = item.sessionId {
+        if kind == "session", let id = item.sessionId {
             hooks.openSession(id)
+        } else if let id = item.activityId {
+            hooks.openResults(PFResultsTarget529(id: id, title: item.title, date: date, isRace: kind == "race"))
         }
-    }
-
-    // MARK: Pills
-
-    private var pills: some View {
-        PFWeekPills529(pills: pillList)
-    }
-
-    private var pillList: [(text: String, color: Color)] {
-        var out: [(text: String, color: Color)] = []
-        switch item.status ?? "" {
-        case "done": out.append(("Done", PFWeekColor529.teal))
-        case "partial": out.append(("Partial", PFWeekColor529.amber))
-        case "missed": out.append(("Missed", PFWeekColor529.red))
-        default: break
-        }
-        let isCoach = item.coachAssigned == true
-        if isCoach { out.append((PFCoachSession.badge, PFWeekColor529.teal)) }
-        // The server's own "TrueCoach" pill says the same as the Coach badge.
-        for pill in item.pills ?? [] where !(isCoach && pill.lowercased() == "truecoach") { out.append((pill, NoopLook.textTertiary)) }
-        if let change = item.changePill, !change.isEmpty { out.append((change, PFWeekColor529.amber)) }
-        return out
-    }
-
-    private var thinWorkout: PFWorkout? {
-        guard let id = item.sessionId else { return nil }
-        return PFWorkout(id: id, date: date, status: item.status ?? "planned", name: item.title, activityId: item.activityId)
-    }
-
-    // MARK: Lines
-
-    @ViewBuilder private var lines: some View {
-        if let text = item.why, !text.isEmpty { PFWeekLine529(label: "Why", text: text) }
-        if let text = item.howHard, !text.isEmpty { PFWeekLine529(label: "How hard", text: text) }
-        if let text = item.do, !text.isEmpty { PFWeekLine529(label: "Do", text: text) }
-        if let text = item.ifRed, !text.isEmpty { PFWeekLine529(label: "If you wake up red", text: text, tint: PFWeekColor529.red) }
-    }
-
-    private func raceResult(_ result: PFPlanWeekDoc.RaceResult) -> some View {
-        HStack(spacing: 8) {
-            Text(result.time ?? "").font(LookFont.text(15, weight: .bold)).foregroundStyle(NoopLook.textPrimary)
-            if let delta = result.delta { Text(delta).font(LookFont.text(12.5, weight: .regular)).foregroundStyle(NoopLook.textSecondary) }
-            if let goal = result.goal { Text("Goal \(goal)").font(LookFont.text(12.5, weight: .regular)).foregroundStyle(NoopLook.textTertiary) }
-        }
-        .accessibilityIdentifier("plan529-race-result-\(key)")
-    }
-
-    /// The coach's review of a finished workout: the verdict when it is ready, "pending" while it is being written, nothing when silent.
-    @ViewBuilder private var review: some View {
-        switch item.review?.state ?? "" {
-        case "ready":
-            Text(hiding.text("Coach: \(item.review?.verdict ?? "reviewed")"))
-                .font(LookFont.text(13, weight: .medium))
-                .foregroundStyle(NoopLook.textSecondary)
-                .accessibilityIdentifier("plan529-review-\(key)")
-            if let meaning = item.review?.meaning, !meaning.isEmpty {
-                PFWeekSub529(text: meaning).accessibilityIdentifier("plan529-review-meaning-\(key)")
-            }
-        case "pending":
-            Text("Coach review: on its way")
-                .font(LookFont.text(13, weight: .regular))
-                .foregroundStyle(NoopLook.textTertiary)
-                .accessibilityIdentifier("plan529-review-\(key)")
-        default:
-            EmptyView()
-        }
-    }
-
-    // MARK: Actions
-
-    @ViewBuilder private var actions: some View {
-        if allowsEdits, kind == "session", !isDone, let id = item.sessionId {
-            PFSessionActionBar529(target: PFSessionTarget529(sessionId: id, title: item.title ?? "", date: date,
-                                                             status: item.status ?? "planned", isToday: isToday,
-                                                             minutes: item.minutes, rpe: item.rpe, isMandatory: item.mandatory == true),
-                                  actions: cardActions, idPrefix: "plan529-act-\(id)",
-                                  onMore: { hooks.openSession(id) },
-                                  onChangeWorkout: { hooks.openSwap(swapTarget(sessionId: id)) },
-                                  onAskCoach: { hooks.askCoach(coachQuestion) })
-        } else if allowsEdits, kind == "rest" {
-            PFWeekButton529(title: "Add a workout", identifier: "plan529-add-\(date)") {
-                hooks.openSwap(PFSwapTarget529(week: week, date: date, sessionId: nil, title: nil, minutes: nil))
-            }
-        }
-    }
-
-    /// The actions the server lists for the session, with More as the way into the session sheet.
-    private var cardActions: [PFSessionAction529] {
-        PFSessionAction529.forSession(status: item.status ?? "planned", isOptional: item.optional == true, includesMore: true, includesAskCoach: false)
-    }
-
-    private func swapTarget(sessionId: String) -> PFSwapTarget529 {
-        PFSwapTarget529(week: week, date: date, sessionId: sessionId, title: item.title, minutes: item.minutes)
-    }
-
-    private var coachQuestion: String {
-        "About \(item.title ?? "this workout") on \(PFFormat.dayTitle(date)): why is it in my plan, and what happens if I change it?"
     }
 }

@@ -72,7 +72,7 @@ private struct PFTodayOnly529: View {
 
     private func titleBlock(_ title: String, _ sub: String) -> some View {
         VStack(alignment: .leading, spacing: 2) {
-            Text(title).font(LookFont.text(15, weight: .semibold)).foregroundStyle(NoopLook.textPrimary)
+            Text(title).font(PFPlanFont543.text(15, weight: .semibold)).foregroundStyle(NoopLook.textPrimary)
             PFWeekSub529(text: sub)
         }
     }
@@ -84,7 +84,7 @@ private struct PFTodayOnly529: View {
                 Spacer(minLength: 8)
                 Image(systemName: "chevron.right")
                     .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(NoopLook.textTertiary)
+                    .foregroundStyle(NoopLook.textSecondary)
                     .accessibilityHidden(true)
             }
             .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
@@ -101,13 +101,13 @@ private struct PFTodayOnly529: View {
             PFWeekSub529(text: "Working on it")
         case .failed(let message):
             Text(message)
-                .font(LookFont.text(12.5, weight: .regular))
+                .font(PFPlanFont543.text(12.5, weight: .regular))
                 .foregroundStyle(PFWeekColor529.amber)
                 .fixedSize(horizontal: false, vertical: true)
         case .done:
             if let confirmation {
                 Text(PFFormat.capitalized(confirmation))
-                    .font(LookFont.text(14, weight: .regular))
+                    .font(PFPlanFont543.text(14, weight: .regular))
                     .foregroundStyle(NoopLook.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
                     .accessibilityIdentifier("pf-adjust-result")
@@ -159,7 +159,7 @@ private struct PFEasyModePanel529: View {
             }
             PFWeekSub529(text: "Lighter: no pace targets. Less: a quarter less, easy only. Rest-ish: walks and mobility. For 3 to 14 days, then the plan comes back by itself.")
             Stepper(value: $days, in: PFEasyModeJobs.days) {
-                Text("For \(days) days").font(LookFont.text(14.5, weight: .medium)).foregroundStyle(NoopLook.textPrimary)
+                Text("For \(days) days").font(PFPlanFont543.text(14.5, weight: .medium)).foregroundStyle(NoopLook.textPrimary)
             }
             PFWeekButton529(title: "Start easy mode", isProminent: true, isDisabled: isBusy, identifier: "pf-easy-start") {
                 Task { await begin() }
@@ -174,10 +174,10 @@ private struct PFEasyModePanel529: View {
         let isSelected = level == option
         return Button { level = option } label: {
             Text(Self.label(option))
-                .lookCaps(11, weight: .semibold)
+                .pfCaps(11, weight: .semibold)
                 .foregroundStyle(isSelected ? Color(hex: "#06231A") : NoopLook.textPrimary)
                 .padding(.horizontal, 14)
-                .frame(minHeight: 40)
+                .frame(minHeight: 44)
                 .background(Capsule(style: .continuous).fill(isSelected ? PFWeekColor529.teal : Color.clear))
                 .overlay(Capsule(style: .continuous).stroke(isSelected ? PFWeekColor529.teal : NoopLook.divider, lineWidth: 1))
         }
@@ -201,7 +201,7 @@ private struct PFEasyModePanel529: View {
             PFWeekSub529(text: "Working on it")
         case .failed(let message):
             Text(message)
-                .font(LookFont.text(12.5, weight: .regular))
+                .font(PFPlanFont543.text(12.5, weight: .regular))
                 .foregroundStyle(PFWeekColor529.amber)
                 .fixedSize(horizontal: false, vertical: true)
         case .done:
@@ -252,7 +252,7 @@ private struct PFNigglePanel529: View {
             }
             if case .failed(let message) = tracker.phase {
                 Text(message)
-                    .font(LookFont.text(12.5, weight: .regular))
+                    .font(PFPlanFont543.text(12.5, weight: .regular))
                     .foregroundStyle(PFWeekColor529.amber)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -276,7 +276,7 @@ private struct PFNigglePanel529: View {
         ForEach(open) { niggle in
             HStack(spacing: 10) {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(PFFormat.capitalized(niggle.site)).font(LookFont.text(15, weight: .semibold)).foregroundStyle(NoopLook.textPrimary)
+                    Text(PFFormat.capitalized(niggle.site)).font(PFPlanFont543.text(15, weight: .semibold)).foregroundStyle(NoopLook.textPrimary)
                     PFWeekSub529(text: [niggle.severity.map { "\($0)/5" }, niggle.date].compactMap { $0 }.joined(separator: " \u{00B7} "))
                 }
                 Spacer(minLength: 8)
@@ -298,10 +298,10 @@ private struct PFNigglePanel529: View {
     private func chip(selected: Bool, title: String, id: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Text(title)
-                .lookCaps(11, weight: .semibold)
+                .pfCaps(11, weight: .semibold)
                 .foregroundStyle(selected ? Color(hex: "#06231A") : NoopLook.textPrimary)
                 .padding(.horizontal, 12)
-                .frame(minHeight: 40)
+                .frame(minHeight: 44)
                 .background(Capsule(style: .continuous).fill(selected ? PFWeekColor529.teal : Color.clear))
                 .overlay(Capsule(style: .continuous).stroke(selected ? PFWeekColor529.teal : NoopLook.divider, lineWidth: 1))
         }

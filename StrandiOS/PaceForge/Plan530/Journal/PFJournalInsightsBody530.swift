@@ -68,7 +68,7 @@ struct PFJournalInsightsBody530: View {
         return VStack(alignment: .leading, spacing: 6) {
             PFOver529(text: "No result yet")
             Text("No behaviour has \(Logic.daysNeeded) days with it and \(Logic.daysNeeded) without it against \(what)\(Logic.lagTitle(lag, outcome: outcome).lowercased()) yet.")
-                .font(LookFont.text(14))
+                .font(PFPlanFont543.text(14))
                 .foregroundStyle(NoopLook.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -100,8 +100,8 @@ struct PFJournalInsightsBody530: View {
     private func amounts(_ buckets: [PFJournalDoc530.Bucket], series: Logic.Series, id: String) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             Text("By amount")
-                .font(LookFont.text(12.5, weight: .semibold))
-                .foregroundStyle(NoopLook.textTertiary)
+                .font(PFPlanFont543.text(12.5, weight: .semibold))
+                .foregroundStyle(NoopLook.textSecondary)
             ForEach(Array(buckets.enumerated()), id: \.offset) { _, bucket in
                 let mean = bucket.mean ?? 0
                 barRow(label: "\(bucket.amount ?? "") · \(bucket.n ?? 0) days", value: shown(mean, series.unit),
@@ -113,7 +113,7 @@ struct PFJournalInsightsBody530: View {
     /// The server's own sentence for the row; nothing is composed here.
     private func reading(_ note: String?) -> some View {
         Text(hiding.text(note ?? ""))
-            .font(LookFont.text(13.5))
+            .font(PFPlanFont543.text(13.5))
             .foregroundStyle(NoopLook.textSecondary)
             .fixedSize(horizontal: false, vertical: true)
             .accessibilityIdentifier("pf530-insight-reading")
@@ -129,13 +129,13 @@ struct PFJournalInsightsBody530: View {
                 let pair = hiding.shown("\(Logic.plainText(withValue, unit: series.unit)) / \(Logic.plainText(withoutValue, unit: series.unit))", .scores)
                 HStack(spacing: 10) {
                     Text(insight.label ?? id)
-                        .font(LookFont.text(13.5, weight: .medium))
+                        .font(PFPlanFont543.text(13.5, weight: .medium))
                         .foregroundStyle(NoopLook.textPrimary)
                         .lineLimit(2)
                         .frame(width: 112, alignment: .leading)
                     track(fraction: Logic.barFraction(withValue, unit: series.unit), color: NoopLook.rest)
                     Text(pair)
-                        .font(LookFont.text(13, weight: .semibold))
+                        .font(PFPlanFont543.text(13, weight: .semibold))
                         .foregroundStyle(NoopLook.textSecondary)
                         .frame(minWidth: 62, alignment: .trailing)
                         .accessibilityIdentifier("pf530-insight-value-\(id)")
@@ -143,8 +143,8 @@ struct PFJournalInsightsBody530: View {
                 .containerIdentifier("pf530-insight-row-\(id)")
             }
             Text("\(series.measure) with it / without it, \(series.device).")
-                .font(LookFont.text(12.5))
-                .foregroundStyle(NoopLook.textTertiary)
+                .font(PFPlanFont543.text(12.5))
+                .foregroundStyle(NoopLook.textSecondary)
         }
         .planCard529()
         .containerIdentifier("pf530-insight-noeffect")
@@ -162,13 +162,13 @@ struct PFJournalInsightsBody530: View {
                     let key = question.key ?? ""
                     HStack(spacing: 10) {
                         Text(question.label ?? key)
-                            .font(LookFont.text(13.5, weight: .medium))
+                            .font(PFPlanFont543.text(13.5, weight: .medium))
                             .foregroundStyle(NoopLook.textPrimary)
                             .lineLimit(2)
                             .frame(width: 112, alignment: .leading)
                         track(fraction: Logic.progress(yes: question.nYes, no: question.nNo), color: Color(hex: NoopLook.Hex.coachBlue))
                         Text("\(question.nYes ?? 0) · \(question.nNo ?? 0)")
-                            .font(LookFont.text(13, weight: .semibold))
+                            .font(PFPlanFont543.text(13, weight: .semibold))
                             .foregroundStyle(NoopLook.textSecondary)
                             .frame(minWidth: 62, alignment: .trailing)
                             .accessibilityIdentifier("pf530-insight-counts-\(key)")
@@ -176,15 +176,15 @@ struct PFJournalInsightsBody530: View {
                     .containerIdentifier("pf530-insight-collecting-\(key)")
                 }
                 Text(collectingNote(total: waiting.count))
-                    .font(LookFont.text(12.5))
-                    .foregroundStyle(NoopLook.textTertiary)
+                    .font(PFPlanFont543.text(12.5))
+                    .foregroundStyle(NoopLook.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
                 if waiting.count > Self.collectingShown {
                     Button { showsAllCollecting.toggle() } label: {
                         Text(showsAllCollecting ? "Show fewer" : "Show all \(waiting.count)")
-                            .font(LookFont.text(13, weight: .semibold))
+                            .font(PFPlanFont543.text(13, weight: .semibold))
                             .foregroundStyle(StrandPalette.accent)
-                            .frame(minHeight: 40, alignment: .leading)
+                            .frame(minHeight: 44, alignment: .leading)
                     }
                     .buttonStyle(.plain)
                     .accessibilityIdentifier("pf530-insight-collecting-all")
@@ -210,13 +210,13 @@ struct PFJournalInsightsBody530: View {
     private func barRow(label: String, value: String, fraction: Double, color: Color, id: String) -> some View {
         HStack(spacing: 10) {
             Text(label)
-                .font(LookFont.text(13.5, weight: .medium))
+                .font(PFPlanFont543.text(13.5, weight: .medium))
                 .foregroundStyle(NoopLook.textPrimary)
                 .lineLimit(2)
                 .frame(width: 112, alignment: .leading)
             track(fraction: fraction, color: color)
             Text(value)
-                .font(LookFont.text(13, weight: .semibold))
+                .font(PFPlanFont543.text(13, weight: .semibold))
                 .foregroundStyle(NoopLook.textSecondary)
                 .frame(minWidth: 62, alignment: .trailing)
         }

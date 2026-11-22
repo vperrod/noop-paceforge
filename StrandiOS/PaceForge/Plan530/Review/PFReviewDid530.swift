@@ -43,7 +43,7 @@ struct PFReviewDid530: View {
             ForEach(present, id: \.self) { effort in
                 HStack(spacing: 5) {
                     Circle().fill(PFWeekColor529.effort(effort)).frame(width: 8, height: 8)
-                    Text(effort).font(LookFont.text(11.5, weight: .regular)).foregroundStyle(NoopLook.textTertiary)
+                    Text(effort).font(PFPlanFont543.text(11.5, weight: .regular)).foregroundStyle(NoopLook.textSecondary)
                 }
             }
         }
@@ -86,18 +86,18 @@ struct PFReviewDid530: View {
 
     private func raceTile(_ race: PFPlanWeekDoc.Race, index: Int) -> some View {
         let sub = race.sub ?? ""
-        let tone: Color = sub.contains("over") ? PFWeekColor529.red : sub.contains("inside") ? PFWeekColor529.teal : NoopLook.textTertiary
+        let tone: Color = sub.contains("over") ? PFWeekColor529.red : sub.contains("inside") ? PFWeekColor529.teal : NoopLook.textSecondary
         return VStack(alignment: .leading, spacing: 3) {
             Text("\(race.day ?? "") \u{00B7} \(race.name ?? "")")
-                .font(LookFont.text(11.5, weight: .regular))
-                .foregroundStyle(NoopLook.textTertiary)
+                .font(PFPlanFont543.text(11.5, weight: .regular))
+                .foregroundStyle(NoopLook.textSecondary)
                 .lineLimit(2)
                 .fixedSize(horizontal: false, vertical: true)
             Text(race.time ?? "")
-                .font(LookFont.text(22, weight: .bold))
+                .font(PFPlanFont543.text(22, weight: .bold))
                 .foregroundStyle(NoopLook.textPrimary)
             Text(sub)
-                .font(LookFont.text(11.5, weight: .semibold))
+                .font(PFPlanFont543.text(11.5, weight: .semibold))
                 .foregroundStyle(tone)
                 .fixedSize(horizontal: false, vertical: true)
         }

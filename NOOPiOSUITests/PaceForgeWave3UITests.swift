@@ -113,11 +113,17 @@ final class PaceForgeWave3UITests: XCTestCase {
 
     // MARK: Easy mode
 
-    /// Plan > Week. While a mode is on or proposed the Week page carries one line for it (`plan529-easy-banner`) that opens Change today;
-    /// with none on, "Not feeling 100 %" opens the same sheet. The sheet holds the card, the start controls and End easy mode.
+    /// Plan > Week. While a mode is on or proposed Week notes carries one line for it (`plan529-easy-banner`) that opens Change today;
+    /// with none on, "How are you today?" opens the same sheet. The sheet holds the card, the start controls and End easy mode.
     private func openEasyMode(_ app: XCUIApplication, banner: Bool = true) -> XCUIElement {
         app.openChip("Plan", "week")
-        let entry = element(app, banner ? "plan529-easy-banner" : "plan529-not-100")
+        if banner {
+            // Since build 543 the easy-mode line sits under Week notes.
+            let notes = element(app, "plan529-week-notes")
+            XCTAssertTrue(reveal(notes, in: app, maxSwipes: 20), "Plan > Week should offer its Week notes.")
+            notes.tap()
+        }
+        let entry = element(app, banner ? "plan529-easy-banner" : "plan529-how-today")
         XCTAssertTrue(reveal(entry, in: app, maxSwipes: 20), "Plan > Week should show how to reach easy mode.")
         return entry
     }

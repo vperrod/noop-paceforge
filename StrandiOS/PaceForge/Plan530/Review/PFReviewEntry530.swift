@@ -12,14 +12,14 @@ struct PFReviewLinkRow530: View {
             HStack(spacing: 10) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Sunday review")
-                        .font(LookFont.text(15, weight: .semibold))
+                        .font(PFPlanFont543.text(15, weight: .semibold))
                         .foregroundStyle(NoopLook.textPrimary)
                     PFWeekSub529(text: "The week in charts, then the week ahead.")
                 }
                 Spacer(minLength: 8)
                 Image(systemName: "chevron.right")
                     .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(NoopLook.textTertiary)
+                    .foregroundStyle(NoopLook.textSecondary)
                     .accessibilityHidden(true)
             }
             .frame(minHeight: 44)
@@ -40,14 +40,14 @@ struct PFReviewTodayRow530: View {
             HStack(spacing: 10) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Week \(PFReviewFormat530.weekNumber(week)) reviewed")
-                        .font(LookFont.text(15, weight: .semibold))
+                        .font(PFPlanFont543.text(15, weight: .semibold))
                         .foregroundStyle(NoopLook.textPrimary)
                     PFWeekSub529(text: "The week behind you, then the week ahead.")
                 }
                 Spacer(minLength: 8)
                 Image(systemName: "chevron.right")
                     .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(NoopLook.textTertiary)
+                    .foregroundStyle(NoopLook.textSecondary)
                     .accessibilityHidden(true)
             }
             .frame(minHeight: 44)

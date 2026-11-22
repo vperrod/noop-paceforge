@@ -1,7 +1,7 @@
 import XCTest
 
-/// Build 529, Plan > Week: the coming week written out (W1), the session sheet (W2), a change opened (W3), Change today (W4), Change
-/// workout (W5) and a finished week as its report (R1). Fixture-backed (`Fixtures529/week.json` over the contract examples): the weeks are
+/// Build 529, Plan > Week: the coming week as one row per session (W1, redesigned in build 543), the session screen (W2), a change opened (W3),
+/// Change today (W4), Change workout (W5) and a finished week as its report (R1). Fixture-backed (`Fixtures529/week.json` over the contract examples): the weeks are
 /// 2026-W46 (finished, the report), 2026-W47 (coming, three changes) and 2026-W48 (coming). `-Plan529Open` opens a week or a sheet.
 final class Plan529WeekUITests: XCTestCase {
     private func launch(open target: String) throws -> XCUIApplication {
@@ -48,38 +48,76 @@ final class Plan529WeekUITests: XCTestCase {
         app.staticTexts.matching(NSPredicate(format: "label == %@", label)).firstMatch
     }
 
+    /// Opens a session from its row on the Week page and waits for its screen.
+    private func openSession(_ app: XCUIApplication, _ id: String) {
+        let row = app.element("pf-workout-\(id)")
+        XCTAssertTrue(reveal(row, in: app), "The session \(id) should be a row on the Week page.")
+        row.tap()
+        XCTAssertTrue(app.element("plan529-session-title").waitForExistence(timeout: 30), "The session screen should open.")
+    }
+
+    /// Chooses one entry of the session's three-dots menu.
+    private func chooseFromMenu(_ app: XCUIApplication, _ title: String) {
+        let menu = app.element("plan529-sheet-menu")
+        XCTAssertTrue(menu.waitForExistence(timeout: 15), "The session should have its three-dots menu.")
+        menu.tap()
+        let entry = app.buttons[title]
+        XCTAssertTrue(entry.waitForExistence(timeout: 10), "The menu should offer \(title).")
+        entry.tap()
+    }
+
+    /// Opens Week notes (the strip of the seven days, the hours, the coach's week and the changes live there since build 543).
+    private func openWeekNotes(_ app: XCUIApplication) {
+        let notes = app.element("plan529-week-notes")
+        XCTAssertTrue(reveal(notes, in: app), "The week should offer its Week notes.")
+        notes.tap()
+        XCTAssertTrue(app.element("plan529-notes").waitForExistence(timeout: 15), "Week notes should open.")
+    }
+
     // MARK: W1
 
-    func testComingWeekShowsTheSeasonPlaceTheWhyTheStripAndTheHours() throws {
+    func testComingWeekShowsTheSeasonPlaceTheWhyTheStripAndTheHoursUnderWeekNotes() throws {
         let app = try launchWeek("2026-W47")
         XCTAssertEqual(app.element("plan529-week-label").label, "Week 47 \u{00B7} 16\u{2013}22 Nov")
-        XCTAssertTrue(app.element("plan529-why").exists, "The week should say why.")
+        attach(app, "W1 week coming")
+        openWeekNotes(app)
+        XCTAssertTrue(app.element("plan529-why").exists, "Week notes should say why.")
         XCTAssertTrue(app.element("plan529-strip-day-2026-11-17").exists, "The seven days should show at once.")
         XCTAssertTrue(reveal(app.element("plan529-hours-title"), in: app), "The hours should show as one bar.")
-        attach(app, "W1 week coming")
     }
 
-    func testEveryWorkoutIsWrittenOutWithItsWhyHowHardDoAndBadMorningLine() throws {
+    func testEveryWorkoutIsOneRowAndItsWhyHowHardAndBadMorningLineAreOnItsScreen() throws {
         let app = try launchWeek("2026-W47")
-        let card = app.element("pf-workout-448dbb84")
-        XCTAssertTrue(reveal(card, in: app), "The Wednesday class should have a card.")
-        for label in ["Why", "How hard", "Do", "If you wake up red"] {
-            XCTAssertTrue(text(app, label).exists, "The card should carry the \(label) line without a tap.")
+        let row = app.element("pf-workout-448dbb84")
+        XCTAssertTrue(reveal(row, in: app), "The Wednesday class should have a row.")
+        XCTAssertTrue(row.label.lowercased().contains("wednesday"), "The row should read as one sentence starting with the day: \(row.label)")
+        attach(app, "W1 week coming workout rows")
+        row.tap()
+        XCTAssertTrue(app.element("plan529-session-title").waitForExistence(timeout: 30))
+        let why = app.element("plan529-session-why-toggle")
+        XCTAssertTrue(reveal(why, in: app), "The session screen should hold why it is in the plan.")
+        why.tap()
+        for label in ["Why this session", "How hard", "If you wake up red"] {
+            XCTAssertTrue(text(app, label).waitForExistence(timeout: 5), "The session screen should carry the \(label) line one tap down.")
         }
-        attach(app, "W1 week coming workout cards")
     }
 
-    func testRestDayCardOffersToAddAWorkout() throws {
+    func testThePlusButtonOffersToPlanAWorkoutOrLogWhatIDid() throws {
         let app = try launchWeek("2026-W47")
-        let add = app.element("plan529-add-2026-11-16")
-        XCTAssertTrue(reveal(add, in: app), "The rest-day card should offer to add a workout.")
+        let add = app.element("plan529-add")
+        XCTAssertTrue(add.waitForExistence(timeout: 15), "The week should have one plus button.")
         add.tap()
-        XCTAssertTrue(app.element("plan529-swap-ask").waitForExistence(timeout: 15), "It should open the picker.")
-        XCTAssertTrue(app.navigationBars["Add a workout"].exists, "On a rest day the picker adds instead of replacing.")
+        XCTAssertTrue(app.element("plan529-add-plan").waitForExistence(timeout: 15), "It should offer Plan a workout.")
+        XCTAssertTrue(app.element("plan529-add-log").exists, "It should offer Log what I did.")
+        app.element("plan529-add-plan").tap()
+        XCTAssertTrue(app.element("plan529-addsheet").waitForExistence(timeout: 15), "Plan a workout should open its form.")
     }
 
     func testChangesWaitingCanBeAcceptedAllAtOnce() throws {
         let app = try launchWeek("2026-W47")
+        let strip = app.element("plan529-needs-strip")
+        XCTAssertTrue(strip.waitForExistence(timeout: 15), "Changes waiting should show in the needs-you strip.")
+        strip.tap()
         let all = app.element("plan529-accept-all")
         XCTAssertTrue(reveal(all, in: app), "Three changes should offer Accept all 3.")
         XCTAssertEqual(all.label, "Accept all 3")
@@ -90,8 +128,9 @@ final class Plan529WeekUITests: XCTestCase {
 
     func testTellTheCoachRunsTheChangeMyPlanJob() throws {
         let app = try launchWeek("2026-W47")
+        openWeekNotes(app)
         let input = app.element("plan529-tell-input")
-        XCTAssertTrue(reveal(input, in: app), "The Tell the coach field should be under the week.")
+        XCTAssertTrue(reveal(input, in: app), "The coach field should be under Week notes.")
         input.tap()
         input.typeText("Move Thursday to Friday")
         app.element("plan529-tell-send").tap()
@@ -103,7 +142,7 @@ final class Plan529WeekUITests: XCTestCase {
     func testArrowsMoveToTheFinishedWeekAndItsReport() throws {
         let app = try launchWeek("2026-W47")
         // The page under the arrows loads after the arrows draw; an arrow tapped while it swaps in is lost.
-        XCTAssertTrue(app.element("plan529-why").waitForExistence(timeout: 30), "The week should have loaded.")
+        XCTAssertTrue(app.element("plan529-week-notes").waitForExistence(timeout: 30), "The week should have loaded.")
         app.element("plan529-week-prev").tap()
         XCTAssertTrue(app.element("plan529-verdict").waitForExistence(timeout: 20), "A finished week should be its report.")
         XCTAssertEqual(app.element("plan529-week-label").label, "Week 46 \u{00B7} 9\u{2013}15 Nov")
@@ -134,7 +173,7 @@ final class Plan529WeekUITests: XCTestCase {
         XCTAssertTrue(reveal(look, in: app), "The report should end with the decision for next week.")
         XCTAssertTrue(app.element("plan529-accept-next").exists, "Accept next week should be offered while changes wait.")
         look.tap()
-        XCTAssertTrue(app.element("plan529-why").waitForExistence(timeout: 20), "Look at it should open next week.")
+        XCTAssertTrue(app.element("plan529-week-notes").waitForExistence(timeout: 20), "Open the plan should open next week.")
         XCTAssertEqual(app.element("plan529-week-label").label, "Week 47 \u{00B7} 16\u{2013}22 Nov")
     }
 
@@ -148,26 +187,38 @@ final class Plan529WeekUITests: XCTestCase {
 
     // MARK: W2, W3, W4
 
-    func testSessionSheetHasTheActionsAtTheTopAndTheShortBlocks() throws {
+    func testSessionScreenHasEditNoteAndTheThreeDotsAtTheTop() throws {
         let app = try launch(open: "session:2026-W47:448dbb84")
         app.openTab("Plan")
-        XCTAssertTrue(app.element("plan529-session-title").waitForExistence(timeout: 30), "The session sheet should load its session.")
-        for action in ["easier", "move", "skip", "optional", "change", "ask"] {
-            XCTAssertTrue(app.element("plan529-sheet-\(action)").exists, "The sheet should offer \(action) at the top.")
+        XCTAssertTrue(app.element("plan529-session-title").waitForExistence(timeout: 30), "The session screen should load its session.")
+        for control in ["describe", "note", "menu"] {
+            XCTAssertTrue(app.element("plan529-sheet-\(control)").exists, "The screen should offer \(control) at the top.")
         }
-        XCTAssertTrue(text(app, "Why this session").exists, "Why this session should show.")
-        XCTAssertTrue(text(app, "How hard").exists, "How hard should show.")
-        XCTAssertTrue(text(app, "If you wake up red").exists, "The bad-morning line should show.")
-        attach(app, "W2 session sheet")
+        XCTAssertTrue(app.element("plan529-session-notes").exists || reveal(app.element("plan529-session-notes"), in: app),
+                      "The notes for the Coach should be on the screen.")
+        attach(app, "W2 session screen")
     }
 
-    func testSessionSheetShowsATextReplacementComposer() throws {
+    func testTheThreeDotsHoldMoveSkipSwapAndMakeOptional() throws {
         let app = try launch(open: "session:2026-W47:448dbb84")
         app.openTab("Plan")
         XCTAssertTrue(app.element("plan529-session-title").waitForExistence(timeout: 30))
+        app.element("plan529-sheet-menu").tap()
+        for title in ["Move to another day", "Skip", "Swap for another workout", "Make optional"] {
+            XCTAssertTrue(app.buttons[title].waitForExistence(timeout: 10), "The three dots should offer \(title).")
+        }
+    }
+
+    func testSessionScreenShowsATextReplacementComposer() throws {
+        let app = try launch(open: "session:2026-W47:448dbb84")
+        app.openTab("Plan")
+        XCTAssertTrue(app.element("plan529-session-title").waitForExistence(timeout: 30))
+        let toggle = app.element("plan529-session-words-toggle")
+        XCTAssertTrue(reveal(toggle, in: app), "A planned workout should offer to be changed in plain text.")
+        toggle.tap()
         let input = app.element("plan529-session-text-edit-input")
         let send = app.element("plan529-session-text-edit-send")
-        XCTAssertTrue(reveal(input, in: app), "A planned workout should be editable in plain text from its own sheet.")
+        XCTAssertTrue(reveal(input, in: app), "A planned workout should be editable in plain text from its own screen.")
         XCTAssertTrue(reveal(send, in: app))
         XCTAssertFalse(send.isEnabled, "The coach request should stay disabled until text is entered.")
         input.tap()
@@ -177,10 +228,13 @@ final class Plan529WeekUITests: XCTestCase {
         app.terminate()
     }
 
-    func testSessionSheetSubmitsTheTextReplacementToCoach() throws {
+    func testSessionScreenSubmitsTheTextReplacementToCoach() throws {
         let app = try launch(open: "session:2026-W47:448dbb84")
         app.openTab("Plan")
         XCTAssertTrue(app.element("plan529-session-title").waitForExistence(timeout: 30))
+        let toggle = app.element("plan529-session-words-toggle")
+        XCTAssertTrue(reveal(toggle, in: app))
+        toggle.tap()
         let input = app.element("plan529-session-text-edit-input")
         let send = app.element("plan529-session-text-edit-send")
         XCTAssertTrue(reveal(input, in: app))
@@ -231,9 +285,8 @@ final class Plan529WeekUITests: XCTestCase {
 
     func testChangeWorkoutBuildsARunAndOpensItAsAChange() throws {
         let app = try launchWeek("2026-W48")
-        let change = app.element("plan529-act-448dbb84-change")
-        XCTAssertTrue(reveal(change, in: app), "A workout card should offer Change workout.")
-        change.tap()
+        openSession(app, "448dbb84")
+        chooseFromMenu(app, "Swap for another workout")
         XCTAssertTrue(app.element("plan529-swap-ask").waitForExistence(timeout: 15), "The picker should open.")
         XCTAssertTrue(app.element("plan529-swap-kind-hyrox").exists, "HYROX conditioning should be a choice.")
         XCTAssertTrue(app.element("plan529-swap-kind-strength").exists, "Strength should be a choice.")
@@ -252,9 +305,8 @@ final class Plan529WeekUITests: XCTestCase {
 
     func testTryAnotherAsksAgainForTheSameWorkout() throws {
         let app = try launchWeek("2026-W48")
-        let change = app.element("plan529-act-448dbb84-change")
-        XCTAssertTrue(reveal(change, in: app))
-        change.tap()
+        openSession(app, "448dbb84")
+        chooseFromMenu(app, "Swap for another workout")
         XCTAssertTrue(app.element("plan529-swap-kind-run").waitForExistence(timeout: 15))
         app.element("plan529-swap-kind-run").tap()
         app.element("plan529-swap-ask").tap()
@@ -266,16 +318,14 @@ final class Plan529WeekUITests: XCTestCase {
 
     // MARK: Review fixes (F1, F2, F7)
 
-    func testSkippingOneOfTwoSessionsOfADayLeavesTheOtherCardUntouched() throws {
+    func testSkippingASessionFromTheThreeDotsAsksFirstAndSaysSo() throws {
         let app = try launchWeek("2026-W47")
-        let skip = app.element("plan529-act-c10def6f-skip")
-        XCTAssertTrue(reveal(skip, in: app), "The first session of Tuesday should offer Skip.")
-        skip.tap()
+        openSession(app, "c10def6f")
+        chooseFromMenu(app, "Skip")
         let confirm = app.buttons["Skip session"]
         XCTAssertTrue(confirm.waitForExistence(timeout: 10), "Skip should ask first.")
         confirm.tap()
-        XCTAssertTrue(app.element("plan529-act-c10def6f-result").waitForExistence(timeout: 20), "The skipped session should say so.")
-        XCTAssertFalse(app.element("plan529-act-1629495d-result").exists, "The other card of the day must not inherit the answer.")
+        XCTAssertTrue(app.element("plan529-sheet-result").waitForExistence(timeout: 20), "The skipped session should say so.")
     }
 
     func testTheCurrentWeekSaysHowFarItIs() throws {
@@ -283,15 +333,13 @@ final class Plan529WeekUITests: XCTestCase {
         app.openTab("Plan")
         let line = app.element("plan529-progress")
         XCTAssertTrue(line.waitForExistence(timeout: 30), "The current week should carry a progress line.")
-        XCTAssertTrue(line.label.hasPrefix("2 of 7 sessions done"), "It should count the week's own sessions: \(line.label)")
+        XCTAssertTrue(line.label.hasPrefix("2 of 7 done"), "It should count the week's own sessions: \(line.label)")
     }
 
-    func testAFinishedWeekWithoutAReportOffersNoEdits() throws {
+    func testAFinishedWeekWithoutAReportSaysHowItWentAndOffersNoMoveOrSkip() throws {
         let app = try launchWeek("2026-W45")
-        XCTAssertTrue(app.element("plan529-progress").label.hasPrefix("5 of 5 sessions done"), "A finished week should say how it went.")
+        XCTAssertTrue(app.element("plan529-progress").label.hasPrefix("5 of 5 done"), "A finished week should say how it went.")
         XCTAssertFalse(app.element("plan529-add-2026-11-02").exists, "A rest day in the past should not offer to add a workout.")
-        let add = app.element("plan529-add")
-        XCTAssertTrue(reveal(add, in: app), "+ Add should still be drawn.")
-        XCTAssertFalse(add.isEnabled, "+ Add should not offer a past date.")
+        XCTAssertFalse(app.element("plan529-overlap-s-mon").exists, "A finished week should not offer to move or skip a session.")
     }
 }

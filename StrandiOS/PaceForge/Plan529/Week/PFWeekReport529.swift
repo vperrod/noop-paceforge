@@ -2,7 +2,7 @@ import SwiftUI
 import StrandDesign
 
 /// R1: a finished week is its report. One verdict, your races, planned against done, recovery from each device in its own chart, three
-/// short findings, the decision for next week, the links to the long tables, and the week's workouts as cards.
+/// short findings, the decision for next week, the links to the long tables, and the week's sessions as one line each.
 struct PFWeekReport529: View {
     let week: String
     let doc: PFPlanWeekDoc
@@ -24,7 +24,6 @@ struct PFWeekReport529: View {
             findings
             if let next = report?.nextWeek { NextWeekCard529(next: next, decisions: decisions, goToWeek: goToWeek, hooks: hooks) }
             links
-            workouts
         }
     }
 
@@ -36,7 +35,7 @@ struct PFWeekReport529: View {
             PFWeekPills529(pills: pills)
             if let verdict = report?.verdict, !verdict.isEmpty {
                 Text(hiding.text(verdict))
-                    .font(LookFont.text(22, weight: .bold))
+                    .font(PFPlanFont543.text(22, weight: .bold))
                     .foregroundStyle(NoopLook.textPrimary)
                     .lineSpacing(1)
                     .fixedSize(horizontal: false, vertical: true)
@@ -56,7 +55,7 @@ struct PFWeekReport529: View {
         VStack(alignment: .leading, spacing: 3) {
             if let title = item.title, !title.isEmpty {
                 Text(title)
-                    .font(LookFont.text(15, weight: .semibold))
+                    .font(PFPlanFont543.text(15, weight: .semibold))
                     .foregroundStyle(NoopLook.textPrimary)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -94,19 +93,19 @@ struct PFWeekReport529: View {
         } label: {
             HStack(alignment: .top, spacing: 10) {
                 Text(race.day ?? "")
-                    .lookCaps(12, weight: .semibold)
-                    .foregroundStyle(NoopLook.textTertiary)
-                    .frame(width: 54, alignment: .leading)
+                    .pfCaps(12, weight: .semibold)
+                    .foregroundStyle(NoopLook.textSecondary)
+                    .frame(minWidth: 54, alignment: .leading)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(race.name ?? "").font(LookFont.text(15, weight: .semibold)).foregroundStyle(NoopLook.textPrimary)
+                    Text(race.name ?? "").font(PFPlanFont543.text(15, weight: .semibold)).foregroundStyle(NoopLook.textPrimary)
                     if let sub = race.sub { PFWeekSub529(text: sub) }
                 }
                 Spacer(minLength: 6)
-                Text(race.time ?? "").font(LookFont.text(15, weight: .bold)).foregroundStyle(NoopLook.textPrimary)
+                Text(race.time ?? "").font(PFPlanFont543.text(15, weight: .bold)).foregroundStyle(NoopLook.textPrimary)
                 if race.activityId != nil {
                     Image(systemName: "chevron.right")
                         .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(NoopLook.textTertiary)
+                        .foregroundStyle(NoopLook.textSecondary)
                         .accessibilityHidden(true)
                 }
             }
@@ -126,19 +125,66 @@ struct PFWeekReport529: View {
             PFWeekStrip529(days: doc.strip ?? [])
             if let line = report?.plannedDone?.line {
                 LookFlowLayout(spacing: 12, lineSpacing: 4) {
-                    Text(hiding.text(line)).font(LookFont.text(12.5, weight: .semibold)).foregroundStyle(NoopLook.textPrimary)
+                    Text(hiding.text(line)).font(PFPlanFont543.text(12.5, weight: .semibold)).foregroundStyle(NoopLook.textPrimary)
                     ForEach((report?.plannedDone?.facts ?? []).indices, id: \.self) { index in
                         Text(hiding.text((report?.plannedDone?.facts ?? [])[index]))
-                            .font(LookFont.text(12.5, weight: .regular))
-                            .foregroundStyle(NoopLook.textTertiary)
+                            .font(PFPlanFont543.text(12.5, weight: .regular))
+                            .foregroundStyle(NoopLook.textSecondary)
                     }
                 }
                 .accessibilityIdentifier("plan529-planned-done")
             }
             if let versus = report?.plannedDone?.vsPrev { PFWeekSub529(text: versus) }
+            sessionRows
         }
         .pfWeekCard()
         .containerIdentifier("plan529-planned-against-done")
+    }
+
+    /// Each session of the week once, the coach's first, with where it ended up as a word. The week's workouts are not repeated as cards.
+    @ViewBuilder private var sessionRows: some View {
+        let rows = PFReportSessions543.rows(doc)
+        if !rows.isEmpty {
+            VStack(alignment: .leading, spacing: 0) {
+                ForEach(Array(rows.enumerated()), id: \.offset) { offset, row in
+                    if offset > 0 { PFDivider529() }
+                    Button {
+                        if let id = row.sessionID { hooks.openSession(id) }
+                        else if let activity = row.activityID { hooks.openResults(PFResultsTarget529(id: activity, title: row.title, date: nil)) }
+                    } label: {
+                        HStack(alignment: .firstTextBaseline, spacing: 8) {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(row.title)
+                                    .font(PFPlanFont543.text(16, weight: .semibold))
+                                    .foregroundStyle(NoopLook.textPrimary)
+                                    .multilineTextAlignment(.leading)
+                                    .fixedSize(horizontal: false, vertical: true)
+                                if row.isCoach {
+                                    Text(PFPlanRow543.coachSource)
+                                        .font(PFPlanFont543.text(15, weight: .regular))
+                                        .foregroundStyle(PFColor.violet)
+                                }
+                            }
+                            Spacer(minLength: 6)
+                            Text(row.state)
+                                .font(PFPlanFont543.text(16, weight: .semibold))
+                                .foregroundStyle(NoopLook.textPrimary)
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundStyle(NoopLook.textSecondary)
+                                .accessibilityHidden(true)
+                        }
+                        .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel(row.sentence)
+                    .accessibilityIdentifier("plan529-report-session-\(row.sessionID ?? row.activityID ?? String(offset))")
+                }
+            }
+            .containerIdentifier("plan529-report-sessions")
+        }
     }
 
     // MARK: Nights
@@ -171,10 +217,10 @@ struct PFWeekReport529: View {
     @ViewBuilder private func finding(_ title: String, _ tint: Color, _ texts: [String], id: String) -> some View {
         if !texts.isEmpty {
             VStack(alignment: .leading, spacing: 3) {
-                Text(title).lookCaps(10.5, weight: .semibold).foregroundStyle(tint)
+                Text(title).pfCaps(10.5, weight: .semibold).foregroundStyle(tint)
                 ForEach(texts.indices, id: \.self) { index in
                     Text(hiding.text(texts[index]))
-                        .font(LookFont.text(14, weight: .regular))
+                        .font(PFPlanFont543.text(14, weight: .regular))
                         .foregroundStyle(NoopLook.textPrimary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -198,11 +244,11 @@ struct PFWeekReport529: View {
     private func link(_ title: String, id: String) -> some View {
         NavigationLink(value: TabRoute.reports("\(PFReportKind.weekly.rawValue):\(week)")) {
             HStack {
-                Text(title).font(LookFont.text(15, weight: .medium)).foregroundStyle(NoopLook.textPrimary)
+                Text(title).font(PFPlanFont543.text(15, weight: .medium)).foregroundStyle(NoopLook.textPrimary)
                 Spacer(minLength: 8)
                 Image(systemName: "chevron.right")
                     .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(NoopLook.textTertiary)
+                    .foregroundStyle(NoopLook.textSecondary)
                     .accessibilityHidden(true)
             }
             .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
@@ -210,19 +256,6 @@ struct PFWeekReport529: View {
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier(id)
-    }
-
-    @ViewBuilder private var workouts: some View {
-        let days = (doc.days ?? []).filter { day in (day.items ?? []).contains { item in item.kind != "rest" } }
-        if !days.isEmpty {
-            VStack(alignment: .leading, spacing: 14) {
-                PFWeekOverline529(text: "The week's workouts")
-                ForEach(days.indices, id: \.self) { index in
-                    PFWeekDay529(week: week, day: days[index], isToday: false, hooks: hooks, allowsEdits: false)
-                }
-            }
-            .containerIdentifier("plan529-report-workouts")
-        }
     }
 }
 
@@ -247,13 +280,13 @@ struct PFWeekNights529: View {
             }
             .frame(height: 52, alignment: .bottom)
             row { index in
-                Text(valueText(index)).font(LookFont.text(10, weight: .regular)).foregroundStyle(NoopLook.textTertiary)
+                Text(valueText(index)).font(PFPlanFont543.text(10, weight: .regular)).foregroundStyle(NoopLook.textSecondary)
             }
             if showsDays && !labels.isEmpty {
                 row { index in
                     Text(index < labels.count ? labels[index] : "")
-                        .font(LookFont.text(10, weight: .regular))
-                        .foregroundStyle(NoopLook.textTertiary)
+                        .font(PFPlanFont543.text(10, weight: .regular))
+                        .foregroundStyle(NoopLook.textSecondary)
                 }
             }
         }
@@ -306,7 +339,7 @@ struct NextWeekCard529: View {
                         Task { await acceptNextWeek() }
                     }
                 }
-                PFWeekButton529(title: "Look at it", identifier: "plan529-look-next") {
+                PFWeekButton529(title: "Open the plan", identifier: "plan529-look-next") {
                     if let week = next.week { goToWeek(week) }
                 }
                 PFWeekButton529(title: "Talk to the coach", identifier: "plan529-talk-next") {
@@ -316,7 +349,7 @@ struct NextWeekCard529: View {
             if let note { PFWeekSub529(text: note).accessibilityIdentifier("plan529-accept-next-note") }
             if let failure = decisions.failure {
                 Text(failure)
-                    .font(LookFont.text(12.5, weight: .regular))
+                    .font(PFPlanFont543.text(12.5, weight: .regular))
                     .foregroundStyle(PFWeekColor529.amber)
                     .accessibilityIdentifier("plan529-accept-next-failed")
             }

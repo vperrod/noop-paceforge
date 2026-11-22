@@ -46,14 +46,14 @@ struct PFMonthShortView529: View {
             VStack(alignment: .leading, spacing: 8) {
                 if let verdict = short.verdict {
                     Text(hiding.text(verdict))
-                        .font(LookFont.text(22, weight: .bold))
+                        .font(PFPlanFont543.text(22, weight: .bold))
                         .foregroundStyle(NoopLook.textPrimary)
                         .fixedSize(horizontal: false, vertical: true)
                         .accessibilityIdentifier("month-verdict")
                 }
                 if let summary = short.summary {
                     Text(hiding.text(summary))
-                        .font(LookFont.text(14.5))
+                        .font(PFPlanFont543.text(14.5))
                         .foregroundStyle(NoopLook.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -67,7 +67,7 @@ struct PFMonthShortView529: View {
                 VStack(alignment: .leading, spacing: 4) {
                     PFOver529(text: short.focusTitle ?? "Next month")
                     Text(hiding.text(focus))
-                        .font(LookFont.text(14.5))
+                        .font(PFPlanFont543.text(14.5))
                         .foregroundStyle(NoopLook.textPrimary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -90,11 +90,11 @@ struct PFMonthShortView529: View {
     private func list(_ title: String, lines: [String], color: Color) -> some View {
         VStack(alignment: .leading, spacing: 3) {
             Text(title)
-                .lookCaps(10.5, weight: .semibold)
+                .pfCaps(10.5, weight: .semibold)
                 .foregroundStyle(color)
             ForEach(Array(lines.enumerated()), id: \.offset) { _, line in
                 Text(hiding.text(line))
-                    .font(LookFont.text(14))
+                    .font(PFPlanFont543.text(14))
                     .foregroundStyle(NoopLook.textPrimary)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -142,16 +142,16 @@ struct PFMonthShortView529: View {
             HStack(spacing: 5) {
                 ForEach(Array(points.enumerated()), id: \.offset) { _, point in
                     Text(point.value.map { hiding.shown(PFFormat.trimmed($0), .scores) } ?? "")
-                        .font(LookFont.text(10))
-                        .foregroundStyle(NoopLook.textTertiary)
+                        .font(PFPlanFont543.text(10))
+                        .foregroundStyle(NoopLook.textSecondary)
                         .frame(maxWidth: .infinity)
                 }
             }
             HStack(spacing: 5) {
                 ForEach(Array(points.enumerated()), id: \.offset) { _, point in
                     Text(point.label ?? "")
-                        .font(LookFont.text(10))
-                        .foregroundStyle(NoopLook.textTertiary)
+                        .font(PFPlanFont543.text(10))
+                        .foregroundStyle(NoopLook.textSecondary)
                         .frame(maxWidth: .infinity)
                 }
             }

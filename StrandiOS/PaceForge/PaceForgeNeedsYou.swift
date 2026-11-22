@@ -47,6 +47,8 @@ struct PFNeedsItem: Equatable, Identifiable {
         case proposal
         case question
         case feel
+        /// Build 543: the Coach's typed questions about a finished workout (`workout_questions`).
+        case workoutQuestions = "workout_questions"
     }
 
     var id: String
@@ -62,6 +64,8 @@ struct PFNeedsItem: Equatable, Identifiable {
     /// The day a feel answer is for; nil answers for today.
     var feelDate: String?
     var run: PFTreadmillRun?
+    /// A workout-questions item: the workout and the questions waiting about it.
+    var workout: PFWorkoutAsk543?
 }
 
 /// One answer, in the shapes `POST /app/answer` takes.
@@ -75,6 +79,10 @@ enum PFNeedsAnswer {
     case questionDismiss(id: String)
     case feel(Int, date: String?)
     case rpe(Int, activityID: String?, sessionID: String?)
+    /// Build 543: the typed answers to a workout's questions (`workout_answer`); a value of NSNull is "I do not know".
+    case workoutAnswers(activityID: String, answers: [String: Any])
+    /// Build 543: skip every question about a workout (`workout_answer_skip`).
+    case workoutSkip(activityID: String)
 
     /// The JSON body without the idempotency `key`.
     var body: [String: Any] {
@@ -114,6 +122,10 @@ enum PFNeedsAnswer {
             // Exactly one id, the activity's when the question has one.
             if let activityID { out["activity_id"] = activityID } else if let sessionID { out["session_id"] = sessionID }
             return out
+        case .workoutAnswers(let id, let answers):
+            return ["kind": "workout_answer", "activity_id": id, "answers": answers]
+        case .workoutSkip(let id):
+            return ["kind": "workout_answer_skip", "activity_id": id]
         }
     }
 
@@ -161,6 +173,10 @@ enum PFNeedsParse {
             out.options = j["actions"].array.compactMap(option)
         case .feel:
             out.feelDate = metric["date"].text
+        case .workoutQuestions:
+            guard let ask = PFWorkoutAsk543.parse(metric) else { return nil }
+            out.activityID = ask.activityID
+            out.workout = ask
         }
         return out
     }

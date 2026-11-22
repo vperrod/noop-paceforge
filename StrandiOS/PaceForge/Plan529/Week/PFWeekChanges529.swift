@@ -25,7 +25,7 @@ struct PFWeekChanges529: View {
                 }
                 if let failure = decisions.failure {
                     Text(failure)
-                        .font(LookFont.text(12.5, weight: .regular))
+                        .font(PFPlanFont543.text(12.5, weight: .regular))
                         .foregroundStyle(PFWeekColor529.amber)
                         .fixedSize(horizontal: false, vertical: true)
                         .accessibilityIdentifier("plan529-changes-failed")
@@ -44,7 +44,7 @@ struct PFWeekChanges529: View {
         return VStack(alignment: .leading, spacing: 8) {
             VStack(alignment: .leading, spacing: 2) {
                 Text(change.title ?? "")
-                    .font(LookFont.text(15, weight: .semibold))
+                    .font(PFPlanFont543.text(15, weight: .semibold))
                     .foregroundStyle(NoopLook.textPrimary)
                     .fixedSize(horizontal: false, vertical: true)
                 if let line = change.oneLine, !line.isEmpty { PFWeekSub529(text: line) }

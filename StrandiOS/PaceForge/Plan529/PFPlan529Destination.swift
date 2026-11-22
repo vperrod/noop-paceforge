@@ -47,7 +47,7 @@ struct PFPlan529Placeholder: View {
     var body: some View {
         ScrollView {
             Text(title)
-                .font(LookFont.text(17, weight: .semibold))
+                .font(PFPlanFont543.text(17, weight: .semibold))
                 .foregroundStyle(NoopLook.textPrimary)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, NoopLook.Metric.screenInset)

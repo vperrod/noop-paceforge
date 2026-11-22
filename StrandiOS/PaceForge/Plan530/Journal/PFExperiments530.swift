@@ -19,7 +19,7 @@ struct PFExperimentsCard530: View {
         VStack(alignment: .leading, spacing: 10) {
             PFOver529(text: "Your experiments")
             Text("Pick a habit and a reading and look at the mornings after yes and no days, for a window of dates you choose. It shows what lined up, not what caused it.")
-                .font(LookFont.text(13))
+                .font(PFPlanFont543.text(13))
                 .foregroundStyle(NoopLook.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
             switch state {
@@ -27,10 +27,10 @@ struct PFExperimentsCard530: View {
                 ProgressView()
             case .failed:
                 Text("PaceForge could not be reached, so your experiments are not on this phone yet.")
-                    .font(LookFont.text(13.5)).foregroundStyle(NoopLook.textSecondary)
+                    .font(PFPlanFont543.text(13.5)).foregroundStyle(NoopLook.textSecondary)
             case .empty:
                 if list.isEmpty {
-                    Text("No experiment yet.").font(LookFont.text(13.5)).foregroundStyle(NoopLook.textSecondary)
+                    Text("No experiment yet.").font(PFPlanFont543.text(13.5)).foregroundStyle(NoopLook.textSecondary)
                 }
             }
             ForEach(list) { experiment in row(experiment) }
@@ -38,7 +38,7 @@ struct PFExperimentsCard530: View {
                 defining = true
             } label: {
                 Text("Start an experiment")
-                    .font(LookFont.text(14, weight: .semibold))
+                    .font(PFPlanFont543.text(14, weight: .semibold))
                     .foregroundStyle(StrandPalette.accent)
                     .frame(minHeight: 44, alignment: .leading)
             }
@@ -67,11 +67,11 @@ struct PFExperimentsCard530: View {
             HStack(spacing: 8) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(experiment.title)
-                        .font(LookFont.text(15, weight: .semibold))
+                        .font(PFPlanFont543.text(15, weight: .semibold))
                         .foregroundStyle(NoopLook.textPrimary)
                         .multilineTextAlignment(.leading)
                     Text("\(experiment.question) \u{00B7} \(PFChartMetric.title(for: experiment.outcome)) \u{00B7} \(experiment.windowLine)")
-                        .font(LookFont.text(12.5))
+                        .font(PFPlanFont543.text(12.5))
                         .foregroundStyle(NoopLook.textSecondary)
                         .multilineTextAlignment(.leading)
                         .fixedSize(horizontal: false, vertical: true)
@@ -79,7 +79,7 @@ struct PFExperimentsCard530: View {
                 Spacer(minLength: 6)
                 Image(systemName: "chevron.right")
                     .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(NoopLook.textTertiary)
+                    .foregroundStyle(NoopLook.textSecondary)
                     .accessibilityHidden(true)
             }
             .frame(minHeight: 44)
@@ -163,12 +163,12 @@ struct PFExperimentDefineSheet530: View {
                     if let problem {
                         PFWeekSub529(text: problem)
                     }
-                    if let message { Text(message).font(LookFont.text(13)).foregroundStyle(PFColor.warning) }
+                    if let message { Text(message).font(PFPlanFont543.text(13)).foregroundStyle(PFColor.warning) }
                     Button {
                         Task { await save() }
                     } label: {
                         Text(isBusy ? "Saving" : "Start experiment")
-                            .font(LookFont.text(15, weight: .semibold))
+                            .font(PFPlanFont543.text(15, weight: .semibold))
                             .frame(maxWidth: .infinity, minHeight: 46)
                     }
                     .buttonStyle(.borderedProminent)
@@ -233,11 +233,11 @@ struct PFExperimentReviewSheet530: View {
                     if let review {
                         content(review)
                     } else if isBusy {
-                        HStack(spacing: 8) { ProgressView(); Text("Reading your mornings").font(LookFont.text(14)).foregroundStyle(NoopLook.textSecondary) }
+                        HStack(spacing: 8) { ProgressView(); Text("Reading your mornings").font(PFPlanFont543.text(14)).foregroundStyle(NoopLook.textSecondary) }
                     }
                     if let message {
-                        Text(message).font(LookFont.text(13.5)).foregroundStyle(PFColor.warning).fixedSize(horizontal: false, vertical: true)
-                        Button("Try again") { Task { await load() } }.font(LookFont.text(14, weight: .semibold))
+                        Text(message).font(PFPlanFont543.text(13.5)).foregroundStyle(PFColor.warning).fixedSize(horizontal: false, vertical: true)
+                        Button("Try again") { Task { await load() } }.font(PFPlanFont543.text(14, weight: .semibold))
                     }
                 }
                 .padding(.horizontal, NoopLook.Metric.screenInset)
@@ -262,12 +262,12 @@ struct PFExperimentReviewSheet530: View {
         VStack(alignment: .leading, spacing: 8) {
             PFOver529(text: review.statusTitle)
             Text(review.statement)
-                .font(LookFont.text(15, weight: .semibold))
+                .font(PFPlanFont543.text(15, weight: .semibold))
                 .foregroundStyle(NoopLook.textPrimary)
                 .fixedSize(horizontal: false, vertical: true)
-            Text(review.countsLine).font(LookFont.text(13.5)).foregroundStyle(NoopLook.textSecondary)
+            Text(review.countsLine).font(PFPlanFont543.text(13.5)).foregroundStyle(NoopLook.textSecondary)
             ForEach(review.effectLines(valueText: { valueText($0, review) }), id: \.self) { line in
-                Text(line).font(LookFont.text(13.5)).foregroundStyle(NoopLook.textSecondary).fixedSize(horizontal: false, vertical: true)
+                Text(line).font(PFPlanFont543.text(13.5)).foregroundStyle(NoopLook.textSecondary).fixedSize(horizontal: false, vertical: true)
             }
             if let gap = review.gapLine { PFWeekSub529(text: gap) }
         }
@@ -276,7 +276,7 @@ struct PFExperimentReviewSheet530: View {
         VStack(alignment: .leading, spacing: 6) {
             PFOver529(text: "What this is, and is not")
             Text(review.caveat)
-                .font(LookFont.text(13.5))
+                .font(PFPlanFont543.text(13.5))
                 .foregroundStyle(NoopLook.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
                 .accessibilityIdentifier("pf530-experiment-caveat")
@@ -285,7 +285,7 @@ struct PFExperimentReviewSheet530: View {
         VStack(alignment: .leading, spacing: 6) {
             PFOver529(text: "The question")
             Text(questionSentence(review))
-                .font(LookFont.text(13.5)).foregroundStyle(NoopLook.textSecondary).fixedSize(horizontal: false, vertical: true)
+                .font(PFPlanFont543.text(13.5)).foregroundStyle(NoopLook.textSecondary).fixedSize(horizontal: false, vertical: true)
             PFWeekSub529(text: windowText(review))
         }
         .planCard529()
@@ -293,7 +293,7 @@ struct PFExperimentReviewSheet530: View {
             ask(review)
         } label: {
             Label("Ask the Coach about this experiment", systemImage: "bubble.left.and.bubble.right")
-                .font(LookFont.text(14, weight: .semibold))
+                .font(PFPlanFont543.text(14, weight: .semibold))
                 .frame(maxWidth: .infinity, minHeight: 46)
         }
         .buttonStyle(.borderedProminent)
@@ -302,7 +302,7 @@ struct PFExperimentReviewSheet530: View {
         Button(role: .destructive) {
             confirmsRetire = true
         } label: {
-            Text("Stop this experiment").font(LookFont.text(14, weight: .semibold)).frame(maxWidth: .infinity, minHeight: 44)
+            Text("Stop this experiment").font(PFPlanFont543.text(14, weight: .semibold)).frame(maxWidth: .infinity, minHeight: 44)
         }
         .disabled(isBusy)
         .accessibilityIdentifier("pf530-experiment-retire")

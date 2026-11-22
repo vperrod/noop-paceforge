@@ -47,14 +47,14 @@ struct PFDailyShortView529: View {
             VStack(alignment: .leading, spacing: 8) {
                 if let verdict = short.verdict {
                     Text(hiding.text(verdict))
-                        .font(LookFont.text(22, weight: .bold))
+                        .font(PFPlanFont543.text(22, weight: .bold))
                         .foregroundStyle(NoopLook.textPrimary)
                         .fixedSize(horizontal: false, vertical: true)
                         .accessibilityIdentifier("daily-verdict")
                 }
                 if let cause = short.cause {
                     Text(hiding.text(cause))
-                        .font(LookFont.text(14.5))
+                        .font(PFPlanFont543.text(14.5))
                         .foregroundStyle(NoopLook.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -76,20 +76,20 @@ struct PFDailyShortView529: View {
                 ForEach(Array(devices.enumerated()), id: \.offset) { _, device in
                     VStack(alignment: .leading, spacing: 2) {
                         Text(device.source ?? "")
-                            .font(LookFont.text(11, weight: .semibold))
-                            .foregroundStyle(NoopLook.textTertiary)
+                            .font(PFPlanFont543.text(11, weight: .semibold))
+                            .foregroundStyle(NoopLook.textSecondary)
                         Text(hiding.shown(device.value ?? "\u{2013}", .scores))
                             .font(LookFont.numeral(20))
                             .foregroundStyle(NoopLook.textPrimary)
                         if let label = device.label {
                             Text(hiding.text(label))
-                                .font(LookFont.text(11.5))
-                                .foregroundStyle(NoopLook.textTertiary)
+                                .font(PFPlanFont543.text(11.5))
+                                .foregroundStyle(NoopLook.textSecondary)
                         }
                         ForEach(Array((device.lines ?? []).enumerated()), id: \.offset) { _, line in
                             Text(hiding.text(line))
-                                .font(LookFont.text(11.5))
-                                .foregroundStyle(NoopLook.textTertiary)
+                                .font(PFPlanFont543.text(11.5))
+                                .foregroundStyle(NoopLook.textSecondary)
                                 .fixedSize(horizontal: false, vertical: true)
                         }
                     }
@@ -102,8 +102,8 @@ struct PFDailyShortView529: View {
             }
             if let note = short.devicesNote {
                 Text(hiding.text(note))
-                    .font(LookFont.text(12.5))
-                    .foregroundStyle(NoopLook.textTertiary)
+                    .font(PFPlanFont543.text(12.5))
+                    .foregroundStyle(NoopLook.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
@@ -117,7 +117,7 @@ struct PFDailyShortView529: View {
                 VStack(alignment: .leading, spacing: 2) {
                     PFOver529(text: block.title ?? "")
                     Text(hiding.text(block.text ?? ""))
-                        .font(LookFont.text(14.5))
+                        .font(PFPlanFont543.text(14.5))
                         .foregroundStyle(NoopLook.textPrimary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -162,7 +162,7 @@ struct PFGlossarySheet529: View {
                 VStack(alignment: .leading, spacing: 12) {
                     if entries.isEmpty {
                         Text("No special words in this report.")
-                            .font(LookFont.text(14))
+                            .font(PFPlanFont543.text(14))
                             .foregroundStyle(NoopLook.textSecondary)
                             .planCard529()
                     } else {
@@ -170,10 +170,10 @@ struct PFGlossarySheet529: View {
                             ForEach(Array(entries.enumerated()), id: \.offset) { _, entry in
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(entry.term)
-                                        .font(LookFont.text(15, weight: .semibold))
+                                        .font(PFPlanFont543.text(15, weight: .semibold))
                                         .foregroundStyle(NoopLook.textPrimary)
                                     Text(entry.text)
-                                        .font(LookFont.text(13.5))
+                                        .font(PFPlanFont543.text(13.5))
                                         .foregroundStyle(NoopLook.textSecondary)
                                         .fixedSize(horizontal: false, vertical: true)
                                 }

@@ -127,7 +127,7 @@ struct PFJournalCustomise530: View {
                     }
                     Button { remove(custom) } label: {
                         Text("Remove")
-                            .font(LookFont.text(13, weight: .semibold))
+                            .font(PFPlanFont543.text(13, weight: .semibold))
                             .foregroundStyle(StrandPalette.accent)
                             .frame(minHeight: 44)
                     }
@@ -172,13 +172,13 @@ struct PFJournalCustomise530: View {
                     let id = PFJournalCustom530.suggestionID(suggestion)
                     VStack(alignment: .leading, spacing: 8) {
                         Text(suggestion.title ?? "")
-                            .font(LookFont.text(14.5, weight: .semibold))
+                            .font(PFPlanFont543.text(14.5, weight: .semibold))
                             .foregroundStyle(NoopLook.textPrimary)
                             .fixedSize(horizontal: false, vertical: true)
                         if let reason = suggestion.reason, !reason.isEmpty {
                             Text(PFHiding().text(reason))
-                                .font(LookFont.text(12.5))
-                                .foregroundStyle(NoopLook.textTertiary)
+                                .font(PFPlanFont543.text(12.5))
+                                .foregroundStyle(NoopLook.textSecondary)
                                 .fixedSize(horizontal: false, vertical: true)
                         }
                         HStack(spacing: 8) {
@@ -250,13 +250,13 @@ struct PFJournalCustomise530: View {
                 Button("Cancel revision") { self.revisingKey = nil; draft = "" }
             }
             TextField("Describe it: \"Did you have a late work call?\"", text: $draft, axis: .vertical)
-                .font(LookFont.text(15))
+                .font(PFPlanFont543.text(15))
                 .padding(12)
                 .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(NoopLook.row))
                 .accessibilityIdentifier("pf530-journal-add-text")
             HStack(spacing: 12) {
                 Text("Answer")
-                    .font(LookFont.text(13.5, weight: .medium))
+                    .font(PFPlanFont543.text(13.5, weight: .medium))
                     .foregroundStyle(NoopLook.textSecondary)
                 Spacer(minLength: 8)
                 Picker("Answer", selection: $draftKind) {
@@ -269,8 +269,8 @@ struct PFJournalCustomise530: View {
                          id: { $0 }, title: { $0.capitalized })
             if !fits {
                 Text("The list holds \(Logic.maxQuestions) questions. Retire a shared question above to make room.")
-                    .font(LookFont.text(12.5))
-                    .foregroundStyle(NoopLook.textTertiary)
+                    .font(PFPlanFont543.text(12.5))
+                    .foregroundStyle(NoopLook.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
                     .accessibilityIdentifier("pf530-journal-add-full")
             }
@@ -286,8 +286,8 @@ struct PFJournalCustomise530: View {
             }
             .accessibilityIdentifier("pf530-journal-add")
             Text("Shared with PaceForge web. Old answers are preserved; revised questions start a separate measure.")
-                .font(LookFont.text(12.5))
-                .foregroundStyle(NoopLook.textTertiary)
+                .font(PFPlanFont543.text(12.5))
+                .foregroundStyle(NoopLook.textSecondary)
         }
         .planCard529()
         .containerIdentifier("pf530-journal-add-card")

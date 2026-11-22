@@ -17,7 +17,7 @@ enum PFWeekColor529 {
         case "moderate": return blue
         case "easy": return teal
         case "race": return red
-        default: return NoopLook.textTertiary
+        default: return NoopLook.textSecondary
         }
     }
 
@@ -27,7 +27,7 @@ enum PFWeekColor529 {
         case "green": return teal
         case "amber": return amber
         case "red": return red
-        default: return NoopLook.textTertiary
+        default: return NoopLook.textSecondary
         }
     }
 }
@@ -51,9 +51,10 @@ struct PFWeekOverline529: View {
 
     var body: some View {
         Text(text)
-            .lookCaps(10.5, weight: .semibold)
-            .foregroundStyle(NoopLook.textTertiary)
+            .font(PFPlanFont543.text(15, weight: .semibold))
+            .foregroundStyle(NoopLook.textSecondary)
             .fixedSize(horizontal: false, vertical: true)
+            .accessibilityAddTraits(.isHeader)
     }
 }
 
@@ -64,8 +65,8 @@ struct PFWeekSub529: View {
 
     var body: some View {
         Text(hiding.text(text))
-            .font(LookFont.text(12, weight: .regular))
-            .foregroundStyle(NoopLook.textTertiary)
+            .font(PFPlanFont543.text(15, weight: .regular))
+            .foregroundStyle(NoopLook.textSecondary)
             .fixedSize(horizontal: false, vertical: true)
     }
 }
@@ -77,7 +78,7 @@ struct PFWeekBody529: View {
 
     var body: some View {
         Text(hiding.text(text))
-            .font(LookFont.text(14.5, weight: .regular))
+            .font(PFPlanFont543.text(14.5, weight: .regular))
             .foregroundStyle(NoopLook.textPrimary)
             .lineSpacing(2)
             .fixedSize(horizontal: false, vertical: true)
@@ -88,16 +89,16 @@ struct PFWeekBody529: View {
 struct PFWeekLine529: View {
     let label: String
     let text: String
-    var tint: Color = NoopLook.textTertiary
+    var tint: Color = NoopLook.textSecondary
     private let hiding = PFHiding()
 
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(label)
-                .lookCaps(10.5, weight: .semibold)
+                .font(PFPlanFont543.text(15, weight: .semibold))
                 .foregroundStyle(tint)
             Text(hiding.text(text))
-                .font(LookFont.text(14, weight: .regular))
+                .font(PFPlanFont543.text(14, weight: .regular))
                 .foregroundStyle(NoopLook.textSecondary)
                 .lineSpacing(2)
                 .fixedSize(horizontal: false, vertical: true)
@@ -116,15 +117,17 @@ struct PFWeekButton529: View {
     var body: some View {
         Button(action: action) {
             Text(title)
-                .lookCaps(11, weight: .semibold)
+                .font(PFPlanFont543.text(16, weight: .semibold))
                 .foregroundStyle(isProminent ? Color(hex: "#06231A") : NoopLook.textPrimary)
-                .lineLimit(1)
-                .minimumScaleFactor(0.8)
-                .padding(.horizontal, 12)
-                .frame(minHeight: 40)
-                .background(Capsule(style: .continuous).fill(isProminent ? PFWeekColor529.teal : Color.clear))
-                .overlay(Capsule(style: .continuous).stroke(isProminent ? PFWeekColor529.teal : NoopLook.divider, lineWidth: 1))
-                .contentShape(Capsule(style: .continuous))
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 8)
+                .frame(minHeight: 44)
+                .background(RoundedRectangle(cornerRadius: 22, style: .continuous).fill(isProminent ? PFWeekColor529.teal : Color.clear))
+                .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    .stroke(isProminent ? PFWeekColor529.teal : NoopLook.divider, lineWidth: 1))
+                .contentShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
         }
         .buttonStyle(.plain)
         .disabled(isDisabled)
@@ -141,9 +144,27 @@ struct PFWeekPills529: View {
     var body: some View {
         LookFlowLayout(spacing: 6, lineSpacing: 6) {
             ForEach(Array(pills.enumerated()), id: \.offset) { _, pill in
-                PFChip(text: pill.text, color: pill.color)
+                PFWrapPill543(text: pill.text, color: pill.color)
             }
         }
+    }
+}
+
+/// A pill whose words wrap instead of being cut, in the primary text colour with a coloured edge.
+struct PFWrapPill543: View {
+    let text: String
+    let color: Color
+    private let hiding = PFHiding()
+
+    var body: some View {
+        Text(hiding.text(text))
+            .font(PFPlanFont543.text(15, weight: .semibold))
+            .foregroundStyle(NoopLook.textPrimary)
+            .fixedSize(horizontal: false, vertical: true)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 5)
+            .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(color.opacity(0.16)))
+            .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(color.opacity(0.5), lineWidth: 1))
     }
 }
 
@@ -161,12 +182,12 @@ struct PFWeekState529: View {
             case .loading:
                 HStack(spacing: 10) {
                     ProgressView()
-                    Text(message).font(LookFont.text(14, weight: .regular)).foregroundStyle(NoopLook.textSecondary)
+                    Text(message).font(PFPlanFont543.text(14, weight: .regular)).foregroundStyle(NoopLook.textSecondary)
                 }
             case .empty:
-                Text(message).font(LookFont.text(14, weight: .regular)).foregroundStyle(NoopLook.textSecondary)
+                Text(message).font(PFPlanFont543.text(14, weight: .regular)).foregroundStyle(NoopLook.textSecondary)
             case .failed:
-                Text(message).font(LookFont.text(14, weight: .regular)).foregroundStyle(PFWeekColor529.amber)
+                Text(message).font(PFPlanFont543.text(14, weight: .regular)).foregroundStyle(PFWeekColor529.amber)
                 if let retry {
                     PFWeekButton529(title: "Try again", identifier: "plan529-week-retry", action: retry)
                 }

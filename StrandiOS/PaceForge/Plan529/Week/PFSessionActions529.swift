@@ -17,20 +17,18 @@ struct PFSessionTarget529: Equatable {
     var isMandatory = false
 }
 
-enum PFSessionAction529: String {
-    case more, easier, move, edit, skip, optional, accept, drop, change, askCoach
-}
-
-/// The actions on one workout: Make it easier, Move, Edit details, Skip, Make optional (or Accept and Drop on an optional draft), Change workout, Ask
-/// the coach. Every one is an existing job (`adjust-today`, `coach`, `calendar-edit`, `session-state`, `session-drop`); skipping and
-/// dropping ask first. After a job the plan is read again by every Week page (`.pfPlan529Changed`).
-struct PFSessionActionBar529: View {
+/// The change menu of one workout (build 543): the leading buttons the screen puts in front (Edit, Note) and a ··· menu with move, skip, swap,
+/// make optional (or accept and drop on a draft), make it easier, change the length or effort, ask the Coach and how it was judged. Every
+/// one is an existing job (`adjust-today`, `coach`, `calendar-edit`, `session-state`, `session-drop`); skipping and dropping ask first,
+/// and a coach's session asks with its own wording. After a job the plan is read again by every Week page (`.pfPlan529Changed`).
+struct PFSessionActionBar529<Leading: View>: View {
     let target: PFSessionTarget529
-    let actions: [PFSessionAction529]
+    let menu: [PFMenuItem543]
     let idPrefix: String
-    var onMore: (() -> Void)? = nil
     let onChangeWorkout: () -> Void
     let onAskCoach: () -> Void
+    let onJudged: () -> Void
+    let leading: Leading
 
     @StateObject private var tracker = PFJobTracker()
     @State private var isMoving = false
@@ -46,14 +44,16 @@ struct PFSessionActionBar529: View {
     @State private var refusedInputs: [String: Any]?
     @State private var refusedDone = ""
 
-    init(target: PFSessionTarget529, actions: [PFSessionAction529], idPrefix: String, onMore: (() -> Void)? = nil,
-         onChangeWorkout: @escaping () -> Void, onAskCoach: @escaping () -> Void) {
+    init(target: PFSessionTarget529, menu: [PFMenuItem543], idPrefix: String,
+         onChangeWorkout: @escaping () -> Void, onAskCoach: @escaping () -> Void, onJudged: @escaping () -> Void,
+         @ViewBuilder leading: () -> Leading) {
         self.target = target
-        self.actions = actions
+        self.menu = menu
         self.idPrefix = idPrefix
-        self.onMore = onMore
         self.onChangeWorkout = onChangeWorkout
         self.onAskCoach = onAskCoach
+        self.onJudged = onJudged
+        self.leading = leading()
         _newDate = State(initialValue: PFFormat.date(target.date))
     }
 
@@ -68,10 +68,19 @@ struct PFSessionActionBar529: View {
         return Date(timeIntervalSinceNow: -399 * day)...Date(timeIntervalSinceNow: 399 * day)
     }
 
+    /// The dialog's title and message: the coach's session asks in the words of drawing 3.13, any other confirmation in the server's.
+    private var confirmTitle: String {
+        pendingConfirm == .skipMandatory ? PFSkipCoachConfirm543.title : (pendingConfirm?.question ?? "")
+    }
+    private var confirmMessage: String {
+        pendingConfirm == .skipMandatory ? PFSkipCoachConfirm543.message(sessionTitle: target.title) : ""
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             LookFlowLayout(spacing: 6, lineSpacing: 6) {
-                ForEach(actions, id: \.rawValue) { action in button(action) }
+                leading
+                menuButton
             }
             if isMoving { moveRow }
             status
@@ -90,63 +99,89 @@ struct PFSessionActionBar529: View {
         }
         // Its own host view: stacked presentation modifiers on one view can leave only the last one working.
         .background {
-            Color.clear.confirmationDialog(pendingConfirm?.question ?? "", isPresented: asksToConfirm, titleVisibility: .visible) {
+            Color.clear.confirmationDialog(confirmTitle, isPresented: asksToConfirm, titleVisibility: .visible) {
                 if let confirm = pendingConfirm {
-                    Button(confirm.confirmTitle, role: .destructive) { Task { await resend(confirm) } }
+                    Button(confirm == .skipMandatory ? PFSkipCoachConfirm543.confirmTitle : confirm.confirmTitle, role: .destructive) {
+                        Task { await resend(confirm) }
+                    }
+                    Button(PFSkipCoachConfirm543.keepTitle, role: .cancel) {}
                 }
+            } message: {
+                if !confirmMessage.isEmpty { Text(confirmMessage) }
             }
         }
         .containerIdentifier("\(idPrefix)-actions")
     }
 
-    @ViewBuilder private func button(_ action: PFSessionAction529) -> some View {
-        switch action {
-        case .more:
-            PFWeekButton529(title: "More", identifier: "\(idPrefix)-more") { onMore?() }
-        case .easier:
-            PFWeekButton529(title: "Make it easier", isDisabled: isBusy || !canEdit, identifier: "\(idPrefix)-easier") {
-                Task { await makeEasier() }
-            }
-        case .move:
-            PFWeekButton529(title: "Move", isDisabled: isBusy || !canEdit, identifier: "\(idPrefix)-move") {
-                withAnimation(.easeInOut(duration: 0.2)) { isMoving.toggle() }
-            }
-        case .edit:
-            PFWeekButton529(title: "Edit details", isDisabled: isBusy || !canEdit, identifier: "\(idPrefix)-edit") { isEditing = true }
-        case .skip:
-            PFWeekButton529(title: "Skip", isDisabled: isBusy || !canEdit, identifier: "\(idPrefix)-skip") {
-                if target.isMandatory {
-                    // The coach's session: ask the coach's question at once; the delete is sent only with the athlete's confirmation.
-                    refusedInputs = PFJobInputs.calendarDelete(sessionID: target.sessionId)
-                    refusedDone = PFSessionActionBar529.skippedCoachNote
-                    pendingConfirm = .skipMandatory
-                } else {
-                    asksToSkip = true
+    // MARK: The three dots
+
+    private var menuButton: some View {
+        Menu {
+            ForEach(menu, id: \.self) { item in
+                Button(role: buttonRole(item)) { perform(item) } label: {
+                    Text(PFSessionMenu543.title(item))
                 }
+                .disabled(isDisabled(item))
             }
-        case .optional:
-            PFWeekButton529(title: "Make optional", isDisabled: isBusy || !canEdit, identifier: "\(idPrefix)-optional") {
-                Task { await run(.sessionState, PFJobInputs.sessionOptional(sessionID: target.sessionId), done: "Now optional.") }
+        } label: {
+            Text("\u{00B7}\u{00B7}\u{00B7}")
+                .font(PFPlanFont543.text(20, weight: .bold))
+                .foregroundStyle(NoopLook.textPrimary)
+                .padding(.horizontal, 14)
+                .frame(minWidth: 44, minHeight: 44)
+                .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).stroke(NoopLook.divider, lineWidth: 1))
+                .contentShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        }
+        .accessibilityLabel("More actions")
+        .accessibilityHint("Move, skip, swap, make optional or ask the Coach")
+        .accessibilityIdentifier("\(idPrefix)-menu")
+    }
+
+    private func buttonRole(_ item: PFMenuItem543) -> ButtonRole? {
+        (item == .skip || item == .drop) ? .destructive : nil
+    }
+
+    private func isDisabled(_ item: PFMenuItem543) -> Bool {
+        switch item {
+        case .swap, .askCoach, .judged: return item == .swap ? isBusy : false
+        default: return isBusy || !canEdit
+        }
+    }
+
+    private func perform(_ item: PFMenuItem543) {
+        switch item {
+        case .move:
+            withAnimation(.easeInOut(duration: 0.2)) { isMoving.toggle() }
+        case .skip:
+            if target.isMandatory {
+                // The coach's session: ask the coach's question at once; the delete is sent only with the athlete's confirmation.
+                refusedInputs = PFJobInputs.calendarDelete(sessionID: target.sessionId)
+                refusedDone = PFSkipCoachConfirm543.doneNote
+                pendingConfirm = .skipMandatory
+            } else {
+                asksToSkip = true
             }
-        case .accept:
-            PFWeekButton529(title: "Accept", isDisabled: isBusy || !canEdit, identifier: "\(idPrefix)-accept") {
-                Task { await run(.sessionState, PFJobInputs.sessionAccept(sessionID: target.sessionId), done: "Accepted.") }
-            }
-        case .drop:
-            PFWeekButton529(title: "Drop", isDisabled: isBusy || !canEdit, identifier: "\(idPrefix)-drop") { asksToDrop = true }
-        case .change:
-            PFWeekButton529(title: "Change workout", isDisabled: isBusy, identifier: "\(idPrefix)-change", action: onChangeWorkout)
-        case .askCoach:
-            PFWeekButton529(title: "Ask the coach", isDisabled: isBusy, identifier: "\(idPrefix)-ask", action: onAskCoach)
+        case .swap: onChangeWorkout()
+        case .optional: Task { await run(.sessionState, PFJobInputs.sessionOptional(sessionID: target.sessionId), done: "Now optional.") }
+        case .accept: Task { await run(.sessionState, PFJobInputs.sessionAccept(sessionID: target.sessionId), done: "Accepted.") }
+        case .drop: asksToDrop = true
+        case .easier: Task { await makeEasier() }
+        case .details: isEditing = true
+        case .askCoach: onAskCoach()
+        case .judged: onJudged()
         }
     }
 
     private var moveRow: some View {
-        HStack(spacing: 10) {
+        VStack(alignment: .leading, spacing: 8) {
             DatePicker("Move to", selection: $newDate, in: window, displayedComponents: .date)
                 .datePickerStyle(.compact)
-                .font(LookFont.text(14, weight: .regular))
-            PFWeekButton529(title: "Move session", isProminent: true, isDisabled: isBusy || newDay == target.date,
+                .font(PFPlanFont543.text(16, weight: .regular))
+            Text("Moving to another day of the same week needs no question.")
+                .font(PFPlanFont543.text(15, weight: .regular))
+                .foregroundStyle(NoopLook.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+            PFPlanButton543(title: "Move session", isProminent: true, isDisabled: isBusy || newDay == target.date,
                             identifier: "\(idPrefix)-move-go") {
                 Task { await move() }
             }
@@ -157,11 +192,11 @@ struct PFSessionActionBar529: View {
         switch tracker.phase {
         case .sending, .working:
             Text("Working on it")
-                .font(LookFont.text(12, weight: .regular))
+                .font(PFPlanFont543.text(15, weight: .regular))
                 .foregroundStyle(NoopLook.textSecondary)
         case .failed(let message):
             Text(message)
-                .font(LookFont.text(12, weight: .regular))
+                .font(PFPlanFont543.text(15, weight: .regular))
                 .foregroundStyle(PFWeekColor529.amber)
                 .fixedSize(horizontal: false, vertical: true)
                 .accessibilityIdentifier("\(idPrefix)-failed")
@@ -169,7 +204,7 @@ struct PFSessionActionBar529: View {
             if let note {
                 HStack {
                     Text(note)
-                        .font(LookFont.text(12.5, weight: .regular))
+                        .font(PFPlanFont543.text(15, weight: .regular))
                         .foregroundStyle(NoopLook.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                         .accessibilityIdentifier("\(idPrefix)-result")
@@ -265,31 +300,5 @@ struct PFSessionActionBar529: View {
     @MainActor private func changed() async {
         await PFUnified.model.refresh()
         NotificationCenter.default.post(name: .pfPlan529Changed, object: nil)
-    }
-}
-
-extension PFSessionActionBar529 {
-    static let skippedCoachNote = "Skipped. It counts as missed."
-}
-
-extension PFSessionAction529 {
-    /// What a workout card or the session sheet offers a session in this state, in the order of the drawings.
-    static func forSession(status: String, isOptional: Bool, includesMore: Bool = false, includesAskCoach: Bool) -> [PFSessionAction529] {
-        var out: [PFSessionAction529] = []
-        if includesMore { out.append(.more) }
-        if ["planned", "optional", "missed"].contains(status) {
-            out.append(.easier)
-            out.append(.move)
-            out.append(.edit)
-            out.append(.skip)
-            if isOptional || status == "optional" {
-                out.append(contentsOf: [.accept, .drop])
-            } else {
-                out.append(.optional)
-            }
-        }
-        out.append(.change)
-        if includesAskCoach { out.append(.askCoach) }
-        return out
     }
 }

@@ -245,9 +245,14 @@ final class Phase4UITests: XCTestCase {
     func testWeekPageCarriesWhatMyPlanCarried() throws {
         let app = try launch()
         app.openChip("Plan", "week")
-        XCTAssertTrue(element(app, "plan529-strip-day-2030-03-11").waitForExistence(timeout: 30), "Plan > Week should show the seven days.")
-        XCTAssertTrue(reveal(element(app, "plan529-hours-title"), in: app), "Plan > Week should show the hours, with what is done so far.")
-        XCTAssertTrue(reveal(element(app, "plan529-done-s-mon"), in: app, maxSwipes: 20), "A finished workout should carry its done line.")
+        XCTAssertTrue(reveal(element(app, "plan529-summary-s-mon"), in: app, maxSwipes: 20), "A finished workout should carry its done line.")
+        // The seven days and the hours are under Week notes since build 543.
+        let notes = element(app, "plan529-week-notes")
+        XCTAssertTrue(reveal(notes, in: app, maxSwipes: 20), "Plan > Week should offer its Week notes.")
+        notes.tap()
+        XCTAssertTrue(element(app, "plan529-strip-day-2030-03-11").waitForExistence(timeout: 30), "Week notes should show the seven days.")
+        XCTAssertTrue(reveal(element(app, "plan529-hours-title"), in: app), "Week notes should show the hours, with what is done so far.")
+        element(app, "plan529-notes-done").tap()
         XCTAssertFalse(element(app, "pf-my-plan").exists, "The folded My Plan card is replaced by the week itself.")
         attach(app, "Phase4 62 Plan, week carries My Plan's job")
     }

@@ -32,17 +32,17 @@ struct PFJournalAutoCard530: View {
             if !no.isEmpty || !yes.isEmpty {
                 PFDivider529()
                 Text(summary(no: no))
-                    .font(LookFont.text(12.5))
-                    .foregroundStyle(NoopLook.textTertiary)
+                    .font(PFPlanFont543.text(12.5))
+                    .foregroundStyle(NoopLook.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(.top, 8)
                     .accessibilityIdentifier("pf530-journal-auto-note")
                 if !no.isEmpty {
                     Button { showsNo.toggle() } label: {
                         Text(showsNo ? "Hide the No answers" : "Show the No answers")
-                            .font(LookFont.text(13, weight: .semibold))
+                            .font(PFPlanFont543.text(13, weight: .semibold))
                             .foregroundStyle(StrandPalette.accent)
-                            .frame(minHeight: 40, alignment: .leading)
+                            .frame(minHeight: 44, alignment: .leading)
                     }
                     .buttonStyle(.plain)
                     .accessibilityIdentifier("pf530-journal-auto-toggle")
@@ -113,7 +113,7 @@ struct PFJournalEveningCard530: View {
             PFOver529(text: evening?.title ?? heading)
             if let verdict = evening?.verdict, !verdict.isEmpty {
                 Text(hiding.text(verdict))
-                    .font(LookFont.text(19, weight: .semibold))
+                    .font(PFPlanFont543.text(19, weight: .semibold))
                     .foregroundStyle(NoopLook.textPrimary)
                     .fixedSize(horizontal: false, vertical: true)
                     .accessibilityIdentifier("pf530-journal-verdict")
@@ -121,7 +121,7 @@ struct PFJournalEveningCard530: View {
             if let moved = evening?.moved, !moved.isEmpty {
                 block("What moved today") {
                     Text(hiding.text(moved))
-                        .font(LookFont.text(13.5))
+                        .font(PFPlanFont543.text(13.5))
                         .foregroundStyle(NoopLook.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -141,7 +141,7 @@ struct PFJournalEveningCard530: View {
     private func block<Content: View>(_ title: String, @ViewBuilder _ content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 3) {
             Text(title)
-                .font(LookFont.text(13.5, weight: .semibold))
+                .font(PFPlanFont543.text(13.5, weight: .semibold))
                 .foregroundStyle(NoopLook.textPrimary)
             content()
         }

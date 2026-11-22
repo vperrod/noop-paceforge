@@ -63,10 +63,10 @@ struct PFRaceNotFound529: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text("This race is not in your season")
-                .font(LookFont.text(15, weight: .semibold))
+                .font(PFPlanFont543.text(15, weight: .semibold))
                 .foregroundStyle(NoopLook.textPrimary)
             Text("It may have been cancelled or moved. Add a race again from Season.")
-                .font(LookFont.text(13.5))
+                .font(PFPlanFont543.text(13.5))
                 .foregroundStyle(NoopLook.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
             NavigationLink(value: TabRoute.reports("race:" + date)) {
@@ -93,8 +93,8 @@ struct PFTile529: View {
                 .fixedSize(horizontal: false, vertical: true)
             if let sub {
                 Text(sub)
-                    .font(LookFont.text(11.5))
-                    .foregroundStyle(NoopLook.textTertiary)
+                    .font(PFPlanFont543.text(11.5))
+                    .foregroundStyle(NoopLook.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
@@ -172,7 +172,7 @@ struct PFUpcomingRace529: View {
                 VStack(alignment: .leading, spacing: 6) {
                     PFOver529(text: "What the block trains")
                     Text(aim)
-                        .font(LookFont.text(14.5))
+                        .font(PFPlanFont543.text(14.5))
                         .foregroundStyle(NoopLook.textPrimary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -213,13 +213,13 @@ struct PFUpcomingRace529: View {
                     HStack(alignment: .top, spacing: 10) {
                         VStack(alignment: .leading, spacing: 2) {
                             Text("\(key) \u{00B7} \(option.title ?? "")")
-                                .font(LookFont.text(15, weight: .semibold))
+                                .font(PFPlanFont543.text(15, weight: .semibold))
                                 .foregroundStyle(NoopLook.textPrimary)
                                 .multilineTextAlignment(.leading)
                             if let sub = option.sub {
                                 Text(sub)
-                                    .font(LookFont.text(12.5))
-                                    .foregroundStyle(NoopLook.textTertiary)
+                                    .font(PFPlanFont543.text(12.5))
+                                    .foregroundStyle(NoopLook.textSecondary)
                                     .multilineTextAlignment(.leading)
                                     .fixedSize(horizontal: false, vertical: true)
                             }
@@ -227,11 +227,11 @@ struct PFUpcomingRace529: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                         if selected == nil, race.priority == key {
                             Text("assumed")
-                                .font(LookFont.text(12))
+                                .font(PFPlanFont543.text(12))
                                 .foregroundStyle(NoopLook.trendDown)
                         }
                         Image(systemName: isOn ? "largecircle.fill.circle" : "circle")
-                            .foregroundStyle(isOn ? StrandPalette.accent : NoopLook.textTertiary)
+                            .foregroundStyle(isOn ? StrandPalette.accent : NoopLook.textSecondary)
                             .accessibilityHidden(true)
                     }
                     .padding(.vertical, 9)
@@ -245,8 +245,8 @@ struct PFUpcomingRace529: View {
             }
             if selected == nil, let note = race.priorityNote {
                 Text(note)
-                    .font(LookFont.text(12.5))
-                    .foregroundStyle(NoopLook.textTertiary)
+                    .font(PFPlanFont543.text(12.5))
+                    .foregroundStyle(NoopLook.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(.top, 6)
             }
@@ -448,7 +448,7 @@ struct PFPastRace529: View {
                 VStack(alignment: .leading, spacing: 6) {
                     PFOver529(text: "The coach's debrief")
                     Text(debrief)
-                        .font(LookFont.text(14.5))
+                        .font(PFPlanFont543.text(14.5))
                         .foregroundStyle(NoopLook.textPrimary)
                         .fixedSize(horizontal: false, vertical: true)
                 }

@@ -20,14 +20,14 @@ struct PFJournalQuestionRow530: View {
             HStack(alignment: .top, spacing: 10) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(Logic.prompt(question))
-                        .font(LookFont.text(15, weight: .semibold))
+                        .font(PFPlanFont543.text(15, weight: .semibold))
                         .foregroundStyle(NoopLook.textPrimary)
                         .multilineTextAlignment(.leading)
                         .fixedSize(horizontal: false, vertical: true)
                     if let hint = question.hint, !hint.isEmpty {
                         Text(hint)
-                            .font(LookFont.text(12.5))
-                            .foregroundStyle(NoopLook.textTertiary)
+                            .font(PFPlanFont543.text(12.5))
+                            .foregroundStyle(NoopLook.textSecondary)
                             .multilineTextAlignment(.leading)
                             .fixedSize(horizontal: false, vertical: true)
                     }
@@ -48,10 +48,10 @@ struct PFJournalQuestionRow530: View {
         let isOn = answer?.yes == yes
         return Button { onChoose(yes) } label: {
             Text(title)
-                .lookCaps(11, weight: .semibold)
+                .pfCaps(11, weight: .semibold)
                 .foregroundStyle(isOn ? Color.black.opacity(0.85) : NoopLook.textPrimary)
                 .padding(.horizontal, 12)
-                .frame(minWidth: 54, minHeight: 40)
+                .frame(minWidth: 54, minHeight: 44)
                 .background(Capsule().fill(isOn ? (yes ? StrandPalette.accent : Color.white) : NoopLook.row))
                 .contentShape(Capsule())
         }
@@ -77,7 +77,7 @@ struct PFJournalQuestionRow530: View {
         return VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 12) {
                 Text("How many")
-                    .font(LookFont.text(13.5, weight: .medium))
+                    .font(PFPlanFont543.text(13.5, weight: .medium))
                     .foregroundStyle(NoopLook.textSecondary)
                 Spacer(minLength: 8)
                 stepper("minus", label: "Fewer", id: "minus", isDisabled: count <= 1) { onNumber(Double(count - 1)) }
@@ -97,7 +97,7 @@ struct PFJournalQuestionRow530: View {
             Image(systemName: "\(symbol).circle")
                 .font(.system(size: 24))
                 .foregroundStyle(isDisabled ? NoopLook.textMuted : NoopLook.textSecondary)
-                .frame(width: 40, height: 40)
+                .frame(width: 44, height: 44)
         }
         .buttonStyle(.plain)
         .disabled(isDisabled)
@@ -110,14 +110,14 @@ struct PFJournalQuestionRow530: View {
         if let minutes = Logic.minutes(ofNote: answer?.note) {
             HStack(spacing: 10) {
                 Text("Time of the last one")
-                    .font(LookFont.text(13.5, weight: .medium))
+                    .font(PFPlanFont543.text(13.5, weight: .medium))
                     .foregroundStyle(NoopLook.textSecondary)
                 Spacer(minLength: 8)
                 DatePicker("Time of the last one", selection: timeBinding(minutes) { onNote(Logic.note(lastAt: $0)) },
                            displayedComponents: .hourAndMinute)
                     .labelsHidden()
                 Button { onNote(nil) } label: {
-                    Image(systemName: "xmark.circle.fill").foregroundStyle(NoopLook.textTertiary).frame(width: 32, height: 32)
+                    Image(systemName: "xmark.circle.fill").foregroundStyle(NoopLook.textSecondary).frame(width: 44, height: 44)
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Remove the time")
@@ -125,9 +125,9 @@ struct PFJournalQuestionRow530: View {
         } else {
             Button { onNote(Logic.note(lastAt: PFJournalSession530.minutesNow())) } label: {
                 Text("Add the time of the last one")
-                    .font(LookFont.text(13.5, weight: .semibold))
+                    .font(PFPlanFont543.text(13.5, weight: .semibold))
                     .foregroundStyle(StrandPalette.accent)
-                    .frame(minHeight: 36, alignment: .leading)
+                    .frame(minHeight: 44, alignment: .leading)
             }
             .buttonStyle(.plain)
             .accessibilityIdentifier("pf530-journal-last-\(key)")
@@ -137,7 +137,7 @@ struct PFJournalQuestionRow530: View {
     private var scaleControls: some View {
         HStack(spacing: 8) {
             Text("How much")
-                .font(LookFont.text(13.5, weight: .medium))
+                .font(PFPlanFont543.text(13.5, weight: .medium))
                 .foregroundStyle(NoopLook.textSecondary)
             Spacer(minLength: 8)
             ForEach(1...5, id: \.self) { value in
@@ -161,7 +161,7 @@ struct PFJournalQuestionRow530: View {
     private var timeControl: some View {
         HStack(spacing: 10) {
             Text("At")
-                .font(LookFont.text(13.5, weight: .medium))
+                .font(PFPlanFont543.text(13.5, weight: .medium))
                 .foregroundStyle(NoopLook.textSecondary)
             Spacer(minLength: 8)
             DatePicker("Time", selection: timeBinding(answer?.number ?? PFJournalSession530.minutesNow()) { onNumber($0) },

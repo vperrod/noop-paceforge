@@ -32,13 +32,12 @@ struct PFWeekStripDay529: View {
             }
             .frame(height: 66)
             Text(day.dow ?? "")
-                .lookCaps(11, weight: .semibold)
-                .foregroundStyle(isToday ? PFWeekColor529.teal : NoopLook.textTertiary)
+                .pfCaps(11, weight: .semibold)
+                .foregroundStyle(isToday ? PFWeekColor529.teal : NoopLook.textSecondary)
             Text(day.label ?? "")
-                .font(LookFont.text(10, weight: .regular))
-                .foregroundStyle(NoopLook.textTertiary)
-                .lineLimit(1)
-                .minimumScaleFactor(0.7)
+                .font(PFPlanFont543.text(10, weight: .regular))
+                .foregroundStyle(NoopLook.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
         }
         .frame(maxWidth: .infinity)
         .accessibilityElement(children: .ignore)
@@ -65,7 +64,7 @@ struct PFWeekBar529: View {
             RoundedRectangle(cornerRadius: 5, style: .continuous).fill(color)
         case "optional":
             RoundedRectangle(cornerRadius: 5, style: .continuous)
-                .strokeBorder(NoopLook.textTertiary, style: StrokeStyle(lineWidth: 1.5, dash: [3, 2]))
+                .strokeBorder(NoopLook.textSecondary, style: StrokeStyle(lineWidth: 1.5, dash: [3, 2]))
         case "missed":
             RoundedRectangle(cornerRadius: 5, style: .continuous)
                 .strokeBorder(PFWeekColor529.red.opacity(0.7), style: StrokeStyle(lineWidth: 1.5, dash: [3, 2]))
@@ -83,8 +82,8 @@ struct PFWeekLegend529: View {
             dot(PFWeekColor529.blue, "moderate")
             dot(PFWeekColor529.teal, "easy")
             Text("dashed = optional")
-                .font(LookFont.text(11.5, weight: .regular))
-                .foregroundStyle(NoopLook.textTertiary)
+                .font(PFPlanFont543.text(11.5, weight: .regular))
+                .foregroundStyle(NoopLook.textSecondary)
         }
         .accessibilityIdentifier("plan529-legend")
     }
@@ -92,7 +91,7 @@ struct PFWeekLegend529: View {
     private func dot(_ color: Color, _ text: String) -> some View {
         HStack(spacing: 5) {
             Circle().fill(color).frame(width: 8, height: 8)
-            Text(text).font(LookFont.text(11.5, weight: .regular)).foregroundStyle(NoopLook.textTertiary)
+            Text(text).font(PFPlanFont543.text(11.5, weight: .regular)).foregroundStyle(NoopLook.textSecondary)
         }
     }
 }
@@ -153,11 +152,11 @@ struct PFWeekHours529: View {
     @ViewBuilder private func pair(bold: String?, lead: String?, tail: String?) -> some View {
         if let bold, !bold.isEmpty {
             HStack(spacing: 3) {
-                if let lead { Text(lead).foregroundStyle(NoopLook.textTertiary) }
+                if let lead { Text(lead).foregroundStyle(NoopLook.textSecondary) }
                 Text(bold).fontWeight(.semibold).foregroundStyle(NoopLook.textPrimary)
-                if let tail { Text(tail).foregroundStyle(NoopLook.textTertiary) }
+                if let tail { Text(tail).foregroundStyle(NoopLook.textSecondary) }
             }
-            .font(LookFont.text(11.5, weight: .regular))
+            .font(PFPlanFont543.text(11.5, weight: .regular))
         }
     }
 }

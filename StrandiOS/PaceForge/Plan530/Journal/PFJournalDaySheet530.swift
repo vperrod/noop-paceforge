@@ -124,7 +124,7 @@ struct PFJournalDaySheet530: View {
             VStack(alignment: .leading, spacing: 6) {
                 PFOver529(text: "Tonight")
                 Text(PFHiding().text(tonight))
-                    .font(LookFont.text(14.5))
+                    .font(PFPlanFont543.text(14.5))
                     .foregroundStyle(NoopLook.textPrimary)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -159,7 +159,7 @@ struct PFJournalDaySheet530: View {
     private var sameAsYesterday: some View {
         Toggle(isOn: $session.usePrevious) {
             Text("Same as yesterday")
-                .font(LookFont.text(14, weight: .semibold))
+                .font(PFPlanFont543.text(14, weight: .semibold))
                 .foregroundStyle(NoopLook.textPrimary)
         }
         .tint(StrandPalette.accent)
@@ -175,13 +175,13 @@ struct PFJournalDaySheet530: View {
         return VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 10) {
                 Text("\(answered) of \(keys.count) answered")
-                    .font(LookFont.text(13, weight: .medium))
+                    .font(PFPlanFont543.text(13, weight: .medium))
                     .foregroundStyle(NoopLook.textSecondary)
                     .accessibilityIdentifier("pf530-journal-answered")
                 Spacer(minLength: 8)
                 if session.didSave && pending.isEmpty {
                     Text("Saved")
-                        .lookCaps(11, weight: .semibold)
+                        .pfCaps(11, weight: .semibold)
                         .foregroundStyle(NoopLook.trendUp)
                         .accessibilityIdentifier("pf530-journal-saved")
                 }
@@ -194,7 +194,7 @@ struct PFJournalDaySheet530: View {
             }
             if session.saveFailed {
                 Text("Answers could not be saved. Try again.")
-                    .font(LookFont.text(12.5))
+                    .font(PFPlanFont543.text(12.5))
                     .foregroundStyle(PFColor.warning)
             }
         }

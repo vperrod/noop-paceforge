@@ -30,8 +30,8 @@ struct PFInbox529: View {
                              id: { $0.rawValue }, title: { $0.title })
                 if store.isStale {
                     Text("Showing the copy saved on this phone. PaceForge could not be reached.")
-                        .font(LookFont.text(12.5, weight: .medium))
-                        .foregroundStyle(NoopLook.textTertiary)
+                        .font(PFPlanFont543.text(12.5, weight: .medium))
+                        .foregroundStyle(NoopLook.textSecondary)
                         .accessibilityIdentifier("plan529-inbox-stale")
                 }
                 list(rows: rows, shown: shown, unread: unread)
@@ -58,12 +58,12 @@ struct PFInbox529: View {
     private func header(unreadCount: Int) -> some View {
         HStack {
             Text(unreadCount > 0 ? "\(unreadCount) new" : "Nothing new")
-                .lookCaps(12.5)
+                .pfCaps(12.5)
                 .foregroundStyle(NoopLook.textSecondary)
                 .accessibilityIdentifier("plan529-inbox-new")
             Spacer(minLength: 8)
             Button("Mark all read") { store.markAllRead() }
-                .font(LookFont.text(13, weight: .medium))
+                .font(PFPlanFont543.text(13, weight: .medium))
                 .foregroundStyle(StrandPalette.accent)
                 .disabled(unreadCount == 0)
                 .accessibilityIdentifier("plan529-inbox-mark-all")
@@ -78,10 +78,10 @@ struct PFInbox529: View {
             case .failed:
                 VStack(alignment: .leading, spacing: 10) {
                     Text("PaceForge could not be reached.")
-                        .font(LookFont.text(15, weight: .semibold))
+                        .font(PFPlanFont543.text(15, weight: .semibold))
                         .foregroundStyle(NoopLook.textPrimary)
                     Button("Try again") { Task { await store.refresh() } }
-                        .font(LookFont.text(14, weight: .semibold))
+                        .font(PFPlanFont543.text(14, weight: .semibold))
                         .foregroundStyle(StrandPalette.accent)
                         .accessibilityIdentifier("plan529-inbox-retry")
                 }
@@ -106,7 +106,7 @@ struct PFInbox529: View {
 
     private func note(_ text: String, id: String) -> some View {
         Text(text)
-            .font(LookFont.text(14, weight: .medium))
+            .font(PFPlanFont543.text(14, weight: .medium))
             .foregroundStyle(NoopLook.textSecondary)
             .fixedSize(horizontal: false, vertical: true)
             .padding(16)
@@ -124,19 +124,19 @@ struct PFInbox529: View {
                     .padding(.top, 6)
                     .accessibilityHidden(true)
                 Text(Self.timeText(row.date))
-                    .font(LookFont.text(13, weight: .medium))
-                    .foregroundStyle(NoopLook.textTertiary)
+                    .font(PFPlanFont543.text(13, weight: .medium))
+                    .foregroundStyle(NoopLook.textSecondary)
                     .frame(width: 56, alignment: .leading)
                     .padding(.top, 2)
                 VStack(alignment: .leading, spacing: 3) {
                     Text(hiding.text(row.title))
-                        .font(LookFont.text(15, weight: isUnread ? .bold : .semibold))
+                        .font(PFPlanFont543.text(15, weight: isUnread ? .bold : .semibold))
                         .foregroundStyle(NoopLook.textPrimary)
                         .multilineTextAlignment(.leading)
                         .fixedSize(horizontal: false, vertical: true)
                     if let subtitle = row.subtitle {
                         Text(hiding.text(subtitle))
-                            .font(LookFont.text(13, weight: .medium))
+                            .font(PFPlanFont543.text(13, weight: .medium))
                             .foregroundStyle(NoopLook.textSecondary)
                             .multilineTextAlignment(.leading)
                             .fixedSize(horizontal: false, vertical: true)
@@ -145,7 +145,7 @@ struct PFInbox529: View {
                 Spacer(minLength: 4)
                 Image(systemName: "chevron.right")
                     .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(NoopLook.textTertiary)
+                    .foregroundStyle(NoopLook.textSecondary)
                     .padding(.top, 5)
                     .accessibilityHidden(true)
             }
@@ -164,12 +164,12 @@ struct PFInbox529: View {
     private var settingsRow: some View {
         HStack {
             Text("Choose what you are told about")
-                .font(LookFont.text(15, weight: .semibold))
+                .font(PFPlanFont543.text(15, weight: .semibold))
                 .foregroundStyle(NoopLook.textPrimary)
             Spacer(minLength: 4)
             Image(systemName: "chevron.right")
                 .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(NoopLook.textTertiary)
+                .foregroundStyle(NoopLook.textSecondary)
                 .accessibilityHidden(true)
         }
         .padding(.horizontal, 16)
@@ -228,10 +228,10 @@ struct PFInboxSettings529: View {
                         Toggle(isOn: Binding(get: { store.isOn(kind) }, set: { store.set(kind, on: $0) })) {
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(kind.switchTitle)
-                                    .font(LookFont.text(15, weight: .semibold))
+                                    .font(PFPlanFont543.text(15, weight: .semibold))
                                     .foregroundStyle(NoopLook.textPrimary)
                                 Text(kind.switchDetail)
-                                    .font(LookFont.text(12.5, weight: .medium))
+                                    .font(PFPlanFont543.text(12.5, weight: .medium))
                                     .foregroundStyle(NoopLook.textSecondary)
                                     .fixedSize(horizontal: false, vertical: true)
                             }
@@ -248,8 +248,8 @@ struct PFInboxSettings529: View {
                 }
                 .background(RoundedRectangle(cornerRadius: NoopLook.Metric.tileRadius, style: .continuous).fill(NoopLook.card))
                 Text("A switch off stops the notification only. The line still shows in the inbox. Health alerts also follow the alerts switch in the PaceForge sync settings.")
-                    .font(LookFont.text(12.5, weight: .medium))
-                    .foregroundStyle(NoopLook.textTertiary)
+                    .font(PFPlanFont543.text(12.5, weight: .medium))
+                    .foregroundStyle(NoopLook.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
                 diagnostics
             }
@@ -268,11 +268,11 @@ struct PFInboxSettings529: View {
     private var badgesRow: some View {
         HStack(spacing: 12) {
             Text("Badges are off in iOS Settings")
-                .font(LookFont.text(14, weight: .semibold))
+                .font(PFPlanFont543.text(14, weight: .semibold))
                 .foregroundStyle(NoopLook.textPrimary)
             Spacer(minLength: 4)
             Button("Open settings") { PFBadgePermission529.openNotificationSettings() }
-                .font(LookFont.text(14, weight: .semibold))
+                .font(PFPlanFont543.text(14, weight: .semibold))
                 .foregroundStyle(StrandPalette.accent)
                 .accessibilityIdentifier("plan529-inbox-badges-open")
         }
@@ -285,14 +285,14 @@ struct PFInboxSettings529: View {
     private var diagnostics: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text("Last check")
-                .lookCaps(11.5)
+                .pfCaps(11.5)
                 .foregroundStyle(NoopLook.textSecondary)
             Text(lastCheckText)
-                .font(LookFont.text(14, weight: .medium))
+                .font(PFPlanFont543.text(14, weight: .medium))
                 .foregroundStyle(NoopLook.textPrimary)
                 .accessibilityIdentifier("plan529-inbox-last-check")
             Text(lastDelayText)
-                .font(LookFont.text(13, weight: .medium))
+                .font(PFPlanFont543.text(13, weight: .medium))
                 .foregroundStyle(NoopLook.textSecondary)
                 .accessibilityIdentifier("plan529-inbox-last-delay")
         }
