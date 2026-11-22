@@ -284,8 +284,7 @@ struct PFExperimentReviewSheet530: View {
         .planCard529()
         VStack(alignment: .leading, spacing: 6) {
             PFOver529(text: "The question")
-            Text("When you answered \u{201C}\(review.question)\u{201D} yes or no, the next morning's \(review.outcomeLabel)"
-                 + (review.outcomeSource.isEmpty ? "" : " (\(review.outcomeSource))") + ".")
+            Text(questionSentence(review))
                 .font(LookFont.text(13.5)).foregroundStyle(NoopLook.textSecondary).fixedSize(horizontal: false, vertical: true)
             PFWeekSub529(text: windowText(review))
         }
@@ -312,6 +311,11 @@ struct PFExperimentReviewSheet530: View {
     private func valueText(_ value: Double, _ review: PFExperimentReview) -> String {
         let number = PFFormat.trimmed((value * 10).rounded() / 10)
         return review.outcomeUnit.isEmpty ? number : (review.outcomeUnit == "%" ? "\(number)%" : "\(number) \(review.outcomeUnit)")
+    }
+
+    private func questionSentence(_ review: PFExperimentReview) -> String {
+        let source = review.outcomeSource.isEmpty ? "" : " (\(review.outcomeSource))"
+        return "When you answered \u{201C}\(review.question)\u{201D} yes or no, the next morning's \(review.outcomeLabel)\(source)."
     }
 
     private func windowText(_ review: PFExperimentReview) -> String {
