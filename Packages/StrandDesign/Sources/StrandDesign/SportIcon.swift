@@ -41,6 +41,8 @@ public enum KnownWorkoutType: String, CaseIterable, Sendable {
     case indoorCycle = "Indoor cycle"
     case poolSwim = "Pool swim"
     case rowMachine = "Row machine"
+    case skiErg = "SkiErg"
+    case physiotherapy = "Physiotherapy"
     case elliptical = "Elliptical"
     case strength = "Strength"
     case bodybuilding = "Bodybuilding"
@@ -140,6 +142,9 @@ public enum KnownWorkoutType: String, CaseIterable, Sendable {
                                                             return .indoorCycle
         case s.contains("row") && (s.contains("machine") || s.contains("indoor") || s.contains("erg")):
                                                             return .rowMachine
+        case s.contains("skierg") || s.contains("ski erg") || s.contains("ski-erg"):
+                                                            return .skiErg
+        case s.contains("physio"):                          return .physiotherapy
         case s.contains("pickle"):                          return .pickleball
         case s.contains("padel"):                           return .padel
         case s.contains("racquet"):                         return .racquetball
@@ -288,6 +293,10 @@ public enum WorkoutTypeIconography {
             return .system("figure.pool.swim")
         case .rowMachine:
             return systemOrCustom("figure.indoor.rowing", .rowMachineBadge)
+        case .skiErg:
+            return .system("arrow.down.to.line")
+        case .physiotherapy:
+            return .system("cross.case.fill")
         case .elliptical:
             return systemOrCustom("figure.elliptical", .ellipticalBadge)
         case .strength:
@@ -425,6 +434,8 @@ public enum WorkoutTypeIconography {
         case .indoorCycle:      return "system:figure.indoor.cycle"
         case .poolSwim:         return "system:figure.pool.swim"
         case .rowMachine:       return "system:figure.indoor.rowing"
+        case .skiErg:           return "system:arrow.down.to.line"
+        case .physiotherapy:    return "system:cross.case.fill"
         case .elliptical:       return "system:figure.elliptical"
         case .strength:         return "system:dumbbell.fill"
         case .bodybuilding:     return "system:figure.strengthtraining.traditional"

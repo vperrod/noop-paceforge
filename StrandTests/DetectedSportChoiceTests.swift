@@ -11,9 +11,9 @@ final class DetectedSportChoiceTests: XCTestCase {
         XCTAssertEqual(unknown.map(\.rawValue), [])
     }
 
-    func testTheMenuOffersTheNineTypes() {
+    func testTheMenuOffersTheElevenTypes() {
         XCTAssertEqual(DetectedSportChoice.allCases.map(\.rawValue),
-                       ["walk", "run", "cycle", "strength", "hiit", "yoga", "hike", "swim", "other"])
+                       ["walk", "run", "cycle", "strength", "hiit", "skiErg", "physiotherapy", "yoga", "hike", "swim", "other"])
     }
 
     func testWalkIsSavedAsWalking() {
