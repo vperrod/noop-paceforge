@@ -644,6 +644,70 @@ final class PFPlanScreens543Tests: XCTestCase {
         XCTAssertEqual(started.problem(started.ask.questions[4]), "Type a number.")
     }
 
+    private let timeTrial = """
+    {"activity_id": "2512", "round": 0, "questions": [
+      {"key": "benchmark.ski_2000m_sec", "modality": "benchmark", "name": "ski_2000m_sec", "type": "number", "unit": "s",
+       "min": 200, "max": 1200, "text": "Your 2 km SkiErg time trial: what was the time?"}]}
+    """
+
+    private func timeTrialFlow(_ typed: String) throws -> (PFQuestionFlow543, PFWorkoutQuestion543) {
+        var started = PFQuestionFlow543(ask: try ask(timeTrial))
+        let question = started.ask.questions[0]
+        started.setText(question.key, typed)
+        return (started, question)
+    }
+
+    func testATimeInSecondsCanBeTypedAsMinutesAndSeconds() throws {
+        let (started, question) = try timeTrialFlow("7:18")
+        XCTAssertEqual(started.numberValue(question), 438)
+    }
+
+    func testATimeInSecondsCanBeTypedAsHoursMinutesAndSeconds() throws {
+        let (started, question) = try timeTrialFlow("0:07:18")
+        XCTAssertEqual(started.numberValue(question), 438)
+    }
+
+    func testATimeInSecondsCanStillBeTypedAsPlainSeconds() throws {
+        let (started, question) = try timeTrialFlow("438")
+        XCTAssertEqual(started.numberValue(question), 438)
+    }
+
+    func testATimeInMinutesAndSecondsLetsYouGoOn() throws {
+        let (started, _) = try timeTrialFlow("7:18")
+        XCTAssertNil(started.blocker(started.pages[0]))
+    }
+
+    func testAColonTimeOutsideTheRangeIsExplainedOnTheConvertedValue() throws {
+        let (started, question) = try timeTrialFlow("1:00")
+        XCTAssertEqual(started.problem(question), "Give a number from 200 to 1200 (s).")
+    }
+
+    func testAMalformedColonTimeIsNoNumber() throws {
+        let (started, question) = try timeTrialFlow("7:75")
+        XCTAssertEqual(started.problem(question), "Type a number.")
+    }
+
+    func testTheParsedSecondsAreShownUnderAColonTime() throws {
+        let (started, question) = try timeTrialFlow("7:18")
+        XCTAssertEqual(started.parsedSecondsLine(question), "= 438 s")
+    }
+
+    func testNoParsedSecondsAreShownForPlainSeconds() throws {
+        let (started, question) = try timeTrialFlow("438")
+        XCTAssertNil(started.parsedSecondsLine(question))
+    }
+
+    func testATimeInSecondsAsksForMinutesAndSecondsInTheField() throws {
+        let (_, question) = try timeTrialFlow("")
+        XCTAssertEqual(PFQuestionFlow543.placeholder(question), "m:ss")
+    }
+
+    func testAColonOnANumberThatIsNotSecondsStaysNoNumber() throws {
+        var started = try flow()
+        started.setText("skierg.meters_per_rep", "7:18")
+        XCTAssertEqual(started.problem(started.ask.questions[5]), "Type a number.")
+    }
+
     func testATypedProblemStopsTheNextButton() throws {
         var started = try flow()
         started.setText("skierg.pace_500m_s", "5")

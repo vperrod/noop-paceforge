@@ -192,7 +192,7 @@ struct PFWorkoutQuestionFlow543: View {
     /// A typed number (with its unit written out) or date, a note when it is the last similar workout's answer, and "I don't know".
     private func input(_ question: PFWorkoutQuestion543) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            TextField(question.kind == .date ? "YYYY-MM-DD" : "Type a number", text: Binding(
+            TextField(PFQuestionFlow543.placeholder(question), text: Binding(
                 get: { flow.typed[question.key] ?? "" },
                 set: { flow.setText(question.key, $0) }))
                 .textFieldStyle(.plain)
@@ -208,6 +208,7 @@ struct PFWorkoutQuestionFlow543: View {
             if let unit = PFQuestionFlow543.unitWords(question.unit), question.kind == .number {
                 Text("In " + unit).questionSub()
             }
+            if let parsed = flow.parsedSecondsLine(question) { Text(parsed).questionSub() }
             if question.confirmsPrefill, flow.typed[question.key] != nil, !flow.unknown.contains(question.key) {
                 Text("From your last similar workout. Change it if it was different.").questionSub()
             }

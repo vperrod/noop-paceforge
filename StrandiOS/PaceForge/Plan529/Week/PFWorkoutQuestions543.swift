@@ -183,9 +183,32 @@ struct PFQuestionFlow543: Equatable {
 
     // MARK: Values
 
-    /// The number a question holds: "5" is 5, "2:05" on a pace per distance is 125 seconds. nil when empty or not a number.
+    /// True for a question answered in seconds ("s"): a benchmark or time-trial result such as a 2 km SkiErg time.
+    static func isSecondsQuestion(_ question: PFWorkoutQuestion543) -> Bool {
+        (question.unit ?? "").trimmingCharacters(in: .whitespaces).lowercased() == "s"
+    }
+
+    /// "7:18" is 438 s, "1:02:05" is 3725 s. Minutes and seconds are two digits once there is a larger part; nil for anything else.
+    static func clockSeconds(_ text: String) -> Double? {
+        let parts = text.split(separator: ":", omittingEmptySubsequences: false)
+        guard parts.count == 2 || parts.count == 3, parts.allSatisfy({ !$0.isEmpty && $0.allSatisfy(\.isNumber) }),
+              let first = Int(parts[0]), let last = Int(parts[parts.count - 1]) else { return nil }
+        guard parts[parts.count - 1].count == 2, last < 60 else { return nil }
+        if parts.count == 2 { return Double(first * 60 + last) }
+        guard parts[1].count == 2, let minutes = Int(parts[1]), minutes < 60 else { return nil }
+        return Double(first * 3600 + minutes * 60 + last)
+    }
+
+    /// "= 438 s" under a time typed as m:ss or h:mm:ss, so he sees what will be sent; nil otherwise.
+    func parsedSecondsLine(_ question: PFWorkoutQuestion543) -> String? {
+        guard Self.isSecondsQuestion(question), typed[question.key]?.contains(":") == true, let value = numberValue(question) else { return nil }
+        return "= \(Self.numberText(value)) s"
+    }
+
+    /// The number a question holds: "5" is 5, "2:05" on a pace per distance is 125 seconds, "7:18" on a time in seconds is 438. nil when empty or not a number.
     func numberValue(_ question: PFWorkoutQuestion543) -> Double? {
         guard let text = typed[question.key]?.trimmingCharacters(in: .whitespaces), !text.isEmpty else { return nil }
+        if text.contains(":"), Self.isSecondsQuestion(question) { return Self.clockSeconds(text) }
         let unit = (question.unit ?? "").lowercased()
         if text.contains(":"), unit.hasPrefix("s per") || unit.contains("from the start") {
             return PFTreadmillInput.paceSeconds(text).map { Double($0) }
@@ -278,7 +301,14 @@ struct PFQuestionFlow543: Equatable {
         guard let unit = PFPlanRow543.clean(unit) else { return nil }
         if unit.hasPrefix("s per") { return "seconds" + String(unit.dropFirst(1)) }
         if unit == "s from the start" { return "seconds from the start (or m:ss)" }
+        if unit == "s" { return "seconds, or type m:ss or h:mm:ss" }
         return unit
+    }
+
+    /// The grey hint inside the empty field: "m:ss" for a time in seconds.
+    static func placeholder(_ question: PFWorkoutQuestion543) -> String {
+        if question.kind == .date { return "YYYY-MM-DD" }
+        return isSecondsQuestion(question) ? "m:ss" : "Type a number"
     }
 
     /// "5" for 5.0, "2.5" for 2.5.
