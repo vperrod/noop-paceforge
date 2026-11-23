@@ -989,25 +989,25 @@ struct LiquidTodayView: View {
         // The proposals row opens Plan > Week, on the week the changes are about, with the changes at the top.
         let readWhy = { PFProposalWeek529.openWeekWithChanges() }
         if hasHero { heroCard }
+        // My Journal sits right under the dials at the first frame (stage 0), every day it is today, so it is never missed: the week row,
+        // the state line, the "Fill out" entry and, while a question window is open, its one-tap questions. Nothing else mounts it on Today.
+        PFTodayJournalCard530()
         // The day graph directly under the dials and their caption lines (source labels, the Effort target line), above the call. It
         // mounts at stage 1, so the first frame is still the dials and the call.
         if hasHero && mountStage >= 1 && shows(.dayGraph) { MyDayTodayCard(day: selectedLogicalDay) }
         if shows(.call) {
             PFTodayCards(cards: [.theCall, .needsYou], showsHiddenRow: false, onOpenNeedsYou: openNeedsYou, onReadWhy: readWhy)
         }
-        // My Journal is always available, including when an older saved Today layout hid its legacy journal section.
-        if !hasHero { PFTodayJournalCard530() }
         if shows(.coachNoticed) { PFProactiveTodayCard() }
         if mountStage >= 1 {
             if hasHero {
                 lookMonitorRow
                 if chargeLegacyRRGap { ChargeLegacyRRGapNote() }
                 // Build 530: below the rings, the My Day graph, the call and the Health and Stress tiles, none of which move: the Sunday
-                // review row (Sunday evening, Monday morning), the overview card (morning or evening), then My Journal. My Journal
-                // replaces the journal reminder card on this path.
+                // review row (Sunday evening, Monday morning), the overview card (morning or evening). My Journal is mounted under
+                // the dials above and replaces the journal reminder card on this path.
                 PFTodayReviewRow530()
                 PFTodayOverviewCard530()
-                PFTodayJournalCard530()
             }
             if shows(.howYouAre) {
                 PFTodayCards(cards: [.howYouAre], drawsChrome: false, showsHiddenRow: false, containerID: "pf-today-cards-how",
