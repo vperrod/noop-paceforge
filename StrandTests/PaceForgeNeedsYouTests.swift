@@ -164,4 +164,93 @@ final class PaceForgeNeedsYouTests: XCTestCase {
         XCTAssertNotEqual(PFNeedsAnswer.question(id: "q7", value: "alcohol").signature(for: "i"),
                           PFNeedsAnswer.question(id: "q7", value: "nothing").signature(for: "i"))
     }
+
+    // MARK: A run asked part by part (build 545)
+
+    private let piecesDocument = """
+    {"items":[{"id":"treadmill_pace:7","kind":"treadmill_pace","title":"Treadmill run","available":true,
+      "meaning":"Treadmill run Sat, 54 min.\\nFor each part, what was the belt speed?\\nReply like: warm-up 9 km/h, test 12 km/h, incline 1%.",
+      "metric":{"activity_id":"7","duration_min":54,"structured":false,
+        "pieces":[{"n":1,"label":"Warm-up","kind":"warmup","distance_m":2000,"source":"plan"},
+                  {"n":2,"label":"5 km test","kind":"work","distance_m":5000,"test":"time_trial","source":"plan"},
+                  {"n":3,"label":"Cool-down","kind":"cooldown","distance_m":2000,"source":"plan"}],
+        "limits":{"speed_kmh":[4,22],"pace_s_per_km":[164,900],"incline_pct":[0,15]}},
+      "ref":{"kind":"treadmill_pace","activity_id":"7"}}]}
+    """
+
+    private var partsRun: PFTreadmillRun { PFNeedsParse.items(json(piecesDocument))[0].run! }
+
+    private func partsText(_ values: [String], times: [Bool] = [false, false, false], incline: String = "1", kmh: Bool = true) -> String? {
+        let entries = zip(values, times).map { PFTreadmillPartsInput.Entry(value: $0, isTime: $1) }
+        let answer = PFTreadmillPartsInput.check(run: partsRun, activityID: "7", useKmh: kmh, entries: entries, incline: incline).answer
+        guard case .treadmillParts(_, let text)? = answer else { return nil }
+        return text
+    }
+
+    func testPiecesKeepTheirNumbersAndTheServersWords() {
+        XCTAssertEqual(partsRun.pieces.map { $0.keyword }, ["warm-up", "test", "cool-down"])
+    }
+
+    func testOnlyTheTestPartOffersAFinishTime() {
+        XCTAssertEqual(partsRun.pieces.map { $0.testKm }, [nil, 5, nil])
+    }
+
+    func testARunWithoutPiecesKeepsTheSingleForm() {
+        XCTAssertEqual(PFNeedsParse.items(json(document))[0].run?.pieces.count, 0)
+    }
+
+    func testSentenceNamesEveryPartAndTheIncline() {
+        XCTAssertEqual(partsText(["9", "12", "9"]), "warm-up 9 km/h, test 12 km/h, cool-down 9 km/h, incline 1%")
+    }
+
+    func testTestPartCanBeAFinishTime() {
+        XCTAssertEqual(partsText(["9", "22:30", "9"], times: [false, true, false], incline: ""),
+                       "warm-up 9 km/h, test 5k in 22:30, cool-down 9 km/h")
+    }
+
+    func testPaceUnitIsSentPerKm() {
+        XCTAssertEqual(partsText(["6:40", "5:10", "6:40"], incline: "", kmh: false),
+                       "warm-up 6:40/km, test 5:10/km, cool-down 6:40/km")
+    }
+
+    func testSaveIsOffWhileAPartIsEmpty() {
+        XCTAssertNil(partsText(["9", "", "9"]))
+    }
+
+    func testAPartOutsideTheLimitsIsNotSendable() {
+        XCTAssertNil(partsText(["9", "40", "9"]))
+    }
+
+    func testAnImpossibleFinishTimeIsNotSendable() {
+        XCTAssertNil(partsText(["9", "2:30", "9"], times: [false, true, false]))
+    }
+
+    func testTheHintNamesThePartThatIsWrong() {
+        let entries = ["9", "40", "9"].map { PFTreadmillPartsInput.Entry(value: $0) }
+        XCTAssertEqual(PFTreadmillPartsInput.check(run: partsRun, activityID: "7", useKmh: true, entries: entries, incline: "").hint,
+                       "5 km test: speed is 4 to 22 km/h.")
+    }
+
+    func testNothingTypedHasNoHint() {
+        let entries = ["", "", ""].map { PFTreadmillPartsInput.Entry(value: $0) }
+        XCTAssertNil(PFTreadmillPartsInput.check(run: partsRun, activityID: "7", useKmh: true, entries: entries, incline: "").hint)
+    }
+
+    func testPartsAnswerSendsTextOnly() {
+        let body = PFNeedsAnswer.treadmillParts(activityID: "7", text: "warm-up 9 km/h").body
+        XCTAssertEqual(Set(body.keys), ["kind", "activity_id", "text"])
+    }
+
+    func testFinishTimeNeedsTwoDigitSeconds() {
+        XCTAssertNil(PFTreadmillPartsInput.finishSeconds("22:3"))
+    }
+
+    func testFinishTimeWithHoursIsRead() {
+        XCTAssertEqual(PFTreadmillPartsInput.finishSeconds("1:05:10"), 3910)
+    }
+
+    func testTheReplyLikeLineIsDroppedFromTheQuestion() {
+        XCTAssertEqual(PFTreadmillPartsInput.question(PFNeedsParse.items(json(piecesDocument))[0].meaning),
+                       "Treadmill run Sat, 54 min.\nFor each part, what was the belt speed?")
+    }
 }

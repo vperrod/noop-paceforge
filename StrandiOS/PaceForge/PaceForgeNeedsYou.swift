@@ -22,11 +22,22 @@ struct PFTreadmillLast: Equatable {
     var isUsable: Bool { speedKmh != nil || !blocks.isEmpty }
 }
 
+/// One part of a belt run that was not one steady speed (the server's `metric.pieces`): warm-up, the 5 km test, cool-down.
+struct PFTreadmillPiece: Equatable {
+    var n: Int
+    var label: String
+    /// The word the server's reply parser reads this part by ("warm-up", "test", "cool-down", else "part 2").
+    var keyword: String
+    /// The distance in km of a test part whose finish time he may give instead of a speed; nil for every other part.
+    var testKm: Double?
+}
+
 struct PFTreadmillRun: Equatable {
     var name: String?
     var durationMin: Int
     var structured: Bool
     var last: PFTreadmillLast?
+    var pieces: [PFTreadmillPiece] = []
     var speedKmh: ClosedRange<Double> = 4...22
     var paceSecPerKm: ClosedRange<Double> = 164...900
     var inclinePct: ClosedRange<Double> = 0...15
@@ -73,6 +84,8 @@ enum PFNeedsAnswer {
     case treadmillSpeed(activityID: String, kmh: Double, inclinePct: Double?)
     case treadmillPace(activityID: String, secPerKm: Int, inclinePct: Double?)
     case sameAsLast(activityID: String, last: PFTreadmillLast, preferBlocks: Bool)
+    /// A run asked part by part: one sentence the server reads per part ("warm-up 9 km/h, test 5k in 22:30, incline 1%").
+    case treadmillParts(activityID: String, text: String)
     case treadmillUnknown(activityID: String)
     case proposal(id: String, accept: Bool)
     case question(id: String, value: String)
@@ -105,6 +118,8 @@ enum PFNeedsAnswer {
                 out["speed_kmh"] = speed
             }
             return Self.with(out, incline: last.inclinePct)
+        case .treadmillParts(let id, let text):
+            return ["kind": "treadmill_pace", "activity_id": id, "text": text]
         case .treadmillUnknown(let id):
             return ["kind": "treadmill_pace_unknown", "activity_id": id]
         case .proposal(let id, let accept):
@@ -189,12 +204,37 @@ enum PFNeedsParse {
 
     private static func run(_ m: PFJ) -> PFTreadmillRun {
         var out = PFTreadmillRun(name: m["name"].text, durationMin: m["duration_min"].int ?? 0,
-                                 structured: m["structured"].bool ?? false, last: last(m["last"]))
+                                 structured: m["structured"].bool ?? false, last: last(m["last"]),
+                                 pieces: pieces(m["pieces"]))
         let limits = m["limits"]
         if let r = range(limits["speed_kmh"]) { out.speedKmh = r }
         if let r = range(limits["pace_s_per_km"]) { out.paceSecPerKm = r }
         if let r = range(limits["incline_pct"]) { out.inclinePct = r }
         return out
+    }
+
+    /// The parts of a run, or none when the list is shorter than two, a part has no number or two parts share one (the old single form then).
+    private static func pieces(_ j: PFJ) -> [PFTreadmillPiece] {
+        let rows = j.array
+        guard rows.count >= 2 else { return [] }
+        let ns = rows.compactMap { $0["n"].int }
+        guard ns.count == rows.count, Set(ns).count == ns.count else { return [] }
+        let words = rows.map { row -> String in
+            guard row["source"].text == "plan" else { return "part \(row["n"].int ?? 0)" }
+            switch row["kind"].text {
+            case "warmup": return "warm-up"
+            case "cooldown": return "cool-down"
+            case "rest": return "rest"
+            default: return row["test"].text != nil ? "test" : "part \(row["n"].int ?? 0)"
+            }
+        }
+        return rows.enumerated().map { index, row in
+            // Two parts with the same word ("rest", "rest") are told apart by their number.
+            let word = words.filter { $0 == words[index] }.count > 1 ? "part \(ns[index])" : words[index]
+            let km = row["test"].text != nil ? row["distance_m"].double.map { $0 / 1000 } : nil
+            return PFTreadmillPiece(n: ns[index], label: row["label"].text ?? "Part \(ns[index])", keyword: word,
+                                    testKm: km.flatMap { $0 > 0 ? $0 : nil })
+        }
     }
 
     private static func range(_ j: PFJ) -> ClosedRange<Double>? {
@@ -271,6 +311,79 @@ enum PFTreadmillInput {
     private static func clock(_ sec: Double) -> String {
         let total = Int(sec)
         return "\(total / 60):" + String(format: "%02d", total % 60)
+    }
+}
+
+/// What he typed for a run asked part by part: one value per part and one incline, built into the sentence the server reads.
+enum PFTreadmillPartsInput {
+    struct Entry: Equatable {
+        var value = ""
+        /// The test part only: the value is a finish time (22:30) instead of a speed.
+        var isTime = false
+    }
+
+    static let maxLength = 400
+
+    /// The server's question ends with "Reply like: warm-up 9 km/h, ..."; the part fields replace that line.
+    static func question(_ meaning: String?) -> String? {
+        guard let meaning else { return nil }
+        let kept = meaning.split(separator: "\n", omittingEmptySubsequences: false).filter { !$0.hasPrefix("Reply like:") }
+        return kept.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    /// Save is on only when every part has a valid value; the hint names the first part that does not and appears once he has typed something.
+    static func check(run: PFTreadmillRun, activityID: String, useKmh: Bool, entries: [Entry], incline: String) -> PFTreadmillInput.Result {
+        guard run.pieces.count == entries.count else { return .init(answer: nil, hint: nil) }
+        let typedAny = entries.contains { !$0.value.trimmingCharacters(in: .whitespaces).isEmpty }
+            || !incline.trimmingCharacters(in: .whitespaces).isEmpty
+        func refuse(_ hint: String) -> PFTreadmillInput.Result { .init(answer: nil, hint: typedAny ? hint : nil) }
+        var words: [String] = []
+        var isMissing = false
+        for (piece, entry) in zip(run.pieces, entries) {
+            let typed = entry.value.trimmingCharacters(in: .whitespaces)
+            guard !typed.isEmpty else { isMissing = true; continue }
+            if entry.isTime, let km = piece.testKm {
+                guard let sec = finishSeconds(typed),
+                      run.paceSecPerKm.lowerBound * km <= Double(sec), Double(sec) <= run.paceSecPerKm.upperBound * km else {
+                    return refuse("\(piece.label): a finish time like 22:30 for \(format(km)) km.")
+                }
+                words.append("\(piece.keyword) \(format(km))k in \(typed)")
+            } else if useKmh {
+                guard let kmh = PFTreadmillInput.number(typed), run.speedKmh.contains(kmh) else {
+                    return refuse("\(piece.label): speed is \(format(run.speedKmh.lowerBound)) to \(format(run.speedKmh.upperBound)) km/h.")
+                }
+                words.append("\(piece.keyword) \(format(kmh)) km/h")
+            } else {
+                guard let sec = PFTreadmillInput.paceSeconds(typed), run.paceSecPerKm.contains(Double(sec)) else {
+                    return refuse("\(piece.label): pace is m:ss per km.")
+                }
+                words.append("\(piece.keyword) \(sec / 60):" + String(format: "%02d", sec % 60) + "/km")
+            }
+        }
+        let inclineText = incline.trimmingCharacters(in: .whitespaces)
+        if !inclineText.isEmpty {
+            guard let n = PFTreadmillInput.number(inclineText), run.inclinePct.contains(n) else {
+                return refuse("Incline is \(format(run.inclinePct.lowerBound)) to \(format(run.inclinePct.upperBound)) %.")
+            }
+            words.append("incline \(format(n))%")
+        }
+        guard !isMissing else { return .init(answer: nil, hint: nil) }
+        let text = words.joined(separator: ", ")
+        guard text.count <= maxLength else { return refuse("That is too long to send.") }
+        return .init(answer: .treadmillParts(activityID: activityID, text: text), hint: nil)
+    }
+
+    /// "22:30" is 1350 s, "1:05:10" is 3910 s; seconds are two digits.
+    static func finishSeconds(_ text: String) -> Int? {
+        let parts = text.split(separator: ":", omittingEmptySubsequences: false)
+        guard parts.count == 2 || parts.count == 3, parts.allSatisfy({ !$0.isEmpty && $0.allSatisfy(\.isNumber) }) else { return nil }
+        let nums = parts.compactMap { Int($0) }
+        guard nums.count == parts.count, nums.dropFirst().allSatisfy({ $0 < 60 }), parts.dropFirst().allSatisfy({ $0.count == 2 }) else { return nil }
+        return nums.reduce(0) { $0 * 60 + $1 }
+    }
+
+    private static func format(_ value: Double) -> String {
+        value.rounded() == value ? String(Int(value)) : String(value)
     }
 }
 

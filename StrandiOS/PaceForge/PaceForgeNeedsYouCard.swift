@@ -38,7 +38,8 @@ struct PFNeedsYouCard: View {
 
     @ViewBuilder private func row(_ item: PFNeedsItem) -> some View {
         switch item.kind {
-        case .treadmillPace: PFNeedsTreadmillRow(item: item)
+        case .treadmillPace:
+            if item.run?.pieces.isEmpty == false { PFNeedsTreadmillPartsRow(item: item) } else { PFNeedsTreadmillRow(item: item) }
         case .proposal: PFNeedsProposalRow(item: item)
         case .question: PFNeedsQuestionRow(item: item)
         case .rpe: PFNeedsScaleRow(item: item, values: Array(1...10), columns: 5, prefix: "rpe")
@@ -55,6 +56,7 @@ private func send(_ model: PFModel, _ answer: PFNeedsAnswer, for item: PFNeedsIt
 
 private struct PFNeedsHeader: View {
     let item: PFNeedsItem
+    var meaning: String?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 3) {
@@ -62,7 +64,7 @@ private struct PFNeedsHeader: View {
                 .font(StrandFont.subhead.weight(.semibold))
                 .foregroundStyle(StrandPalette.textPrimary)
                 .fixedSize(horizontal: false, vertical: true)
-            if let meaning = item.meaning {
+            if let meaning = meaning ?? item.meaning {
                 Text(meaning)
                     .font(StrandFont.caption)
                     .foregroundStyle(StrandPalette.textSecondary)
@@ -155,6 +157,98 @@ private struct PFNeedsTreadmillRow: View {
             .frame(minHeight: 44)
             .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(StrandPalette.surfaceInset))
             .accessibilityIdentifier(id)
+    }
+}
+
+/// A belt run that had parts (warm-up, the 5 km test, cool-down): one field per part, one incline, sent as one sentence.
+private struct PFNeedsTreadmillPartsRow: View {
+    let item: PFNeedsItem
+
+    @EnvironmentObject private var model: PFModel
+    @State private var useKmh = true
+    @State private var entries: [PFTreadmillPartsInput.Entry] = []
+    @State private var incline = ""
+
+    private var run: PFTreadmillRun? { item.run }
+    private var pieces: [PFTreadmillPiece] { run?.pieces ?? [] }
+    private var activityID: String { item.activityID ?? "" }
+    /// The entries follow the parts; until the first appearance sets them, none is typed.
+    private var typed: [PFTreadmillPartsInput.Entry] {
+        entries.count == pieces.count ? entries : Array(repeating: .init(), count: pieces.count)
+    }
+
+    private var check: PFTreadmillInput.Result {
+        guard let run else { return .init(answer: nil, hint: nil) }
+        return PFTreadmillPartsInput.check(run: run, activityID: activityID, useKmh: useKmh, entries: typed, incline: incline)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            PFNeedsHeader(item: item, meaning: PFTreadmillPartsInput.question(item.meaning))
+            Picker("Unit", selection: $useKmh) {
+                Text("km/h").tag(true)
+                Text("min/km").tag(false)
+            }
+            .pickerStyle(.segmented)
+            .accessibilityIdentifier("pf-needs-unit-\(item.id)")
+            ForEach(Array(pieces.enumerated()), id: \.element.n) { index, piece in
+                partField(index, piece)
+            }
+            partField(label: "Incline %", placeholder: "incline %", text: $incline, id: "pf-needs-incline-\(item.id)")
+            if let hint = check.hint {
+                Text(hint)
+                    .font(StrandFont.caption)
+                    .foregroundStyle(PFColor.warning)
+                    .accessibilityIdentifier("pf-needs-hint-\(item.id)")
+            }
+            PFNeedsButton(title: "Save", prominent: true, isEnabled: check.answer != nil, id: "pf-needs-save-\(item.id)") {
+                if let answer = check.answer { send(model, answer, for: item) }
+            }
+            PFNeedsButton(title: "Don't know", id: "pf-needs-unknown-\(item.id)") {
+                send(model, .treadmillUnknown(activityID: activityID), for: item)
+            }
+        }
+        .onAppear { if entries.count != pieces.count { entries = Array(repeating: .init(), count: pieces.count) } }
+    }
+
+    @ViewBuilder private func partField(_ index: Int, _ piece: PFTreadmillPiece) -> some View {
+        let isTime = typed[index].isTime && piece.testKm != nil
+        VStack(alignment: .leading, spacing: 6) {
+            if piece.testKm != nil {
+                Picker(piece.label, selection: Binding(get: { typed[index].isTime }, set: { new in setEntry(index) { $0.isTime = new } })) {
+                    Text("Speed").tag(false)
+                    Text("Finish time").tag(true)
+                }
+                .pickerStyle(.segmented)
+                .accessibilityIdentifier("pf-needs-mode-\(piece.n)-\(item.id)")
+            }
+            partField(label: piece.label,
+                      placeholder: isTime ? "m:ss" : (useKmh ? "belt km/h" : "pace m:ss"),
+                      text: Binding(get: { typed[index].value }, set: { new in setEntry(index) { $0.value = new } }),
+                      id: "pf-needs-part-\(piece.n)-\(item.id)")
+        }
+    }
+
+    private func partField(label: String, placeholder: String, text: Binding<String>, id: String) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(label)
+                .font(StrandFont.caption.weight(.semibold))
+                .foregroundStyle(StrandPalette.textSecondary)
+            TextField(placeholder, text: text)
+                .keyboardType(.numbersAndPunctuation)
+                .textFieldStyle(.plain)
+                .font(StrandFont.body)
+                .padding(.horizontal, 12)
+                .frame(minHeight: 44)
+                .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(StrandPalette.surfaceInset))
+                .accessibilityIdentifier(id)
+        }
+    }
+
+    private func setEntry(_ index: Int, _ change: (inout PFTreadmillPartsInput.Entry) -> Void) {
+        var all = typed
+        change(&all[index])
+        entries = all
     }
 }
 
