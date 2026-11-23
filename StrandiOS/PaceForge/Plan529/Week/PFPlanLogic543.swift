@@ -192,6 +192,17 @@ enum PFNeedsStrip543 {
         }
     }
 
+    /// A served overlap row the athlete just answered "Keep both" on: the phone hides it at once, until the server's next document leaves it out.
+    private static func isKeptServed(_ row: PFPlanWeekDoc.NeedsYouItem, in doc: PFPlanWeekDoc, _ keptOverlap: (String) -> Bool) -> Bool {
+        guard kind(of: row.kind) == .overlap, let id = row.sessionId else { return false }
+        for day in doc.days ?? [] {
+            for item in day.items ?? [] where item.sessionId == id {
+                if let overlap = item.overlap, keptOverlap(PFOverlap543.keptKey(date: day.date, title: item.title, overlap: overlap)) { return true }
+            }
+        }
+        return false
+    }
+
     /// The entries of one week. The server's `needs_you.items` when it sends them, else one entry per workout that waits for an answer and per
     /// overlapping pair of sessions; a change waiting to be accepted is always an entry too.
     /// `keptOverlap` says whether the athlete already chose "Keep both" for an overlap (the key is `PFOverlap543.keptKey`); such a pair is not listed.
@@ -199,6 +210,7 @@ enum PFNeedsStrip543 {
         var out: [PFNeedsEntry543] = []
         if let served = doc.needsYou?.items, !served.isEmpty {
             for (index, row) in served.enumerated() {
+                if isKeptServed(row, in: doc, keptOverlap) { continue }
                 let entryKind = PFNeedsStrip543.kind(of: row.kind)
                 out.append(PFNeedsEntry543(id: "served-\(index)-\(row.sessionId ?? row.activityId ?? "")", kind: entryKind,
                                            title: PFPlanRow543.clean(row.title) ?? defaultTitle(entryKind),
@@ -252,7 +264,8 @@ enum PFNeedsStrip543 {
 
     /// The number the strip shows: the server's count when it is higher than what the phone can list.
     static func count(_ doc: PFPlanWeekDoc, keptOverlap: (String) -> Bool = { _ in false }) -> Int {
-        max(doc.needsYou?.count ?? 0, entries(doc, keptOverlap: keptOverlap).count)
+        let hidden = (doc.needsYou?.items ?? []).filter { isKeptServed($0, in: doc, keptOverlap) }.count
+        return max((doc.needsYou?.count ?? 0) - hidden, entries(doc, keptOverlap: keptOverlap).count)
     }
 
     /// "2 things need you", "1 thing needs you".
@@ -387,6 +400,12 @@ enum PFOverlap543 {
         let parts = split(pair)
         guard let other = parts.other, other.sessionId != nil, !PFPlanRow543.isCoach(other) else { return nil }
         return other
+    }
+
+    /// The idempotency key of the "Keep both" answer: 1 to 64 letters, digits, `-` and `_`; a retry of the same session is the same answer.
+    static func keepKey(sessionID: String) -> String {
+        let safe = String(sessionID.map { $0.isASCII && ($0.isLetter || $0.isNumber || $0 == "-" || $0 == "_") ? $0 : "_" })
+        return String(("keep-" + safe).prefix(64))
     }
 
     /// The key the phone keeps for "Keep both", so the chip is not offered again for the same pair on that day.

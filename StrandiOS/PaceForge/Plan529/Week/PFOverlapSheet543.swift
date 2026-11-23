@@ -12,6 +12,7 @@ struct PFOverlapSheet543: View {
     @State private var newDate: Date
     @State private var asksToSkip = false
     @State private var note: String?
+    @State private var isKeeping = false
 
     init(target: PFOverlapTarget543) {
         self.target = target
@@ -91,8 +92,8 @@ struct PFOverlapSheet543: View {
 
     @ViewBuilder private var choices: some View {
         VStack(alignment: .leading, spacing: 10) {
-            PFPlanButton543(title: PFOverlap543.keepBoth, isProminent: true, isDisabled: runner.isBusy,
-                            identifier: "plan529-overlap-keep") { keepBoth() }
+            PFPlanButton543(title: PFOverlap543.keepBoth, isProminent: true, isDisabled: runner.isBusy || isKeeping,
+                            identifier: "plan529-overlap-keep") { Task { await keepBoth() } }
             if changeable != nil {
                 PFPlanButton543(title: PFOverlap543.moveClass, isDisabled: runner.isBusy, identifier: "plan529-overlap-move") {
                     withAnimation(.easeInOut(duration: 0.2)) { isMoving.toggle() }
@@ -125,8 +126,27 @@ struct PFOverlapSheet543: View {
 
     // MARK: Actions
 
-    /// No server call: the pair is remembered on this phone, so the chip and the strip stop asking about it.
-    private func keepBoth() {
+    /// Tells the server (`POST /app/answer`, kind `overlap`) so the Needs-you list stops listing the pair, then remembers it on this phone too, which hides
+    /// the chip and the strip entry at once until the next plan document. A refusal keeps the sheet open with the server's sentence.
+    @MainActor private func keepBoth() async {
+        if let id = changeable?.sessionId {
+            isKeeping = true
+            defer { isKeeping = false }
+            var body = PFNeedsAnswer.overlapKeep(sessionID: id).body
+            body["key"] = PFOverlap543.keepKey(sessionID: id)
+            let reply: (status: Int, data: Data)
+            do {
+                reply = try await PFAPI.postAnswer(body)
+            } catch {
+                note = PFAnswerOutcome.unreachable.message
+                return
+            }
+            let outcome = PFAnswerOutcome.from(status: reply.status, data: reply.data)
+            guard outcome.isSaved else {
+                note = outcome.message
+                return
+            }
+        }
         UserDefaults.standard.set(true, forKey: PFOverlap543.keptKey(date: target.day.date, title: target.item.title,
                                                                       overlap: target.item.overlap ?? PFPlanWeekDoc.Overlap()))
         NotificationCenter.default.post(name: .pfPlan529Changed, object: nil)

@@ -96,6 +96,8 @@ enum PFNeedsAnswer {
     case workoutAnswers(activityID: String, answers: [String: Any])
     /// Build 543: skip every question about a workout (`workout_answer_skip`).
     case workoutSkip(activityID: String)
+    /// Keep both sessions of a Plan overlap (`overlap`, decision `keep`); `sessionID` is the athlete's own session.
+    case overlapKeep(sessionID: String)
 
     /// The JSON body without the idempotency `key`.
     var body: [String: Any] {
@@ -141,6 +143,8 @@ enum PFNeedsAnswer {
             return ["kind": "workout_answer", "activity_id": id, "answers": answers]
         case .workoutSkip(let id):
             return ["kind": "workout_answer_skip", "activity_id": id]
+        case .overlapKeep(let id):
+            return ["kind": "overlap", "session_id": id, "decision": "keep"]
         }
     }
 

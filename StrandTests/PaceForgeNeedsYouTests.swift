@@ -147,6 +147,11 @@ final class PaceForgeNeedsYouTests: XCTestCase {
         XCTAssertNil(PFNeedsAnswer.question(id: "q7", value: "alcohol").body["decision"])
     }
 
+    func testOverlapKeepBodyIsTheKindSessionAndDecision() {
+        let body = PFNeedsAnswer.overlapKeep(sessionID: "s9").body
+        XCTAssertEqual(body as NSDictionary, ["kind": "overlap", "session_id": "s9", "decision": "keep"] as NSDictionary)
+    }
+
     func testQuestionDismissSendsDismiss() {
         XCTAssertEqual(PFNeedsAnswer.questionDismiss(id: "q7").body["decision"] as? String, "dismiss")
     }

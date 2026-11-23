@@ -284,6 +284,20 @@ final class PFPlanScreens543Tests: XCTestCase {
         XCTAssertEqual(PFNeedsStrip543.entries(busy, keptOverlap: { _ in true }), [])
     }
 
+    func testAKeptOverlapIsNotListedWhenTheServerSendsItsItems() throws {
+        let served = try doc("""
+        {"needs_you": {"count": 1, "items": [{"kind": "overlap", "session_id": "a"}]},
+         "days": [{"date": "2030-03-11", "items": [
+          {"kind": "session", "session_id": "a", "title": "Run test", "overlap": {"with": ["Easy run"]}}]}]}
+        """)
+        XCTAssertEqual(PFNeedsStrip543.entries(served, keptOverlap: { _ in true }), [])
+        XCTAssertEqual(PFNeedsStrip543.count(served, keptOverlap: { _ in true }), 0)
+    }
+
+    func testTheKeepBothAnswerKeyIsThePerSessionIdempotencyKey() {
+        XCTAssertEqual(PFOverlap543.keepKey(sessionID: "s 9/x"), "keep-s_9_x")
+    }
+
     func testTheLiveQuestionsReplaceTheDocumentsOwn() {
         let fromDoc = [PFNeedsEntry543(id: "q", kind: .question, title: "Answer the Coach", sessionID: nil, activityID: nil),
                        PFNeedsEntry543(id: "o", kind: .overlap, title: "Review overlaps", sessionID: "s", activityID: nil)]
