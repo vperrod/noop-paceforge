@@ -21,7 +21,7 @@ settings:
     # iOS build number (CFBundleVersion). GLOBAL so the iOS app AND its widget extension inherit the
     # SAME value — they must match or iOS warns "extension version must match parent app" (#416).
     # macOS sets its own CFBundleVersion on the Strand target and is unaffected by this.
-    CURRENT_PROJECT_VERSION: "543"
+    CURRENT_PROJECT_VERSION: "544"
     SWIFT_VERSION: "5.0"
     # Emit localizable strings so Xcode auto-extracts every LocalizedStringKey into the
     # String Catalog on build (the English (US) base entries).
@@ -267,6 +267,8 @@ targets:
       # The Plan screens of build 543: row badges and sentences, the needs-you strip, week notes, overlap, confirm wording, the Coach's workout questions (flow, payload), asked-against-did and the notes thread.
       - StrandiOS/PaceForge/Plan529/Week/PFPlanLogic543.swift
       - StrandiOS/PaceForge/Plan529/Week/PFWorkoutQuestions543.swift
+      # The athlete's own effort and minutes on a session (build 544): the four choices, the minutes limits, "Your choice" or "Estimated", the form and the session-effort inputs.
+      - StrandiOS/PaceForge/Plan529/Week/PFSessionEffort544.swift
       # Editing a recorded activity without touching the recording (relabel, trim, split, group, undo): the forms' rules, the inputs of activity-edit-* and the activity-edits document.
       - StrandiOS/PaceForge/PaceForgeActivityEdits.swift
       # Training analytics: heart-rate zone sets per sport (hr-zones-add), comparable earlier runs, repetitions against the plan, a race's course and pacing notes.

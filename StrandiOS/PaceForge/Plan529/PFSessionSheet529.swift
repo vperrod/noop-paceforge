@@ -130,6 +130,9 @@ struct PFSessionSheet529: View {
             PFCoachSessionNote542(item: item, idPrefix: "plan529-sheet-coach", showsMustLine: false)
             if !isDone { PFWatchChip529(sessionID: item.sessionId) }
             if !isDone || execution?.isAvailable != true { PFWhatToDoCard543(item: item) }
+            if !isDone, item.kind == nil || item.kind == "session", let id = item.sessionId {
+                PFSessionEffortCard544(item: item, sessionID: id)
+            }
             if isDone { PFWhatYouDidCard543(item: item, execution: execution) }
             if isDone || isReassessing(item) {
                 PFAssessmentCard543(item: item, thread: thread, isReassessing: isReassessing(item),

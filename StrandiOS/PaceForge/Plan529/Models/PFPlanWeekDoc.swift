@@ -221,6 +221,12 @@ struct PFPlanWeekDoc: Codable, Equatable {
         var needsYou: Bool?
         /// The athlete wrote this workout himself (add-session).
         var athleteCreated: Bool?
+        /// Build 544: the athlete's own effort (easy | moderate | hard | all_out) and minutes on this session, null until he sets one. `effort`,
+        /// `effortLabel` and `minutes` already carry his value when he has; the `...Estimated` flags say the shown value is the app's estimate.
+        var effortChoice: String?
+        var minutesChoice: Int?
+        var effortEstimated: Bool?
+        var minutesEstimated: Bool?
     }
 
     /// One numbered piece of a workout: "Warm-up 2 km", its detail, its effort word and the band the Coach will judge it against.

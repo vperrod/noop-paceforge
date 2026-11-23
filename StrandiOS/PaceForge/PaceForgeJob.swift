@@ -59,6 +59,8 @@ enum PFJobName: String, Equatable {
     /// TrueCoach week import (build 542): read the coach's plan now; slow lane, the page read takes seconds to minutes. Undo puts back the draft sessions the replan removed.
     case truecoachSync = "truecoach-sync"
     case truecoachReplanUndo = "truecoach-replan-undo"
+    /// The athlete's own effort and minutes on a planned session (build 544); both null clears the choice. A calendar-style write: never replayed.
+    case sessionEffort = "session-effort"
 
     /// How long a job is expected to take from the request to "done", in seconds, from the contract: a photo read is 5 s to about 4.5 min
     /// (the local vision model is shared), a Garmin sync about 8 s and a minute or more behind a Garmin rate limit, the rest run inline.
@@ -70,7 +72,7 @@ enum PFJobName: String, Equatable {
         case .journalCapture: return 90
         case .saveRpe, .adjustToday, .coachFeedback, .niggleAdd, .niggleResolve, .calendarEdit, .sessionState, .sessionDrop, .easyMode, .easyModeEnd, .saveEvents, .hyroxSimAdd,
              .eventUpdate, .planHours, .dayoffAdd, .dayoffRemove, .journalList, .journalProposal, .journalCaptureConfirm, .saveMemory, .stepGoalSet,
-             .manualWorkout, .manualWorkoutEdit, .manualWorkoutDelete, .manualWorkoutComment, .queryChart, .experiment: return 30
+             .manualWorkout, .manualWorkoutEdit, .manualWorkoutDelete, .manualWorkoutComment, .queryChart, .experiment, .sessionEffort: return 30
         case .strengthImportPreview, .strengthImport: return 60
         case .activityEditPropose, .activityEditConfirm, .activityEditReject, .activityEditUndo, .hrZonesAdd: return 30
         case .sessionSwap, .addSession: return 60

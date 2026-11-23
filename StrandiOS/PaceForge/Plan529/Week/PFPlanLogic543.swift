@@ -132,6 +132,7 @@ enum PFPlanRow543 {
         if let minutes = item.minutes, minutes > 0 { parts.append("\(minutes) min") }
         if let km = item.km, km > 0 { parts.append(km.rounded() == km ? "\(Int(km)) km" : String(format: "%.1f km", km)) }
         if let effort = clean(item.effortLabel) { parts.append(effort) }
+        if !parts.isEmpty, PFSessionEffort544.isSetByYou(item) { parts.append(PFSessionEffort544.setByYouWord) }
         return parts.isEmpty ? nil : parts.joined(separator: " \u{00B7} ")
     }
 
