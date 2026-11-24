@@ -87,7 +87,9 @@ struct PFCoachComposer: View {
             noopCoach.pendingPrompt = nil
             noopCoach.pendingSessionID = nil
             mode = .question
-            await sendMessage(prompt, sessionID: sessionID)
+            // Clearing pendingPrompt above ends this task's id and cancels it, which would throw out of the reply wait in sendMessage
+            // and report a failed send after a successful post. A task of its own, like the send button's, is not cancelled with it.
+            Task { await sendMessage(prompt, sessionID: sessionID) }
         }
     }
 

@@ -185,11 +185,14 @@ final class WhoopGapsUITests: XCTestCase {
         attach(app, "78 Ask about this")
         ask.tap()
         XCTAssertTrue(element(app, "coach-chip-content-ask").waitForExistence(timeout: 20), "The question should open the Coach on its Ask chip.")
-        // The unified Coach sends a handed question at once (PFCoachComposer.sendMessage) instead of leaving it in a box. The fixture's
-        // api/app/chat (Fixtures529/coach-chat.json) accepts it, which empties the box, and the wait for a reply then ends in the status
-        // line, so that line is the visible proof the question reached the composer and was sent. The box only keeps the question when the send fails.
-        let sent = element(app, "pf-chat-status")
-        XCTAssertTrue(sent.waitForExistence(timeout: 20), "Coach should send the question that was handed to it.")
+        // The unified Coach sends a handed question at once (PFCoachComposer.sendMessage). The fixture's api/app/chat
+        // (Fixtures529/coach-chat.json) accepts it and the snapshot never gains the question, so no bubble appears. A successful send empties the
+        // box (a failed one keeps the question there) and, while the Coach is still working, shows no status line: the old false
+        // "Couldn't send your message... CancellationError" came up within seconds of the post.
+        let box = element(app, "pf-chat-input")
+        let emptied = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", "Ask your coach"), object: box)
+        XCTAssertEqual(XCTWaiter().wait(for: [emptied], timeout: 20), .completed, "Coach should send the question that was handed to it.")
+        XCTAssertFalse(element(app, "pf-chat-status").waitForExistence(timeout: 10), "A sent question must not show a send failure.")
         attach(app, "78 Coach after the question was sent")
     }
 }
