@@ -37,15 +37,23 @@ final class Phase4UITests: XCTestCase {
         app.descendants(matching: .any).matching(NSPredicate(format: "identifier BEGINSWITH %@", prefix)).firstMatch
     }
 
+    /// Mounted and inside the screen, read from the element's frame: `isHittable` records a test failure ("Activation point invalid") when it
+    /// is asked about an element that is mounted but still below the screen, which a shorter Today now does for the Stress Monitor chart.
+    private func isOnScreen(_ element: XCUIElement, in app: XCUIApplication) -> Bool {
+        guard element.exists else { return false }
+        let frame = element.frame
+        return !frame.isEmpty && frame.midY > 0 && frame.midY < app.frame.height
+    }
+
     @discardableResult
     private func reveal(_ element: XCUIElement, in app: XCUIApplication, maxSwipes: Int = 14) -> Bool {
         for _ in 0..<(maxSwipes * 3) {
-            if element.exists && element.isHittable { return true }
+            if isOnScreen(element, in: app) && element.isHittable { return true }
             let from = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.62))
             let to = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.32))
             from.press(forDuration: 0.05, thenDragTo: to, withVelocity: .slow, thenHoldForDuration: 0.1)
         }
-        return element.exists && element.isHittable
+        return isOnScreen(element, in: app) && element.isHittable
     }
 
     /// Nothing on a screen scrolls sideways: the element sits inside the screen's width.

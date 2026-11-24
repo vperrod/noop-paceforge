@@ -190,6 +190,12 @@ final class WhoopGapsUITests: XCTestCase {
         let sent = element(app, "pf-chat-status")
         XCTAssertTrue(sent.waitForExistence(timeout: 20), "Coach should send the question that was handed to it.")
         let question = app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS[c] %@ OR value CONTAINS[c] %@", "explain my Charge", "explain my Charge")).firstMatch
+        // The box is under the conversation and the suggestions, below the first screen, where the Ask chip mounts it only once it is scrolled near.
+        for _ in 0..<12 where !question.exists {
+            let from = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.62))
+            let to = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.32))
+            from.press(forDuration: 0.05, thenDragTo: to, withVelocity: .slow, thenHoldForDuration: 0.1)
+        }
         XCTAssertTrue(question.waitForExistence(timeout: 20), "Coach should show the question that was handed to it.")
         attach(app, "78 Coach with the question")
     }

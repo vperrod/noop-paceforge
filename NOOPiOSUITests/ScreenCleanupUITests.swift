@@ -111,7 +111,14 @@ final class ScreenCleanupUITests: XCTestCase {
     func testInsightsHasEveryChipAndTheReportsOpenTheirScreens() throws {
         let app = try launch(fixture: true)
         openInsights(app)
-        XCTAssertTrue(element(app, "insights-chip-content-overview").waitForExistence(timeout: 30), "Insights opens on Overview.")
+        // The coach's notes above the chips fill most of the first screen, so the Overview content is mounted only once it is scrolled near.
+        let overview = element(app, "insights-chip-content-overview")
+        for _ in 0..<12 where !overview.exists {
+            let from = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.62))
+            let to = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.32))
+            from.press(forDuration: 0.05, thenDragTo: to, withVelocity: .slow, thenHoldForDuration: 0.1)
+        }
+        XCTAssertTrue(overview.waitForExistence(timeout: 30), "Insights opens on Overview.")
         for chip in ["deepDives"] {
             let button = element(app, "insights-chip-\(chip)")
             XCTAssertTrue(button.waitForExistence(timeout: 10), "Insights should have the \(chip) chip.")
