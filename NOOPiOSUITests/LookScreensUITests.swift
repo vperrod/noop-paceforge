@@ -96,13 +96,13 @@ final class LookScreensUITests: XCTestCase {
         attach(app, "Look 71 metric detail trend Y")
     }
 
-    /// Trends no longer carries the look's metric-menu chart (the Charge section has the one chart with the W / M / 3M / 6M / Y / All
-    /// switch, and the Metric Explorer row has every metric); the Charge section is closed until tapped.
+    /// The Charge section (closed until tapped) holds the look's metric-menu chart with the 7-day average, beside the W / M / 3M / 6M / Y / All
+    /// range switch.
     func testNoopTrendsKeepsTheChargeChartWithItsRangeSwitch() throws {
         let app = try launch(screen: "trends")
         XCTAssertTrue(element(app, "coach-week-section-trends-charge").waitForExistence(timeout: 30), "Trends should have the Charge section.")
         app.openSection("trends-charge")
-        XCTAssertFalse(element(app, "look-noop-trends").exists, "The look's metric-menu chart is no longer on Trends.")
+        XCTAssertTrue(element(app, "look-noop-trends").waitForExistence(timeout: 10), "The Charge section should show the metric-menu chart.")
         attach(app, "Look 72 Trends Charge section")
     }
 

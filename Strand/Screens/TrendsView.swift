@@ -512,6 +512,9 @@ struct TrendsView: View {
         PFDisclosure(title: "Charge", intro: "Charge over time and the year calendar", startsOpen: false, nested: false,
                      id: "trends-charge") {
             VStack(alignment: .leading, spacing: NoopMetrics.sectionSpacing) {
+                // The look's trend view: metric dropdown, average with change, W / M / 6M / Y, 7-day average, What moved it.
+                LookRepoTrends(specs: LookRepoTrends.trendsSpecs, initialKey: "recovery",
+                               identifier: "look-noop-trends")
                 rangeBar(recovery: metrics.recovery)
                 heroRecovery(recovery: metrics.recovery)
                 MemoizedByKey(key: historyKey) { yearStrip }
