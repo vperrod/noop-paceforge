@@ -7,33 +7,50 @@ import StrandDesign
 /// good or bad on its own here. A simulation is logged from the button under the card (PaceForgeSimLogSheet.swift).
 struct PFSimulationsCard: View {
     let sims: PFHyroxSims
+    /// True inside a collapsed section that already carries the title and the count: the card chrome is dropped, the (i) stays.
+    var embedded = false
 
     private var hasShownData: Bool { sims.hasData && (sims.latest != nil || !sims.segments.isEmpty) }
 
     var body: some View {
-        PFCard(title: "Race simulations", icon: "stopwatch", info: PFExplainerID.raceSims, trailing: {
-            if sims.count > 0 {
-                Text("\(sims.count) logged")
-                    .font(StrandFont.caption)
-                    .foregroundStyle(StrandPalette.textTertiary)
-            }
-        }) {
-            VStack(alignment: .leading, spacing: 16) {
-                if hasShownData {
-                    if let latest = sims.latest { totalBlock(latest) }
-                    if let fresh = sims.freshRun { freshRunLine(fresh) }
-                    if let latest = sims.latest { fadeBlock(latest) }
-                    if !sims.segments.isEmpty { splitsTable }
-                    if !sims.weakest.isEmpty { weakestBlock }
-                    if let note = sims.note { PFParagraph(note) }
-                } else {
-                    emptyBlock
+        if embedded {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Spacer(minLength: 8)
+                    PFInfoButton(id: PFExplainerID.raceSims)
                 }
-                if sims.unmappedCount > 0 { unmappedNote }
-                PFSimLogButton()
+                cardContent
             }
+            .containerIdentifier("pf-sims-card")
+        } else {
+            PFCard(title: "Race simulations", icon: "stopwatch", info: PFExplainerID.raceSims, trailing: {
+                if sims.count > 0 {
+                    Text("\(sims.count) logged")
+                        .font(StrandFont.caption)
+                        .foregroundStyle(StrandPalette.textTertiary)
+                }
+            }) {
+                cardContent
+            }
+            .containerIdentifier("pf-sims-card")
         }
-        .containerIdentifier("pf-sims-card")
+    }
+
+    private var cardContent: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            if hasShownData {
+                if let latest = sims.latest { totalBlock(latest) }
+                if let fresh = sims.freshRun { freshRunLine(fresh) }
+                if let latest = sims.latest { fadeBlock(latest) }
+                if !sims.segments.isEmpty { splitsTable }
+                if !sims.weakest.isEmpty { weakestBlock }
+                if let note = sims.note { PFParagraph(note) }
+            } else {
+                emptyBlock
+            }
+            if sims.unmappedCount > 0 { unmappedNote }
+            PFSimLogButton()
+        }
     }
 
     // MARK: Empty state

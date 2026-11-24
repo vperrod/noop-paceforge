@@ -1,11 +1,12 @@
 import SwiftUI
 import StrandDesign
 
-// The HYROX screen: seven sections in this order, each loading, empty and failing on its own: the next race (with the race picker),
-// your plan (read-only: it is edited on the web app), results, performance, training for HYROX, advisory and season. It sits on the
-// Plan tab as the HYROX chip and opens as a sheet from the Coach race plans, the Athlete tab and the race countdown. The parsing and
-// the wording are in PaceForgeHyrox.swift. His own numbers only: no top 3 and no percentile of our own. A race's official placing and field size show when the result file carries them
-// (source "Official result"), and the Train chip adds the running prediction under the next race.
+// The HYROX screen: the next race (with the race picker) as one summary card, then six sections that stay closed until tapped, each
+// loading, empty and failing on its own: results, performance, training for HYROX (with the race pacing, the pack and your plan, which
+// is read-only: it is edited on the web app), race simulations, coach advisory and season. It sits on the Train tab as the HYROX chip
+// and opens as a sheet from the Coach race plans, the Athlete tab and the race countdown. The parsing and the wording are in
+// PaceForgeHyrox.swift. His own numbers only: no top 3 and no percentile of our own. A race's official placing and field size show when
+// the result file carries them (source "Official result").
 
 // MARK: - Store
 
@@ -135,12 +136,10 @@ final class PFHyroxStore: ObservableObject {
 
 // MARK: - The screen
 
-/// The seven sections. `snapshot` feeds Training and Advisory; it is nil while the PaceForge snapshot is not loaded (the sheet), and
-/// those two sections then say so while the other five carry on.
+/// The summary card and the six sections. `snapshot` feeds Training, Simulations and Advisory; it is nil while the PaceForge snapshot is
+/// not loaded (the sheet), and those sections then say so while the others carry on.
 struct PFHyroxScreen: View {
     let snapshot: PFSnapshot?
-    /// True on the Train > HYROX chip: the running prediction sits under the next race.
-    var showsPrediction = false
 
     @ObservedObject private var store = PFHyroxStore.shared
     @ObservedObject private var panels = PFCoachPanelsStore.shared
@@ -149,11 +148,10 @@ struct PFHyroxScreen: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             PFHyroxNextRaceCard()
-            if showsPrediction, let snapshot { predictionCard(snapshot) }
-            PFHyroxYourPlanCard()
             PFHyroxResultsCard(snapshot: snapshot)
             PFHyroxPerformanceCard()
             PFHyroxTrainingCard(snapshot: snapshot)
+            PFHyroxSimulationsCard(snapshot: snapshot)
             PFHyroxAdvisoryCard(snapshot: snapshot)
             PFHyroxSeasonCard()
         }
@@ -161,20 +159,6 @@ struct PFHyroxScreen: View {
             await store.refreshIfStale()
             await panels.refreshIfStale()
             await week.refreshIfStale()
-        }
-    }
-}
-
-extension PFHyroxScreen {
-    /// The Insights "Running goal" card, or one line saying why there is none (the server judges only a road-race goal).
-    @ViewBuilder fileprivate func predictionCard(_ snapshot: PFSnapshot) -> some View {
-        if let goal = snapshot.insights.goalPrognosis {
-            PFRunningGoalCard(goal: goal).accessibilityIdentifier("hyrox-prediction")
-        } else {
-            PFCard("Prediction", icon: "target") {
-                PFParagraph("PaceForge predicts a finish only for a road-race goal. For HYROX, the plan below has your realistic and stretch times.")
-            }
-            .accessibilityIdentifier("hyrox-prediction")
         }
     }
 }
@@ -375,7 +359,7 @@ private struct PFHyroxSparkline: View {
     }
 }
 
-// MARK: - 1. Next race
+// MARK: - Next race (the summary card)
 
 private struct PFHyroxNextRaceCard: View {
     @ObservedObject private var store = PFHyroxStore.shared
@@ -393,16 +377,6 @@ private struct PFHyroxNextRaceCard: View {
                 if plan.events.count > 1 { picker(plan) }
                 if let event = plan.event {
                     hero(event)
-                    if plan.available {
-                        PFHyroxPacing(plan: plan)
-                    } else {
-                        PFParagraph(plan.reason ?? "No pacing can be built yet.")
-                    }
-                    if let pack = plan.pack {
-                        PFHyroxPackView(pack: pack)
-                    } else {
-                        PFHyroxHint("No race pack written for this race yet.")
-                    }
                 } else {
                     PFInsufficient(title: "No upcoming HYROX race", text: plan.reason ?? "Add one in Events and it shows up here.",
                                    identifier: "hyrox-no-race")
@@ -534,16 +508,40 @@ struct PFHyroxPackView: View {
     }
 }
 
-// MARK: - 2. Your plan
+// MARK: - Race plan (inside Training for HYROX)
 
-private struct PFHyroxYourPlanCard: View {
+/// The next race's pacing and written pack, then your plan: what the race card showed under the countdown and the Your plan card, now one
+/// block inside the Training section. Nothing while there is no plan or no upcoming race: the race card above says why.
+private struct PFHyroxRacePlanContent: View {
     @ObservedObject private var store = PFHyroxStore.shared
 
     var body: some View {
-        PFCard("Your plan", icon: "pencil") {
-            content
+        if let plan = store.plan, plan.event != nil {
+            VStack(alignment: .leading, spacing: 14) {
+                Text("Race pacing").strandOverline()
+                if plan.available {
+                    PFHyroxPacing(plan: plan)
+                } else {
+                    PFParagraph(plan.reason ?? "No pacing can be built yet.")
+                }
+                if let pack = plan.pack {
+                    PFHyroxPackView(pack: pack)
+                } else {
+                    PFHyroxHint("No race pack written for this race yet.")
+                }
+                Text("Your plan").strandOverline()
+                PFHyroxYourPlanContent()
+            }
         }
-        .accessibilityIdentifier("hyrox-your-plan")
+    }
+}
+
+private struct PFHyroxYourPlanContent: View {
+    @ObservedObject private var store = PFHyroxStore.shared
+
+    var body: some View {
+        content
+            .accessibilityIdentifier("hyrox-your-plan")
     }
 
     @ViewBuilder private var content: some View {
@@ -562,10 +560,6 @@ private struct PFHyroxYourPlanCard: View {
                     PFParagraph(plan.reason ?? "No upcoming HYROX race on file.")
                 }
                 PFHyroxHint("Edit the plan on the web app.")
-            }
-        } else {
-            PFHyroxPlaceholder(phase: store.planPhase, empty: "No upcoming HYROX race on file.") {
-                Task { await store.loadPlan() }
             }
         }
     }
@@ -604,14 +598,21 @@ private struct PFHyroxYourPlanCard: View {
     }
 }
 
-// MARK: - 3. Results
+// MARK: - Results
 
 private struct PFHyroxResultsCard: View {
     let snapshot: PFSnapshot?
     @ObservedObject private var store = PFHyroxStore.shared
 
+    /// The newest race and how many are on file; the empty state says so too.
+    private var intro: String? {
+        guard let results = store.results else { return nil }
+        guard let newest = results.races.first else { return "No HYROX races yet" }
+        return newest.title + " " + newest.finishText + " \u{00B7} " + String(results.races.count) + (results.races.count == 1 ? " race" : " races")
+    }
+
     var body: some View {
-        PFCard("Results", icon: "list.number") {
+        PFDisclosure(title: "Results", intro: intro, startsOpen: false, nested: false, id: "hyrox-results") {
             if let results = store.results {
                 VStack(alignment: .leading, spacing: 10) {
                     if results.races.isEmpty {
@@ -726,13 +727,18 @@ private struct PFHyroxResultRow: View {
     }
 }
 
-// MARK: - 4. Performance
+// MARK: - Performance
 
 private struct PFHyroxPerformanceCard: View {
     @ObservedObject private var store = PFHyroxStore.shared
 
+    private var intro: String? {
+        guard let results = store.results else { return nil }
+        return results.stations.isEmpty ? "No station times yet" : "Station times across your races"
+    }
+
     var body: some View {
-        PFCard("Performance", icon: "chart.xyaxis.line") {
+        PFDisclosure(title: "Performance", intro: intro, startsOpen: false, nested: false, id: "hyrox-performance") {
             if let results = store.results {
                 content(results)
             } else {
@@ -811,19 +817,17 @@ private struct PFHyroxSeriesRow: View {
     }
 }
 
-// MARK: - 5. Training for HYROX
+// MARK: - Training for HYROX
 
 private struct PFHyroxTrainingCard: View {
     let snapshot: PFSnapshot?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            PFCard("Training for HYROX", icon: "dumbbell.fill") {
+        PFDisclosure(title: "Training for HYROX", intro: "This week and next", startsOpen: false, nested: false, id: "hyrox-training") {
+            VStack(alignment: .leading, spacing: 16) {
                 content
+                PFHyroxRacePlanContent()
             }
-            .accessibilityIdentifier("hyrox-training")
-            // The race simulations he logged, with the button to log another.
-            if let sims = snapshot?.simulations { PFSimulationsCard(sims: sims) }
         }
     }
 
@@ -859,7 +863,23 @@ private struct PFHyroxTrainingCard: View {
     }
 }
 
-// MARK: - 6. Advisory
+// MARK: - Race simulations
+
+/// The simulations he logged, with the button to log another. Absent while the document is not loaded, as before.
+private struct PFHyroxSimulationsCard: View {
+    let snapshot: PFSnapshot?
+
+    var body: some View {
+        if let sims = snapshot?.simulations {
+            PFDisclosure(title: "Race simulations", intro: sims.count > 0 ? "\(sims.count) logged" : "None logged",
+                         startsOpen: false, nested: false, id: "hyrox-simulations") {
+                PFSimulationsCard(sims: sims, embedded: true)
+            }
+        }
+    }
+}
+
+// MARK: - Advisory
 
 private struct PFHyroxAdvisoryCard: View {
     let snapshot: PFSnapshot?
@@ -875,7 +895,10 @@ private struct PFHyroxAdvisoryCard: View {
         let proposals = PFHyroxAdvice.proposals(week.proposals, extra: extra)
         let raceWeek = PFHyroxAdvice.raceWeek(snapshot?.raceWeek, extra: extra)
         let brief = PFHyroxAdvice.briefLines(snapshot?.today.brief, extra: extra)
-        PFCard("Advisory", icon: "sparkles") {
+        let intro = proposals.isEmpty
+            ? (raceWeek == nil && brief.isEmpty ? "Nothing from the coach about the races right now" : "Race week and the coach's read")
+            : (proposals.count == 1 ? "1 proposal waiting" : "\(proposals.count) proposals waiting")
+        PFDisclosure(title: "Coach advisory", intro: intro, startsOpen: false, nested: false, id: "hyrox-advisory") {
             VStack(alignment: .leading, spacing: 12) {
                 if proposals.isEmpty && raceWeek == nil && brief.isEmpty {
                     PFHyroxHint("Nothing from the coach about the races right now. Proposals about them appear here with Accept and Reject.")
@@ -900,7 +923,6 @@ private struct PFHyroxAdvisoryCard: View {
                 }
             }
         }
-        .accessibilityIdentifier("hyrox-advisory")
     }
 
     private var briefDay: String {
@@ -914,13 +936,18 @@ private struct PFHyroxAdvisoryCard: View {
     }
 }
 
-// MARK: - 7. Season
+// MARK: - Season
 
 private struct PFHyroxSeasonCard: View {
     @ObservedObject private var panels = PFCoachPanelsStore.shared
 
+    private var intro: String {
+        if panels.season != nil, PFHyroxSeason.rows(panels.season, today: PFAPI.todayISO).isEmpty { return "No HYROX race in the season" }
+        return "Season plan"
+    }
+
     var body: some View {
-        PFCard("Season", icon: "calendar") {
+        PFDisclosure(title: "Season", intro: intro, startsOpen: false, nested: false, id: "hyrox-season") {
             if panels.season == nil {
                 PFParagraph("The season plan is not loaded yet.")
             } else {

@@ -63,6 +63,10 @@ private struct TrainRunningContent: View {
             if let zones = athlete.zones {
                 AthleteZonesCard(zones: zones) { sheet = .zones }
             }
+            // The running goal (the server judges only a road-race goal), moved here from the HYROX chip.
+            if let goal = snapshot.insights.goalPrognosis {
+                PFRunningGoalCard(goal: goal).accessibilityIdentifier("train-running-goal")
+            }
             PFNumbersCard()
             PFRecentRunsCard(snapshot: snapshot)
             PFTreadmillPacesRow(snapshot: snapshot)

@@ -93,7 +93,7 @@ private struct TrainChipBody: View {
 
 // MARK: - Chips
 
-/// The HYROX screen (seven cards) under a row to the race reports.
+/// The HYROX screen (a summary card and six closed sections), then a row to the race reports.
 private struct TrainHyroxChip: View {
     var body: some View {
         PFSnapshotHost(content: { snapshot in AnyView(TrainHyroxContent(snapshot: snapshot)) })
@@ -105,10 +105,10 @@ private struct TrainHyroxContent: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
+            PFHyroxScreen(snapshot: snapshot)
             IndexSection("Race reports") {
                 IndexRow("Race reports", "flag.checkered", TabRoute.reports("race"), id: "train-hyrox-race-reports")
             }
-            PFHyroxScreen(snapshot: snapshot, showsPrediction: true)
         }
         .containerIdentifier("train-chip-content-hyrox")
     }
