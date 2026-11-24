@@ -186,11 +186,15 @@ struct SleepView: View {
                         // in the upper band; the night scene itself is the fixed topBackground.
                         // Customize sits at the end of the hero (not floating in a blank band).
                         #if os(iOS)
-                        // A Group so the hero and the planner card are one child of this builder (the column is at its ten-child limit).
+                        // A Group so the night header, the hero and the planner card are one child of this builder (the column is at its
+                        // ten-child limit). The date header and the Asleep / Woke card lead, then the Sleep ring and Tonight's sleep.
                         Group {
+                            VStack(alignment: .leading, spacing: NoopMetrics.gap) {
+                                nightHeaderBlock(resolved)
+                            }
+                            .padding(.top, -24)
                             restHero(resolved)
                                 .padding(.horizontal, -16)
-                                .padding(.top, -24)
                                 .staggeredAppear(index: 0)
                             // Tonight's sleep (the bedtime plan) leads the cards on the iPhone; it used to sit on Today.
                             SleepPlannerEntryCard()
@@ -203,12 +207,23 @@ struct SleepView: View {
                         #endif
                         #if os(iOS)
                         PFPageNote(key: "sleep")
-                        LookLastNightSleepCard(model: resolved)
+                        // One stages card (in bed and efficiency, hours and restorative sleep against the usual, the four stages, the
+                        // movement and partly-recorded notes), then Night detail. Last night's sleep (a second copy of the same
+                        // numbers) is off the iPhone's Sleep tab.
+                        stageBlock(resolved)
+                            .onChange(of: nightOffset) { _ in selectedStage = nil }
+                        NightDetailCard(model: resolved)
                         LookRepoTrends(specs: LookRepoTrends.sleepSpecs, initialKey: "sleep_total_min",
                                        identifier: "look-sleep-trends")
-                        #endif
+                        // A Group so the regularity tile and the naps are one child (ten-child limit).
+                        Group {
+                            SleepPlannerWithRegularity()
+                            napsBlock(resolved)
+                        }
+                        #else
                         alarmsEntry
                         SleepPlannerWithRegularity()
+                        #endif
                         // #sleep-layout: the analytical cards render in the user's saved order minus the
                         // hidden set, below the pinned Rest hero. Reordered via the Arrange sheet.
                         ForEach(Array(sleepVisibleSections.enumerated()), id: \.element) { idx, section in
@@ -689,45 +704,75 @@ struct SleepView: View {
 
     @ViewBuilder
     private func hero(_ model: SleepModel) -> some View {
-        // Offset 0 reads the memoized latest night; navigated offsets read the cached
-        // `navNight` — never a fresh decode here (this runs on every 1Hz HR tick). When a
-        // navigated session decoded to no usable stages, the header stays on that REAL
-        // session's date/times with an honest placeholder in the chart slot — never the
-        // latest night silently rendered under a navigated label. (#160)
+        // The three parts are also drawn apart on the iPhone's Sleep tab (the date header and Asleep / Woke card on top, the stages card
+        // under the ring, the naps further down); this is the whole column, where they stay together.
         VStack(alignment: .leading, spacing: NoopMetrics.gap) {
-            // #940: when the NEWEST day failed to merge (model.isStubNight), offset 0 falls through
-            // to the same honest stage-less stub path the navigated browse uses, instead of drawing
-            // a zeroed stage card. History stays browsable and the edit pencil stays reachable.
-            if nightOffset == 0, !model.isStubNight {
-                nightNavHeader(trailing: model.night.spanLabel)
-                sleepWindowRow(model.night)
-                stageCard(model.night, intervals: model.intervals)
-                napSection(model.night)
-            } else if let night = navNight {
-                nightNavHeader(trailing: night.spanLabel)
-                sleepWindowRow(night)
-                stageCard(night, intervals: night.intervals)
-                napSection(night)
-            } else if let session = sessionRow(at: nightOffset) {
-                // Stage-less stub purely to reuse Night's date/time formatting.
-                let stub = Night(session: session, stages: Stages(awake: 0, light: 0, deep: 0, rem: 0),
-                                 sourceBlocks: dayBlocks(at: nightOffset),
-                                 habitualMidsleepSec: habitualMidsleepSec)
-                nightNavHeader(trailing: stub.spanLabel)
-                sleepWindowRow(stub)
-                ChartCard(
-                    title: "Stage breakdown",
-                    subtitle: String(localized: "\(durationText(Double(session.endTs - session.startTs) / 60.0)) in bed"),
-                    height: NoopMetrics.chartHeight,
-                    tint: StrandPalette.restColor,
-                    chart: { noStagePlaceholder }
-                )
-                napSection(stub)
-            }
+            nightHeaderBlock(model)
+            stageBlock(model)
+            napsBlock(model)
         }
         // Stale-highlight guard: browsing to another night clears the stage selection. Attached to
         // the always-present hero container (not a branch that gets swapped out mid-navigation).
         .onChange(of: nightOffset) { _ in selectedStage = nil }
+    }
+
+    /// Offset 0 reads the memoized latest night; navigated offsets read the cached `navNight` — never a fresh decode here (this runs on
+    /// every 1Hz HR tick). When a navigated session decoded to no usable stages, the header stays on that REAL session's date/times with
+    /// an honest placeholder in the chart slot — never the latest night silently rendered under a navigated label. (#160)
+    /// #940: when the NEWEST day failed to merge (model.isStubNight), offset 0 falls through to the same honest stage-less stub path the
+    /// navigated browse uses, instead of drawing a zeroed stage card. History stays browsable and the edit pencil stays reachable.
+    ///
+    /// The night's date header (‹ date ›) and its Asleep / Woke card.
+    @ViewBuilder
+    private func nightHeaderBlock(_ model: SleepModel) -> some View {
+        if nightOffset == 0, !model.isStubNight {
+            nightNavHeader(trailing: model.night.spanLabel)
+            sleepWindowRow(model.night)
+        } else if let night = navNight {
+            nightNavHeader(trailing: night.spanLabel)
+            sleepWindowRow(night)
+        } else if let session = sessionRow(at: nightOffset) {
+            let stub = stubNight(for: session)
+            nightNavHeader(trailing: stub.spanLabel)
+            sleepWindowRow(stub)
+        }
+    }
+
+    /// The night's stages card (and the notes under it), same branches as `nightHeaderBlock`.
+    @ViewBuilder
+    private func stageBlock(_ model: SleepModel) -> some View {
+        if nightOffset == 0, !model.isStubNight {
+            stageCard(model.night, intervals: model.intervals)
+        } else if let night = navNight {
+            stageCard(night, intervals: night.intervals)
+        } else if let session = sessionRow(at: nightOffset) {
+            ChartCard(
+                title: "Stage breakdown",
+                subtitle: String(localized: "\(durationText(Double(session.endTs - session.startTs) / 60.0)) in bed"),
+                height: NoopMetrics.chartHeight,
+                tint: StrandPalette.restColor,
+                chart: { noStagePlaceholder }
+            )
+        }
+    }
+
+    /// The day's naps, same branches as `nightHeaderBlock`.
+    @ViewBuilder
+    private func napsBlock(_ model: SleepModel) -> some View {
+        if nightOffset == 0, !model.isStubNight {
+            napSection(model.night)
+        } else if let night = navNight {
+            napSection(night)
+        } else if let session = sessionRow(at: nightOffset) {
+            napSection(stubNight(for: session))
+        }
+    }
+
+    /// Stage-less stub purely to reuse Night's date/time formatting.
+    private func stubNight(for session: CachedSleepSession) -> Night {
+        Night(session: session, stages: Stages(awake: 0, light: 0, deep: 0, rem: 0),
+              sourceBlocks: dayBlocks(at: nightOffset),
+              habitualMidsleepSec: habitualMidsleepSec)
     }
 
     /// Naps card (#508): each of the day's sleep blocks OTHER than the night's main block, individually

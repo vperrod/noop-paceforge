@@ -104,18 +104,18 @@ private struct HealthDayChip: View {
     }
 }
 
-/// Sleep, with Alarms and Rhythm one tap away.
+/// Sleep, with Alarms and Rhythm one tap away at the very bottom.
 private struct HealthSleepChip: View {
     var body: some View {
         VStack(alignment: .leading, spacing: NoopMetrics.sectionSpacing) {
+            // The Sleep screen pulls its first card up by the scaffold's own 24 pt top inset; this restores it so the card starts below
+            // the chips instead of under them.
+            SleepView()
+                .padding(.top, 24)
             IndexSection("Around sleep") {
                 IndexRow("Alarms", "alarm.fill", MoreDestination.alarms, id: "health-sleep-alarms")
                 IndexRow("Rhythm", "waveform.path", MoreDestination.rhythm, id: "health-sleep-rhythm")
             }
-            // The Sleep screen pulls its night hero up by the scaffold's own 24 pt top inset; this restores it so the hero starts below
-            // the rows instead of under them.
-            SleepView()
-                .padding(.top, 24)
         }
         .containerIdentifier("health-chip-content-sleep")
     }

@@ -50,13 +50,26 @@ enum SleepSection: String, CaseIterable, Identifiable {
         }
     }
 
+    /// Cards the iPhone's Sleep tab does not arrange: Sleep marks is off the screen, and the stages card (with the date header and the
+    /// Asleep / Woke card) and Night detail sit at fixed places right under the Sleep ring, so a row for them would control nothing.
+    /// The cases and their rawValues stay so the wire format and the Android twin are unchanged; on iOS `decodeOrder` drops them from any
+    /// saved order and never back-fills them, so neither Sleep nor the Arrange sheet shows them, whatever a phone saved before.
+    /// Empty on macOS, whose Sleep keeps every card.
+    static let retired: Set<SleepSection> = {
+        #if os(iOS)
+        return [.sleepMarks, .stages, .nightDetail]
+        #else
+        return []
+        #endif
+    }()
+
     /// The original, hard-coded card order — the default when the layout isn't customised. Matches the
     /// pre-customisation render order in `SleepView` below the pinned Sleep-performance hero. (Naps rides
     /// with Stages for now — it's drawn inside the stages hero; making it an independently arrangeable
-    /// card is a follow-up that requires hoisting the hero's edit/delete callbacks.)
-    static let defaultOrder: [SleepSection] = [
+    /// card is a follow-up that requires hoisting the hero's edit/delete callbacks.) `retired` cards are left out.
+    static let defaultOrder: [SleepSection] = ([
         .sleepMarks, .stages, .bodyClock, .nightDetail, .sleepDebt, .stagesVsTypical, .asleepDuration,
-    ]
+    ] as [SleepSection]).filter { !retired.contains($0) }
 }
 
 /// Display-only persistence for the Sleep card order and visibility. The order registry always contains
@@ -90,7 +103,8 @@ enum SleepLayoutPrefs {
         guard !trimmed.isEmpty else { return SleepSection.defaultOrder }
         var saved: [SleepSection] = []
         for token in trimmed.split(separator: ",") {
-            if let s = SleepSection(rawValue: token.trimmingCharacters(in: .whitespaces)), !saved.contains(s) {
+            if let s = SleepSection(rawValue: token.trimmingCharacters(in: .whitespaces)), !SleepSection.retired.contains(s),
+               !saved.contains(s) {
                 saved.append(s)
             }
         }
@@ -101,7 +115,7 @@ enum SleepLayoutPrefs {
         func defIdx(_ s: SleepSection) -> Int {
             SleepSection.defaultOrder.firstIndex(of: s) ?? SleepSection.defaultOrder.count
         }
-        for missing in SleepSection.allCases where !saved.contains(missing) {
+        for missing in SleepSection.allCases where !saved.contains(missing) && !SleepSection.retired.contains(missing) {
             let insertAt = saved.firstIndex { defIdx($0) > defIdx(missing) }
             if let insertAt { saved.insert(missing, at: insertAt) } else { saved.append(missing) }
         }
