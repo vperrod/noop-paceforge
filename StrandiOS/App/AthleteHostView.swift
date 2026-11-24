@@ -320,7 +320,7 @@ private struct AthleteScreen: View {
             PFDisclosure(title: "Race predictions",
                          intro: predictions.garmin.prefix(2).map { $0.label + " " + $0.text }.joined(separator: " \u{00B7} "),
                          startsOpen: false, nested: false, id: "athlete-predictions-section") {
-                AthletePredictionsCard(predictions: predictions) { sheet = .predictions }
+                AthletePredictionsCard(predictions: predictions, showsTitle: false) { sheet = .predictions }
             }
         }
     }
@@ -332,7 +332,7 @@ private struct AthleteScreen: View {
                          intro: zones.zones.filter { $0.zone == 2 || $0.zone == 4 }
                              .map { "Z\($0.zone) \($0.low)\u{2013}\($0.high)" }.joined(separator: " \u{00B7} "),
                          startsOpen: false, nested: false, id: "athlete-zones-section") {
-                AthleteZonesCard(zones: zones) { sheet = .zones }
+                AthleteZonesCard(zones: zones, showsTitle: false) { sheet = .zones }
             }
         }
     }
@@ -1008,6 +1008,7 @@ private struct AthleteFigureRow: View {
 
 private struct AthletePredictionsCard: View {
     let predictions: PFAthletePredictions
+    var showsTitle = true
     let onTap: () -> Void
 
     private var shown: [PFAthletePrediction] { predictions.garmin }
@@ -1021,6 +1022,9 @@ private struct AthletePredictionsCard: View {
         Button(action: onTap) {
             VStack(alignment: .leading, spacing: 10) {
                 HStack {
+                    if showsTitle {
+                        Text("Race predictions").lookCaps(10.5, weight: .semibold).foregroundStyle(NoopLook.textTertiary)
+                    }
                     Spacer(minLength: 8)
                     Image(systemName: "chevron.right")
                         .font(.system(size: 12, weight: .semibold))
@@ -1056,6 +1060,7 @@ private struct AthletePredictionsCard: View {
 
 private struct AthleteZonesCard: View {
     let zones: PFAthleteZones
+    var showsTitle = true
     let onTap: () -> Void
 
     private var caption: String {
@@ -1070,6 +1075,9 @@ private struct AthleteZonesCard: View {
         Button(action: onTap) {
             VStack(alignment: .leading, spacing: 10) {
                 HStack {
+                    if showsTitle {
+                        Text("Heart-rate zones").lookCaps(10.5, weight: .semibold).foregroundStyle(NoopLook.textTertiary)
+                    }
                     Spacer(minLength: 8)
                     Image(systemName: "chevron.right")
                         .font(.system(size: 12, weight: .semibold))
