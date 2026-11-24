@@ -37,7 +37,7 @@ struct PFSessionSheet529: View {
     init(week: String, sessionId: String) {
         self.week = week
         self.sessionId = sessionId
-        _store = StateObject(wrappedValue: PFDocStore529<PFPlanWeekDoc>(path: PFDocPath529.week(week)))
+        _store = StateObject(wrappedValue: PFDocStore529<PFPlanWeekDoc>(path: PFDocPath529.week(week), showsSavedFirst: true))
     }
 
     private var found: (day: PFPlanWeekDoc.Day, item: PFPlanWeekDoc.Item)? {
@@ -113,6 +113,7 @@ struct PFSessionSheet529: View {
             Task { await store.refresh() }
         }
         .onDisappear {
+            PFSessionQuickAction543.shared.clear()
             textEditTask?.cancel()
             textEditTask = nil
             watchTask?.cancel()

@@ -92,6 +92,11 @@ struct PFNeedsYouSheet543: View {
                                liveQuestionActivityIDs: liveQuestions.compactMap { $0.activityID })
     }
     private var overlapEntries: [PFNeedsEntry543] { entries.filter { $0.kind == .overlap } }
+    /// Every question the strip counts that the live flows above do not already answer: the served ones with a workout id too, not only those without.
+    private var linkedQuestions: [PFNeedsEntry543] {
+        let live = Set(liveQuestions.compactMap { $0.activityID })
+        return entries.filter { $0.kind == .question && !live.contains($0.activityID ?? "") }
+    }
     private var hasChanges: Bool { !(doc.changes ?? []).isEmpty || !(doc.decided ?? []).isEmpty }
 
     var body: some View {
@@ -99,7 +104,7 @@ struct PFNeedsYouSheet543: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
                     ForEach(liveQuestions) { item in PFWorkoutQuestionFlow543(item: item) }
-                    ForEach(entries.filter { $0.kind == .question && $0.activityID == nil }) { entry in questionLink(entry) }
+                    ForEach(linkedQuestions) { entry in questionLink(entry) }
                     ForEach(overlapEntries) { entry in overlapRow(entry) }
                     if hasChanges { PFWeekChanges529(changes: doc.changes ?? [], decided: doc.decided ?? [], decisions: decisions) }
                     ForEach(entries.filter { $0.kind == .other }) { entry in
@@ -143,13 +148,24 @@ struct PFNeedsYouSheet543: View {
     }
 
     private func questionLink(_ entry: PFNeedsEntry543) -> some View {
-        PFPlanButton543(title: entry.title + ": open the workout", isDisabled: entry.sessionID == nil,
-                        identifier: "plan529-needs-open-\(entry.id)") {
-            if let id = entry.sessionID {
+        let sessionID = workoutSessionID(for: entry)
+        return PFPlanButton543(title: entry.title + ": open the workout", isDisabled: sessionID == nil,
+                               identifier: "plan529-needs-open-\(entry.id)") {
+            if let id = sessionID {
                 dismiss()
                 hooks.openSession(id)
             }
         }
+    }
+
+    /// The session a question is about: the entry's own, else the one of the week's rows that carries the question's workout id.
+    private func workoutSessionID(for entry: PFNeedsEntry543) -> String? {
+        if let id = entry.sessionID { return id }
+        guard let activity = entry.activityID else { return nil }
+        for day in doc.days ?? [] {
+            for item in day.items ?? [] where item.activityId == activity { return item.sessionId }
+        }
+        return nil
     }
 
     private func target(for entry: PFNeedsEntry543) -> PFOverlapTarget543? {

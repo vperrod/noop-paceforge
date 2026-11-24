@@ -8,7 +8,7 @@ import StrandDesign
 struct PFPlanWeekChip: View {
     var week: String? = nil
 
-    @StateObject private var index = PFDocStore529<PFPlanWeekIndexDoc>(path: PFDocPath529.weekIndex)
+    @StateObject private var index = PFDocStore529<PFPlanWeekIndexDoc>(path: PFDocPath529.weekIndex, showsSavedFirst: true)
     @ObservedObject private var router = PFPlan529Router.shared
     @State private var selected: String?
 

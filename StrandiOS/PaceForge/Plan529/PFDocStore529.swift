@@ -25,9 +25,18 @@ final class PFDocStore529<Doc: Decodable & Equatable>: ObservableObject {
     private var lastFetch: Date?
     private var inFlight: Task<Void, Never>?
 
-    init(path: String, isEmpty: @escaping (Doc) -> Bool = { _ in false }) {
+    /// `showsSavedFirst`: the copy saved on the phone is the first thing on screen, so the first frame never waits for the network; the
+    /// server is asked right after and its answer replaces it. Nothing is shown when there is no saved copy (or it does not read).
+    init(path: String, showsSavedFirst: Bool = false, isEmpty: @escaping (Doc) -> Bool = { _ in false }) {
         self.path = path
         self.isEmpty = isEmpty
+        if showsSavedFirst { showSaved() }
+    }
+
+    private func showSaved() {
+        guard PFAPI.usesPhoneState, let data = PFStore.read(path: path),
+              let parsed = try? PFPlan529Decoder.make().decode(Doc.self, from: data), !isEmpty(parsed) else { return }
+        state = .loaded(parsed)
     }
 
     var doc: Doc? {

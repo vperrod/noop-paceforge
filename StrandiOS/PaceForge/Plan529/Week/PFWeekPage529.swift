@@ -59,7 +59,8 @@ struct PFWeekPage529: View {
 
     @StateObject private var store: PFDocStore529<PFPlanWeekDoc>
     @StateObject private var decisions = PFWeekDecisions529()
-    @ObservedObject private var model = PFUnified.model
+    /// Only asked to refresh, never read here: observing it re-evaluated the whole page on every publish of the other documents.
+    private let model = PFUnified.model
     @EnvironmentObject private var router: NavRouter
     @State private var results: PFResultsTarget529?
     @State private var swap: PFSwapTarget529?
@@ -68,7 +69,7 @@ struct PFWeekPage529: View {
         self.week = week
         self.header = header
         self.goToWeek = goToWeek
-        _store = StateObject(wrappedValue: PFDocStore529<PFPlanWeekDoc>(path: PFDocPath529.week(week)))
+        _store = StateObject(wrappedValue: PFDocStore529<PFPlanWeekDoc>(path: PFDocPath529.week(week), showsSavedFirst: true))
     }
 
     private var hooks: PFWeekHooks529 {
@@ -107,10 +108,11 @@ struct PFWeekPage529: View {
         // One sheet per view: two sheet modifiers on the same view leave only the last one working.
         .background { Color.clear.pfResultsSheet529($results) }
         .sheet(item: $swap) { target in PFChangeWorkoutSheet529(target: target) }
+        // The saved week is already on screen; the week document is asked for first, the other documents after it.
         .task {
+            remember()
             await store.refreshIfStale()
             await model.refreshIfStale()
-            remember()
         }
         .onChange(of: store.state) { _, _ in remember() }
         .onReceive(NotificationCenter.default.publisher(for: .pfPlan529Changed)) { _ in

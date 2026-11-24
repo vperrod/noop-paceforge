@@ -133,7 +133,29 @@ struct PFWeekItemCard529: View {
             }
             .clipShape(RoundedRectangle(cornerRadius: NoopLook.Metric.tileRadius, style: .continuous))
             .containerIdentifier("plan529-item-\(key)")
+            // A long press offers Move and Skip (the rows are not in a List, so there is no swipe): they open the session with the same
+            // ··· menu action already run.
+            .contextMenu { quickActions }
         }
+    }
+
+    /// Move and Skip for a session the ··· menu offers them for, with the same checks as that menu.
+    @ViewBuilder private var quickActions: some View {
+        let status = item.status ?? "planned"
+        if kind == "session", allowsEdits, !isDone, let id = item.sessionId, PFPlanEdit.applies(status: status, sessionID: id) {
+            let menu = PFSessionMenu543.items(status: status, isOptional: item.optional == true, isDone: false)
+            if menu.contains(.move) {
+                Button { quick(.move, sessionId: id) } label: { Label("Move", systemImage: "calendar") }
+            }
+            if menu.contains(.skip) {
+                Button(role: .destructive) { quick(.skip, sessionId: id) } label: { Label("Skip", systemImage: "forward.end") }
+            }
+        }
+    }
+
+    private func quick(_ action: PFMenuItem543, sessionId: String) {
+        PFSessionQuickAction543.shared.request(action, sessionId: sessionId)
+        hooks.openSession(sessionId)
     }
 
     // MARK: Rows

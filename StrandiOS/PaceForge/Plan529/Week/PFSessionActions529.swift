@@ -17,6 +17,24 @@ struct PFSessionTarget529: Equatable {
     var isMandatory = false
 }
 
+/// A Move or Skip asked for from a session's row in the week list: the session sheet that opens for it runs that same ··· menu action
+/// once, so the row and the menu share one code path. Cleared when the sheet goes.
+@MainActor
+final class PFSessionQuickAction543 {
+    static let shared = PFSessionQuickAction543()
+    private var pending: (sessionId: String, item: PFMenuItem543)?
+
+    func request(_ item: PFMenuItem543, sessionId: String) { pending = (sessionId, item) }
+
+    func take(for sessionId: String) -> PFMenuItem543? {
+        guard let request = pending, request.sessionId == sessionId else { return nil }
+        pending = nil
+        return request.item
+    }
+
+    func clear() { pending = nil }
+}
+
 /// The change menu of one workout (build 543): the leading buttons the screen puts in front (Edit, Note) and a ··· menu with move, skip, swap,
 /// make optional (or accept and drop on a draft), make it easier, change the length or effort, ask the Coach and how it was judged. Every
 /// one is an existing job (`adjust-today`, `coach`, `calendar-edit`, `session-state`, `session-drop`); skipping and dropping ask first,
@@ -111,6 +129,10 @@ struct PFSessionActionBar529<Leading: View>: View {
             }
         }
         .containerIdentifier("\(idPrefix)-actions")
+        .onAppear {
+            guard let item = PFSessionQuickAction543.shared.take(for: target.sessionId), menu.contains(item), !isDisabled(item) else { return }
+            perform(item)
+        }
     }
 
     // MARK: The three dots
