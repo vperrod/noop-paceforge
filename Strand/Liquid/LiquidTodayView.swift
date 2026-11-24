@@ -462,6 +462,9 @@ struct LiquidTodayView: View {
                         // and the sync, and Data sources opens from the avatar > Settings > Data.
                         #if !os(iOS)
                         dataSourcesSection
+                        #else
+                        // The Health monitor is the last block of the PaceForge Today (without PaceForge it stays under the dials).
+                        if PFAPI.isConfigured && selectedDayOffset == 0 && order.contains(.hero) { LookHealthTile() }
                         #endif
                     }
                     Color.clear.frame(height: 90) // floating tab-bar clearance
@@ -989,9 +992,6 @@ struct LiquidTodayView: View {
         // The proposals row opens Plan > Week, on the week the changes are about, with the changes at the top.
         let readWhy = { PFProposalWeek529.openWeekWithChanges() }
         if hasHero { heroCard }
-        // My Journal sits right under the dials at the first frame (stage 0), every day it is today, so it is never missed: the week row,
-        // the state line, the "Fill out" entry and, while a question window is open, its one-tap questions. Nothing else mounts it on Today.
-        PFTodayJournalCard530()
         // The day graph directly under the dials and their caption lines (source labels, the Effort target line), above the call. It
         // mounts at stage 1, so the first frame is still the dials and the call.
         if hasHero && mountStage >= 1 && shows(.dayGraph) { MyDayTodayCard(day: selectedLogicalDay) }
@@ -1001,17 +1001,13 @@ struct LiquidTodayView: View {
         if shows(.coachNoticed) { PFProactiveTodayCard() }
         if mountStage >= 1 {
             if hasHero {
-                lookMonitorRow
+                // The Health monitor tile is the last block of Today (see `body`), so only the Stress tile can sit here.
+                lookMonitorRow(includesHealth: false)
                 if chargeLegacyRRGap { ChargeLegacyRRGapNote() }
-                // Build 530: below the rings, the My Day graph, the call and the Health and Stress tiles, none of which move: the Sunday
-                // review row (Sunday evening, Monday morning), the overview card (morning or evening). My Journal is mounted under
-                // the dials above and replaces the journal reminder card on this path.
+                // Build 530: below the rings, the My Day graph, the call and the Stress tile, none of which move: the Sunday
+                // review row (Sunday evening, Monday morning), the overview card (morning or evening). My Journal is on Health > Day.
                 PFTodayReviewRow530()
                 PFTodayOverviewCard530()
-            }
-            if shows(.howYouAre) {
-                PFTodayCards(cards: [.howYouAre], drawsChrome: false, showsHiddenRow: false, containerID: "pf-today-cards-how",
-                             onOpenNeedsYou: openNeedsYou, onReadWhy: readWhy)
             }
         }
         // My Day: its heading and the bookend row (the day graph itself is under the dials).
@@ -1028,29 +1024,20 @@ struct LiquidTodayView: View {
                 PFTodayCards(cards: [.today], drawsChrome: false, showsHiddenRow: false, containerID: "pf-today-cards-day",
                              onOpenNeedsYou: openNeedsYou, onReadWhy: readWhy)
             }
-            // What the watch recorded today, with its results (nothing when nothing was recorded).
-            if shows(.todaySoFar) { PFTodayRecordedHost() }
-            // Today's workouts: one list, one row per workout, the strap's and Garmin's versions together.
-            if shows(.todaysWorkouts) { PFTodaysWorkoutsHost(strap: workouts, dayKey: selectedDayKey, isToday: selectedDayOffset == 0) }
             // WHOOP's Stress Monitor card: the day's stress curve from the strap, one tap from the Stress screen. Today only. Its header
             // carries today's score (the Stress tile near the top is gone).
             if selectedDayOffset == 0 && shows(.stressMonitor) { LookStressMonitorSection(chartOnly: true, todayScore: stress) }
-            // Tonight's sleep: the sleep planner's own row (target hours, bedtime, wake), from the sleep need the Sleep screen uses.
-            if shows(.tonightsSleep) { PFSleepPlannerSlot() }
             if shows(.feel) {
                 PFTodayCards(cards: [.feel], drawsChrome: false, showsHiddenRow: false, containerID: "pf-today-cards-feel",
                              onOpenNeedsYou: openNeedsYou, onReadWhy: readWhy)
             }
         }
-        // Stage 3: My Plan and the training row.
+        // Stage 3: the training row. The My Plan heading and the This week card are off Today.
         if mountStage >= 3 {
-            LookSectionHeader(String(localized: "My Plan"))
-                .padding(.top, 8)
-                .accessibilityIdentifier("today-my-plan-header")
-            // The last slot also closes Today's PaceForge cards with the Hidden cards row, so it mounts even when the week card and the
-            // training row are both turned off in Customize: a card closed with its X can always be brought back.
-            // The day's workouts are listed once, in Today's workouts under Today so far; this row only carries a race that is today.
-            PFTodayCards(cards: shows(.thisWeek) ? [.thisWeek] : [], drawsChrome: false, showsTrainingRow: shows(.trainingRow),
+            // The last slot also closes Today's PaceForge cards with the Hidden cards row, so it mounts even when the training row is
+            // turned off in Customize: a card closed with its X can always be brought back.
+            // This row only carries a race that is today.
+            PFTodayCards(cards: [], drawsChrome: false, showsTrainingRow: shows(.trainingRow),
                          lastWorkout: nil, containerID: "pf-today-cards-week",
                          onOpenNeedsYou: openNeedsYou, onReadWhy: readWhy)
         }
@@ -1058,8 +1045,6 @@ struct LiquidTodayView: View {
         if mountStage >= 4 {
             dashboardHeader
             hiddenKeySectionsRow
-            // WHOOP's 7 day strain and recovery card, above the key metrics.
-            if shows(.lastSevenDays) { LookLast7DaysCard(day: selectedLogicalDay) }
         }
     }
 
@@ -1116,17 +1101,21 @@ struct LiquidTodayView: View {
         .accessibilityIdentifier("today-my-dashboard-header")
     }
 
-    /// Health and Stress monitor tiles side by side.
-    private var lookMonitorRow: some View {
-        HStack(spacing: 12) {
-            // The illness early-warning describes now, so it sits on today only.
-            if selectedDayOffset == 0 { LookHealthTile() }
-            // With PaceForge set up, today's Stress is a score in the header of the Stress Monitor chart in My Day, so the tile goes, as
-            // long as that chart is on (the athlete can hide its block). Without PaceForge, on an earlier day or with the chart hidden,
-            // the tile stays.
-            if !(PFAPI.isConfigured && selectedDayOffset == 0 && shows(.stressMonitor)) {
-                LookStressTile(score: stress)
-                    .hiddenWhenPrivate(.scores, name: String(localized: "Stress"))
+    /// Health and Stress monitor tiles side by side. `includesHealth` is false where the Health tile is drawn elsewhere (the bottom of Today).
+    @ViewBuilder private func lookMonitorRow(includesHealth: Bool = true) -> some View {
+        // With PaceForge set up, today's Stress is a score in the header of the Stress Monitor chart in My Day, so the tile goes, as
+        // long as that chart is on (the athlete can hide its block). Without PaceForge, on an earlier day or with the chart hidden,
+        // the tile stays.
+        let showsStress = !(PFAPI.isConfigured && selectedDayOffset == 0 && shows(.stressMonitor))
+        // The illness early-warning describes now, so it sits on today only.
+        let showsHealth = includesHealth && selectedDayOffset == 0
+        if showsHealth || showsStress {
+            HStack(spacing: 12) {
+                if showsHealth { LookHealthTile() }
+                if showsStress {
+                    LookStressTile(score: stress)
+                        .hiddenWhenPrivate(.scores, name: String(localized: "Stress"))
+                }
             }
         }
     }
@@ -2275,7 +2264,7 @@ struct LiquidTodayView: View {
                             if mountStage >= 1 {
                                 #if os(iOS)
                                 // The dark look: monitor tiles under the dials (the Heart rate chart follows, then My Day).
-                                lookMonitorRow
+                                lookMonitorRow()
                                 if chargeLegacyRRGap { ChargeLegacyRRGapNote() }
                                 #else
                                 if chargeLegacyRRGap { ChargeLegacyRRGapNote() }
@@ -2287,7 +2276,6 @@ struct LiquidTodayView: View {
                             if mountStage >= 2 {
                                 #if os(iOS)
                                 if selectedDayOffset == 0 {
-                                    EffortTargetCard()
                                     WeeklyGoalsCard()
                                 }
                                 #else

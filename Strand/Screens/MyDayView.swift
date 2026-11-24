@@ -34,6 +34,9 @@ struct MyDayView: View {
     @AppStorage(UnitPrefs.systemKey) private var unitSystemRaw = UnitSystem.metric.rawValue
     @AppStorage(UnitPrefs.distanceSystemKey) private var distanceSystemRaw = ""
 
+    /// A card the host mounts right under the day stepper, above The day (Health > Day puts My Journal there); nil draws nothing.
+    private let underStepper: AnyView?
+
     @State private var dayStart: Date
     @State private var loaded: DayTimelineLoader.Loaded?
     @State private var scrubDate: Date?
@@ -60,7 +63,8 @@ struct MyDayView: View {
         }
     }
 
-    init(day: Date? = nil) {
+    init(day: Date? = nil, underStepper: AnyView? = nil) {
+        self.underStepper = underStepper
         _dayStart = State(initialValue: Self.initialDayStart(day))
     }
 
@@ -85,6 +89,7 @@ struct MyDayView: View {
             ScrollViewReader { proxy in
                 VStack(alignment: .leading, spacing: NoopMetrics.sectionSpacing) {
                     dayNav
+                    if let underStepper { underStepper }
                     if let timeline {
                         stripCard(timeline)
                         if !timeline.hasRecordedData { emptyState(timeline) }

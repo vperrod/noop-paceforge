@@ -58,7 +58,7 @@ enum TodaySection: String, CaseIterable, Identifiable {
         case .dayInReview:    return String(localized: "Day in review")
         case .hero:           return String(localized: "Charge / Effort / Rest")
         #if os(iOS)
-        case .myDay:          return String(localized: "Effort target and weekly goals")
+        case .myDay:          return String(localized: "Weekly goals")
         #else
         case .myDay:          return String(localized: "My Day")
         #endif
@@ -94,7 +94,7 @@ enum TodaySection: String, CaseIterable, Identifiable {
     /// Today keeps every section.
     static let retired: Set<TodaySection> = {
         #if os(iOS)
-        return [.liveSession, .myDashboard, .myPlan, .synthesis, .recoveryVitals, .dayInReview, .workouts]
+        return [.liveSession, .myDashboard, .myPlan, .synthesis, .recoveryVitals, .dayInReview, .workouts, .heartRate]
         #else
         return []
         #endif
@@ -222,20 +222,14 @@ enum TodayLayoutPrefs {
 enum TodayBlock: String, CaseIterable, Identifiable {
     case call = "call"
     case coachNoticed = "coach-noticed"
-    case howYouAre = "how-you-are"
     case dayGraph = "day-graph"
     case bookend = "bookend"
     case todayCard = "today-card"
-    case todaySoFar = "today-so-far"
-    case todaysWorkouts = "todays-workouts"
-    case tonightsSleep = "tonights-sleep"
     case feel = "feel"
-    case thisWeek = "this-week"
     case trainingRow = "training-row"
     case weightGoal = "weight-goal"
     case vsThirtyDays = "vs-30"
     case stressMonitor = "stress-monitor"
-    case lastSevenDays = "last-7-days"
 
     var id: String { rawValue }
 
@@ -244,20 +238,14 @@ enum TodayBlock: String, CaseIterable, Identifiable {
         switch self {
         case .call:          return String(localized: "The call and Needs you")
         case .coachNoticed:  return String(localized: "Coach noticed")
-        case .howYouAre:     return String(localized: "How you are")
         case .dayGraph:      return String(localized: "Day graph, under the rings")
         case .bookend:       return String(localized: "Morning read and Day in review row")
         case .todayCard:     return String(localized: "Today card")
-        case .todaySoFar:    return String(localized: "Today so far")
-        case .todaysWorkouts: return String(localized: "Today's workouts")
-        case .tonightsSleep: return String(localized: "Tonight's sleep")
         case .feel:          return String(localized: "How do you feel")
-        case .thisWeek:      return String(localized: "This week")
         case .trainingRow:   return String(localized: "Training row")
         case .weightGoal:    return String(localized: "Weight vs goal")
         case .vsThirtyDays:  return String(localized: "Today vs 30 days")
         case .stressMonitor: return String(localized: "Stress Monitor chart")
-        case .lastSevenDays: return String(localized: "Last 7 days, Charge and Effort")
         }
     }
 }

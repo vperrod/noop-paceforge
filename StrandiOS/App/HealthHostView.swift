@@ -93,11 +93,11 @@ private struct HealthChipBody: View {
 
 // MARK: - Chips
 
-/// My Day, with the Effort target under it (it stays on Today too).
+/// My Day with My Journal right under its day stepper, and the Effort target under it.
 private struct HealthDayChip: View {
     var body: some View {
         VStack(alignment: .leading, spacing: NoopMetrics.sectionSpacing) {
-            MyDayView()
+            MyDayView(underStepper: AnyView(PFTodayJournalCard530()))
             EffortTargetCard()
         }
         .containerIdentifier("health-chip-content-day")
