@@ -151,6 +151,7 @@ final class WhoopGapsUITests: XCTestCase {
         let vitals = element(app, "health-chip-vitals")
         XCTAssertTrue(vitals.waitForExistence(timeout: 20), "Health should have a Vitals chip.")
         vitals.tap()
+        app.openSection("vitals-body-age")
         let card = element(app, "pace-of-aging-card")
         XCTAssertTrue(reveal(card, in: app, maxSwipes: 20), "Health should show the Pace of aging card under Vitality.")
         XCTAssertTrue(element(app, "pace-of-aging-value").exists || element(app, "pace-of-aging-calibrating").exists,

@@ -544,6 +544,11 @@ struct PFVitalRow: View {
 /// The Health monitor as the top of the one Health screen: each vital against its own 30-day range from PaceForge's daily-intel.json.
 /// With PaceForge not set up, or no vitals published, it draws nothing, and the rest of Health stands on the strap's own data.
 struct PFHealthMonitorSection: View {
+    /// `status` is the summary and the explanation (the top of the Vitals chip); `readings` is the vitals list with its notes, which the
+    /// Vitals chip keeps in a closed section; `all` is both, in one.
+    enum Part { case all, status, readings }
+
+    var part: Part = .all
     @ObservedObject private var store = PFDailyIntelStore.shared
 
     var body: some View {
@@ -553,9 +558,9 @@ struct PFHealthMonitorSection: View {
 
     @ViewBuilder private var content: some View {
         if let intel = store.intel, let health = intel.health, let item = intel.healthItem {
-            PFHealthMonitorBody(health: health, item: item, isCurrent: intel.isCurrent(for: PFAPI.todayISO), asOf: intel.asOf)
-                .containerIdentifier("pf-health-monitor")
-        } else if let reason = store.intel?.unavailableReason(PFIntelID.healthMonitor) {
+            PFHealthMonitorBody(health: health, item: item, isCurrent: intel.isCurrent(for: PFAPI.todayISO), asOf: intel.asOf, part: part)
+                .containerIdentifier(part == .readings ? "pf-health-monitor-readings" : "pf-health-monitor")
+        } else if part != .readings, let reason = store.intel?.unavailableReason(PFIntelID.healthMonitor) {
             PFIntelNote(title: "Health monitor", icon: "waveform.path.ecg", text: reason, identifier: "pf-health-monitor-unavailable")
         }
     }
@@ -566,38 +571,45 @@ struct PFHealthMonitorBody: View {
     let item: PFIntelItem
     let isCurrent: Bool
     let asOf: String?
+    var part: PFHealthMonitorSection.Part = .all
     private let hiding = PFHiding()
 
     var body: some View {
         let tile = health.tile
         VStack(alignment: .leading, spacing: 14) {
-            summary(tile)
-            if !isCurrent, let asOf {
-                PFChip(text: "From \(PFFormat.shortDate(asOf))", color: StrandPalette.textTertiary)
+            if part != .readings {
+                summary(tile)
+                if !isCurrent, let asOf {
+                    PFChip(text: "From \(PFFormat.shortDate(asOf))", color: StrandPalette.textTertiary)
+                }
+                explanation
             }
-            explanation
-            if let graded = health.graded { PFGradedWatchView(graded: graded) }
-            VStack(spacing: 0) {
-                ForEach(Array(health.vitals.enumerated()), id: \.element.id) { index, vital in
-                    PFVitalRow(vital: vital)
-                    if index < health.vitals.count - 1 {
-                        Rectangle().fill(NoopLook.divider).frame(height: 1)
-                    }
+            if part != .status { readings }
+        }
+    }
+
+    @ViewBuilder private var readings: some View {
+        if let graded = health.graded { PFGradedWatchView(graded: graded) }
+        VStack(spacing: 0) {
+            ForEach(Array(health.vitals.enumerated()), id: \.element.id) { index, vital in
+                PFVitalRow(vital: vital)
+                if index < health.vitals.count - 1 {
+                    Rectangle().fill(NoopLook.divider).frame(height: 1)
                 }
             }
-            .padding(.horizontal, 16)
-            .frame(maxWidth: .infinity)
-            .background(RoundedRectangle(cornerRadius: NoopLook.Metric.tileRadius, style: .continuous).fill(NoopLook.card))
-            .containerIdentifier("pf-vitals")
-            ForEach(item.base.actions) { action in
-                PFIntelActionCard(action: action, identifier: "pf-health-action-\(action.id)")
-            }
-            PFIntelFootnote(item: item)
-            Text("Each vital against the median of your own previous \(health.windowDays ?? 30) days, plus or minus one usual spread. Inside is within range; beyond one spread is elevated or low, beyond two is very.")
-                .font(LookFont.text(12.5, weight: .medium))
-                .foregroundStyle(NoopLook.textTertiary)
-                .fixedSize(horizontal: false, vertical: true)
         }
+        .padding(.horizontal, 16)
+        .frame(maxWidth: .infinity)
+        .background(RoundedRectangle(cornerRadius: NoopLook.Metric.tileRadius, style: .continuous).fill(NoopLook.card))
+        .containerIdentifier("pf-vitals")
+        ForEach(item.base.actions) { action in
+            PFIntelActionCard(action: action, identifier: "pf-health-action-\(action.id)")
+        }
+        PFIntelFootnote(item: item)
+        Text("Each vital against the median of your own previous \(health.windowDays ?? 30) days, plus or minus one usual spread. Inside is within range; beyond one spread is elevated or low, beyond two is very.")
+            .font(LookFont.text(12.5, weight: .medium))
+            .foregroundStyle(NoopLook.textTertiary)
+            .fixedSize(horizontal: false, vertical: true)
     }
 
     private func summary(_ tile: PFHealthTile) -> some View {

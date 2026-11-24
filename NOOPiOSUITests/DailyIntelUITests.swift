@@ -138,6 +138,7 @@ final class DailyIntelUITests: XCTestCase {
         attach(app, "Intel 30 Health monitor tile within range")
         tile.tap()
         XCTAssertTrue(element(app, "pf-health-monitor").waitForExistence(timeout: 20), "The tile should open the one Health screen, with the Health monitor on top.")
+        app.openSection("vitals-now")
         XCTAssertTrue(element(app, "pf-vital-hrv").waitForExistence(timeout: 10), "Each vital should have a row.")
         attach(app, "Intel 31 Health screen, monitor on top")
         XCTAssertTrue(reveal(element(app, "pf-vital-skin_temp"), in: app), "Skin temperature should have a row.")
@@ -154,6 +155,7 @@ final class DailyIntelUITests: XCTestCase {
         tile.tap()
         XCTAssertTrue(element(app, "pf-health-alert").waitForExistence(timeout: 20), "The alert should be explained in an insight card.")
         attach(app, "Intel 34 Health monitor alert and what to do")
+        app.openSection("vitals-now")
         XCTAssertTrue(reveal(element(app, "pf-vital-resp"), in: app), "The respiratory rate row should show.")
         attach(app, "Intel 35 Health monitor vitals out of range")
     }

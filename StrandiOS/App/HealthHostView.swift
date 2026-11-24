@@ -142,16 +142,15 @@ private struct HealthRecoveryChip: View {
     }
 }
 
-/// Vitals: Stress and Healthspan one tap away, then the Health Monitor.
+/// Vitals: the Health Monitor (a status card and closed sections, the step goal among them), then Stress and Healthspan one tap away.
 private struct HealthVitalsChip: View {
     var body: some View {
         VStack(alignment: .leading, spacing: NoopMetrics.sectionSpacing) {
+            HealthView()
             IndexSection("Open") {
                 IndexRow("Stress", "bolt.heart.fill", TabRoute.stress, id: "health-vitals-stress")
                 IndexRow("Healthspan", "hourglass", TabRoute.healthspan, id: "health-vitals-healthspan")
             }
-            HealthView()
-            if PFAPI.isConfigured { PFMovementCard() }
         }
         .containerIdentifier("health-chip-content-vitals")
     }

@@ -35,10 +35,11 @@ struct HealthView: View {
                        // full-bleed time-of-day sky behind the scroll content (does not scroll).
                        topBackground: liquidScaffoldSky()) {
             #if os(iOS)
-            // PaceForge's Health monitor (each vital against its own 30-day range) leads the one Health screen.
+            // PaceForge's Health monitor (each vital against its own 30-day range) leads the one Health screen: its status here, the
+            // readings in the closed "Vitals now" section.
             PFPageNote(key: "vitals")
-            PFHealthMonitorSection()
-            PFStrapHRVSection()
+            PFHealthMonitorSection(part: .status)
+            HealthVitalsNowSection()
             #endif
             if repo.days.isEmpty {
                 // First run / no history: whether to show the empty state or the full live stack depends
@@ -63,6 +64,35 @@ struct HealthView: View {
 /// history-present path and the first-run live path so the stack is defined once.
 private struct HealthSectionsStack: View {
     var body: some View {
+        #if os(iOS)
+        // iPhone: closed sections, one line each: Body age, the live heart rate with the strap sync, the step goal and the records.
+        // The recovery contributors and the vital-sign tiles are not drawn: "Vitals now" is the one list of the vitals.
+        VStack(alignment: .leading, spacing: NoopMetrics.sectionGap) {
+            PFDisclosure(title: "Body age", intro: "Fitness age, vitality and pace of aging", startsOpen: false, nested: false,
+                         id: "vitals-body-age") {
+                VStack(alignment: .leading, spacing: NoopMetrics.sectionGap) {
+                    FitnessAgeSection()
+                    VitalitySection()
+                }
+            }
+            PFDisclosure(title: "Live heart rate and strap", intro: "Strap sync and the live reading", startsOpen: false, nested: false,
+                         id: "vitals-live") {
+                VStack(alignment: .leading, spacing: NoopMetrics.sectionGap) {
+                    SyncStatusSection()
+                    HeartRateSection()
+                }
+            }
+            if PFAPI.isConfigured {
+                PFDisclosure(title: "Step goal", intro: "Daily target", startsOpen: false, nested: false, id: "vitals-steps") {
+                    PFMovementCard()
+                }
+            }
+            PFDisclosure(title: "Records and sources", intro: "Lab Book \u{00B7} Your data, fused", startsOpen: false, nested: false,
+                         id: "vitals-records") {
+                HealthHubLinksSection()
+            }
+        }
+        #else
         VStack(alignment: .leading, spacing: NoopMetrics.sectionGap) {
             // Manual "Sync now" + honest sync status (#364). Its own view so the ~1Hz HR stream
             // doesn't re-render it; depends on `live` (connection/backfill state) + `model`.
@@ -93,8 +123,32 @@ private struct HealthSectionsStack: View {
             // from their honest Health home as drill-in rows (not their own destinations).
             HealthHubLinksSection()
         }
+        #endif
     }
 }
+
+#if os(iOS)
+/// The closed "Vitals now" section: the vitals against their usual range (PaceForge's Health monitor), the strap's HRV status and the
+/// skin-temperature cards.
+private struct HealthVitalsNowSection: View {
+    @ObservedObject private var store = PFDailyIntelStore.shared
+
+    private var intro: String? {
+        guard let count = store.intel?.health?.vitals.count, count > 0 else { return nil }
+        return String(count) + (count == 1 ? " reading" : " readings") + " against your usual range"
+    }
+
+    var body: some View {
+        PFDisclosure(title: "Vitals now", intro: intro, startsOpen: false, nested: false, id: "vitals-now") {
+            VStack(alignment: .leading, spacing: NoopMetrics.sectionGap) {
+                PFHealthMonitorSection(part: .readings)
+                PFStrapHRVSection()
+                SkinTempSection()
+            }
+        }
+    }
+}
+#endif
 
 /// First-run content (no history yet). Owns `live`/`model` so the live-HR-gated choice between the empty
 /// state and the full live stack ticks here, in isolation, instead of re-rendering HealthView. Renders
@@ -1523,9 +1577,23 @@ private struct SkinTempSection: View {
     /// is read from the menstrual skin-temperature shift, so the opt-in is NOT shown for male profiles.
     private var cycleOptInApplies: Bool { model.profile.cycleAwarenessApplies && !cycleHidden }
 
+    #if os(iOS)
+    /// iPhone: the section is a block of "Vitals now", so it draws nothing (no header, no placeholder) while it has no card to show.
+    private var hasCards: Bool {
+        if let illness = model.illnessSignal, illness.level != .quiet { return true }
+        if model.circadianPhase != nil { return true }
+        if cycleEnabled, model.cyclePhase != nil { return true }
+        return !cycleEnabled && cycleOptInApplies
+    }
+    #endif
+
     var body: some View {
         VStack(alignment: .leading, spacing: NoopMetrics.gap) {
+            #if os(iOS)
+            if hasCards { SectionHeader("Skin temperature", overline: "From your nightly sensor") }
+            #else
             SectionHeader("Skin temperature", overline: "From your nightly sensor")
+            #endif
 
             // 1. Illness heads-up — only when the engine returned something worth surfacing.
             if let illness = model.illnessSignal, illness.level != .quiet {
@@ -1570,11 +1638,13 @@ private struct SkinTempSection: View {
             // the section when cycle is OFF, but it is gated off for male profiles (#801), so the
             // section can also be blank when the opt-in doesn't apply AND nothing else has data. Show
             // the empty state in either case (cycle ON but thin, OR opt-in hidden with no other signal).
+            #if !os(iOS)
             if (cycleEnabled || !cycleOptInApplies)
                 && model.illnessSignal == nil && model.circadianPhase == nil && model.cyclePhase == nil {
                 ComingSoon(what: "Wear the strap overnight and these read from your nightly skin temperature.",
                            symbol: "thermometer.medium")
             }
+            #endif
         }
         .sheet(isPresented: $cycleTrackerPresented) {
             if let cycle = model.cyclePhase {
@@ -1596,7 +1666,9 @@ private struct HealthHubLinksSection: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: NoopMetrics.gap) {
+            #if !os(iOS)
             SectionHeader("Records & sources", overline: "On \(Platform.deviceNounPhrase)")
+            #endif
             linkRow(title: String(localized: "Lab Book"),
                     subtitle: String(localized: "Keep your bloods, BP and body numbers private, on \(Platform.deviceNounPhrase)."),
                     symbol: "books.vertical.fill", tint: StrandPalette.metricCyan) { router.openLabBook() }
