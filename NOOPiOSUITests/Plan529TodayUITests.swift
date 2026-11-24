@@ -64,23 +64,16 @@ final class Plan529TodayUITests: XCTestCase {
     func testNothingIsShownTwiceAnyMoreAndTheKeptCopiesStay() throws {
         // The bookend row is the Day in review only in the evening (the clock decides it), so the evening is forced.
         let app = try launch(extra: ["-PaceForgeEvening"])
-        let removedIDs = ["pf-open-myday", "today-daily-report-row", "pf-day-review", "look-stress-tile", "pf-page-note-today", "pf-sofar-activity-9000000003"]
+        let removedIDs = ["pf-open-myday", "today-daily-report-row", "pf-day-review", "look-stress-tile", "pf-page-note-today", "pf-sofar-activity-9000000003",
+                          "pf-today-card-how-you-are", "today-workouts", "pf-sofar-plan", "effort-target-card", "today-journal", "pf-today-card-this-week",
+                          "today-last-7-days", "sleep-planner-entry"]
         let removedTexts = ["SYNTHESIS", "RECOVERY VITALS", "LAST WORKOUTS", "DATA SOURCES"]
-        let keptIDs = ["today-six-rings", "pf-today-card-how-you-are", "today-bookend", "today-stress-monitor", "today-workouts", "pf-sofar-plan",
-                       "effort-target-card", "today-vs30", "look-health-tile", "pf-today-card-the-call"]
+        let keptIDs = ["today-six-rings", "today-bookend", "today-stress-monitor", "today-vs30", "look-health-tile", "pf-today-card-the-call"]
         let met = scrollToday(app, ids: removedIDs + keptIDs, texts: removedTexts)
         for id in removedIDs { XCTAssertFalse(met.ids.contains(id), "Today should no longer show \(id).") }
         for text in removedTexts { XCTAssertFalse(met.texts.contains(text), "Today should no longer show \(text).") }
         for id in keptIDs { XCTAssertTrue(met.ids.contains(id), "Today should keep \(id).") }
         attach(app, "D1-D11 Today bottom")
-    }
-
-    /// With PaceForge set up but not answering (no snapshot), the strap's own workouts are still Today's workouts: the card is drawn, with a
-    /// row per workout of the day, or the latest one with its date and the way to the Workouts list.
-    func testTodaysWorkoutsAreDrawnWhilePaceForgeDoesNotAnswer() throws {
-        let app = try launch(extra: ["-PaceForgeFetchFails"])
-        let met = scrollToday(app, ids: ["today-workouts"])
-        XCTAssertTrue(met.ids.contains("today-workouts"), "Today's workouts should be drawn from the strap while PaceForge does not answer.")
     }
 
     // MARK: D4 and D8: the call states the call
@@ -97,8 +90,9 @@ final class Plan529TodayUITests: XCTestCase {
 
     func testTheEffortTargetCardNamesBothTargets() throws {
         let app = try launch()
+        app.openChip("Health", "day")
         let card = app.element("effort-target-card")
-        XCTAssertTrue(reveal(card, in: app), "Today should show the Effort target card.")
+        XCTAssertTrue(reveal(card, in: app), "Health > Day should show the Effort target card.")
         XCTAssertTrue(app.staticTexts["NOOP STRAP"].exists, "The strap's target should be named.")
         XCTAssertTrue(app.element("effort-target-garmin").waitForExistence(timeout: 10), "Garmin's target, from PaceForge, should be on the same card.")
         XCTAssertTrue(app.staticTexts["GARMIN VIA PACEFORGE"].exists, "Garmin's target should be named.")
@@ -128,21 +122,6 @@ final class Plan529TodayUITests: XCTestCase {
         attach(app, "D6 day in review")
     }
 
-    // MARK: D10: one list of the day's workouts
-
-    func testTodaysWorkoutsIsOneListAndARowOpensTheWorkoutWithTheCoachReview() throws {
-        let app = try launch()
-        let list = app.element("today-workouts")
-        XCTAssertTrue(reveal(list, in: app), "Today should show Today's workouts.")
-        let row = app.element("today-workout-row-garmin-9000000003")
-        XCTAssertTrue(row.waitForExistence(timeout: 10), "The recording of the day should be one row.")
-        XCTAssertFalse(app.element("pf-sofar-activity-9000000003").exists, "Today so far no longer lists the recording.")
-        attach(app, "D10 today's workouts")
-        row.tap()
-        XCTAssertTrue(app.buttons["Done"].waitForExistence(timeout: 15), "A row should open the workout's results sheet, which carries the coach's review.")
-        attach(app, "D10 the workout")
-    }
-
     // MARK: D11: Data sources is reachable
 
     func testDataSourcesOpensFromTheAvatarAndSettings() throws {
@@ -169,22 +148,15 @@ final class Plan529TodayUITests: XCTestCase {
         attach(app, "Today proposals row to Plan Week")
     }
 
-    func testTheThisWeekStripOpensPlanWeek() throws {
-        let app = try launch()
-        let strip = app.element("pf-today-card-this-week")
-        XCTAssertTrue(reveal(strip, in: app), "Today should show the This week strip.")
-        strip.tap()
-        XCTAssertTrue(app.element("calendar-chip-content-week").waitForExistence(timeout: 30), "The strip should open Plan > Week.")
-    }
-
     // MARK: The journal's morning question
 
     /// Build 530: My Journal replaces the prompt and the folded row on this Today. It is one card: never missing, never two, never the old row beside it.
     func testTheJournalCardIsOneMyJournalCardNeverMissing() throws {
         let app = try launch()
+        app.openChip("Health", "day")
         let card = app.element("today-journal")
         for _ in 0..<12 where !card.exists { app.swipeUp() }
-        XCTAssertTrue(card.exists, "Today should carry the My Journal card.")
+        XCTAssertTrue(card.exists, "Health > Day should carry the My Journal card.")
         XCTAssertEqual(app.descendants(matching: .any).matching(identifier: "today-journal").count, 1, "There should be exactly one journal card.")
         XCTAssertFalse(app.element("today-journal-logged").exists, "The old folded row should not show next to My Journal.")
     }
@@ -192,8 +164,9 @@ final class Plan529TodayUITests: XCTestCase {
     /// A tap on a day of the card's week row opens the existing journal on that day (to catch up), as the old card's bars did.
     func testTheJournalCardOpensTheFlowOnYesterdayFromItsWeekRow() throws {
         let app = try launch(extra: ["-JournalYesterdayUnlogged"])
+        app.openChip("Health", "day")
         let card = app.element("today-journal")
-        XCTAssertTrue(reveal(card, in: app), "Today should show My Journal.")
+        XCTAssertTrue(reveal(card, in: app), "Health > Day should show My Journal.")
         let yesterday = app.element("today-journal-day-1")
         XCTAssertTrue(reveal(yesterday, in: app), "The week row should have yesterday's cell.")
         attach(app, "Journal week row")

@@ -93,6 +93,7 @@ final class DailyIntelUITests: XCTestCase {
     /// PaceForge's Effort target (from Garmin) is named on the Effort target card, next to the strap's own band.
     func testEffortTargetCardCarriesPaceForgesTargetNamed() throws {
         let app = try launch()
+        app.openChip("Health", "day")
         let line = element(app, "effort-target-garmin")
         XCTAssertTrue(reveal(line, in: app), "The Effort target card should carry PaceForge's target.")
         XCTAssertTrue(line.label.contains("Effort target"), "The line should say what it is.")
@@ -244,8 +245,9 @@ final class DailyIntelUITests: XCTestCase {
     /// Build 530: My Journal's week row opens the journal on a day (here yesterday, not logged yet); one tap per question and Save.
     func testJournalPromptOpensTheFlowAndSaves() throws {
         let app = try launch(extra: ["-JournalYesterdayUnlogged"])
+        app.openChip("Health", "day")
         let card = element(app, "today-journal")
-        XCTAssertTrue(reveal(card, in: app), "Today should show the My Journal card.")
+        XCTAssertTrue(reveal(card, in: app), "Health > Day should show the My Journal card.")
         attach(app, "Intel 80 Today journal prompt")
         let yesterday = element(app, "today-journal-day-1")
         XCTAssertTrue(reveal(yesterday, in: app), "The week row should have yesterday's cell.")

@@ -30,6 +30,9 @@ enum PFCardKind: String, CaseIterable {
     /// The Sleep planner row on Today ("Tonight's sleep"), which is not PaceForge's card but hides the same way.
     case sleepPlanner = "sleep-planner"
 
+    /// Cards Today no longer draws (Today so far, Tonight's sleep): they stay in the stored format but are left out of the Hidden cards row.
+    static let retired: Set<PFCardKind> = [.todaySoFar, .sleepPlanner]
+
     var title: String {
         switch self {
         case .theCall: return "The call"
@@ -153,10 +156,12 @@ enum PFCardText {
         (b.topLines + b.items.compactMap { $0.line }).joined(separator: "\n")
     }
 
-    /// The cards that are hidden right now, and which list hides each.
+    /// The cards that are hidden right now, and which list hides each. A card that is no longer on Today (`PFCardKind.retired`) is never listed,
+    /// so one hidden before it was removed cannot be restored to nothing.
     static func hidden(_ s: PFSnapshot, local: [PFDismissal]) -> [PFHiddenCard] {
         all(s).compactMap { card in
-            guard let source = PFDismissLogic.hiddenBy(key: card.kind.rawValue, text: card.text, today: s.todayISO,
+            guard !PFCardKind.retired.contains(card.kind),
+                  let source = PFDismissLogic.hiddenBy(key: card.kind.rawValue, text: card.text, today: s.todayISO,
                                                         local: local, server: s.dismissed) else { return nil }
             return PFHiddenCard(card: card, source: source)
         }

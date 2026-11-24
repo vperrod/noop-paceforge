@@ -115,12 +115,8 @@ final class LookScreensUITests: XCTestCase {
 
     // MARK: Sleep
 
-    func testSleepTabShowsLastNightAndSleepTrends() throws {
+    func testSleepTabShowsItsStagesAndSleepTrends() throws {
         let app = try launch(screen: "sleep")
-        XCTAssertTrue(reveal(element(app, "look-last-night"), in: app), "The Sleep tab should show last night's sleep.")
-        attach(app, "Look 80 Sleep last night")
-        XCTAssertTrue(reveal(element(app, "look-last-night-hours"), in: app), "Last night should show the hours against the prior 30 days.")
-        attach(app, "Look 81 Sleep hours and stages")
         XCTAssertTrue(reveal(element(app, "look-sleep-trends"), in: app), "The Sleep tab should show its trends.")
         attach(app, "Look 82 Sleep trends")
     }

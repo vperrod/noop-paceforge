@@ -217,28 +217,6 @@ final class Phase4UITests: XCTestCase {
         attach(app, "Phase4 54 Monthly report, month to date")
     }
 
-    // MARK: My Plan
-
-    /// Today stopped drawing the "5 days left" My Plan card on 21 Oct (0e20c61d4: the Plan tab owns it). Today's My Plan section is
-    /// its header and the This week card, which opens Plan > This week; the progress card is on Plan > This week, folded to one line.
-    func testMyPlanSectionOnNoopToday() throws {
-        let app = try launch()
-        XCTAssertTrue(reveal(element(app, "today-my-plan-header"), in: app, maxSwipes: 20), "NOOP Today should carry the My Plan header.")
-        let week = element(app, "pf-today-card-this-week")
-        XCTAssertTrue(reveal(week, in: app, maxSwipes: 20), "The My Plan section should carry the This week card.")
-        attach(app, "Phase4 60 NOOP Today, My Plan")
-        assertFits(week, in: app, "This week")
-    }
-
-    func testThisWeekCardOnTodayOpensThePlanTab() throws {
-        let app = try launch()
-        let card = element(app, "pf-today-card-this-week")
-        XCTAssertTrue(reveal(card, in: app, maxSwipes: 20), "Today should carry the This week card.")
-        card.tap()
-        XCTAssertTrue(element(app, "calendar-host").waitForExistence(timeout: 20), "The This week card should open the Plan tab.")
-        XCTAssertTrue(element(app, "calendar-chip-content-week").waitForExistence(timeout: 20), "It should land on the Week chip.")
-        attach(app, "Phase4 61 Plan, opened from This week")
-    }
 
     /// My Plan's job (how far through the week you are, what is done, what is next) is the Week page's now: the seven days with their
     /// done bars, the hours done so far, and each workout's status. The folded My Plan card is not mounted on the Plan tab any more.

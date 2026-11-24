@@ -62,15 +62,12 @@ final class UnifiedNavUITests: XCTestCase {
     func testTodayDrawsThePaceForgeCardsInTheFixedOrder() throws {
         let app = try launch()
         XCTAssertTrue(element(app, "pf-today-cards").waitForExistence(timeout: 30), "Today should draw PaceForge's cards.")
-        // WHOOP's order: the call, needs you, how you are, today, feel, then (further down, after My Plan's heading) the week.
-        let ids = ["the-call", "needs-you", "how-you-are", "today", "feel"].map { "pf-today-card-\($0)" }
+        // WHOOP's order: the call, needs you, today, feel.
+        let ids = ["the-call", "needs-you", "today", "feel"].map { "pf-today-card-\($0)" }
         let shown = ids.filter { element(app, $0).waitForExistence(timeout: 5) }
         XCTAssertTrue(shown.contains("pf-today-card-the-call"), "The call leads.")
         let ys = shown.map { element(app, $0).frame.minY }
         XCTAssertEqual(ys, ys.sorted(), "The cards should run in the order \(shown.joined(separator: ", ")).")
-        let week = element(app, "pf-today-card-this-week")
-        for _ in 0..<12 where !week.exists { app.swipeUp() }
-        XCTAssertTrue(week.exists, "The week sits under My Plan.")
     }
 
     func testTheRingsLeadTodayAboveTheCards() throws {

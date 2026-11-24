@@ -85,8 +85,9 @@ final class TodayCards530UITests: XCTestCase {
     func testMyJournalCardShowsTheWeekRowTheLineAndItsButtons() throws {
         let app = try launch(extra: ["-PaceForgeMorning"])
         waitForToday(app)
+        app.openChip("Health", "day")
         let card = app.element("today-journal")
-        XCTAssertTrue(reveal(card, in: app), "Today should show the My Journal card.")
+        XCTAssertTrue(reveal(card, in: app), "Health > Day should show the My Journal card.")
         let line = app.element("today-journal-line")
         XCTAssertTrue(line.waitForExistence(timeout: 20), "The card should say what the devices answered and what is left for you.")
         XCTAssertTrue(line.label.contains("About Tuesday: 7 answered by your devices, 5 questions for you."), "The line was: \(line.label)")
@@ -103,21 +104,21 @@ final class TodayCards530UITests: XCTestCase {
     func testMyJournalButtonsOpenTheirRoutes() throws {
         let app = try launch(extra: ["-PaceForgeMorning"])
         waitForToday(app)
+        app.openChip("Health", "day")
         let fill = app.element("today-journal-fill")
-        XCTAssertTrue(reveal(fill, in: app), "Today should show Fill out.")
+        XCTAssertTrue(reveal(fill, in: app), "Health > Day should show Fill out.")
         fill.tap()
         XCTAssertTrue(app.element("pf530-journal-morning").waitForExistence(timeout: 20), "Fill out should open the morning questions.")
     }
 
     // MARK: Order
 
-    /// The rings, the My Day graph, the call and the Health tile come first; the overview card and My Journal come after them, in that
-    /// order. Each id is noted where the scroll first meets it (the step, then the height on screen); an element met in a later step lies
+    /// The rings, the My Day graph, the call and the overview card come in that order, and the Health tile is the last block of Today. Each id is noted where the scroll first meets it (the step, then the height on screen); an element met in a later step lies
     /// lower on the page. (The Stress tile gives way to the Stress Monitor chart when PaceForge is set up, so the Health tile stands for the tiles.)
     func testTheRingsTheDayGraphTheCallAndTheTilesComeBeforeTheNewCardsInTheScrollOrder() throws {
         let app = try launch(extra: ["-PaceForgeMorning"])
         waitForToday(app)
-        let ids = ["today-six-rings", "today-daygraph", "pf-today-card-the-call", "look-health-tile", "today-overview-morning", "today-journal"]
+        let ids = ["today-six-rings", "today-daygraph", "pf-today-card-the-call", "today-overview-morning", "look-health-tile"]
         var first: [String: (step: Int, y: CGFloat)] = [:]
         func note(_ step: Int) {
             for id in ids where first[id] == nil {
@@ -126,7 +127,7 @@ final class TodayCards530UITests: XCTestCase {
             }
         }
         note(0)
-        for step in 1...14 {
+        for step in 1...20 {
             app.swipeUp()
             note(step)
         }
@@ -138,7 +139,6 @@ final class TodayCards530UITests: XCTestCase {
         XCTAssertTrue(isBefore("today-six-rings", "today-overview-morning"), "The rings should come before the overview card.")
         XCTAssertTrue(isBefore("today-daygraph", "today-overview-morning"), "The My Day graph should come before the overview card.")
         XCTAssertTrue(isBefore("pf-today-card-the-call", "today-overview-morning"), "The call should come before the overview card.")
-        XCTAssertTrue(isBefore("look-health-tile", "today-overview-morning"), "The Health tile should come before the overview card.")
-        XCTAssertTrue(isBefore("today-overview-morning", "today-journal"), "My Journal should come after the overview card.")
+        XCTAssertTrue(isBefore("today-overview-morning", "look-health-tile"), "The Health tile should come after the overview card, at the bottom.")
     }
 }

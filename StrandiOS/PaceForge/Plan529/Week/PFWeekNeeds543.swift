@@ -23,7 +23,8 @@ struct PFNeedsStripView543: View {
         PFNeedsStrip543.merged(PFNeedsStrip543.entries(doc, keptOverlap: pfIsOverlapKept543),
                                liveQuestionActivityIDs: liveQuestions.compactMap { $0.activityID })
     }
-    private var count: Int { max(entries.count, doc.needsYou?.count ?? 0) }
+    /// The rows the sheet lists, nothing more: a larger count from the server never shows (the list is the truth).
+    private var count: Int { entries.count }
 
     var body: some View {
         if count > 0 {

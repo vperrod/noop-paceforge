@@ -216,7 +216,7 @@ final class ScreenCleanupUITests: XCTestCase {
         app.navigationBars.buttons.element(boundBy: 0).tap()
         XCTAssertFalse(app.shellTab("Sleep").exists, "Sleep is not a tab.")
         app.openChip("Health", "sleep")
-        XCTAssertTrue(reveal(element(app, "look-last-night"), in: app), "Health's Sleep chip should show last night.")
+        XCTAssertTrue(reveal(element(app, "look-sleep-trends"), in: app), "Health's Sleep chip should show the Sleep screen.")
         alive(app, "opening Sleep from Health")
     }
 }

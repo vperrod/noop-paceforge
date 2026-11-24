@@ -33,8 +33,9 @@ final class PlannerUITests: XCTestCase {
     // MARK: Effort target
 
     private func effortText(_ app: XCUIApplication) -> XCUIElement {
+        app.openChip("Health", "day")
         let text = element(app, "effort-target-text")
-        XCTAssertTrue(text.waitForExistence(timeout: 30), "Today should show the Effort target card.")
+        XCTAssertTrue(text.waitForExistence(timeout: 30), "Health > Day should show the Effort target card.")
         reveal(text, in: app)
         return text
     }

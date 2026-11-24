@@ -227,17 +227,6 @@ final class PaceForgeNativeTabUITests: XCTestCase {
         attach(app, "12b Feel card save failed")
     }
 
-    func testHowYouAreOpensTheReadinessExplainerSheet() throws {
-        let app = try launch(fixture: true)
-        app.openTab("Today")
-        let how = element(app, "pf-today-card-how-you-are")
-        XCTAssertTrue(reveal(how, in: app, maxSwipes: 20), "Today should show the How you are card.")
-        how.tap()
-        XCTAssertTrue(element(app, "pf-explainer-sheet").waitForExistence(timeout: 5), "The explainer sheet should open.")
-        attach(app, "15 Explainer sheet")
-        app.buttons["pf-explainer-done"].tap()
-    }
-
     func testExplainerSheetShowsCalibrationProgress() throws {
         let app = try launch(fixture: true)
         app.openCoachInsights("deepDives")
