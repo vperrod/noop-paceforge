@@ -64,6 +64,11 @@ private struct TrainRunningContent: View {
             // The running goal (the server judges only a road-race goal), moved here from the HYROX chip.
             if let goal = snapshot.insights.goalPrognosis {
                 PFRunningGoalCard(goal: goal).accessibilityIdentifier("train-running-goal")
+            } else {
+                PFCard("Prediction", icon: "target") {
+                    PFParagraph("PaceForge predicts a finish only for a road-race goal. For HYROX, the plan on the HYROX chip has your realistic and stretch times.")
+                }
+                .accessibilityIdentifier("train-running-goal")
             }
             PFNumbersCard()
             PFRecentRunsCard(snapshot: snapshot)
