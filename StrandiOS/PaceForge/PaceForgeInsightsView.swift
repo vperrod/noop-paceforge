@@ -8,7 +8,7 @@ struct PFInsightsView: View {
     /// False under the Insights tab's Deep dives chip (New navigation, beta), where "Where you stand" and the insight items are
     /// on the Overview chip instead.
     var includesOverview = true
-    /// True on Train > Athlete: only the fitness / fatigue / form card and the load and recovery warnings.
+    /// True on Train > Athlete: only the fitness / fatigue / form and the load and recovery warnings, each a closed section.
     var loadOnly = false
     @State private var showOtherRaces = false
 
@@ -17,8 +17,23 @@ struct PFInsightsView: View {
     var body: some View {
         if loadOnly {
             VStack(alignment: .leading, spacing: 16) {
-                chartCard
-                warningsCard
+                PFDisclosure(title: "Fitness, fatigue and form",
+                             intro: String(Safe.int(insights.ctl)) + " / " + String(Safe.int(insights.atl)) + " / " + signed(insights.tsb),
+                             startsOpen: false, nested: false, id: "athlete-load") {
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Spacer(minLength: 8)
+                            PFInfoButton(id: PFExplainerID.load)
+                        }
+                        chartContent
+                    }
+                }
+                if let first = insights.warnings?.first {
+                    PFDisclosure(title: "Load and recovery warnings", intro: first.text, startsOpen: false, nested: false,
+                                 id: "athlete-warnings") {
+                        warningsContent
+                    }
+                }
             }
             .containerIdentifier("athlete-load-sections")
         } else {
@@ -56,25 +71,29 @@ struct PFInsightsView: View {
 
     private var chartCard: some View {
         PFCard("Fitness, fatigue and form", icon: "chart.xyaxis.line", info: PFExplainerID.load) {
-            VStack(alignment: .leading, spacing: 12) {
-                HStack(spacing: 8) {
-                    PFFigure(value: String(Safe.int(insights.ctl)), unit: nil, label: "Fitness (CTL)")
-                    PFFigure(value: String(Safe.int(insights.atl)), unit: nil, label: "Fatigue (ATL)")
-                    PFFigure(value: signed(insights.tsb), unit: nil, label: "Form (TSB)")
-                }
-                PFLoadChart(insights: insights)
-                    .frame(height: 220)
-                    .accessibilityIdentifier("pf-load-chart")
-                HStack(spacing: 14) {
-                    legend(PFColor.positive, "Fitness")
-                    legend(PFColor.warning, "Fatigue")
-                    legend(PFColor.violet, "Form")
-                    Text("Dashed = projected")
-                        .font(StrandFont.caption)
-                        .foregroundStyle(StrandPalette.textTertiary)
-                }
-                if let sentence = insights.loadSentence { PFParagraph(sentence) }
+            chartContent
+        }
+    }
+
+    private var chartContent: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 8) {
+                PFFigure(value: String(Safe.int(insights.ctl)), unit: nil, label: "Fitness (CTL)")
+                PFFigure(value: String(Safe.int(insights.atl)), unit: nil, label: "Fatigue (ATL)")
+                PFFigure(value: signed(insights.tsb), unit: nil, label: "Form (TSB)")
             }
+            PFLoadChart(insights: insights)
+                .frame(height: 220)
+                .accessibilityIdentifier("pf-load-chart")
+            HStack(spacing: 14) {
+                legend(PFColor.positive, "Fitness")
+                legend(PFColor.warning, "Fatigue")
+                legend(PFColor.violet, "Form")
+                Text("Dashed = projected")
+                    .font(StrandFont.caption)
+                    .foregroundStyle(StrandPalette.textTertiary)
+            }
+            if let sentence = insights.loadSentence { PFParagraph(sentence) }
         }
     }
 
@@ -93,25 +112,28 @@ struct PFInsightsView: View {
     // MARK: Warnings
 
     @ViewBuilder private var warningsCard: some View {
-        let warnings = insights.warnings ?? []
-        if !warnings.isEmpty {
+        if !(insights.warnings ?? []).isEmpty {
             PFCard("Load and recovery warnings", icon: "exclamationmark.triangle") {
-                VStack(alignment: .leading, spacing: 10) {
-                    ForEach(Array(warnings.enumerated()), id: \.offset) { _, w in
-                        HStack(alignment: .top, spacing: 8) {
-                            Text("\u{25B2}")
-                                .font(StrandFont.caption)
-                                .foregroundStyle(PFColor.warning)
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(PFFormat.dayTitle(w.date))
-                                    .font(StrandFont.caption.weight(.semibold))
-                                    .foregroundStyle(StrandPalette.textTertiary)
-                                Text(w.text)
-                                    .font(StrandFont.subhead)
-                                    .foregroundStyle(StrandPalette.textSecondary)
-                                    .fixedSize(horizontal: false, vertical: true)
-                            }
-                        }
+                warningsContent
+            }
+        }
+    }
+
+    private var warningsContent: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            ForEach(Array((insights.warnings ?? []).enumerated()), id: \.offset) { _, w in
+                HStack(alignment: .top, spacing: 8) {
+                    Text("\u{25B2}")
+                        .font(StrandFont.caption)
+                        .foregroundStyle(PFColor.warning)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(PFFormat.dayTitle(w.date))
+                            .font(StrandFont.caption.weight(.semibold))
+                            .foregroundStyle(StrandPalette.textTertiary)
+                        Text(w.text)
+                            .font(StrandFont.subhead)
+                            .foregroundStyle(StrandPalette.textSecondary)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
                 }
             }

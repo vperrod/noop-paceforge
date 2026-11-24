@@ -5,26 +5,24 @@ import StrandDesign
 
 // MARK: - Athlete: the last chip of Train
 //
-// The athlete's profile header, the metric tiles with their change over four weeks, the strengths / weaknesses / areas to work on, and a
-// row to the full "Where you stand" scorecard. A tile (or a row's link) opens a detail sheet: the history chart, what the number is and
-// where its norms are. Everything is made from the PaceForge snapshot (`PFAthleteBuild`), so this screen reads no document of its own.
+// The athlete's profile card, then seven sections that stay closed until tapped: My metrics (the tiles with their change over four weeks),
+// Race predictions, Heart-rate zones, Strengths and focus (with the row to the full "Where you stand" scorecard), Fitness, fatigue and
+// form, Load and recovery warnings and Personal records. A tile (or a row's link) opens a detail sheet: the history chart, what the
+// number is and where its norms are. Everything is made from the PaceForge snapshot (`PFAthleteBuild`), so this screen reads no document of its own.
 // NOOP's strap scores are not here; every tile names the system it comes from.
 //
 // Built small on purpose (builds 465 to 478): the tiles sit in a LazyVGrid, a sparkline is a Canvas (no GeometryReader or ViewThatFits),
 // nothing here reads a live strap value, and only this one screen is mounted for the tab.
 
-/// The Athlete chip of Train: "Your numbers" (the athlete figures and pace bands) on top, then the profile and the metric tiles.
+/// The Athlete chip of Train: the profile card, then the sections. "Your numbers" (the athlete figures and pace bands) is on the Running chip.
 struct AthleteHostView: View {
     @EnvironmentObject private var profile: ProfileStore
 
     var body: some View {
         ScreenScaffold(title: "Athlete", subtitle: "Your profile, your numbers and what to work on.",
                        onRefresh: { await PFUnified.model.refresh() }, lazy: true, topBackground: liquidScaffoldSky()) {
-            PFNumbersCard()
             AthleteColumn(maxHr: profile.hrMaxOverride > 0 ? profile.hrMaxOverride : nil, avatar: profile.avatarImageData)
         }
-        // The numbers card draws nothing until the panels store has its document.
-        .task { await PFCoachPanelsStore.shared.refreshIfStale() }
     }
 }
 
@@ -187,11 +185,10 @@ private struct AthleteColumn: View {
     var body: some View {
         PFSnapshotHost(content: { snapshot in
             AnyView(UnifiedChipMount(host: "athlete", name: "main", content: AnyView(
-                VStack(alignment: .leading, spacing: 16) {
-                    AthleteScreen(athlete: PFAthleteBuild.make(snapshot, maxHr: maxHr), standing: snapshot.standing, avatar: avatar)
-                    // Fitness, fatigue and form and the load warnings; Coach > Insights > Deep dives keeps them too.
-                    PFInsightsView(snapshot: snapshot, includesOverview: false, loadOnly: true)
-                }
+                // Fitness, fatigue and form and the load warnings sit between the findings and the records; Coach > Insights > Deep dives
+                // keeps them too.
+                AthleteScreen(athlete: PFAthleteBuild.make(snapshot, maxHr: maxHr), standing: snapshot.standing, avatar: avatar,
+                              load: AnyView(PFInsightsView(snapshot: snapshot, includesOverview: false, loadOnly: true)))
             )))
         })
         .containerIdentifier("athlete-host")
@@ -245,6 +242,8 @@ private struct AthleteScreen: View {
     let athlete: PFAthlete
     let standing: PFStanding?
     let avatar: Data?
+    /// The Fitness, fatigue and form and warnings sections, which need the snapshot and not the athlete.
+    let load: AnyView
     @State private var sheet: AthleteSheet?
     @ObservedObject private var hyroxStore = PFHyroxStore.shared
     @Environment(\.pfOpenStanding) private var openStanding
@@ -259,10 +258,12 @@ private struct AthleteScreen: View {
                 .accessibilityIdentifier("athlete-empty")
             } else {
                 metrics
-                recordsCard
+                predictionsSection
+                zonesSection
                 findings
-                scorecardRow
             }
+            load
+            if !athlete.isEmpty { recordsCard }
         }
         .sheet(item: $sheet) { sheetContent($0) }
         .task { await hyroxStore.refreshIfStale() }
@@ -270,41 +271,69 @@ private struct AthleteScreen: View {
 
     // MARK: Metrics
 
+    /// "VO2max 52.9 · LT 4:27/km · FTP 250 W": the three figures the others hang off, when the tiles have them.
+    private var metricsIntro: String? {
+        var parts: [String] = []
+        if let tile = athlete.tile("vo2max"), tile.value != nil { parts.append("VO2max " + tile.valueText) }
+        if let tile = athlete.tile("lt_pace"), tile.value != nil { parts.append("LT " + tile.valueText + tile.unit) }
+        if let tile = athlete.tile("ftp"), tile.value != nil { parts.append("FTP " + tile.valueText + " " + tile.unit) }
+        return parts.isEmpty ? nil : parts.joined(separator: " \u{00B7} ")
+    }
+
     @ViewBuilder private var metrics: some View {
-        if !athlete.tiles.isEmpty || !athlete.runTimes.isEmpty || athlete.hasHyrox || athlete.predictions != nil || athlete.zones != nil {
-            VStack(alignment: .leading, spacing: 10) {
-                HStack {
-                    Text("My metrics").lookCaps(11).foregroundStyle(NoopLook.textTertiary)
-                    Spacer(minLength: 8)
-                    Text("Change").font(LookFont.text(11, weight: .medium)).foregroundStyle(NoopLook.textTertiary)
-                }
-                if !athlete.tiles.isEmpty {
-                    LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
-                        ForEach(athlete.tiles) { tile in
-                            Button { sheet = .tile(tile.id) } label: { AthleteTile(tile: tile) }
-                                .buttonStyle(.plain)
-                                .accessibilityIdentifier("athlete-tile-\(tile.id)")
+        if !athlete.tiles.isEmpty || !athlete.runTimes.isEmpty || athlete.hasHyrox {
+            PFDisclosure(title: "My metrics", intro: metricsIntro, startsOpen: false, nested: false, id: "athlete-metrics") {
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack {
+                        Spacer(minLength: 8)
+                        Text("Change").font(LookFont.text(11, weight: .medium)).foregroundStyle(NoopLook.textTertiary)
+                    }
+                    if !athlete.tiles.isEmpty {
+                        LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
+                            ForEach(athlete.tiles) { tile in
+                                Button { sheet = .tile(tile.id) } label: { AthleteTile(tile: tile) }
+                                    .buttonStyle(.plain)
+                                    .accessibilityIdentifier("athlete-tile-\(tile.id)")
+                            }
                         }
                     }
-                }
-                if let predictions = athlete.predictions {
-                    AthletePredictionsCard(predictions: predictions) { sheet = .predictions }
-                }
-                if let zones = athlete.zones {
-                    AthleteZonesCard(zones: zones) { sheet = .zones }
-                }
-                if !athlete.runTimes.isEmpty {
-                    AthleteRunTimes(times: athlete.runTimes) { time in
-                        if let id = time.standingId { sheet = .standing(id) }
+                    if !athlete.runTimes.isEmpty {
+                        AthleteRunTimes(times: athlete.runTimes) { time in
+                            if let id = time.standingId { sheet = .standing(id) }
+                        }
+                    }
+                    if athlete.hasHyrox {
+                        Button { sheet = .hyrox } label: { AthleteHyroxTile(races: athlete.hyroxRaces, best: athlete.hyroxBest) }
+                            .buttonStyle(.plain)
+                            .accessibilityIdentifier("athlete-hyrox")
                     }
                 }
-                if athlete.hasHyrox {
-                    Button { sheet = .hyrox } label: { AthleteHyroxTile(races: athlete.hyroxRaces, best: athlete.hyroxBest) }
-                        .buttonStyle(.plain)
-                        .accessibilityIdentifier("athlete-hyrox")
-                }
+                .containerIdentifier("athlete-metrics-content")
             }
-            .containerIdentifier("athlete-metrics")
+        }
+    }
+
+    // MARK: Predictions and zones
+
+    @ViewBuilder private var predictionsSection: some View {
+        if let predictions = athlete.predictions {
+            PFDisclosure(title: "Race predictions",
+                         intro: predictions.garmin.prefix(2).map { $0.label + " " + $0.text }.joined(separator: " \u{00B7} "),
+                         startsOpen: false, nested: false, id: "athlete-predictions-section") {
+                AthletePredictionsCard(predictions: predictions) { sheet = .predictions }
+            }
+        }
+    }
+
+    /// "Z2 113-131 · Z4 150-168": the two zones the easy and hard work are set by.
+    @ViewBuilder private var zonesSection: some View {
+        if let zones = athlete.zones {
+            PFDisclosure(title: "Heart-rate zones",
+                         intro: zones.zones.filter { $0.zone == 2 || $0.zone == 4 }
+                             .map { "Z\($0.zone) \($0.low)\u{2013}\($0.high)" }.joined(separator: " \u{00B7} "),
+                         startsOpen: false, nested: false, id: "athlete-zones-section") {
+                AthleteZonesCard(zones: zones) { sheet = .zones }
+            }
         }
     }
 
@@ -312,26 +341,48 @@ private struct AthleteScreen: View {
 
     @ViewBuilder private var recordsCard: some View {
         if !athlete.records.isEmpty {
-            AthleteRecordsCard(records: athlete.records)
+            PFDisclosure(title: "Personal records", intro: "Your best efforts", startsOpen: false, nested: false,
+                         id: "athlete-records-section") {
+                AthleteRecordsCard(records: athlete.records)
+            }
         }
     }
 
     // MARK: Strengths, weaknesses, areas
 
-    @ViewBuilder private var findings: some View {
-        group("Strengths", icon: "arrow.up.right.circle", rows: athlete.strengths)
-        group("Weaknesses", icon: "arrow.down.right.circle", rows: athlete.weaknesses)
-        group("Areas to work on", icon: "scope", rows: athlete.areas + PFAthleteBuild.hyroxAreas(plan: hyroxStore.plan, results: hyroxStore.results))
+    private var areaRows: [PFAthleteFinding] {
+        athlete.areas + PFAthleteBuild.hyroxAreas(plan: hyroxStore.plan, results: hyroxStore.results)
     }
 
-    @ViewBuilder private func group(_ title: String, icon: String, rows: [PFAthleteFinding]) -> some View {
+    /// "Strongest VO2max · focus strength sessions".
+    private var findingsIntro: String? {
+        var parts: [String] = []
+        if let strongest = athlete.strengths.first { parts.append("Strongest " + strongest.title) }
+        if let focus = areaRows.first { parts.append("focus " + focus.title) }
+        return parts.isEmpty ? nil : parts.joined(separator: " \u{00B7} ")
+    }
+
+    @ViewBuilder private var findings: some View {
+        if athlete.hasFindings || !areaRows.isEmpty || athlete.scorecardLine != nil {
+            PFDisclosure(title: "Strengths and focus", intro: findingsIntro, startsOpen: false, nested: false,
+                         id: "athlete-findings-section") {
+                VStack(alignment: .leading, spacing: 16) {
+                    group("Strengths", rows: athlete.strengths)
+                    group("Weaknesses", rows: athlete.weaknesses)
+                    group("Areas to work on", rows: areaRows)
+                    scorecardRow
+                }
+            }
+        }
+    }
+
+    @ViewBuilder private func group(_ title: String, rows: [PFAthleteFinding]) -> some View {
         if !rows.isEmpty {
-            PFCard(title, icon: icon) {
-                VStack(alignment: .leading, spacing: 0) {
-                    ForEach(rows) { row in
-                        AthleteFindingRow(finding: row, onOpen: { open($0) }, onPlan: { sheet = .plan($0) })
-                        if row.id != rows.last?.id { Divider().overlay(StrandPalette.hairline) }
-                    }
+            VStack(alignment: .leading, spacing: 0) {
+                Text(title).strandOverline().padding(.bottom, 4)
+                ForEach(rows) { row in
+                    AthleteFindingRow(finding: row, onOpen: { open($0) }, onPlan: { sheet = .plan($0) })
+                    if row.id != rows.last?.id { Divider().overlay(StrandPalette.hairline) }
                 }
             }
             .containerIdentifier("athlete-group-\(rows[0].group.rawValue)")
@@ -438,13 +489,26 @@ private struct AthleteHeader: View {
                 }
                 Spacer(minLength: 0)
             }
-            factRow(Array(athlete.facts.prefix(4)))
-            factRow(Array(athlete.facts.dropFirst(4).prefix(4)))
+            factRow(profileFacts)
+            factRow(figureFacts)
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(AthleteLook.cardShape.fill(NoopLook.card))
         .containerIdentifier("athlete-header")
+    }
+
+    /// Age, height, weight and max HR. Resting HR, FTP, threshold pace and LT heart rate are in My metrics, once.
+    private var profileFacts: [PFAthleteFact] {
+        athlete.facts.filter { ["Age", "Height", "Weight", "Max HR"].contains($0.label) }
+    }
+
+    /// VO2max and the training status, from the same tiles My metrics shows.
+    private var figureFacts: [PFAthleteFact] {
+        var out: [PFAthleteFact] = []
+        if let tile = athlete.tile("vo2max") { out.append(PFAthleteFact(label: "VO2max", text: tile.valueText)) }
+        if let tile = athlete.tile("training_status") { out.append(PFAthleteFact(label: "Training status", text: tile.valueText)) }
+        return out
     }
 
     private func factRow(_ facts: [PFAthleteFact]) -> some View {
@@ -957,7 +1021,6 @@ private struct AthletePredictionsCard: View {
         Button(action: onTap) {
             VStack(alignment: .leading, spacing: 10) {
                 HStack {
-                    Text("Race predictions").lookCaps(10.5, weight: .semibold).foregroundStyle(NoopLook.textTertiary)
                     Spacer(minLength: 8)
                     Image(systemName: "chevron.right")
                         .font(.system(size: 12, weight: .semibold))
@@ -1007,7 +1070,6 @@ private struct AthleteZonesCard: View {
         Button(action: onTap) {
             VStack(alignment: .leading, spacing: 10) {
                 HStack {
-                    Text("Heart-rate zones").lookCaps(10.5, weight: .semibold).foregroundStyle(NoopLook.textTertiary)
                     Spacer(minLength: 8)
                     Image(systemName: "chevron.right")
                         .font(.system(size: 12, weight: .semibold))
@@ -1054,10 +1116,8 @@ private struct AthleteRecordsCard: View {
     }
 
     var body: some View {
-        PFCard("Personal records", icon: "trophy") {
-            VStack(alignment: .leading, spacing: 12) {
-                ForEach(records) { record in AthleteFigureRow(label: record.label, value: record.text, note: line(record)) }
-            }
+        VStack(alignment: .leading, spacing: 12) {
+            ForEach(records) { record in AthleteFigureRow(label: record.label, value: record.text, note: line(record)) }
         }
         .containerIdentifier("athlete-records")
     }
