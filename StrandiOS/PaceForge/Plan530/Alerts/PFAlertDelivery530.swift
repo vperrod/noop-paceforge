@@ -44,10 +44,10 @@ enum PFAlertDelivery530 {
         // The window the item belongs to is the first one that ends after the item was written (and after its not_before): an item written
         // while the athlete slept waits for the morning window; one whose window has passed is never sent late.
         let reference = [written, notBefore].compactMap { $0 }.max() ?? now
-        // Readiness and report alerts are delivered at the next awake contact, even if their original
+        // Readiness, report and journal alerts are delivered at the next awake contact, even if their original
         // morning/evening window passed while iOS had not refreshed the app.
         var window = interval(of: item.window, after: reference, times: times, calendar: calendar)
-        let reportKind = PFInboxLogic529.reportKinds.contains(kind)
+        let reportKind = PFInboxLogic529.reportKinds.contains(kind) || kind == "journal"
         if let currentWindow = window, now >= currentWindow.end {
             if reportKind { window = nil } else { return .drop }
         }
