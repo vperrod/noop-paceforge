@@ -1,8 +1,10 @@
 import SwiftUI
 import StrandDesign
 
-/// R1: a finished week is its report. One verdict, your races, planned against done, recovery from each device in its own chart, three
-/// short findings, the decision for next week, the links to the long tables, and the week's sessions as one line each.
+/// R1: a finished week is its report, in the order every report has: the verdict, the key numbers (planned against done), What went well
+/// (open), then closed until tapped: What to change (what held you back, the one thing not to do, the decision for next week), Sessions
+/// (your races, the week's sessions as one line each, recovery from each device in its own chart) and Expert notes (the links to the
+/// long tables).
 struct PFWeekReport529: View {
     let week: String
     let doc: PFPlanWeekDoc
@@ -18,12 +20,58 @@ struct PFWeekReport529: View {
         VStack(alignment: .leading, spacing: 12) {
             top
             if let review = report?.review, !review.isEmpty { PFReviewLinkRow530(week: week) }
-            if let races = report?.races, !races.isEmpty { racesCard(races) }
             plannedAgainstDone
-            if let nights = report?.nights, let series = nights.series, !series.isEmpty { nightsCard(nights, series) }
-            findings
-            if let next = report?.nextWeek { NextWeekCard529(next: next, decisions: decisions, goToWeek: goToWeek, hooks: hooks) }
-            links
+            wentWell
+            whatToChange
+            sessionsSection
+            PFDisclosure(title: "Expert notes", intro: "What each expert read", startsOpen: false, nested: false, id: "week-experts") {
+                links
+            }
+        }
+    }
+
+    // MARK: Went well, what to change, sessions
+
+    @ViewBuilder private var wentWell: some View {
+        if let texts = report?.wentWell, !texts.isEmpty {
+            PFDisclosure(title: "What went well", intro: nil, startsOpen: true, nested: false, id: "week-well") {
+                finding(nil, PFWeekColor529.teal, texts, id: "well")
+                    .containerIdentifier("plan529-findings")
+            }
+        }
+    }
+
+    @ViewBuilder private var whatToChange: some View {
+        let held = report?.heldBack ?? []
+        let notToDo = report?.notToDo ?? ""
+        if !held.isEmpty || !notToDo.isEmpty || report?.nextWeek != nil {
+            PFDisclosure(title: "What to change", intro: "With accept and reject", startsOpen: false, nested: false, id: "week-change") {
+                VStack(alignment: .leading, spacing: 12) {
+                    if !held.isEmpty || !notToDo.isEmpty {
+                        VStack(alignment: .leading, spacing: 12) {
+                            finding("Held you back", PFWeekColor529.amber, held, id: "held")
+                            if !notToDo.isEmpty { finding("One thing not to do", PFWeekColor529.red, [notToDo], id: "not") }
+                        }
+                        .pfWeekCard()
+                    }
+                    if let next = report?.nextWeek { NextWeekCard529(next: next, decisions: decisions, goToWeek: goToWeek, hooks: hooks) }
+                }
+            }
+        }
+    }
+
+    @ViewBuilder private var sessionsSection: some View {
+        let races = report?.races ?? []
+        let series = report?.nights?.series ?? []
+        let hasRows = !PFReportSessions543.rows(doc).isEmpty
+        if !races.isEmpty || !series.isEmpty || hasRows {
+            PFDisclosure(title: "Sessions", intro: "The week table", startsOpen: false, nested: false, id: "week-sessions") {
+                VStack(alignment: .leading, spacing: 12) {
+                    if !races.isEmpty { racesCard(races) }
+                    if hasRows { sessionRows }
+                    if let nights = report?.nights, !series.isEmpty { nightsCard(nights, series) }
+                }
+            }
         }
     }
 
@@ -135,7 +183,6 @@ struct PFWeekReport529: View {
                 .accessibilityIdentifier("plan529-planned-done")
             }
             if let versus = report?.plannedDone?.vsPrev { PFWeekSub529(text: versus) }
-            sessionRows
         }
         .pfWeekCard()
         .containerIdentifier("plan529-planned-against-done")
@@ -202,22 +249,10 @@ struct PFWeekReport529: View {
 
     // MARK: Findings
 
-    private var findings: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            finding("Went well", PFWeekColor529.teal, report?.wentWell ?? [], id: "well")
-            finding("Held you back", PFWeekColor529.amber, report?.heldBack ?? [], id: "held")
-            if let text = report?.notToDo, !text.isEmpty {
-                finding("One thing not to do", PFWeekColor529.red, [text], id: "not")
-            }
-        }
-        .pfWeekCard()
-        .containerIdentifier("plan529-findings")
-    }
-
-    @ViewBuilder private func finding(_ title: String, _ tint: Color, _ texts: [String], id: String) -> some View {
+    @ViewBuilder private func finding(_ title: String?, _ tint: Color, _ texts: [String], id: String) -> some View {
         if !texts.isEmpty {
             VStack(alignment: .leading, spacing: 3) {
-                Text(title).pfCaps(10.5, weight: .semibold).foregroundStyle(tint)
+                if let title { Text(title).pfCaps(10.5, weight: .semibold).foregroundStyle(tint) }
                 ForEach(texts.indices, id: \.self) { index in
                     Text(hiding.text(texts[index]))
                         .font(PFPlanFont543.text(14, weight: .regular))

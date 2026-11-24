@@ -154,6 +154,7 @@ final class Plan529WeekUITests: XCTestCase {
 
     func testReportListsRacesAndOpensTheResultsSheet() throws {
         let app = try launchWeek("2026-W46")
+        app.openSection("week-sessions")
         let race = app.element("plan529-race-9100000001")
         XCTAssertTrue(reveal(race, in: app), "The report should list the doubles race.")
         race.tap()
@@ -162,6 +163,7 @@ final class Plan529WeekUITests: XCTestCase {
 
     func testReportShowsEachDevicesNightsInItsOwnChart() throws {
         let app = try launchWeek("2026-W46")
+        app.openSection("week-sessions")
         XCTAssertTrue(reveal(app.element("plan529-nights-title-whoop"), in: app), "WHOOP's nights should have a chart.")
         XCTAssertTrue(reveal(app.element("plan529-nights-title-garmin"), in: app), "Garmin's nights should have their own chart.")
         attach(app, "R1 week report nights")
@@ -169,6 +171,7 @@ final class Plan529WeekUITests: XCTestCase {
 
     func testReportEndsInTheDecisionForNextWeek() throws {
         let app = try launchWeek("2026-W46")
+        app.openSection("week-change")
         let look = app.element("plan529-look-next")
         XCTAssertTrue(reveal(look, in: app), "The report should end with the decision for next week.")
         XCTAssertTrue(app.element("plan529-accept-next").exists, "Accept next week should be offered while changes wait.")
@@ -179,6 +182,7 @@ final class Plan529WeekUITests: XCTestCase {
 
     func testReportLinksToTheWeeklyReadingScreen() throws {
         let app = try launchWeek("2026-W46")
+        app.openSection("week-experts")
         let link = app.element("plan529-link-experts")
         XCTAssertTrue(reveal(link, in: app), "The expert reading should be one tap away.")
         link.tap()

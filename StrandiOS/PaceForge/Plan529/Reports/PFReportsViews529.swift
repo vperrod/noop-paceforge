@@ -72,8 +72,48 @@ final class PFReportSeenStore529: ObservableObject {
 struct PFPlanReportsContent529: View {
     let doc: PFReportsListDoc
 
+    /// What the chips above the list narrow it to. Today's report is listed under All only.
+    private enum Filter: String, CaseIterable {
+        case all, weeks, months, races, workouts
+
+        var title: String {
+            switch self {
+            case .all: return "All"
+            case .weeks: return "Weeks"
+            case .months: return "Months"
+            case .races: return "Races"
+            case .workouts: return "Workouts"
+            }
+        }
+
+        func includes(_ kind: Kind) -> Bool {
+            switch self {
+            case .all: return true
+            case .weeks: return kind == .week
+            case .months: return kind == .month
+            case .races: return kind == .race
+            case .workouts: return kind == .workout
+            }
+        }
+    }
+
+    private enum Kind { case today, week, month, race, workout }
+
+    /// One row of the list: the same three parts for every kind, a date, a title with its kind, and the one-line verdict.
+    private struct Item {
+        let id: String
+        let kind: Kind
+        let lead: String?
+        let title: String?
+        let sub: String?
+        let ts: String?
+        let isFinished: Bool
+        let open: () -> Void
+    }
+
     @ObservedObject private var seen = PFReportSeenStore529.shared
     @State private var results: PFResultsTarget529?
+    @State private var filter = Filter.all
     private let hiding = PFHiding()
 
     private var isEmpty: Bool {
@@ -85,54 +125,79 @@ struct PFPlanReportsContent529: View {
             if isEmpty {
                 PFDocPlaceholder529(kind: .empty, emptyTitle: "No reports yet",
                                     emptyText: "The daily report is written each morning after the Garmin sync, the week report on Sunday evening and the month report on the 1st.")
-            }
-            if let today = doc.today, let key = today.key {
-                // Listed either way; shown as finished only when the server says it is ready (`today.ready`), else pending with its reason.
-                let isReady = PFReportReadiness529.isReady(today)
-                section("Today", rows: [reportRow(id: "today:\(key)", lead: today.day,
-                                                  verdict: isReady ? today.verdict : PFReportReadiness529.pendingTitle,
-                                                  sub: isReady ? today.sub : PFReportReadiness529.pendingSub(today), ts: today.ts,
-                                                  isFinished: isReady) {
-                    PFPlan529Router.shared.sheet = .dailyReport(date: key)
-                }])
-            }
-            if let weeks = doc.weeks, !weeks.isEmpty {
-                section("Weeks", rows: weeks.compactMap { row in
-                    guard let key = row.key else { return nil }
-                    return reportRow(id: "week:\(key)", lead: row.day, verdict: row.verdict, sub: row.sub, ts: row.ts) {
-                        PFDeepLink529.open(.week(key))
-                    }
-                })
-            }
-            if let months = doc.months, !months.isEmpty {
-                section("Months", rows: months.compactMap { row in
-                    guard let key = row.key else { return nil }
-                    return reportRow(id: "month:\(key)", lead: row.day, verdict: row.verdict, sub: row.sub, ts: row.ts) {
-                        PFPlan529Router.shared.sheet = .monthReport(key: key)
-                    }
-                })
-            }
-            if let races = doc.races, !races.isEmpty {
-                section("Races", rows: races.compactMap { row in
-                    guard let date = row.date else { return nil }
-                    return reportRow(id: "race:\(date)", lead: row.day, verdict: row.name, sub: row.sub, ts: row.ts) {
-                        PFPlan529Router.shared.sheet = .race(date: date)
-                    }
-                })
-            }
-            if let workouts = doc.workouts, !workouts.isEmpty {
-                section("Workouts", rows: workouts.compactMap { row in
-                    guard let id = row.activityId else { return nil }
-                    let sub = [row.sub ?? (row.state == "pending" ? "Review pending" : nil), row.meaning].compactMap { $0 }.joined(separator: "\n")
-                    return reportRow(id: "workout:\(id)", lead: row.day, verdict: row.name, sub: sub, ts: row.ts) {
-                        results = PFResultsTarget529(id: id, title: row.name)
-                    }
-                })
+            } else {
+                SectionChips(options: Filter.allCases, selection: $filter, idPrefix: "reports-filter",
+                             id: { $0.rawValue }, title: { $0.title })
+                list
             }
         }
         .pfResultsSheet529($results)
         .containerIdentifier("plan529-reports")
         .task { seen.adoptBaseline(Self.rows(of: doc)) }
+    }
+
+    /// Every report of every kind, as the rows of the list.
+    private var items: [Item] {
+        var out: [Item] = []
+        if let today = doc.today, let key = today.key {
+            // Listed either way; shown as finished only when the server says it is ready (`today.ready`), else pending with its reason.
+            let isReady = PFReportReadiness529.isReady(today)
+            out.append(Item(id: "today:\(key)", kind: .today, lead: today.day,
+                            title: isReady ? today.verdict : PFReportReadiness529.pendingTitle,
+                            sub: isReady ? today.sub : PFReportReadiness529.pendingSub(today), ts: today.ts, isFinished: isReady,
+                            open: { PFPlan529Router.shared.sheet = .dailyReport(date: key) }))
+        }
+        for row in doc.weeks ?? [] {
+            guard let key = row.key else { continue }
+            out.append(Item(id: "week:\(key)", kind: .week, lead: row.day, title: row.verdict, sub: row.sub, ts: row.ts, isFinished: true,
+                            open: { PFDeepLink529.open(.week(key)) }))
+        }
+        for row in doc.months ?? [] {
+            guard let key = row.key else { continue }
+            out.append(Item(id: "month:\(key)", kind: .month, lead: row.day, title: row.verdict, sub: row.sub, ts: row.ts, isFinished: true,
+                            open: { PFPlan529Router.shared.sheet = .monthReport(key: key) }))
+        }
+        for row in doc.races ?? [] {
+            guard let date = row.date else { continue }
+            out.append(Item(id: "race:\(date)", kind: .race, lead: row.day, title: row.name, sub: row.sub, ts: row.ts, isFinished: true,
+                            open: { PFPlan529Router.shared.sheet = .race(date: date) }))
+        }
+        for row in doc.workouts ?? [] {
+            guard let id = row.activityId else { continue }
+            let sub = [row.sub ?? (row.state == "pending" ? "Review pending" : nil), row.meaning].compactMap { $0 }.joined(separator: "\n")
+            let name = row.name
+            out.append(Item(id: "workout:\(id)", kind: .workout, lead: row.day, title: name, sub: sub, ts: row.ts, isFinished: true,
+                            open: { results = PFResultsTarget529(id: id, title: name) }))
+        }
+        return out
+    }
+
+    /// The rows the chip lets through, newest first (a row without a timestamp goes after the ones with one, in the order it came).
+    private var shown: [Item] {
+        let kept = items.filter { filter.includes($0.kind) }
+        let ordered = kept.enumerated().sorted { a, b in
+            switch (a.element.ts, b.element.ts) {
+            case let (x?, y?):
+                if PFReportSeenStore529.isNewer(x, than: y) { return true }
+                if PFReportSeenStore529.isNewer(y, than: x) { return false }
+                return a.offset < b.offset
+            case (_?, nil): return true
+            case (nil, _?): return false
+            default: return a.offset < b.offset
+            }
+        }
+        return ordered.map { $0.element }
+    }
+
+    private var list: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            ForEach(Array(shown.enumerated()), id: \.offset) { index, item in
+                if index > 0 { PFDivider529() }
+                reportRow(item)
+            }
+        }
+        .planCard529()
+        .containerIdentifier("reports-list")
     }
 
     /// Every row of the list as (id, timestamp), the ids the rows are marked with.
@@ -146,33 +211,28 @@ struct PFPlanReportsContent529: View {
         return out
     }
 
-    private func reportRow(id: String, lead: String?, verdict: String?, sub: String?, ts: String?, isFinished: Bool = true,
-                           open: @escaping () -> Void) -> AnyView {
-        // A report that is not ready carries no "new" dot: nothing has been announced about it.
-        let isNew = isFinished && seen.isNew(id: id, ts: ts)
-        return AnyView(
-            Button {
-                seen.markOpened(id: id, ts: ts)
-                open()
-            } label: {
-                PFRow529(lead: lead, isNew: isNew, title: hiding.text(verdict ?? "Report"), sub: sub.map { hiding.text($0) }, showsChevron: true)
-            }
-            .buttonStyle(.plain)
-            .accessibilityValue(isNew ? "new" : "")
-            .accessibilityIdentifier("reports-row-\(id)")
-        )
+    private func pill(_ kind: Kind) -> PFPill529 {
+        switch kind {
+        case .today: return PFPill529(text: "DAY", tone: .grey)
+        case .week: return PFPill529(text: "WEEK", tone: .teal)
+        case .month: return PFPill529(text: "MONTH", tone: .teal)
+        case .race: return PFPill529(text: "RACE", tone: .amber)
+        case .workout: return PFPill529(text: "WORKOUT", tone: .blue)
+        }
     }
 
-    private func section(_ title: String, rows: [AnyView]) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
-            PFOver529(text: title)
-                .padding(.bottom, 4)
-            ForEach(Array(rows.enumerated()), id: \.offset) { index, row in
-                if index > 0 { PFDivider529() }
-                row
-            }
+    private func reportRow(_ item: Item) -> some View {
+        // A report that is not ready carries no "new" dot: nothing has been announced about it.
+        let isNew = item.isFinished && seen.isNew(id: item.id, ts: item.ts)
+        return Button {
+            seen.markOpened(id: item.id, ts: item.ts)
+            item.open()
+        } label: {
+            PFRow529(lead: item.lead, isNew: isNew, title: hiding.text(item.title ?? "Report"), sub: item.sub.map { hiding.text($0) },
+                     trailingPill: pill(item.kind), showsChevron: true)
         }
-        .planCard529()
-        .containerIdentifier("reports-section-\(title.lowercased())")
+        .buttonStyle(.plain)
+        .accessibilityValue(isNew ? "new" : "")
+        .accessibilityIdentifier("reports-row-\(item.id)")
     }
 }
