@@ -42,7 +42,7 @@ enum PFAlertDelivery530 {
         let times = Times(quiet)
         let notBefore = PFAlertDates.parse(item.notBefore)
         // The window the item belongs to is the first one that ends after the item was written (and after its not_before): an item written
-        // while the athlete slept waits for the morning window; one whose window has passed is never sent late.
+        // while the athlete slept waits for the morning window; one whose window has passed is never sent late, except report and journal kinds (see below).
         let reference = [written, notBefore].compactMap { $0 }.max() ?? now
         // Readiness, report and journal alerts are delivered at the next awake contact, even if their original
         // morning/evening window passed while iOS had not refreshed the app.
