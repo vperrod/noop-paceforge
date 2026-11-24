@@ -3,7 +3,7 @@ import StrandDesign
 
 /// PaceForge "Coach", the Read chip: the plan proposals waiting (one row to them), the page note, today's read in full, the Expert
 /// reading, what waits on the athlete (one row that opens the Needs you sheet), the Monthly coach review, the workout review status
-/// and the recent workout reads. The Coach log follows it on the screen. The composer (Ask) is `PFCoachComposer`; the host that owns
+/// and the recent workout reads. The composer (Ask) is `PFCoachComposer`; the host that owns
 /// the sheet and the week plan page the closures open is `CoachUnifiedView`.
 struct PFCoachView: View {
     let snapshot: PFSnapshot
@@ -18,16 +18,17 @@ struct PFCoachView: View {
     @State private var monthlyRead: PFMonthlyCoachRead?
     @State private var selectedWorkout: PFWorkout?
     @State private var showsMemory = false
+    /// The long read (paragraphs, what is affecting you, what to do next) under the hero card.
+    @State private var readIsOpen = false
+    @ObservedObject private var scores = PFScoresStore.shared
+    @ObservedObject private var reports = PFReportsStore.shared
+    private let hiding = PFHiding()
 
     private var coach: PFCoach { snapshot.coach }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             proposalsRow
-            Button { showsMemory = true } label: {
-                PFRow529(title: "What Coach knows", sub: "Review preferences, constraints and temporary context", showsChevron: true)
-                    .planCard529(padding: 8)
-            }.buttonStyle(.plain)
             PFPageNote(key: "coach", alwaysOpen: true)
             if coach.brief != nil || coach.take != nil { todayRead(brief: coach.brief, take: coach.take) }
             // Mounted here again after 622ffedd dropped the classic Today that drew them; each draws nothing without its document.
@@ -38,7 +39,12 @@ struct PFCoachView: View {
             if let monthlyRead { monthlyReviewCard(monthlyRead) }
             if !pendingWorkoutReviews.isEmpty { pendingWorkoutReviewsCard }
             if !recentWorkoutReads.isEmpty { workoutReadsCard }
+            Button { showsMemory = true } label: {
+                PFRow529(title: "What Coach knows", sub: "Review preferences, constraints and temporary context", showsChevron: true)
+                    .planCard529(padding: 8)
+            }.buttonStyle(.plain)
         }
+        .task { await scores.refreshIfStale() }
         .task(id: snapshot.todayISO) { await loadMonthlyRead() }
         .sheet(isPresented: $showsMemory) { PFCoachMemorySheet() }
         .sheet(item: $selectedWorkout) { workout in
@@ -96,44 +102,95 @@ struct PFCoachView: View {
 
     // MARK: Today's read
 
-    /// The whole brief and the whole take, as the card drew them before the redesign.
+    /// The hero card: the recovery ring, today's headline and its context in two lines. Tapping opens the whole read below it.
     private func todayRead(brief: PFBrief?, take: PFTake?) -> some View {
-        PFCard(title: "Today's read", icon: "sparkles", trailing: {
-            HStack(spacing: 6) {
-                if let date = brief?.date {
-                    Text(PFFormat.shortDate(date)).font(StrandFont.caption).foregroundStyle(StrandPalette.textTertiary)
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .center, spacing: 12) {
+                recoveryRing
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 6) {
+                        Text("Today's read")
+                            .lookCaps(11)
+                            .foregroundStyle(NoopLook.textSecondary)
+                        if let date = brief?.date {
+                            Text("\u{00B7} " + PFFormat.shortDate(date))
+                                .font(LookFont.text(11, weight: .semibold))
+                                .foregroundStyle(NoopLook.textTertiary)
+                        }
+                    }
+                    Button {
+                        withAnimation(.easeInOut(duration: 0.2)) { readIsOpen.toggle() }
+                    } label: {
+                        HStack(alignment: .top, spacing: 8) {
+                            Text(brief?.headline ?? take?.headline ?? "")
+                                .font(LookFont.text(16, weight: .bold))
+                                .foregroundStyle(NoopLook.textPrimary)
+                                .multilineTextAlignment(.leading)
+                                .fixedSize(horizontal: false, vertical: true)
+                            Spacer(minLength: 4)
+                            Image(systemName: "chevron.down")
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundStyle(NoopLook.textTertiary)
+                                .rotationEffect(.degrees(readIsOpen ? 180 : 0))
+                                .padding(.top, 4)
+                                .accessibilityHidden(true)
+                        }
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityHint(readIsOpen ? "Hides the whole read" : "Shows the whole read")
+                    .accessibilityIdentifier("coach-todays-read-toggle")
                 }
-                if let take { readinessChip(take) }
             }
-        }) {
-            fullRead(brief: brief, take: take)
+            if let sourceContext = brief?.sourceContext {
+                Text(sourceContext)
+                    .font(StrandFont.caption)
+                    .foregroundStyle(StrandPalette.textTertiary)
+                    .lineLimit(readIsOpen ? nil : 2)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            if let offlineNote = model.offlineNote {
+                Text(offlineNote)
+                    .font(StrandFont.caption)
+                    .foregroundStyle(PFColor.warning)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            if readIsOpen { fullRead(brief: brief, take: take) }
         }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: NoopLook.Metric.tileRadius, style: .continuous)
+            .fill(LinearGradient(colors: [NoopLook.effort.opacity(0.22), NoopLook.card], startPoint: .topLeading, endPoint: .bottomTrailing)))
         .accessibilityIdentifier("coach-todays-read")
     }
 
+    /// PaceForge's recovery score as the app's dial, as Today draws it; nothing when there is no score or the watch is worn by day only.
+    @ViewBuilder private var recoveryRing: some View {
+        if reports.showsOvernight, let score = scores.values?.recovery {
+            let isHidden = hiding.hides(.scores)
+            RingDial(fraction: isHidden ? 0 : LookDial.fraction(score, max: 100), color: NoopLook.chargeColor(score),
+                     valueText: isHidden ? "\u{2022}\u{2022}" : String(Safe.int(score)), diameter: 64, accessibilityName: "Recovery")
+                .accessibilityIdentifier("coach-recovery-ring")
+        }
+    }
+
+    /// What the hero leaves out: the readiness chip, the rest of the brief and the whole take.
     private func fullRead(brief: PFBrief?, take: PFTake?) -> some View {
         VStack(alignment: .leading, spacing: 10) {
+            if let take { readinessChip(take) }
             if let brief {
-                Text(brief.headline)
-                    .font(StrandFont.body.weight(.semibold))
-                    .foregroundStyle(StrandPalette.textPrimary)
-                    .fixedSize(horizontal: false, vertical: true)
-                if let sourceContext = brief.sourceContext {
-                    Text(sourceContext)
-                        .font(StrandFont.caption)
-                        .foregroundStyle(StrandPalette.textTertiary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
                 ForEach(Array((brief.outlook ?? []).enumerated()), id: \.offset) { _, paragraph in
                     PFParagraph(paragraph)
                 }
             }
             if let take {
-                if brief != nil { Rectangle().fill(StrandPalette.hairline).frame(height: 1).padding(.vertical, 2) }
-                Text(take.headline)
-                    .font(StrandFont.body.weight(.semibold))
-                    .foregroundStyle(StrandPalette.textPrimary)
-                    .fixedSize(horizontal: false, vertical: true)
+                if brief != nil {
+                    Rectangle().fill(StrandPalette.hairline).frame(height: 1).padding(.vertical, 2)
+                    Text(take.headline)
+                        .font(StrandFont.body.weight(.semibold))
+                        .foregroundStyle(StrandPalette.textPrimary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
 
                 let limiters = take.limiters ?? []
                 if !limiters.isEmpty {
@@ -164,12 +221,6 @@ struct PFCoachView: View {
                 }
                 .font(StrandFont.caption)
                 .foregroundStyle(StrandPalette.textTertiary)
-            }
-            if let offlineNote = model.offlineNote {
-                Text(offlineNote)
-                    .font(StrandFont.caption)
-                    .foregroundStyle(PFColor.warning)
-                    .fixedSize(horizontal: false, vertical: true)
             }
         }
     }
@@ -281,22 +332,22 @@ struct PFCoachView: View {
                     Button {
                         selectedWorkout = resultWorkout(row, activity)
                     } label: {
-                        VStack(alignment: .leading, spacing: 5) {
-                            HStack(spacing: 8) {
+                        HStack(alignment: .top, spacing: 10) {
+                            Text(activity.startTime.map { PFFormat.dayTitle($0) } ?? "")
+                                .lookCaps(10)
+                                .foregroundStyle(NoopLook.textTertiary)
+                                .frame(width: 62, alignment: .leading)
+                            VStack(alignment: .leading, spacing: 3) {
                                 Text(activity.name ?? activity.type ?? "Workout")
                                     .font(StrandFont.subhead.weight(.semibold))
                                     .foregroundStyle(StrandPalette.textPrimary)
                                     .lineLimit(1)
-                                Spacer(minLength: 6)
-                                Text(activity.startTime.map { String($0.prefix(10)) } ?? "")
+                                Text(row.headline ?? "")
                                     .font(StrandFont.caption)
-                                    .foregroundStyle(StrandPalette.textTertiary)
+                                    .foregroundStyle(StrandPalette.textSecondary)
+                                    .multilineTextAlignment(.leading)
+                                    .fixedSize(horizontal: false, vertical: true)
                             }
-                            Text(row.headline ?? "")
-                                .font(StrandFont.caption)
-                                .foregroundStyle(StrandPalette.textSecondary)
-                                .multilineTextAlignment(.leading)
-                                .fixedSize(horizontal: false, vertical: true)
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.vertical, 10)

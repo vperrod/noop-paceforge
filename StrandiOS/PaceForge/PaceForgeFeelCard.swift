@@ -186,58 +186,63 @@ struct PFWhatChangedCard: View {
     }
 
     var body: some View {
-        PFCard("What changed since yesterday", icon: "arrow.left.arrow.right") {
-            VStack(alignment: .leading, spacing: 0) {
-                if let summary = changes.summary {
-                    Text(summary)
-                        .font(StrandFont.subhead.weight(.semibold))
-                        .foregroundStyle(StrandPalette.textPrimary)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .padding(.bottom, 8)
-                        .accessibilityIdentifier("pf-changes-summary")
-                }
-                ForEach(rows) { metric in
-                    Divider().overlay(StrandPalette.hairline)
-                    row(metric)
-                }
+        VStack(alignment: .leading, spacing: 10) {
+            Text("What changed since yesterday")
+                .lookCaps(12.5)
+                .foregroundStyle(NoopLook.textPrimary)
+            if let summary = changes.summary {
+                Text(summary)
+                    .font(StrandFont.subhead.weight(.semibold))
+                    .foregroundStyle(StrandPalette.textPrimary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier("pf-changes-summary")
+            }
+            LazyVGrid(columns: [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8)], spacing: 8) {
+                ForEach(rows) { metric in tile(metric) }
+            }
+            if let open = rows.first(where: { $0.id == openRow }) {
+                detail(open)
+                    .padding(12)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(RoundedRectangle(cornerRadius: NoopLook.Metric.tileRadius, style: .continuous).fill(NoopLook.card))
             }
         }
         .containerIdentifier("pf-changes-card")
     }
 
-    private func row(_ metric: PFChangeMetric) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(alignment: .center, spacing: 6) {
-                Button {
-                    withAnimation(.easeInOut(duration: 0.2)) { openRow = openRow == metric.id ? nil : metric.id }
-                } label: {
-                    HStack(alignment: .center, spacing: 10) {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(metric.label)
-                                .font(StrandFont.subhead.weight(.semibold))
-                                .foregroundStyle(StrandPalette.textPrimary)
-                                .multilineTextAlignment(.leading)
-                            if let line = calibrationLine(metric) {
-                                Text(line)
-                                    .font(StrandFont.caption.weight(.semibold))
-                                    .foregroundStyle(PFColor.sky)
-                                    .accessibilityIdentifier("pf-change-calibration-\(metric.id)")
-                            } else if let source = metric.source, source != "PaceForge" {
-                                Text(source).font(StrandFont.caption).foregroundStyle(StrandPalette.textTertiary)
-                            }
-                        }
-                        Spacer(minLength: 8)
-                        figures(metric)
+    /// One metric as a tile: its name, the figure and the arrow. Tapping opens its detail under the grid.
+    private func tile(_ metric: PFChangeMetric) -> some View {
+        let explainer = PFExplainerID.forChange(metric.id)
+        return ZStack(alignment: .topTrailing) {
+            Button {
+                withAnimation(.easeInOut(duration: 0.2)) { openRow = openRow == metric.id ? nil : metric.id }
+            } label: {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(metric.label)
+                        .lookCaps(10.5)
+                        .foregroundStyle(NoopLook.textSecondary)
+                        .lineLimit(1)
+                        .padding(.trailing, explainer == nil ? 0 : 24)
+                    figures(metric)
+                    if let line = calibrationLine(metric) {
+                        Text(line)
+                            .font(StrandFont.caption.weight(.semibold))
+                            .foregroundStyle(PFColor.sky)
+                            .accessibilityIdentifier("pf-change-calibration-\(metric.id)")
+                    } else if let source = metric.source, source != "PaceForge" {
+                        Text(source).font(StrandFont.caption).foregroundStyle(StrandPalette.textTertiary)
                     }
-                    .contentShape(Rectangle())
                 }
-                .buttonStyle(.plain)
-                .accessibilityIdentifier("pf-change-\(metric.id)")
-                if let explainer = PFExplainerID.forChange(metric.id) { PFInfoButton(id: explainer) }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 10)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(RoundedRectangle(cornerRadius: NoopLook.Metric.tileRadius, style: .continuous).fill(NoopLook.tile))
+                .contentShape(Rectangle())
             }
-            if openRow == metric.id { detail(metric) }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("pf-change-\(metric.id)")
+            if let explainer { PFInfoButton(id: explainer) }
         }
-        .padding(.vertical, 9)
     }
 
     /// The "Day 12 of 21" line, shown while the metric is still calibrating.
@@ -247,7 +252,7 @@ struct PFWhatChangedCard: View {
     }
 
     private func figures(_ metric: PFChangeMetric) -> some View {
-        VStack(alignment: .trailing, spacing: 2) {
+        HStack(alignment: .firstTextBaseline, spacing: 6) {
             HStack(alignment: .firstTextBaseline, spacing: 3) {
                 Text(metric.value.map(Self.number) ?? "\u{2013}")
                     .font(StrandFont.rounded(20))
