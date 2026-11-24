@@ -137,6 +137,10 @@ struct PFAlertActivityRouter: View {
     @EnvironmentObject private var router: NavRouter
     @State private var wanted: PFWantedActivity?
     @State private var routedWorkout: PFWorkout?
+    @State private var routedRide: RoutedRide?
+
+    /// A bike ride's id ("bike:<date>") is not an activity of the snapshot: it opens the ride screen.
+    private struct RoutedRide: Identifiable { let id: String }
 
     var body: some View {
         Color.clear
@@ -149,6 +153,7 @@ struct PFAlertActivityRouter: View {
                         .environmentObject(model)
                 }
             }
+            .sheet(item: $routedRide) { ride in PFRideHost(rideId: ride.id) }
     }
 
     private func take() {
@@ -161,6 +166,11 @@ struct PFAlertActivityRouter: View {
         guard let tapped = wanted else { return }
         guard !tapped.isExpired() else {
             wanted = nil
+            return
+        }
+        if tapped.id.hasPrefix("bike:") {
+            wanted = nil
+            routedRide = RoutedRide(id: tapped.id)
             return
         }
         guard let snapshot = model.snapshot, let activity = snapshot.activities[tapped.id] else { return }
