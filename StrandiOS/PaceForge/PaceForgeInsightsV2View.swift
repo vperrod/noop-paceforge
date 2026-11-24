@@ -189,8 +189,10 @@ struct PFInsightActionsCard: View {
 // MARK: - Cards in the lists
 
 /// One item on the Insights tab: status, the leading figure, the meaning and the first thing to do. Opens the detail.
+/// `asTile` draws it as a small tile in a grid (its name, the one figure and what it is) with the same label and the same tap.
 struct PFInsightCard: View {
     let item: PFInsightItem
+    var asTile = false
     @Environment(\.pfOpenInsight) private var openInsight
     private let hiding = PFHiding()
 
@@ -206,51 +208,7 @@ struct PFInsightCard: View {
 
     var body: some View {
         Button { openInsight(item.id) } label: {
-            PFCard(title: item.title, icon: PFInsightIcon.symbol(item.id), trailing: {
-                PFInsightStatusChip(item: item)
-            }) {
-                VStack(alignment: .leading, spacing: 10) {
-                    if let headline = item.headline {
-                        HStack(alignment: .firstTextBaseline, spacing: 8) {
-                            Text(hidden ? PFRedact.placeholder : headline.value)
-                                .font(StrandFont.rounded(30))
-                                .foregroundStyle(StrandPalette.textPrimary)
-                            Text(headline.caption)
-                                .font(StrandFont.caption)
-                                .foregroundStyle(StrandPalette.textTertiary)
-                                .fixedSize(horizontal: false, vertical: true)
-                        }
-                    }
-                    if let text = item.summaryText {
-                        Text(hiding.text(text))
-                            .font(StrandFont.subhead)
-                            .foregroundStyle(StrandPalette.textSecondary)
-                            .lineLimit(3)
-                            .multilineTextAlignment(.leading)
-                    }
-                    if let action = item.actions.first {
-                        HStack(alignment: .firstTextBaseline, spacing: 6) {
-                            Image(systemName: "arrow.turn.down.right")
-                                .font(StrandFont.scaled(11, weight: .semibold))
-                                .foregroundStyle(StrandPalette.accent)
-                            Text(hiding.text(action.text))
-                                .font(StrandFont.subhead.weight(.semibold))
-                                .foregroundStyle(StrandPalette.textPrimary)
-                                .lineLimit(2)
-                                .multilineTextAlignment(.leading)
-                        }
-                    }
-                    HStack(spacing: 4) {
-                        Text(item.available ? "See the detail" : "See why")
-                            .font(StrandFont.caption.weight(.semibold))
-                            .foregroundStyle(StrandPalette.accent)
-                        Image(systemName: "chevron.right")
-                            .font(StrandFont.scaled(11, weight: .semibold))
-                            .foregroundStyle(StrandPalette.accent)
-                    }
-                }
-            }
-            .contentShape(Rectangle())
+            if asTile { tile } else { card }
         }
         .buttonStyle(.plain)
         .accessibilityElement(children: .ignore)
@@ -258,6 +216,81 @@ struct PFInsightCard: View {
         .accessibilityHint("Opens what it means and what to do")
         .accessibilityAddTraits(.isButton)
         .accessibilityIdentifier("pf-insight-card-\(item.id)")
+    }
+
+    private var card: some View {
+        PFCard(title: item.title, icon: PFInsightIcon.symbol(item.id), trailing: {
+            PFInsightStatusChip(item: item)
+        }) {
+            VStack(alignment: .leading, spacing: 10) {
+                if let headline = item.headline {
+                    HStack(alignment: .firstTextBaseline, spacing: 8) {
+                        Text(hidden ? PFRedact.placeholder : headline.value)
+                            .font(StrandFont.rounded(30))
+                            .foregroundStyle(StrandPalette.textPrimary)
+                        Text(headline.caption)
+                            .font(StrandFont.caption)
+                            .foregroundStyle(StrandPalette.textTertiary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+                if let text = item.summaryText {
+                    Text(hiding.text(text))
+                        .font(StrandFont.subhead)
+                        .foregroundStyle(StrandPalette.textSecondary)
+                        .lineLimit(3)
+                        .multilineTextAlignment(.leading)
+                }
+                if let action = item.actions.first {
+                    HStack(alignment: .firstTextBaseline, spacing: 6) {
+                        Image(systemName: "arrow.turn.down.right")
+                            .font(StrandFont.scaled(11, weight: .semibold))
+                            .foregroundStyle(StrandPalette.accent)
+                        Text(hiding.text(action.text))
+                            .font(StrandFont.subhead.weight(.semibold))
+                            .foregroundStyle(StrandPalette.textPrimary)
+                            .lineLimit(2)
+                            .multilineTextAlignment(.leading)
+                    }
+                }
+                HStack(spacing: 4) {
+                    Text(item.available ? "See the detail" : "See why")
+                        .font(StrandFont.caption.weight(.semibold))
+                        .foregroundStyle(StrandPalette.accent)
+                    Image(systemName: "chevron.right")
+                        .font(StrandFont.scaled(11, weight: .semibold))
+                        .foregroundStyle(StrandPalette.accent)
+                }
+            }
+        }
+        .contentShape(Rectangle())
+    }
+
+    /// A tile in the Where you stand grid: the name, the one figure (the status when the item has none) and its caption.
+    private var tile: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(item.title)
+                .lookCaps(10.5)
+                .foregroundStyle(NoopLook.textSecondary)
+                .lineLimit(1)
+            Text(item.headline.map { hidden ? PFRedact.placeholder : $0.value } ?? item.chipText)
+                .font(StrandFont.rounded(20))
+                .foregroundStyle(StrandPalette.textPrimary)
+                .lineLimit(2)
+                .minimumScaleFactor(0.7)
+            if let sub = item.headline?.caption ?? item.summaryText {
+                Text(item.headline == nil ? hiding.text(sub) : sub)
+                    .font(StrandFont.caption)
+                    .foregroundStyle(StrandPalette.textTertiary)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.leading)
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: NoopLook.Metric.tileRadius, style: .continuous).fill(NoopLook.tile))
+        .contentShape(Rectangle())
     }
 }
 

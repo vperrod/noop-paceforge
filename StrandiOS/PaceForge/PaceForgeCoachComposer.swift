@@ -22,7 +22,7 @@ enum PFComposerMode: String, CaseIterable, Identifiable {
     }
 }
 
-/// The one free-text input of the Coach, at the top under today's read. A Question goes to the chat; Change my plan goes to PaceForge's
+/// The one free-text input of the Coach, under the chat. A Question goes to the chat; Change my plan goes to PaceForge's
 /// coach job (`coach`, a slow job: half a minute to a few minutes), which turns an order in plain words (move my long run to Sunday, I'm
 /// sick, waist 92) into plan edits, a niggle, an easy week or a tape entry. Its result is the list of days whose sessions changed, each
 /// a link to that day in Plan, then whatever it filed to be looked at.
@@ -39,6 +39,7 @@ struct PFCoachComposer: View {
     @State private var reply: String?
     @State private var filed: [String] = []
     @State private var changedDays: [String] = []
+    private let hiding = PFHiding()
 
     private static let bullet = "\u{2022} "
     private static let threadHeight: CGFloat = 420
@@ -55,40 +56,20 @@ struct PFCoachComposer: View {
     }
 
     var body: some View {
-        PFCard("Ask your coach", icon: "bubble.left.and.bubble.right") {
-            VStack(alignment: .leading, spacing: 10) {
-                Picker("What to send", selection: $mode) {
-                    ForEach(PFComposerMode.allCases) { Text($0.title).tag($0) }
-                }
-                .pickerStyle(.segmented)
-                .accessibilityIdentifier("pf-composer-mode")
-                if mode == .question { PFCoachContextChip() }
-                HStack(spacing: 10) {
-                    TextField(mode.placeholder, text: $draft, axis: .vertical)
-                        .textFieldStyle(.plain)
-                        .lineLimit(3...6)
-                        .padding(.horizontal, 14)
-                        .frame(minHeight: 88)
-                        .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(StrandPalette.surfaceInset))
-                        .accessibilityIdentifier("pf-chat-input")
-                    Button {
-                        Task { await send() }
-                    } label: {
-                        if isBusy {
-                            ProgressView().tint(StrandPalette.accent).frame(width: 44, height: 44)
-                        } else {
-                            Image(systemName: "arrow.up.circle.fill")
-                                .font(StrandFont.title2)
-                                .foregroundStyle(StrandPalette.accent)
-                                .frame(width: 44, height: 44)
-                        }
-                    }
-                    .buttonStyle(.plain)
-                    .disabled(!canSend)
-                    .accessibilityLabel(mode == .question ? "Send message to Coach" : "Send the change to Coach")
-                    .accessibilityIdentifier("pf-chat-send")
-                }
-                if mode == .question { questionOutput } else { changeOutput }
+        VStack(alignment: .leading, spacing: 12) {
+            Picker("What to send", selection: $mode) {
+                ForEach(PFComposerMode.allCases) { Text($0.title).tag($0) }
+            }
+            .pickerStyle(.segmented)
+            .accessibilityIdentifier("pf-composer-mode")
+            if mode == .question {
+                questionOutput
+                suggestions
+                PFCoachContextChip()
+                inputRow
+            } else {
+                inputRow
+                changeOutput
             }
         }
         .id(PFChatPrefill.scrollID)
@@ -107,6 +88,84 @@ struct PFCoachComposer: View {
             noopCoach.pendingSessionID = nil
             mode = .question
             await sendMessage(prompt, sessionID: sessionID)
+        }
+    }
+
+    /// The input as a rounded bar with the send button inside it.
+    private var inputRow: some View {
+        HStack(spacing: 6) {
+            TextField(mode.placeholder, text: $draft, axis: .vertical)
+                .textFieldStyle(.plain)
+                .lineLimit(1...4)
+                .padding(.leading, 16)
+                .frame(minHeight: 48)
+                .accessibilityIdentifier("pf-chat-input")
+            Button {
+                Task { await send() }
+            } label: {
+                if isBusy {
+                    ProgressView().tint(StrandPalette.accent).frame(width: 44, height: 44)
+                } else {
+                    Image(systemName: "arrow.up.circle.fill")
+                        .font(StrandFont.title2)
+                        .foregroundStyle(StrandPalette.accent)
+                        .frame(width: 44, height: 44)
+                }
+            }
+            .buttonStyle(.plain)
+            .disabled(!canSend)
+            .accessibilityLabel(mode == .question ? "Send message to Coach" : "Send the change to Coach")
+            .accessibilityIdentifier("pf-chat-send")
+        }
+        .padding(.trailing, 2)
+        .background(Capsule().fill(StrandPalette.surfaceInset))
+    }
+
+    // MARK: Suggested questions
+
+    /// Up to three questions built from what today's read shows (the next best action, the metric that moved most, the next race);
+    /// a source the server did not send adds none. A tap sends the question.
+    private var suggestedQuestions: [String] {
+        var questions: [String] = []
+        if let action = snapshot.insightsV2?.todayCard?.actions.first {
+            let wording = hiding.text(action.text).trimmingCharacters(in: CharacterSet(charactersIn: ". "))
+            questions.append("Why this action: \(wording)?")
+        }
+        if let moved = snapshot.whatChanged?.metrics.first(where: { $0.direction == "up" || $0.direction == "down" }),
+           let delta = moved.delta {
+            questions.append("Why is \(moved.label) \(moved.direction) \(PFWhatChangedCard.number(abs(delta)))?")
+        }
+        if let race = snapshot.today.nextRace { questions.append("Am I on track for \(race.name)?") }
+        return questions
+    }
+
+    @ViewBuilder private var suggestions: some View {
+        let questions = suggestedQuestions
+        if !questions.isEmpty {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Ask about today")
+                    .lookCaps(12.5)
+                    .foregroundStyle(NoopLook.textPrimary)
+                LookFlowLayout(spacing: 6, lineSpacing: 6) {
+                    ForEach(questions, id: \.self) { question in
+                        Button {
+                            Task { await sendMessage(question) }
+                        } label: {
+                            Text(question)
+                                .font(StrandFont.caption.weight(.semibold))
+                                .foregroundStyle(StrandPalette.textPrimary)
+                                .multilineTextAlignment(.leading)
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 7)
+                                .background(Capsule().fill(StrandPalette.surfaceInset))
+                                .contentShape(Capsule())
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(isBusy || !CoachBriefScheduler.coachMasterEnabled)
+                    }
+                }
+            }
+            .accessibilityIdentifier("pf-chat-suggestions")
         }
     }
 

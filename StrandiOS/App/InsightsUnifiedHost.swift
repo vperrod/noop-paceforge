@@ -4,8 +4,8 @@ import StrandDesign
 
 // MARK: - Insights: the last chip of the Coach
 //
-// Chips at the top and ONE chip mounted below them: Overview (What moves you, Intelligence, PaceForge's "Where you stand" and
-// insight items, then the weekly review and the Monthly report, Highlights and Healthspan rows) and Deep dives (PaceForge's fitness,
+// Chips at the top and ONE chip mounted below them: Overview (PaceForge's "Where you stand" tiles, What moves you (closed until
+// tapped), Intelligence, then the weekly review and the Monthly report, Highlights and Healthspan rows) and Deep dives (PaceForge's fitness,
 // fatigue and form, load warnings, races and HYROX prognosis). Trends and Journal are chips of Health.
 // Every chip is the content of a screen that already exists, unchanged.
 // NOOP's and PaceForge's scores are never merged: each section says whose it is.
@@ -103,23 +103,101 @@ private struct InsightsOverviewChip: View {
 private struct InsightsOverviewPaceForge: View {
     let snapshot: PFSnapshot
 
+    private var cards: [PFInsightItem] { snapshot.insightsV2?.insightCards ?? [] }
+    private var standing: PFStanding? { snapshot.standing.flatMap { $0.hasContent ? $0 : nil } }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            if let standing = snapshot.standing, standing.hasContent {
-                PFDismissable(.standing, text: PFCardText.standing(standing), snapshot: snapshot) {
-                    PFStandingInsightsCard(standing: standing)
+        if !cards.isEmpty || standing != nil {
+            VStack(alignment: .leading, spacing: 10) {
+                Text("Where you stand").lookCaps(12.5).foregroundStyle(NoopLook.textPrimary)
+                LazyVGrid(columns: [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8)], spacing: 8) {
+                    ForEach(cards) { PFInsightCard(item: $0, asTile: true) }
+                    if let standing {
+                        PFDismissable(.standing, text: PFCardText.standing(standing), snapshot: snapshot) {
+                            InsightsScorecardTile(standing: standing)
+                        }
+                    }
                 }
+                .containerIdentifier(cards.isEmpty ? "pf-where-you-stand" : "pf-insights-v2")
             }
-            if let insights = snapshot.insightsV2, insights.hasContent { PFInsightsV2Section(doc: insights) }
         }
     }
 }
 
+/// The scorecard as the last tile of Where you stand: it opens the scorecard (where the rating strip and the strongest and focus
+/// metrics are) and carries the Log a field test button.
+private struct InsightsScorecardTile: View {
+    let standing: PFStanding
+    @Environment(\.pfOpenStanding) private var openStanding
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Button { openStanding() } label: {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Scorecard")
+                        .lookCaps(10.5)
+                        .foregroundStyle(NoopLook.textSecondary)
+                        .lineLimit(1)
+                    Text("Open")
+                        .font(StrandFont.rounded(20))
+                        .foregroundStyle(StrandPalette.textPrimary)
+                    if !standing.isApplicable {
+                        Text(standing.profile?.note ?? "Norms need sex and age.")
+                            .font(StrandFont.caption)
+                            .foregroundStyle(StrandPalette.textTertiary)
+                            .lineLimit(3)
+                            .multilineTextAlignment(.leading)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("pf-standing-open")
+            PFAddMeasurementButton(kind: .fieldTest, title: "Log a field test")
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: NoopLook.Metric.tileRadius, style: .continuous).fill(NoopLook.tile))
+        .containerIdentifier("pf-standing-insights-card")
+    }
+}
+
+/// What moves you, closed until tapped; its content (the ranked movers and the dose view) loads when it opens.
 private struct InsightsOverviewMoves: View {
+    @State private var isOpen = false
+
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("What moves you").strandOverline()
-            InsightsHubView(embedded: true)
+            Button {
+                withAnimation(.easeInOut(duration: 0.2)) { isOpen.toggle() }
+            } label: {
+                HStack(spacing: 10) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("What moves you")
+                            .font(StrandFont.body.weight(.semibold))
+                            .foregroundStyle(NoopLook.textPrimary)
+                        Text("Ranked from your data")
+                            .font(StrandFont.caption)
+                            .foregroundStyle(NoopLook.textTertiary)
+                    }
+                    Spacer(minLength: 8)
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(NoopLook.textTertiary)
+                        .rotationEffect(.degrees(isOpen ? 90 : 0))
+                        .accessibilityHidden(true)
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 10)
+                .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                .background(RoundedRectangle(cornerRadius: NoopLook.Metric.tileRadius, style: .continuous).fill(NoopLook.card))
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("insights-moves-toggle")
+            if isOpen { InsightsHubView(embedded: true) }
         }
     }
 }

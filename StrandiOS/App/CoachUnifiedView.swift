@@ -4,8 +4,9 @@ import StrandDesign
 
 // MARK: - Coach: one surface for the shared PaceForge brain
 //
-// Three chips, one mounted at a time: Read (the plan changes waiting, today's read in full, the Expert reading, what waits on the athlete,
-// the Monthly coach review, the workout reviews and reads, the Coach log, and one row that opens Plan > Reports), Ask (the whole chat and
+// Three chips, one mounted at a time: Read (the plan changes waiting, today's read as a hero card with the recovery ring, the next best
+// action, what changed since yesterday as tiles, the Expert reading, what waits on the athlete, the Monthly coach review, the workout
+// reviews and reads, and one row that opens Plan > Reports), Ask (the whole chat and
 // the composer: Question or Change my plan) and Insights (Overview, Trends, Journal, Deep dives). The reports live in Plan now. Daily
 // interpretation, the weekly review and the conversation all use PaceForge's server-side coach job, which builds its context from the
 // synced NOOP and PaceForge records. The Season plan and "Your numbers" cards are mounted elsewhere; the status of the morning briefing
@@ -55,7 +56,6 @@ struct CoachUnifiedView: View {
         ScreenScaffold(title: "Coach", subtitle: "One coach for your training, recovery, sleep and progress.",
                        onRefresh: {
             await PFUnified.model.refresh()
-            await PFCoachLogStore.shared.refresh()
             await PFReportsStore.shared.loadIndex()
         }, lazy: true, topBackground: liquidScaffoldSky(), trailing: {
             Button {
@@ -75,7 +75,6 @@ struct CoachUnifiedView: View {
         .containerIdentifier("coach-host")
         // The stores behind the Expert reading and the log draw nothing until they have a file, and an empty view never runs its own task.
         .task {
-            await PFCoachLogStore.shared.refreshIfStale()
             await PFReportsStore.shared.loadCapabilities()
             await PFReportsStore.shared.refreshLatestIfStale()
         }
@@ -149,8 +148,7 @@ private struct CoachChipBody: View {
     }
 }
 
-/// The cards that need the PaceForge snapshot sit in its host (the lock, loading, failed and offline states); the log reads its own
-/// store, so it stays reachable while the snapshot is loading or has failed.
+/// The cards that need the PaceForge snapshot sit in its host (the lock, loading, failed and offline states).
 private struct CoachReadChip: View {
     let onOpenProposals: () -> Void
     let onOpenNeedsYou: () -> Void
@@ -164,7 +162,6 @@ private struct CoachReadChip: View {
             })
             .containerIdentifier("coach-full-brain")
             CoachReportsRow()
-            PFCoachLogCard()
         }
         .containerIdentifier("coach-chip-content-read")
     }
