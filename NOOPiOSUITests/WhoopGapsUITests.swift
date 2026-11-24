@@ -185,18 +185,11 @@ final class WhoopGapsUITests: XCTestCase {
         attach(app, "78 Ask about this")
         ask.tap()
         XCTAssertTrue(element(app, "coach-chip-content-ask").waitForExistence(timeout: 20), "The question should open the Coach on its Ask chip.")
-        // The unified Coach sends a handed question at once and keeps it in the box; the fixture has no server behind api/app/chat, so the
-        // send fails, which shows the status line and leaves the question there to resend.
+        // The unified Coach sends a handed question at once (PFCoachComposer.sendMessage) instead of leaving it in a box. The fixture's
+        // api/app/chat (Fixtures529/coach-chat.json) accepts it, which empties the box, and the wait for a reply then ends in the status
+        // line, so that line is the visible proof the question reached the composer and was sent. The box only keeps the question when the send fails.
         let sent = element(app, "pf-chat-status")
         XCTAssertTrue(sent.waitForExistence(timeout: 20), "Coach should send the question that was handed to it.")
-        let question = app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS[c] %@ OR value CONTAINS[c] %@", "explain my Charge", "explain my Charge")).firstMatch
-        // The box is under the conversation and the suggestions, below the first screen, where the Ask chip mounts it only once it is scrolled near.
-        for _ in 0..<12 where !question.exists {
-            let from = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.62))
-            let to = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.32))
-            from.press(forDuration: 0.05, thenDragTo: to, withVelocity: .slow, thenHoldForDuration: 0.1)
-        }
-        XCTAssertTrue(question.waitForExistence(timeout: 20), "Coach should show the question that was handed to it.")
-        attach(app, "78 Coach with the question")
+        attach(app, "78 Coach after the question was sent")
     }
 }
