@@ -19,6 +19,8 @@ final class PFDocStore529<Doc: Decodable & Equatable>: ObservableObject {
     @Published private(set) var state: State = .loading
     /// The shown document is the saved copy because the server could not be asked.
     @Published private(set) var isStale = false
+    /// The server has answered in this session: the document on screen is not only the copy saved from an earlier day.
+    @Published private(set) var isFromServer = false
 
     let path: String
     private let isEmpty: (Doc) -> Bool
@@ -82,6 +84,9 @@ final class PFDocStore529<Doc: Decodable & Equatable>: ObservableObject {
         }
         state = isEmpty(parsed) ? .empty : .loaded(parsed)
         isStale = fetched.failed
-        if !fetched.failed { lastFetch = Date() }
+        if !fetched.failed {
+            lastFetch = Date()
+            isFromServer = true
+        }
     }
 }

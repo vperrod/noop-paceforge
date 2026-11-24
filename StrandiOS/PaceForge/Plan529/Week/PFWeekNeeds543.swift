@@ -108,7 +108,8 @@ struct PFNeedsYouSheet543: View {
                     ForEach(linkedQuestions) { entry in questionLink(entry) }
                     ForEach(overlapEntries) { entry in overlapRow(entry) }
                     if hasChanges { PFWeekChanges529(changes: doc.changes ?? [], decided: doc.decided ?? [], decisions: decisions) }
-                    ForEach(entries.filter { $0.kind == .other }) { entry in
+                    // A change entry is a row of its own only when the changes block above is not drawn (no changes or decisions to show in it).
+                    ForEach(entries.filter { $0.kind == .other || ($0.kind == .change && !hasChanges) }) { entry in
                         Text(entry.title)
                             .font(PFPlanFont543.text(16, weight: .regular))
                             .foregroundStyle(NoopLook.textPrimary)

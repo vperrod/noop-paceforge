@@ -26,11 +26,14 @@ final class PFSessionQuickAction543 {
 
     func request(_ item: PFMenuItem543, sessionId: String) { pending = (sessionId, item) }
 
+    /// The pending request when it is for this session; any call clears it, so a request that was not for the sheet that asked never lingers.
     func take(for sessionId: String) -> PFMenuItem543? {
+        defer { pending = nil }
         guard let request = pending, request.sessionId == sessionId else { return nil }
-        pending = nil
         return request.item
     }
+
+    func hasPending(for sessionId: String) -> Bool { pending?.sessionId == sessionId }
 
     func clear() { pending = nil }
 }
@@ -129,8 +132,12 @@ struct PFSessionActionBar529<Leading: View>: View {
             }
         }
         .containerIdentifier("\(idPrefix)-actions")
-        .onAppear {
-            guard let item = PFSessionQuickAction543.shared.take(for: target.sessionId), menu.contains(item), !isDisabled(item) else { return }
+        // After the sheet has finished sliding in: a confirmation dialog presented while it animates can be dropped.
+        .task {
+            guard PFSessionQuickAction543.shared.hasPending(for: target.sessionId) else { return }
+            try? await Task.sleep(nanoseconds: 350_000_000)
+            guard !Task.isCancelled,
+                  let item = PFSessionQuickAction543.shared.take(for: target.sessionId), menu.contains(item), !isDisabled(item) else { return }
             perform(item)
         }
     }

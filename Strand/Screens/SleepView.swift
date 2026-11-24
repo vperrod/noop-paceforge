@@ -234,7 +234,6 @@ struct SleepView: View {
                     emptyState
                     #if os(iOS)
                     SleepPlannerEntryCard()
-                    alarmsEntry
                     #else
                     alarmsEntry
                     SleepPlannerEntryCard()
@@ -938,10 +937,13 @@ struct SleepView: View {
                 case .classic:
                     stageTimelineCard(s, subtitle: subtitle, intervals: intervals, night: night)
                 case .filled, .garminFilled, .ribbon:
+                    // Classic carries the hours and restorative sleep against typical inside its card; the other styles get the same here.
+                    headlineCard(s)
                     steppedHypnogramCard(s, subtitle: subtitle, intervals: intervals, night: night,
                                          style: chartStyle)
                 }
             } else {
+                headlineCard(s)
                 ChartCard(
                     title: "Stage breakdown",
                     subtitle: subtitle,
@@ -999,6 +1001,11 @@ struct SleepView: View {
                                            to: night.session.endTs,
                                            bucketSeconds: 60)
         }
+    }
+
+    /// Hours of sleep and restorative sleep against the usual, as a card of their own for the chart styles that do not draw them inside the card.
+    private func headlineCard(_ s: Stages) -> some View {
+        NoopCard(tint: StrandPalette.restColor) { sleepHeadline(s) }
     }
 
     /// The detailed timeline has a variable-height insight footer, so forcing it into a fixed-height

@@ -44,9 +44,11 @@ struct PFPlanWeekChip: View {
 
     private func weeks(_ doc: PFPlanWeekIndexDoc) -> [PFPlanWeekIndexDoc.Week] { doc.weeks ?? [] }
 
-    /// The week on show: the one asked for, else the current week of the index, else the first coming week.
+    /// The week on show: the one asked for, else the current week, else the first coming week. The index saved on the phone may be from last
+    /// week, so until the server has answered the current week is today's ISO week; after that it is the index's own.
     private func shown(_ doc: PFPlanWeekIndexDoc) -> String? {
-        selected ?? doc.current ?? weeks(doc).first(where: { $0.state != "finished" })?.week ?? weeks(doc).first?.week
+        let current = index.isFromServer ? doc.current : PFFormat.isoWeekKey(PFAPI.todayISO)
+        return selected ?? current ?? weeks(doc).first(where: { $0.state != "finished" })?.week ?? weeks(doc).first?.week
     }
 
     @ViewBuilder private func pager(_ doc: PFPlanWeekIndexDoc) -> some View {

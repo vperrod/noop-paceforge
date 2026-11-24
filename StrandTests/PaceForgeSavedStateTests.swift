@@ -39,8 +39,7 @@ final class PaceForgeSavedStateTests: XCTestCase {
 
     func testBuild464CustomTodayOrderKeepsTheUsersOrderAndPlacesTheNewSections() {
         let order = TodayLayoutPrefs.decodeOrder(noopCustomOrder464)
-        // The iPhone's retired sections (day in review, my plan, my dashboard, ...) are not placed; the live ones are.
-        XCTAssertEqual(order.prefix(5).map(\.rawValue), ["todays-call", "my-day", "journal", "hero", "keyMetrics"])
+        XCTAssertEqual(order.prefix(7).map(\.rawValue), ["todays-call", "day-in-review", "my-day", "my-plan", "my-dashboard", "journal", "hero"])
     }
 
     func testBuild464CustomTodayOrderContainsEverySectionOnce() {
@@ -52,7 +51,7 @@ final class PaceForgeSavedStateTests: XCTestCase {
     func testBuild464HiddenSectionsStayHiddenAndTheNewOnesStayVisible() {
         let visible = TodayLayoutPrefs.visibleOrder(orderRaw: noopOrder464, hiddenRaw: noopHidden464)
         XCTAssertFalse(visible.contains(.synthesis) || visible.contains(.journal))
-        XCTAssertTrue(visible.contains(.todaysCall) && visible.contains(.myDay))
+        XCTAssertTrue(visible.contains(.todaysCall) && visible.contains(.myDashboard))
     }
 
     func testDamagedTodayOrdersAlwaysYieldEverySectionOnce() {
