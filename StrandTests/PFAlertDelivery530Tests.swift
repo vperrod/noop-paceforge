@@ -90,8 +90,12 @@ final class PFAlertDelivery530Tests: XCTestCase {
         XCTAssertEqual(verdict(item(kind: "journal", ts: "15:00", window: "day"), at: "16:00"), .deliver)
     }
 
-    func testTheAfternoonQuestionIsNotSentAfterTheWindDownStarts() {
-        XCTAssertEqual(verdict(item(kind: "journal", ts: "15:00", window: "day"), at: "21:45"), .drop)
+    func testAJournalQuestionIsStillRaisedAfterItsWindowEnds() {
+        XCTAssertEqual(verdict(item(kind: "journal", ts: "15:00", window: "day"), at: "21:45"), .deliver)
+    }
+
+    func testTheMorningQuestionsAreRaisedAfterNoon() {
+        XCTAssertEqual(verdict(item(kind: "journal", ts: "08:00", window: "morning"), at: "13:00"), .deliver)
     }
 
     func testAnItemWrittenInTheNightWaitsForTheMorningWindow() {
