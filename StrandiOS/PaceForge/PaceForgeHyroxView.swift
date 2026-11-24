@@ -865,15 +865,18 @@ private struct PFHyroxTrainingCard: View {
 
 // MARK: - Race simulations
 
-/// The simulations he logged, with the button to log another. Absent while the document is not loaded, as before.
+/// The simulations he logged, with the button to log another. The section stays in the list while the document is not loaded and says so.
 private struct PFHyroxSimulationsCard: View {
     let snapshot: PFSnapshot?
 
     var body: some View {
-        if let sims = snapshot?.simulations {
-            PFDisclosure(title: "Race simulations", intro: sims.count > 0 ? "\(sims.count) logged" : "None logged",
-                         startsOpen: false, nested: false, id: "hyrox-simulations") {
+        let sims = snapshot?.simulations
+        PFDisclosure(title: "Race simulations", intro: (sims?.count ?? 0) > 0 ? "\(sims?.count ?? 0) logged" : "None logged",
+                     startsOpen: false, nested: false, id: "hyrox-simulations") {
+            if let sims {
                 PFSimulationsCard(sims: sims, embedded: true)
+            } else {
+                PFParagraph("No simulation logged yet.")
             }
         }
     }
