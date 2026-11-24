@@ -123,7 +123,7 @@ struct PFCoachComposer: View {
 
     // MARK: Suggested questions
 
-    /// Up to three questions built from what today's read shows (the next best action, the metric that moved most, the next race);
+    /// Up to three questions built from what today's read shows (the next best action, the first metric the server lists as up or down, the next race);
     /// a source the server did not send adds none. A tap sends the question.
     private var suggestedQuestions: [String] {
         var questions: [String] = []
