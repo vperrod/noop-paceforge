@@ -53,14 +53,12 @@ final class PaceForgeStandingUITests: XCTestCase {
         app.openCoachInsights("overview")
         let card = element(app, "pf-standing-insights-card")
         XCTAssertTrue(reveal(card, in: app, maxSwipes: 20), "Insights should show the Where you stand card.")
-        XCTAssertTrue(element(app, "pf-standing-strip").exists, "The card should show the counts as a strip.")
-        // The chips are the foot of the card, below the strip and the legend, so they mount only once scrolled to.
-        XCTAssertTrue(reveal(element(app, "pf-standing-chip-strongest-grip"), in: app), "The strongest metrics should show as chips.")
         attach(app, "40 Where you stand on Insights")
         let open = app.buttons["pf-standing-open"]
-        XCTAssertTrue(reveal(open, in: app), "The card should offer the scorecard.")
+        XCTAssertTrue(reveal(open, in: app), "The Scorecard tile should offer the scorecard.")
         open.tap()
         XCTAssertTrue(element(app, "pf-standing-screen").waitForExistence(timeout: 10))
+        XCTAssertTrue(element(app, "pf-standing-strip").waitForExistence(timeout: 5), "The scorecard should show the counts as a strip.")
         XCTAssertTrue(element(app, "pf-standing-metric-resting_hr").waitForExistence(timeout: 5),
                       "The scorecard should list the metrics with their band bars.")
         attach(app, "40 Scorecard")
