@@ -205,14 +205,6 @@ final class DailyIntelUITests: XCTestCase {
         attach(app, "Intel 51 Charge detail, What moved it or nothing when the server has no entry")
     }
 
-    func testTrendsShowsWhatMovedItForTheSelectedMetric() throws {
-        let app = try launch(screen: "trends")
-        XCTAssertTrue(reveal(element(app, "look-noop-trends"), in: app), "Trends should show the trend view.")
-        attach(app, "Intel 52 Trends, first metric")
-        _ = reveal(element(app, "pf-what-moved"), in: app)
-        attach(app, "Intel 53 Trends, What moved it under the metric")
-    }
-
     // MARK: Day in review
 
     func testDayInReviewShowsInTheEvening() throws {

@@ -96,21 +96,14 @@ final class LookScreensUITests: XCTestCase {
         attach(app, "Look 71 metric detail trend Y")
     }
 
-    func testNoopTrendsOffersTheMetricMenuAndTheSevenDayAverage() throws {
+    /// Trends no longer carries the look's metric-menu chart (the Charge section has the one chart with the W / M / 3M / 6M / Y / All
+    /// switch, and the Metric Explorer row has every metric); the Charge section is closed until tapped.
+    func testNoopTrendsKeepsTheChargeChartWithItsRangeSwitch() throws {
         let app = try launch(screen: "trends")
-        let trends = element(app, "look-noop-trends")
-        XCTAssertTrue(reveal(trends, in: app), "Trends should show the look's trend view.")
-        XCTAssertTrue(reveal(element(app, "look-trend-metric-menu"), in: app), "Trends should show the metric menu.")
-        attach(app, "Look 72 Trends trend view")
-        element(app, "look-trend-metric-menu").tap()
-        let hrv = app.buttons["Heart Rate Variability"]
-        XCTAssertTrue(hrv.waitForExistence(timeout: 10), "The menu should list heart rate variability.")
-        hrv.tap()
-        attach(app, "Look 73 Trends heart rate variability")
-        let sevenDay = element(app, "look-trend-seven-day")
-        XCTAssertTrue(reveal(sevenDay, in: app), "Trends should offer the 7-day average.")
-        sevenDay.tap()
-        attach(app, "Look 74 Trends with the 7-day average")
+        XCTAssertTrue(element(app, "coach-week-section-trends-charge").waitForExistence(timeout: 30), "Trends should have the Charge section.")
+        app.openSection("trends-charge")
+        XCTAssertFalse(element(app, "look-noop-trends").exists, "The look's metric-menu chart is no longer on Trends.")
+        attach(app, "Look 72 Trends Charge section")
     }
 
     // MARK: Sleep

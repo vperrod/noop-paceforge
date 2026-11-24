@@ -127,6 +127,7 @@ final class WhoopGapsUITests: XCTestCase {
         let trends = element(app, "health-chip-trends")
         XCTAssertTrue(trends.waitForExistence(timeout: 20), "Health should have a Trends chip.")
         trends.tap()
+        app.openSection("trends-export")
         let export = element(app, "trends-export-report")
         XCTAssertTrue(reveal(export, in: app, maxSwipes: 20), "Trends should offer the report export.")
         export.tap()

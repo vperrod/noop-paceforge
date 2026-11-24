@@ -326,6 +326,9 @@ struct TrendsView: View {
                 LazyVStack(alignment: .leading, spacing: NoopMetrics.sectionSpacing) {
                     // The main card list ripples in once on appear (Reduce-Motion safe).
                     Group {
+                        #if os(iOS)
+                        sections(metrics)
+                        #else
                         // Week-in-review digest (#208) with prev/next week browsing (#710) — self-hides
                         // only when NO week in history has data. Past weeks render in the same format.
                         weeklyDigestNav
@@ -333,12 +336,6 @@ struct TrendsView: View {
                         // The Charge / Effort / Rest trio, presented in NOOP's pip language.
                         weekInReview(charge: metrics.recovery, effort: metrics.strain, rest: metrics.rest)
                             .staggeredAppear(index: 1)
-                        #if os(iOS)
-                        // The look's trend view: metric dropdown, average with change, W / M / 6M / Y, 7-day average.
-                        LookRepoTrends(specs: LookRepoTrends.trendsSpecs, initialKey: "recovery",
-                                       identifier: "look-noop-trends")
-                            .staggeredAppear(index: 2)
-                        #endif
                         rangeBar(recovery: metrics.recovery)
                             .staggeredAppear(index: 2)
                         heroRecovery(recovery: metrics.recovery)
@@ -359,6 +356,7 @@ struct TrendsView: View {
                             .staggeredAppear(index: 6)
                         exportReportRow
                             .staggeredAppear(index: 7)
+                        #endif
                     }
                 }
             }
@@ -430,29 +428,117 @@ struct TrendsView: View {
         } else {
             VStack(alignment: .leading, spacing: NoopMetrics.cardInnerSpacing) {
                 weekNavBar(digest: digest)
-                if digest.isEmpty {
-                    // This particular week had no readings — keep the chevrons above so the user can move on.
-                    DataPendingNote(
-                        title: "No readings this week",
-                        message: "Step to another week with the arrows above to see its review.")
-                } else {
-                    WeeklyDigestContent(digest: digest, compact: true, showsHeader: false)
-                        .padding(.top, NoopMetrics.space1)
-                    // Share this week's recap as an image. Renders the digest card (with its header) to a
-                    // PNG off-screen and hands it to the share sheet / Save panel — reuses TrendsReport's
-                    // ImageRenderer path. Only offered when the week actually holds data.
-                    NoopButton("Share recap", systemImage: "square.and.arrow.up", kind: .secondary) {
-                        let page = WeeklyDigestContent(digest: digest, compact: true, showsHeader: true)
-                            .frame(width: 380)
-                            .padding(24)
-                            .background(StrandPalette.surfaceBase)
-                            .environment(\.colorScheme, colorScheme)
-                        TrendsReportRenderer.exportPNG(page: page, suggestedName: "noop-recap-\(weekAnchorDay).png")
+                weekReviewBody(digest: digest)
+            }
+        }
+    }
+
+    /// The digest for the selected week and its Share recap, under the week stepper.
+    @ViewBuilder
+    private func weekReviewBody(digest: WeeklyDigest) -> some View {
+        if digest.isEmpty {
+            // This particular week had no readings — keep the chevrons above so the user can move on.
+            DataPendingNote(
+                title: "No readings this week",
+                message: "Step to another week with the arrows above to see its review.")
+        } else {
+            WeeklyDigestContent(digest: digest, compact: true, showsHeader: false)
+                .padding(.top, NoopMetrics.space1)
+            // Share this week's recap as an image. Renders the digest card (with its header) to a
+            // PNG off-screen and hands it to the share sheet / Save panel — reuses TrendsReport's
+            // ImageRenderer path. Only offered when the week actually holds data.
+            NoopButton("Share recap", systemImage: "square.and.arrow.up", kind: .secondary) {
+                let page = WeeklyDigestContent(digest: digest, compact: true, showsHeader: true)
+                    .frame(width: 380)
+                    .padding(24)
+                    .background(StrandPalette.surfaceBase)
+                    .environment(\.colorScheme, colorScheme)
+                TrendsReportRenderer.exportPNG(page: page, suggestedName: "noop-recap-\(weekAnchorDay).png")
+            }
+        }
+    }
+
+    #if os(iOS)
+    // MARK: iPhone layout: a week card, then closed sections
+
+    /// The week card: the stepper (this week, last week, 3 weeks ago) with the week's three headline scores under it.
+    @ViewBuilder
+    private var weekHero: some View {
+        if !repo.days.isEmpty {
+            let digest = WeeklyDigestSource.digest(from: repo.days, anchorDay: weekAnchorDay)
+            NoopCard {
+                VStack(alignment: .leading, spacing: NoopMetrics.cardInnerSpacing) {
+                    weekNavBar(digest: digest)
+                    if let line = weekHeadline(digest) {
+                        Text(line)
+                            .font(StrandFont.subhead)
+                            .foregroundStyle(StrandPalette.textSecondary)
+                            .frame(maxWidth: .infinity)
+                            .multilineTextAlignment(.center)
+                            .accessibilityIdentifier("trends-week-headline")
                     }
                 }
             }
         }
     }
+
+    /// "Charge 61 · Effort 52 · Rest 70": the week's means, for the scores the week had readings for.
+    private func weekHeadline(_ digest: WeeklyDigest) -> String? {
+        var parts: [String] = []
+        if let s = digest.summary(.charge), s.thisWeek.n > 0 { parts.append(String(localized: "Charge") + " \(Int(s.thisWeek.mean.rounded()))") }
+        if let s = digest.summary(.effort), s.thisWeek.n > 0 {
+            parts.append(String(localized: "Effort") + " " + UnitFormatter.effortDisplay(s.thisWeek.mean, scale: effortScale))
+        }
+        if let s = digest.summary(.rest), s.thisWeek.n > 0 { parts.append(String(localized: "Rest") + " \(Int(s.thisWeek.mean.rounded()))") }
+        return parts.isEmpty ? nil : parts.joined(separator: " \u{00B7} ")
+    }
+
+    /// "Average 52 ms": the mean of the selected range, for a section's one line.
+    private func averageIntro(_ metric: ResolvedMetric, unit: String) -> String? {
+        mean(metric.points).map { String(localized: "Average") + " \(Int($0.rounded())) " + unit }
+    }
+
+    /// The week card, then the closed sections: Week in review, Charge (range switch, chart and year calendar), HRV, resting heart
+    /// rate, Effort, Training load and Export.
+    @ViewBuilder
+    private func sections(_ metrics: ResolvedMetrics) -> some View {
+        weekHero
+        PFDisclosure(title: "Week in review", intro: "Charge, effort and rest for the week", startsOpen: false, nested: false,
+                     id: "trends-week") {
+            VStack(alignment: .leading, spacing: NoopMetrics.cardInnerSpacing) {
+                weekReviewBody(digest: WeeklyDigestSource.digest(from: repo.days, anchorDay: weekAnchorDay))
+            }
+        }
+        PFDisclosure(title: "Charge", intro: "Charge over time and the year calendar", startsOpen: false, nested: false,
+                     id: "trends-charge") {
+            VStack(alignment: .leading, spacing: NoopMetrics.sectionSpacing) {
+                rangeBar(recovery: metrics.recovery)
+                heroRecovery(recovery: metrics.recovery)
+                MemoizedByKey(key: historyKey) { yearStrip }
+                    .equatable()
+            }
+        }
+        PFDisclosure(title: "Heart rate variability", intro: averageIntro(metrics.hrv, unit: "ms"), startsOpen: false, nested: false,
+                     id: "trends-hrv") {
+            hrvChart(metrics.hrv)
+        }
+        PFDisclosure(title: "Resting heart rate", intro: averageIntro(metrics.rhr, unit: "bpm"), startsOpen: false, nested: false,
+                     id: "trends-rhr") {
+            rhrChart(metrics.rhr)
+        }
+        PFDisclosure(title: "Effort", intro: "Daily effort over time", startsOpen: false, nested: false, id: "trends-effort") {
+            effortChart(metrics.strain)
+        }
+        // Long-horizon training load (CTL/ATL/TSB). Uses the FULL history, not the range window.
+        PFDisclosure(title: "Training load", intro: "Fitness, fatigue and form", startsOpen: false, nested: false, id: "trends-load") {
+            MemoizedByKey(key: historyKey) { TrainingLoadCard(days: repo.days) }
+                .equatable()
+        }
+        PFDisclosure(title: "Export", intro: "Trends report", startsOpen: false, nested: false, id: "trends-export") {
+            exportReportRow
+        }
+    }
+    #endif
 
     /// Prev/next week stepper. Back is clamped at the earliest week we hold; forward is clamped at this
     /// week (no future weeks). Mirrors the FullDayChartView day stepper's flat accent chevrons (#597).
@@ -694,9 +780,6 @@ struct TrendsView: View {
 
     private func smallMultiples(hrv: ResolvedMetric, rhr: ResolvedMetric, strain: ResolvedMetric) -> some View {
         let cols = [GridItem(.adaptive(minimum: 320), spacing: NoopMetrics.gap)]
-        let hrvPts = hrv.points
-        let rhrPts = rhr.points
-        let strainPts = strain.points
 
         return VStack(alignment: .leading, spacing: NoopMetrics.gap) {
             // No trailing window label — the range bar's overline already states it.
@@ -704,47 +787,62 @@ struct TrendsView: View {
             LazyVGrid(columns: cols, alignment: .leading, spacing: NoopMetrics.gap) {
                 // HRV / Resting HR are Charge sub-signals → the Charge (green) card world, each line
                 // keeping its established metric hue for legibility. Effort is the WHOOP blue strain world.
-                metricChart(
-                    title: "Heart rate variability", unit: "ms",
-                    accessibilityTitle: String(localized: "Heart rate variability"),
-                    metricKey: "hrv",
-                    points: hrvPts,
-                    gradient: gradient(StrandPalette.metricPurple),
-                    tip: StrandPalette.metricPurple,
-                    tint: nil,
-                    higherIsBetter: true,
-                    range: valueRange(hrvPts, fallback: 20...120),
-                    fmt: { "\(Int($0.rounded()))" }
-                )
-                metricChart(
-                    title: "Resting heart rate", unit: "bpm",
-                    accessibilityTitle: String(localized: "Resting heart rate"),
-                    metricKey: "rhr",
-                    points: rhrPts,
-                    gradient: gradient(StrandPalette.metricRose),
-                    tip: StrandPalette.metricRose,
-                    tint: nil,
-                    higherIsBetter: false,
-                    range: valueRange(rhrPts, fallback: 40...80),
-                    fmt: { "\(Int($0.rounded()))" }
-                )
-                metricChart(
-                    // Plotted points + range stay on the stored 0–100 scale (line shape unchanged); only the
-                    // displayed numbers + unit follow the Effort-scale toggle, converted inside `fmt`. (#268)
-                    title: "Effort", unit: "/ \(UnitFormatter.effortScaleMax(effortScale))",
-                    accessibilityTitle: String(localized: "Effort"),
-                    metricKey: "strain",
-                    points: strainPts,
-                    // WHOOP: Effort/Strain is always BLUE — a deep→bright blue line, not the amber ramp.
-                    gradient: gradient(StrandPalette.effortColor),
-                    tip: StrandPalette.effortColor,
-                    tint: StrandPalette.effortColor,
-                    higherIsBetter: nil,
-                    range: valueRange(strainPts, fallback: 0...100),
-                    fmt: { UnitFormatter.effortDisplay($0, scale: effortScale) }
-                )
+                hrvChart(hrv)
+                rhrChart(rhr)
+                effortChart(strain)
             }
         }
+    }
+
+    private func hrvChart(_ hrv: ResolvedMetric) -> some View {
+        let hrvPts = hrv.points
+        return metricChart(
+            title: "Heart rate variability", unit: "ms",
+            accessibilityTitle: String(localized: "Heart rate variability"),
+            metricKey: "hrv",
+            points: hrvPts,
+            gradient: gradient(StrandPalette.metricPurple),
+            tip: StrandPalette.metricPurple,
+            tint: nil,
+            higherIsBetter: true,
+            range: valueRange(hrvPts, fallback: 20...120),
+            fmt: { "\(Int($0.rounded()))" }
+        )
+    }
+
+    private func rhrChart(_ rhr: ResolvedMetric) -> some View {
+        let rhrPts = rhr.points
+        return metricChart(
+            title: "Resting heart rate", unit: "bpm",
+            accessibilityTitle: String(localized: "Resting heart rate"),
+            metricKey: "rhr",
+            points: rhrPts,
+            gradient: gradient(StrandPalette.metricRose),
+            tip: StrandPalette.metricRose,
+            tint: nil,
+            higherIsBetter: false,
+            range: valueRange(rhrPts, fallback: 40...80),
+            fmt: { "\(Int($0.rounded()))" }
+        )
+    }
+
+    private func effortChart(_ strain: ResolvedMetric) -> some View {
+        let strainPts = strain.points
+        return metricChart(
+            // Plotted points + range stay on the stored 0–100 scale (line shape unchanged); only the
+            // displayed numbers + unit follow the Effort-scale toggle, converted inside `fmt`. (#268)
+            title: "Effort", unit: "/ \(UnitFormatter.effortScaleMax(effortScale))",
+            accessibilityTitle: String(localized: "Effort"),
+            metricKey: "strain",
+            points: strainPts,
+            // WHOOP: Effort/Strain is always BLUE — a deep→bright blue line, not the amber ramp.
+            gradient: gradient(StrandPalette.effortColor),
+            tip: StrandPalette.effortColor,
+            tint: StrandPalette.effortColor,
+            higherIsBetter: nil,
+            range: valueRange(strainPts, fallback: 0...100),
+            fmt: { UnitFormatter.effortDisplay($0, scale: effortScale) }
+        )
     }
 
     @ViewBuilder

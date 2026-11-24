@@ -189,15 +189,15 @@ struct HealthJournalChip: View {
     }
 }
 
-/// The Trends screen, under Compare and the Metric Explorer.
+/// The Trends screen (a week card and closed sections), then Compare and the Metric Explorer.
 private struct HealthTrendsChip: View {
     var body: some View {
         VStack(alignment: .leading, spacing: NoopMetrics.sectionSpacing) {
+            TrendsView()
             IndexSection("Look closer") {
                 IndexRow("Compare", "rectangle.split.2x1.fill", TabRoute.compare, id: "health-trends-compare")
                 IndexRow("Metric Explorer", "square.grid.2x2.fill", TabRoute.metricExplorer, id: "health-trends-explorer")
             }
-            TrendsView()
         }
         .containerIdentifier("health-chip-content-trends")
     }
