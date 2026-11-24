@@ -175,6 +175,14 @@ private struct HealthFirstRunContent: View {
                 // so the control is reachable before the screen has any data to show.
                 SyncStatusSection()
                 ComingSoon(what: "No biometrics yet. Import your WHOOP export (and Apple Health if you have it) in Data Sources to fill this in.")
+                #if os(iOS)
+                // The step goal needs PaceForge, not the strap's history, so it shows on a first run too.
+                if PFAPI.isConfigured {
+                    PFDisclosure(title: "Step goal", intro: "Daily target", startsOpen: false, nested: false, id: "vitals-steps") {
+                        PFMovementCard()
+                    }
+                }
+                #endif
             }
         } else {
             HealthSectionsStack()
