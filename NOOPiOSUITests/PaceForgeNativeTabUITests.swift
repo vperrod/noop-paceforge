@@ -105,6 +105,7 @@ final class PaceForgeNativeTabUITests: XCTestCase {
         capture("03 This week")
 
         app.openChip("Health", "body")
+        app.openSection("body-composition")
         XCTAssertTrue(reveal(label(app, "Body breakdown"), in: app, maxSwipes: 20), "Body should show \"Body breakdown\".")
         capture("05 Body")
 
@@ -156,7 +157,8 @@ final class PaceForgeNativeTabUITests: XCTestCase {
     func testBodyProgressCardIsCaptured() throws {
         let app = try launch(fixture: true)
         app.openChip("Health", "body")
-        XCTAssertTrue(label(app, "Progress").waitForExistence(timeout: 10), "Body should lead with the Progress card.")
+        XCTAssertTrue(element(app, "coach-week-section-body-progress").waitForExistence(timeout: 10), "Body should have the Progress section.")
+        app.openSection("body-progress")
         XCTAssertTrue(label(app, "Needs readings").exists, "A goal without a pace should say it needs more readings.")
         attach(app, "09 Body progress")
         app.swipeUp()

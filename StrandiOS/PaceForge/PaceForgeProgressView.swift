@@ -1,13 +1,29 @@
 import SwiftUI
 import StrandDesign
 
-/// The Progress card at the top of PaceForge > Body: each goal against its pace, the day's one-liner, the
-/// coach's note and the fuel, hydration, visceral and balance rows. Every part hides when its data is absent.
+/// The progress parts of PaceForge > Body, each inside its own closed section: each goal against its pace, the day's one-liner and the
+/// coach's note (`goals`); the fuel and hydration rows (`fuel`); the visceral and balance rows (`composition`). Every part hides when its
+/// data is absent.
 struct PFProgressCard: View {
+    enum Part { case goals, fuel, composition }
+
     let progress: PFBodyProgress
+    var part: Part = .goals
+    /// Row titles left out because the screen already shows that figure (the visceral fat the composition bands carry).
+    var skipping: Set<String> = []
 
     var body: some View {
-        PFCard(title: "Progress", icon: "target", trailing: {
+        switch part {
+        case .goals: goalsContent
+        case .fuel, .composition: detailRows
+        }
+    }
+
+    /// True when `detailRows` has something to draw.
+    var hasRows: Bool { !detailItems.isEmpty }
+
+    private var goalsContent: some View {
+        PFCard(title: "Progress", icon: "target", bare: true, trailing: {
             if let date = progress.latestReadingDate {
                 Text("Hume scale \u{00B7} reading \(PFFormat.shortDate(date))")
                     .font(StrandFont.caption)
@@ -30,7 +46,6 @@ struct PFProgressCard: View {
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 if let analysis = progress.analysis { analysisBlock(analysis) }
-                detailRows
             }
         }
         .containerIdentifier("pf-body-progress")
@@ -48,7 +63,6 @@ struct PFProgressCard: View {
         let rows = detailItems
         if !rows.isEmpty {
             VStack(alignment: .leading, spacing: 10) {
-                Divider().overlay(StrandPalette.hairline)
                 ForEach(rows, id: \.title) { row in
                     VStack(alignment: .leading, spacing: 2) {
                         HStack(alignment: .firstTextBaseline) {
@@ -77,35 +91,39 @@ struct PFProgressCard: View {
 
     private var detailItems: [Row] {
         var out: [Row] = []
-        if let fuel = progress.fuel {
-            var value: [String] = []
-            if let kcal = fuel.trainingDayKcal { value.append("\(Safe.int(kcal)) kcal on a training day") }
-            if let lo = fuel.proteinLow, let hi = fuel.proteinHigh {
-                value.append("protein \(Safe.int(lo))\u{2013}\(Safe.int(hi)) g")
+        if part == .fuel {
+            if let fuel = progress.fuel {
+                var value: [String] = []
+                if let kcal = fuel.trainingDayKcal { value.append("\(Safe.int(kcal)) kcal on a training day") }
+                if let lo = fuel.proteinLow, let hi = fuel.proteinHigh {
+                    value.append("protein \(Safe.int(lo))\u{2013}\(Safe.int(hi)) g")
+                }
+                if !value.isEmpty {
+                    out.append(Row(title: "Fuel", value: value.joined(separator: " \u{00B7} "),
+                                   note: fuel.trainingDayBasis ?? fuel.proteinBasis))
+                }
             }
-            if !value.isEmpty {
-                out.append(Row(title: "Fuel", value: value.joined(separator: " \u{00B7} "),
-                               note: fuel.trainingDayBasis ?? fuel.proteinBasis))
+            if let hydration = progress.hydration, let flag = hydration.flag {
+                let note = [hydration.reason, hydration.ownNormal.map { PFFormat.capitalized($0) }]
+                    .compactMap { $0 }.joined(separator: " ")
+                out.append(Row(title: "Hydration", value: PFFormat.capitalized(PFFormat.words(flag)),
+                               note: note.isEmpty ? nil : note, flagged: flag != "ok" && flag != "normal"))
             }
         }
-        if let hydration = progress.hydration, let flag = hydration.flag {
-            let note = [hydration.reason, hydration.ownNormal.map { PFFormat.capitalized($0) }]
-                .compactMap { $0 }.joined(separator: " ")
-            out.append(Row(title: "Hydration", value: PFFormat.capitalized(PFFormat.words(flag)),
-                           note: note.isEmpty ? nil : note, flagged: flag != "ok" && flag != "normal"))
-        }
-        if let visceral = progress.visceral, let value = visceral.value {
-            let band = visceral.band.map { " \u{00B7} \(PFFormat.capitalized($0))" } ?? ""
-            out.append(Row(title: "Visceral fat", value: PFFormat.trimmed(value) + band,
-                           note: visceral.standardRange.map { "Standard range \($0)" }))
-        }
-        if let balance = progress.balance, balance.note != nil || balance.estimate == true {
-            // Left and right are our estimate when the server says so; with no flag or a false one, no label.
-            let value = [balance.estimate == true ? "Estimate" : nil,
-                         balance.flag.map { PFFormat.capitalized(PFFormat.words($0)) }]
-                .compactMap { $0 }.joined(separator: " \u{00B7} ")
-            out.append(Row(title: "Balance", value: value,
-                           note: balance.note, flagged: balance.flag != nil && balance.flag != "ok" && balance.flag != "balanced"))
+        if part == .composition {
+            if let visceral = progress.visceral, let value = visceral.value, !skipping.contains("Visceral fat") {
+                let band = visceral.band.map { " \u{00B7} \(PFFormat.capitalized($0))" } ?? ""
+                out.append(Row(title: "Visceral fat", value: PFFormat.trimmed(value) + band,
+                               note: visceral.standardRange.map { "Standard range \($0)" }))
+            }
+            if let balance = progress.balance, balance.note != nil || balance.estimate == true {
+                // Left and right are our estimate when the server says so; with no flag or a false one, no label.
+                let value = [balance.estimate == true ? "Estimate" : nil,
+                             balance.flag.map { PFFormat.capitalized(PFFormat.words($0)) }]
+                    .compactMap { $0 }.joined(separator: " \u{00B7} ")
+                out.append(Row(title: "Balance", value: value,
+                               note: balance.note, flagged: balance.flag != nil && balance.flag != "ok" && balance.flag != "balanced"))
+            }
         }
         return out
     }

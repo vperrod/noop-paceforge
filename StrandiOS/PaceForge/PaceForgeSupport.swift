@@ -60,36 +60,57 @@ struct PFCard: View {
     var icon: String? = nil
     /// A metric-explainer id: the card then shows an (i) that opens "how it works" when the server has one.
     var info: String? = nil
+    /// True inside a collapsed section that already carries the title: no card chrome, no title row; the (i) and the trailing view stay.
+    var bare = false
     /// nil when the card has no trailing view, so the header lays out exactly as it did with an `EmptyView`.
     let trailing: (() -> AnyView)?
     let content: () -> AnyView
 
-    init<Content: View, Trailing: View>(title: String, icon: String? = nil, info: String? = nil,
+    init<Content: View, Trailing: View>(title: String, icon: String? = nil, info: String? = nil, bare: Bool = false,
                                         @ViewBuilder trailing: @escaping () -> Trailing,
                                         @ViewBuilder content: @escaping () -> Content) {
         self.title = title
         self.icon = icon
         self.info = info
+        self.bare = bare
         self.trailing = { AnyView(trailing()) }
         self.content = { AnyView(content()) }
     }
 
-    private init(plainTitle title: String, icon: String?, info: String?, content: @escaping () -> AnyView) {
+    private init(plainTitle title: String, icon: String?, info: String?, bare: Bool, content: @escaping () -> AnyView) {
         self.title = title
         self.icon = icon
         self.info = info
+        self.bare = bare
         self.trailing = nil
         self.content = content
     }
 
-    init<Content: View>(_ title: String, icon: String? = nil, info: String? = nil,
+    init<Content: View>(_ title: String, icon: String? = nil, info: String? = nil, bare: Bool = false,
                         @ViewBuilder content: @escaping () -> Content) {
-        self.init(plainTitle: title, icon: icon, info: info, content: { AnyView(content()) })
+        self.init(plainTitle: title, icon: icon, info: info, bare: bare, content: { AnyView(content()) })
     }
 
     /// The look's card: a 12 pt tile on the dark gradient, a small caps title, content below. Every PaceForge
     /// screen builds on it, so this is the one place its card style lives.
     var body: some View {
+        if bare {
+            VStack(alignment: .leading, spacing: 12) {
+                if trailing != nil || info != nil {
+                    HStack(alignment: .firstTextBaseline, spacing: 8) {
+                        Spacer(minLength: 8)
+                        if let trailing { trailing() }
+                        if let info { PFInfoButton(id: info) }
+                    }
+                }
+                content()
+            }
+        } else {
+            card
+        }
+    }
+
+    private var card: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 let _ = NoopDiag.body("PFCard")

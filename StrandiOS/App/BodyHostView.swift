@@ -4,17 +4,17 @@ import StrandDesign
 
 // MARK: - Health > Body
 //
-// PaceForge's Body screen (the Hume scale: trend, score, composition, goals, readings) under a row to the Lab Book. Both are the screens
-// that exist today, unchanged; this is the content of the Body chip of the Health tab.
+// PaceForge's Body screen (the Hume scale: a weight card, then closed sections for progress, trend, composition, muscle, tape and fuel)
+// above a row to the Lab Book; this is the content of the Body chip of the Health tab.
 
-/// The Body chip of Health: the Lab Book row, then the scale screen.
+/// The Body chip of Health: the scale screen, then the Lab Book row.
 struct HealthBodyChip: View {
     var body: some View {
         VStack(alignment: .leading, spacing: NoopMetrics.sectionSpacing) {
+            BodyPaceForgeChip()
             IndexSection("Lab") {
                 IndexRow("Lab Book", "cross.case.fill", MoreDestination.labBook, id: "health-body-labbook")
             }
-            BodyPaceForgeChip()
         }
         .containerIdentifier("health-chip-content-body")
     }

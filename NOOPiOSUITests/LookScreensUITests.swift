@@ -144,6 +144,7 @@ final class LookScreensUITests: XCTestCase {
     func testHealthBodyChipShowsTheTrendView() throws {
         let app = try launch(fixture: true)
         app.openChip("Health", "body")
+        app.openSection("body-trend")
         XCTAssertTrue(reveal(element(app, "pf-body-trend-chart"), in: app), "The Body chip should show the trend view.")
         attach(app, "Look A2 PaceForge Body trend")
         let menu = element(app, "look-trend-metric-menu")

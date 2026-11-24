@@ -169,6 +169,7 @@ final class PaceForgeWave3UITests: XCTestCase {
     func testMuscleCheckWithARaisedFlagIsCaptured() throws {
         let app = try launch()
         app.openChip("Health", "body")
+        app.openSection("body-muscle")
         let card = element(app, "pf-muscle-card")
         XCTAssertTrue(reveal(card, in: app), "Body should show the Muscle check card.")
         XCTAssertTrue(element(app, "pf-muscle-lean").exists, "The lean trend figures should show.")
@@ -186,6 +187,7 @@ final class PaceForgeWave3UITests: XCTestCase {
     func testMuscleCheckWhileCalibratingSaysSo() throws {
         let app = try launch(extraArguments: ["-PaceForgeMuscleCalibrating"])
         app.openChip("Health", "body")
+        app.openSection("body-muscle")
         let card = element(app, "pf-muscle-card")
         XCTAssertTrue(reveal(card, in: app), "Body should show the Muscle check card while calibrating.")
         XCTAssertTrue(label(app, "Calibrating").waitForExistence(timeout: 5), "The card should say it is calibrating.")
@@ -195,6 +197,7 @@ final class PaceForgeWave3UITests: XCTestCase {
     func testTapeMeasurementsCardIsCaptured() throws {
         let app = try launch()
         app.openChip("Health", "body")
+        app.openSection("body-tape")
         let card = element(app, "pf-tape-card")
         XCTAssertTrue(reveal(card, in: app, maxSwipes: 20), "Body should show Tape measurements.")
         XCTAssertTrue(element(app, "pf-tape-waist").exists, "The waist should be listed.")
@@ -206,6 +209,7 @@ final class PaceForgeWave3UITests: XCTestCase {
     func testLeftRightFiguresAreLabelledAsAnEstimate() throws {
         let app = try launch()
         app.openChip("Health", "body")
+        app.openSection("body-composition")
         let note = element(app, "pf-body-estimate-note")
         XCTAssertTrue(reveal(note, in: app, maxSwipes: 24), "The segmental analysis should say left and right are an estimate.")
         XCTAssertTrue(element(app, "pf-body-estimate-left_arm").exists, "Each limb figure should carry the estimate label.")

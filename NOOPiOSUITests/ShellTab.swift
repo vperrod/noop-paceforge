@@ -26,6 +26,19 @@ extension XCUIApplication {
         XCTAssertTrue(element(screen).waitForExistence(timeout: 30), "The \(title) screen should open.")
     }
 
+    /// Opens a closed section of a screen (a `PFDisclosure`): scrolls down until its header `coach-week-section-<id>` can be tapped, then
+    /// taps it unless it already reads "Expanded". Content inside a closed section does not exist for the tests until this has run.
+    func openSection(_ id: String, maxSwipes: Int = 20) {
+        let header = element("coach-week-section-\(id)")
+        for _ in 0..<(maxSwipes * 3) where !(header.exists && header.isHittable) {
+            let from = coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.62))
+            let to = coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.32))
+            from.press(forDuration: 0.05, thenDragTo: to, withVelocity: .slow, thenHoldForDuration: 0.1)
+        }
+        XCTAssertTrue(header.exists && header.isHittable, "The section \(id) should be on the screen.")
+        if (header.value as? String) != "Expanded" { header.tap() }
+    }
+
     /// Opens a tab and picks one of its chips (a tab reopens on the chip it was left on, so the chip is always chosen). `chip` is the
     /// chip's raw value: Plan `week`, `season`, `calendar`, `reports`; Train `hyrox`, `running`, `strength`, `bike`, `workouts`,
     /// `athlete`; Health `day`, `sleep`, `recovery`, `body`, `vitals`, `journal`, `trends`. Waits for the chip's content to mount.

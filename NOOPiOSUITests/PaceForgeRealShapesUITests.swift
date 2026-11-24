@@ -129,6 +129,7 @@ final class PaceForgeRealShapesUITests: XCTestCase {
         let app = try launch()
         app.openChip("Health", "body")
         Thread.sleep(forTimeInterval: 2)
+        app.openSection("body-trend")
         let chart = element(app, "pf-body-trend-chart")
         for _ in 0..<12 where !(chart.exists && chart.isHittable) { app.swipeUp() }
         alive(app, "finding the Body trend")

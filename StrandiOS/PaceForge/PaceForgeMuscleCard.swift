@@ -9,7 +9,7 @@ struct PFMuscleCheckCard: View {
     let check: PFMuscleCheck
 
     var body: some View {
-        PFCard(title: "Muscle check", icon: "figure.strengthtraining.traditional", info: PFExplainerID.muscleCheck, trailing: {
+        PFCard(title: "Muscle check", icon: "figure.strengthtraining.traditional", info: PFExplainerID.muscleCheck, bare: true, trailing: {
             HStack(spacing: 6) {
                 if check.stale { PFChip(text: "Out of date", color: StrandPalette.textTertiary) }
                 if let chip = flagChip { chip }
@@ -24,12 +24,6 @@ struct PFMuscleCheckCard: View {
                     if let strength = check.strength, strength.hasData { strengthBlock(strength) }
                     if let cm = check.tapeWaistChange28dCm, check.tapeHasData { tapeLine(cm) }
                     if !check.advice.isEmpty { adviceBlock }
-                    if let protein = check.proteinText {
-                        Text("Protein target \(protein) a day")
-                            .font(StrandFont.caption)
-                            .foregroundStyle(StrandPalette.textSecondary)
-                            .accessibilityIdentifier("pf-muscle-protein")
-                    }
                 } else {
                     PFParagraph("Not enough scale readings yet to compare lean mass and fat. Step on the scale a few times a week and this fills in.")
                 }
@@ -204,7 +198,7 @@ struct PFTapeCard: View {
     let tape: PFTape
 
     var body: some View {
-        PFCard("Tape measurements", icon: "ruler", info: PFExplainerID.tape) {
+        PFCard("Tape measurements", icon: "ruler", info: PFExplainerID.tape, bare: true) {
             VStack(alignment: .leading, spacing: 14) {
                 if tape.sites.isEmpty {
                     PFParagraph("No tape measurements yet.")

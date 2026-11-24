@@ -62,6 +62,7 @@ final class PaceForgeBuild463UITests: XCTestCase {
     func testAddMeasurementSheetTakesATapeAndAFieldTest() throws {
         let app = try launch()
         app.openChip("Health", "body")
+        app.openSection("body-tape")
         let open = element(app, "pf-add-tape-button")
         XCTAssertTrue(reveal(open, in: app, maxSwipes: 20), "The Body tape card should offer Add measurement.")
         attach(app, "80 Body tape card with Add measurement")

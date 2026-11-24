@@ -2,8 +2,9 @@ import SwiftUI
 import Charts
 import StrandDesign
 
-/// PaceForge "Body": the Hume scale page the web app shows, trend and score first, then the
-/// composition bands, mass breakdown, segmental analysis, goals and every reading.
+/// PaceForge "Body": the Hume scale page the web app shows: the weight on one summary card, then closed sections for the progress
+/// (with the goals), the trend (with every reading), the composition (score, bands, breakdown, segmental analysis), the muscle check, the
+/// tape measurements, and the fuel and hydration.
 struct PFBodyView: View {
     let snapshot: PFSnapshot
 
@@ -12,16 +13,28 @@ struct PFBodyView: View {
     var body: some View {
         if let doc = snapshot.body {
             VStack(alignment: .leading, spacing: 16) {
-                if let progress = snapshot.bodyProgress { PFProgressCard(progress: progress) }
-                PFTrendCard(doc: doc, progress: snapshot.bodyProgress, metric: $metric)
-                if let muscle = snapshot.muscle { PFMuscleCheckCard(check: muscle) }
-                PFTapeCard(tape: snapshot.tape ?? PFTape())
-                PFScoreCard(doc: doc)
-                if !doc.assessment.isEmpty { compositionCard(doc) }
-                massCard(doc)
-                if !doc.segments.isEmpty { PFSegmentalCard(doc: doc) }
-                if !uncoveredGoals(doc).isEmpty || doc.goals.isEmpty { goalsCard(doc) }
-                readingsCard(doc)
+                PFBodyHero(doc: doc)
+                progressSection(doc)
+                PFDisclosure(title: "Trend chart", intro: "Weight, body fat, muscle and more over time", startsOpen: false, nested: false,
+                             id: "body-trend") {
+                    VStack(alignment: .leading, spacing: 16) {
+                        PFTrendCard(doc: doc, progress: snapshot.bodyProgress, metric: $metric)
+                        readingsCard(doc)
+                    }
+                }
+                compositionSection(doc)
+                if let muscle = snapshot.muscle {
+                    PFDisclosure(title: "Muscle check", intro: leanIntro(doc), startsOpen: false, nested: false, id: "body-muscle") {
+                        PFMuscleCheckCard(check: muscle)
+                    }
+                }
+                let tape = snapshot.tape ?? PFTape()
+                PFDisclosure(title: "Tape measurements",
+                             intro: tape.sites.isEmpty ? "None logged" : String(tape.sites.count) + (tape.sites.count == 1 ? " site" : " sites"),
+                             startsOpen: false, nested: false, id: "body-tape") {
+                    PFTapeCard(tape: tape)
+                }
+                fuelSection
             }
         } else {
             PFCard("No scale readings yet", icon: "scalemass") {
@@ -30,10 +43,79 @@ struct PFBodyView: View {
         }
     }
 
+    // MARK: Progress
+
+    /// "+0.75 kg in 7 days": the scale's own seven-day change in weight.
+    private func progressIntro(_ doc: PFBodyDoc) -> String? {
+        guard let d7 = doc.deltas["weight_kg"]?.d7 else { return nil }
+        let info = doc.metrics["weight_kg"]
+        return (d7 > 0 ? "+" : "") + PFBodyFormat.number(d7, dp: info?.dp ?? 1) + " " + (info?.unit ?? "kg") + " in 7 days"
+    }
+
+    /// The goals against their pace, the day's line and the coach's note, then the goals the Progress rows do not list.
+    @ViewBuilder private func progressSection(_ doc: PFBodyDoc) -> some View {
+        let showsGoals = !uncoveredGoals(doc).isEmpty || doc.goals.isEmpty
+        if snapshot.bodyProgress != nil || showsGoals {
+            PFDisclosure(title: "Progress", intro: progressIntro(doc), startsOpen: false, nested: false, id: "body-progress") {
+                VStack(alignment: .leading, spacing: 16) {
+                    if let progress = snapshot.bodyProgress { PFProgressCard(progress: progress, part: .goals) }
+                    if showsGoals { goalsCard(doc) }
+                }
+            }
+        }
+    }
+
+    /// "Lean mass 72.7 kg".
+    private func leanIntro(_ doc: PFBodyDoc) -> String? {
+        doc.latest["lean_mass_kg"].map { "Lean mass " + PFBodyFormat.value("lean_mass_kg", $0, doc) }
+    }
+
+    // MARK: Fuel and hydration
+
+    @ViewBuilder private var fuelSection: some View {
+        if let progress = snapshot.bodyProgress {
+            let fuel = PFProgressCard(progress: progress, part: .fuel)
+            if fuel.hasRows {
+                PFDisclosure(title: "Fuel and hydration", intro: "Training-day fuel and protein range", startsOpen: false, nested: false,
+                             id: "body-fuel") {
+                    fuel
+                }
+            }
+        }
+    }
+
+    // MARK: Composition section
+
+    /// "Body score 56 · Fair".
+    private func compositionIntro(_ doc: PFBodyDoc) -> String? {
+        guard let score = doc.score else { return nil }
+        var text = "Body score " + String(Safe.int(score))
+        if let band = doc.band { text += " \u{00B7} " + band }
+        return text
+    }
+
+    /// The score, the bands, the breakdown without what the bands already show, the segments, then the visceral and balance notes.
+    @ViewBuilder private func compositionSection(_ doc: PFBodyDoc) -> some View {
+        let banded = Set(doc.assessment.map { $0.key })
+        let skipped: Set<String> = banded.contains("visceral_fat_index") ? ["Visceral fat"] : []
+        let notes = snapshot.bodyProgress.map { PFProgressCard(progress: $0, part: .composition, skipping: skipped) }
+        PFDisclosure(title: "Composition",
+                     intro: compositionIntro(doc),
+                     startsOpen: false, nested: false, id: "body-composition") {
+            VStack(alignment: .leading, spacing: 16) {
+                PFScoreCard(doc: doc, showsMetabolicAge: !banded.contains("metabolic_age"))
+                if !doc.assessment.isEmpty { compositionCard(doc) }
+                massCard(doc, excluding: banded.union(["weight_kg"]))
+                if !doc.segments.isEmpty { PFSegmentalCard(doc: doc) }
+                if let notes, notes.hasRows { notes }
+            }
+        }
+    }
+
     // MARK: Composition
 
     private func compositionCard(_ doc: PFBodyDoc) -> some View {
-        PFCard("Composition", icon: "chart.bar.doc.horizontal") {
+        PFCard("Composition", icon: "chart.bar.doc.horizontal", bare: true) {
             VStack(alignment: .leading, spacing: 18) {
                 ForEach(doc.assessment) { PFRangeRow(range: $0) }
                 Text("Bands are published reference ranges. Body Score is PaceForge's own composite of how the reading sits in those bands, not a clinical measure.")
@@ -54,8 +136,9 @@ struct PFBodyView: View {
         "bmr_kcal", "whole_body_impedance_ohm", "android_gynoid_ratio",
     ]
 
-    private func massCard(_ doc: PFBodyDoc) -> some View {
-        let keys = Self.massOrder.filter { doc.latest[$0] != nil }
+    /// `excluding`: the figures the weight card and the composition bands already show, so each is on the screen once.
+    private func massCard(_ doc: PFBodyDoc, excluding: Set<String>) -> some View {
+        let keys = Self.massOrder.filter { doc.latest[$0] != nil && !excluding.contains($0) }
         return PFCard(title: "Body breakdown", icon: "scalemass", trailing: {
             Text(PFFormat.dayTitle(doc.date)).font(StrandFont.caption).foregroundStyle(StrandPalette.textTertiary)
         }) {
@@ -140,6 +223,38 @@ enum PFBodyFormat {
     }
 }
 
+// MARK: Weight summary
+
+/// "WEIGHT · 22 NOV": the latest weight, with the goal and the body fat under it.
+private struct PFBodyHero: View {
+    let doc: PFBodyDoc
+
+    private var weight: String {
+        doc.latest["weight_kg"].map { PFBodyFormat.value("weight_kg", $0, doc) } ?? "\u{2014}"
+    }
+
+    private var line: String? {
+        var parts: [String] = []
+        if let goal = doc.goals.first(where: { $0.metric == "weight_kg" }) {
+            var text = "Goal " + PFBodyFormat.value("weight_kg", goal.target, doc)
+            if let date = goal.targetDate { text += " by " + PFFormat.shortDate(date) }
+            parts.append(text)
+        }
+        if let fat = doc.latest["body_fat_pct"] { parts.append("body fat " + PFBodyFormat.value("body_fat_pct", fat, doc)) }
+        return parts.isEmpty ? nil : parts.joined(separator: " \u{00B7} ")
+    }
+
+    var body: some View {
+        PFCard("Weight \u{00B7} " + PFFormat.shortDate(doc.date), icon: "scalemass") {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(weight).font(StrandFont.rounded(40)).foregroundStyle(StrandPalette.textPrimary)
+                if let line { Text(line).font(StrandFont.caption).foregroundStyle(StrandPalette.textSecondary) }
+            }
+        }
+        .containerIdentifier("pf-body-hero")
+    }
+}
+
 // MARK: Trend
 
 private struct PFTrendCard: View {
@@ -182,7 +297,7 @@ private struct PFTrendCard: View {
         let info = doc.metrics[metric]
         let goal = doc.goals.first { $0.metric == metric }
         PFCard(title: "Trend", icon: "chart.line.uptrend.xyaxis",
-               info: metric == "body_fat_pct" ? PFExplainerID.bodyFatTrend : PFExplainerID.bodyWeightTrend, trailing: {
+               info: metric == "body_fat_pct" ? PFExplainerID.bodyFatTrend : PFExplainerID.bodyWeightTrend, bare: true, trailing: {
             Text("Synced \(PFFormat.shortDate(doc.date))")
                 .font(StrandFont.caption)
                 .foregroundStyle(StrandPalette.textTertiary)
@@ -211,7 +326,7 @@ private struct PFTrendCard: View {
                     LookTrendView(metrics: lookMetrics, metricID: $metric, range: $lookRange, endDate: $lookEnd,
                                   today: Calendar.current.startOfDay(for: Date()),
                                   footer: { AnyView(PFWhatMovedSection(metricID: $0.id)) })
-                        .padding(.horizontal, -16)
+                        .padding(.horizontal, -12)
                         .accessibilityElement(children: .contain)
                         .accessibilityIdentifier("pf-body-trend-chart")
                 }
@@ -281,6 +396,8 @@ private struct PFTrendCard: View {
 
 private struct PFScoreCard: View {
     let doc: PFBodyDoc
+    /// False when the composition bands already carry the metabolic age.
+    var showsMetabolicAge = true
 
     private static let spectrum: [Color] = [
         Color(hex: "#E5484D"), Color(hex: "#F5A524"), Color(hex: "#3FB950"),
@@ -294,7 +411,9 @@ private struct PFScoreCard: View {
                 Divider().overlay(StrandPalette.hairline)
                 HStack(alignment: .top, spacing: 8) {
                     stat("Age", doc.age.map { String($0) }, "yrs")
-                    stat("Metabolic age", doc.latest["metabolic_age"].map { PFBodyFormat.number($0, dp: doc.metrics["metabolic_age"]?.dp ?? 0) }, "yrs")
+                    if showsMetabolicAge {
+                        stat("Metabolic age", doc.latest["metabolic_age"].map { PFBodyFormat.number($0, dp: doc.metrics["metabolic_age"]?.dp ?? 0) }, "yrs")
+                    }
                     stat("Height", doc.heightCm.map { PFFormat.trimmed($0) }, "cm")
                 }
             }
