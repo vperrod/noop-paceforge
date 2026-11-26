@@ -12,8 +12,6 @@ enum PFJournalLogic530 {
     static let evening = "evening"
     static let windows = [morning, afternoon, evening]
 
-    /// The list holds ten questions or fewer.
-    static let maxQuestions = 10
     /// The days with and without a behaviour a result needs.
     static let daysNeeded = 5
 
@@ -87,9 +85,8 @@ enum PFJournalLogic530 {
             guard let key = question.key, !key.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return false }
             return !hiddenKeys.contains(norm(key)) && seen.insert(norm(key)).inserted
         }
-        let allowed = Array(kept.prefix(maxQuestions))
         // A question that names no window is asked in the evening.
-        return allowed.filter { ($0.window ?? evening) == window }
+        return kept.filter { ($0.window ?? evening) == window }
     }
 
     /// The identity of a question for matching: the journal catalog's own rule (case and spacing do not tell two questions apart).
@@ -381,11 +378,6 @@ enum PFJournalLogic530 {
             Question(key: key, label: key, prompt: key, hint: nil, kind: kind, window: window, about: PFJournalLogic530.defaultAbout(window: window),
                      yes: "Yes", no: "No", state: "collecting", stateSource: nil, nYes: nil, nNo: nil)
         }
-    }
-
-    /// Whether another question fits in the list of ten.
-    static func canAdd(listCount: Int, customCount: Int) -> Bool {
-        listCount + customCount < maxQuestions
     }
 
     /// The text of a new question, trimmed; nil when it is empty or already in the list (compared ignoring case and spacing).

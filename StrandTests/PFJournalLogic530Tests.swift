@@ -76,9 +76,9 @@ final class PFJournalLogic530Tests: XCTestCase {
                        ["A", "A late call?"])
     }
 
-    func testTheListHoldsTenQuestions() {
+    func testNoQuestionLimitAllQuestionsReturned() {
         let list = (1...12).map { question("Q\($0)") }
-        XCTAssertEqual(Logic.questions(in: list, window: "morning").count, 10)
+        XCTAssertEqual(Logic.questions(in: list, window: "morning").count, 12)
     }
 
     func testAQuestionWithNoWindowIsAskedInTheEvening() {
@@ -324,12 +324,6 @@ final class PFJournalLogic530Tests: XCTestCase {
 
     func testValuesCarryTheirUnit() {
         XCTAssertEqual([Logic.valueText(26, unit: "%"), Logic.valueText(6.14, unit: "h"), Logic.valueText(72, unit: "")], ["26 %", "6.1 h", "72"])
-    }
-
-    // MARK: The list of ten
-
-    func testAQuestionCanBeAddedUntilTheListHoldsTen() {
-        XCTAssertEqual([Logic.canAdd(listCount: 9, customCount: 0), Logic.canAdd(listCount: 8, customCount: 2)], [true, false])
     }
 
     func testANewQuestionIsTrimmedAndAnExistingOneIsRefused() {

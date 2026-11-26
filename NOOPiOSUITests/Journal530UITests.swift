@@ -147,18 +147,19 @@ final class Journal530UITests: XCTestCase {
 
     // MARK: 5f Customise
 
-    func testCustomiseListsTheTenQuestionsAndTheCoachSuggestions() throws {
+    func testCustomiseListsTheQuestionsAndTheCoachSuggestions() throws {
         let app = try launch(open: "journal-customise")
         XCTAssertTrue(app.element("pf530-journal-customise").waitForExistence(timeout: 30), "Customise should open over the Plan tab.")
         XCTAssertTrue(app.element("pf530-journal-list").waitForExistence(timeout: 20), "The list should show.")
-        XCTAssertEqual(count(app, prefix: "pf530-journal-list-row-"), 10, "The list holds the ten questions.")
-        XCTAssertTrue(app.element("pf530-journal-list-count").label.contains("10 of 10"), "The list says how full it is.")
+        XCTAssertEqual(count(app, prefix: "pf530-journal-list-row-"), 10, "The list holds the questions.")
+        let countLabel = app.element("pf530-journal-list-count").label
+        XCTAssertTrue(countLabel.contains("10"), "The list says how many questions.")
+        XCTAssertFalse(countLabel.contains("of 10"), "The list no longer says 'of 10'.")
         XCTAssertTrue(app.element("pf530-journal-suggestions").exists, "The coach's suggestions should show while the server sends some.")
         attach(app, "5f customise")
         let add = app.element("pf530-journal-add")
         XCTAssertTrue(reveal(add, in: app), "Add your own should be reachable.")
-        XCTAssertFalse(add.isEnabled, "A full list takes no new question.")
-        XCTAssertTrue(app.element("pf530-journal-add-full").exists, "A full list says why.")
+        XCTAssertFalse(app.element("pf530-journal-add-full").exists, "The full-list explanation no longer exists.")
     }
 
     // MARK: States

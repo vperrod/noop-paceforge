@@ -89,7 +89,7 @@ struct PFJournalCustomise530: View {
         let questions = (doc.list ?? []).filter { !($0.key ?? "").isEmpty }
         let visible = questions.count
         return VStack(alignment: .leading, spacing: 0) {
-            PFOver529(text: "Shared list · \(visible) of \(Logic.maxQuestions)")
+            PFOver529(text: "Shared list · \(visible)")
                 .padding(.bottom, 4)
                 .accessibilityIdentifier("pf530-journal-list-count")
             ForEach(Array(questions.enumerated()), id: \.offset) { index, question in
@@ -240,7 +240,6 @@ struct PFJournalCustomise530: View {
 
     private func addCard(_ doc: PFJournalDoc530) -> some View {
         let existing = existingKeys(doc)
-        let fits = revisingKey != nil || (doc.list ?? []).count < Logic.maxQuestions
         let key = Logic.newKey(draft, existing: existing)
         return VStack(alignment: .leading, spacing: 10) {
             PFOver529(text: revisingKey == nil ? "Add your own" : "Revise question")
@@ -267,15 +266,8 @@ struct PFJournalCustomise530: View {
             }
             SectionChips(options: [Logic.morning, Logic.evening], selection: $draftWindow, idPrefix: "pf530-journal-add-window",
                          id: { $0 }, title: { $0.capitalized })
-            if !fits {
-                Text("The list holds \(Logic.maxQuestions) questions. Retire a shared question above to make room.")
-                    .font(PFPlanFont543.text(12.5))
-                    .foregroundStyle(NoopLook.textSecondary)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .accessibilityIdentifier("pf530-journal-add-full")
-            }
             PFPillButton529(title: revisingKey == nil ? "Add question" : "Save revised question", isMain: true,
-                            isDisabled: key == nil || !fits || isWriting) {
+                            isDisabled: key == nil || isWriting) {
                 Task {
                     var inputs: [String: Any] = ["action": revisingKey == nil ? "custom" : "replace", "prompt": draft,
                                                  "kind": draftKind, "window": draftWindow,
