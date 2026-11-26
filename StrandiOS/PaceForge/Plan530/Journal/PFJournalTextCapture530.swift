@@ -110,7 +110,7 @@ struct PFJournalTextCapture530: View {
         defer { busy = false }
         let id = UUID().uuidString.lowercased().replacingOccurrences(of: "-", with: "")
         let inputs: [String: Any] = ["draft_id": id, "text": text.trimmingCharacters(in: .whitespacesAndNewlines),
-                                     "day": day, "questions": Array(questions.prefix(10))]
+                                     "day": day, "questions": questions]
         guard case .success = await job.run(.journalCapture, inputs: inputs) else {
             message = "Could not prepare a review. Your text is still here."
             return
