@@ -237,6 +237,7 @@ struct PFResultsSheet: View {
     /// Shows the sheet as the recording is matched now: the picked session (its only recording, as the server's link leaves it),
     /// or the recording on its own after Unmatch.
     private func showMatch(_ sessionID: String?, of activity: PFActivity) {
+        let oldDraftKey = draftKey
         selectedActivityID = activity.id
         if let sessionID, var session = currentSnapshot.sessions.first(where: { $0.id == sessionID }) {
             session.activityId = activity.id
@@ -246,6 +247,11 @@ struct PFResultsSheet: View {
             var alone = PFRecording.workout(activity, currentSnapshot)
             alone.coachSessionID = nil
             rematched = alone
+        }
+        // The unsent comment's saved draft follows the sheet to its new key.
+        if draftKey != oldDraftKey, let draft = UserDefaults.standard.string(forKey: oldDraftKey) {
+            UserDefaults.standard.set(draft, forKey: draftKey)
+            UserDefaults.standard.removeObject(forKey: oldDraftKey)
         }
     }
 

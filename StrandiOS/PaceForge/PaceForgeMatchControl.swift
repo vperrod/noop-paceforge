@@ -78,13 +78,20 @@ struct PFMatchControl: View {
         isSaving = true
         defer { isSaving = false }
         note = nil
-        guard await runner.run(.matchEdit, inputs: PFJobInputs.matchEdit(activityID: activity.id, sessionID: sessionID)) != nil else { return }
-        // A load already running may have read the plan before this write, so it is followed by one more.
+        let isSaved = await runner.run(.matchEdit, inputs: PFJobInputs.matchEdit(activityID: activity.id, sessionID: sessionID)) != nil
+        // Reloaded after a failure too: a write with no answer may still have landed. A load already running may have read the plan
+        // before this write, so it is followed by one more.
         let wasLoading = model.isRefreshing
         await model.refresh()
         if wasLoading { await model.refresh() }
+        guard isSaved else { return }
         picked = nil
-        note = (sessionID == nil ? "Unmatched" : "Linked") + ". Plan updated."
+        let done = sessionID == nil ? "Unmatched" : "Linked"
+        guard model.offlineNote == nil else {
+            note = done + ". The change was saved, but the plan did not reload."
+            return
+        }
+        note = done + ". Plan updated."
         onChange(sessionID)
     }
 }
