@@ -168,7 +168,9 @@ final class Journal530UITests: XCTestCase {
         let app = try launch(open: "journal-customise")
         XCTAssertTrue(app.element("pf530-journal-customise").waitForExistence(timeout: 30), "Customise should open over the Plan tab.")
         XCTAssertTrue(app.element("pf530-journal-list").waitForExistence(timeout: 20), "The list should show.")
-        XCTAssertEqual(count(app, prefix: "pf530-journal-list-row-"), 10, "The list holds the questions.")
+        // A row's identifier is carried by each of its texts, so rows are counted by distinct identifier.
+        let rows = app.descendants(matching: .any).matching(NSPredicate(format: "identifier BEGINSWITH %@", "pf530-journal-list-row-"))
+        XCTAssertEqual(Set(rows.allElementsBoundByIndex.map(\.identifier)).count, 10, "The list holds the questions.")
         let countLabel = app.element("pf530-journal-list-count").label
         XCTAssertTrue(countLabel.contains("10"), "The list says how many questions.")
         XCTAssertFalse(countLabel.contains("of 10"), "The list no longer says 'of 10'.")
