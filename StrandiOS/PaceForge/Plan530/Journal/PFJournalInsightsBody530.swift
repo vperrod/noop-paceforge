@@ -13,10 +13,17 @@ struct PFJournalInsightsBody530: View {
     @State private var lag = 1
     @State private var seriesID: String?
     @State private var showsAllCollecting = false
+    @State private var opened: Opened?
     private let hiding = PFHiding()
 
     /// The first questions shown under "Still collecting"; the rest are one tap away.
     private static let collectingShown = 3
+
+    /// The result row whose sheet is open. An insight has no identity of its own.
+    private struct Opened: Identifiable {
+        let id = UUID()
+        let insight: PFJournalDoc530.Insight
+    }
 
     private var series: [Logic.Series] { Logic.series(doc.insights, outcome: outcome) }
 
@@ -40,6 +47,10 @@ struct PFJournalInsightsBody530: View {
         }
         .containerIdentifier("pf530-insights-body")
         .onChange(of: outcome) { _, _ in seriesID = nil }
+        .sheet(item: $opened) { row in
+            detailSheet(Logic.detail(for: row.insight))
+                .presentationDetents([.medium, .large])
+        }
     }
 
     private var seriesBinding: Binding<Logic.Series> {
@@ -95,6 +106,7 @@ struct PFJournalInsightsBody530: View {
         }
         .planCard529()
         .containerIdentifier("pf530-insight-clear-\(id)")
+        .overlay { rowButton(insight, id: id) }
     }
 
     private func amounts(_ buckets: [PFJournalDoc530.Bucket], series: Logic.Series, id: String) -> some View {
@@ -140,7 +152,7 @@ struct PFJournalInsightsBody530: View {
                         .frame(minWidth: 62, alignment: .trailing)
                         .accessibilityIdentifier("pf530-insight-value-\(id)")
                 }
-                .containerIdentifier("pf530-insight-row-\(id)")
+                .overlay { rowButton(insight, id: id) }
             }
             Text("\(series.measure) with it / without it, \(series.device).")
                 .font(PFPlanFont543.text(12.5))
@@ -148,6 +160,90 @@ struct PFJournalInsightsBody530: View {
         }
         .planCard529()
         .containerIdentifier("pf530-insight-noeffect")
+    }
+
+    // MARK: Detail
+
+    /// A clear button laid over a whole result row, so the row's own texts keep their identifiers.
+    private func rowButton(_ insight: Logic.Insight, id: String) -> some View {
+        Button { opened = Opened(insight: insight) } label: {
+            Color.clear.contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(insight.label ?? id)
+        .accessibilityHint("Opens the days behind it")
+        .accessibilityIdentifier("pf530-insight-row-\(id)")
+    }
+
+    private func detailSheet(_ detail: Logic.DetailModel) -> some View {
+        let tint: Color
+        switch detail.verdict {
+        case "Hurts": tint = NoopLook.trendDown
+        case "Helps": tint = NoopLook.trendUp
+        default: tint = NoopLook.textTertiary
+        }
+        return NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(detail.verdict.uppercased())
+                            .pfCaps(12)
+                            .foregroundStyle(tint)
+                            .accessibilityIdentifier("pf530-insight-detail-verdict")
+                        Text(detail.label)
+                            .font(PFPlanFont543.text(22, weight: .semibold))
+                            .foregroundStyle(NoopLook.textPrimary)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Text(hiding.shown(detail.percent, .scores))
+                            .font(LookFont.numeral(26))
+                            .foregroundStyle(NoopLook.textPrimary)
+                        Text(detail.measureLine)
+                            .font(PFPlanFont543.text(13.5))
+                            .foregroundStyle(NoopLook.textSecondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    VStack(alignment: .leading, spacing: 10) {
+                        barRow(label: "With it", value: hiding.shown(detail.meanWith, .scores), fraction: detail.fractionWith,
+                               color: tint, id: "pf530-insight-detail-with")
+                        barRow(label: "Without it", value: hiding.shown(detail.meanWithout, .scores), fraction: detail.fractionWithout,
+                               color: NoopLook.rest, id: "pf530-insight-detail-without")
+                    }
+                    .planCard529()
+                    VStack(spacing: 0) {
+                        countRow("Days with it", detail.daysWith)
+                        Rectangle().fill(NoopLook.divider).frame(height: 1)
+                        countRow("Days without it", detail.daysWithout)
+                    }
+                    .planCard529()
+                    // The sentence quotes scores in wording the text redaction misses, so the whole of it hides with them.
+                    reading(hiding.shown(detail.note ?? "\u{2013}", .scores))
+                }
+                .padding(20)
+            }
+            .lookScreenBackground()
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Done") { opened = nil }
+                        .accessibilityIdentifier("pf530-insight-detail-done")
+                }
+            }
+        }
+        .containerIdentifier("pf530-insight-detail")
+    }
+
+    private func countRow(_ title: String, _ value: String) -> some View {
+        HStack {
+            Text(title)
+                .font(PFPlanFont543.text(14))
+                .foregroundStyle(NoopLook.textSecondary)
+            Spacer(minLength: 8)
+            Text(value)
+                .font(LookFont.numeral(18))
+                .foregroundStyle(NoopLook.textPrimary)
+        }
+        .frame(minHeight: 46)
+        .accessibilityElement(children: .combine)
     }
 
     // MARK: Still collecting
@@ -160,18 +256,27 @@ struct PFJournalInsightsBody530: View {
                 PFOver529(text: "Still collecting · needs \(Logic.daysNeeded) yes and \(Logic.daysNeeded) no")
                 ForEach(shownRows, id: \.key) { question in
                     let key = question.key ?? ""
-                    HStack(spacing: 10) {
-                        Text(question.label ?? key)
-                            .font(PFPlanFont543.text(13.5, weight: .medium))
-                            .foregroundStyle(NoopLook.textPrimary)
-                            .lineLimit(2)
-                            .frame(width: 112, alignment: .leading)
-                        track(fraction: Logic.progress(yes: question.nYes, no: question.nNo), color: Color(hex: NoopLook.Hex.coachBlue))
-                        Text("\(question.nYes ?? 0) · \(question.nNo ?? 0)")
-                            .font(PFPlanFont543.text(13, weight: .semibold))
-                            .foregroundStyle(NoopLook.textSecondary)
-                            .frame(minWidth: 62, alignment: .trailing)
-                            .accessibilityIdentifier("pf530-insight-counts-\(key)")
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack(spacing: 10) {
+                            Text(question.label ?? key)
+                                .font(PFPlanFont543.text(13.5, weight: .medium))
+                                .foregroundStyle(NoopLook.textPrimary)
+                                .lineLimit(2)
+                                .frame(width: 112, alignment: .leading)
+                            track(fraction: Logic.progress(yes: question.nYes, no: question.nNo), color: Color(hex: NoopLook.Hex.coachBlue))
+                            Text("\(question.nYes ?? 0) · \(question.nNo ?? 0)")
+                                .font(PFPlanFont543.text(13, weight: .semibold))
+                                .foregroundStyle(NoopLook.textSecondary)
+                                .frame(minWidth: 62, alignment: .trailing)
+                                .accessibilityIdentifier("pf530-insight-counts-\(key)")
+                        }
+                        if let missing = Logic.missing(nYes: question.nYes, nNo: question.nNo) {
+                            Text(missing)
+                                .font(PFPlanFont543.text(12.5))
+                                .foregroundStyle(NoopLook.textSecondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                                .accessibilityIdentifier("pf530-insight-missing-\(key)")
+                        }
                     }
                     .containerIdentifier("pf530-insight-collecting-\(key)")
                 }

@@ -314,6 +314,76 @@ final class PFJournalLogic530Tests: XCTestCase {
         XCTAssertEqual(Logic.progress(yes: 9, no: 2), 0.7, accuracy: 0.0001)
     }
 
+    // MARK: What a collecting row is missing
+
+    func testARowShortOfDaysWithoutSaysHowMany() {
+        XCTAssertEqual(Logic.missing(nYes: 11, nNo: 0), "Needs 5 more days without it")
+    }
+
+    func testOneMissingDayIsSingular() {
+        XCTAssertEqual(Logic.missing(nYes: 4, nNo: 6), "Needs 1 more day with it")
+    }
+
+    func testARowShortOnBothSidesNamesBoth() {
+        XCTAssertEqual(Logic.missing(nYes: 0, nNo: 2), "Needs 5 more days with it · Needs 3 more days without it")
+    }
+
+    func testARowWithEnoughOfBothSaysNothing() {
+        XCTAssertNil(Logic.missing(nYes: 5, nNo: 5))
+    }
+
+    func testAbsentCountsAreZero() {
+        XCTAssertEqual(Logic.missing(nYes: nil, nNo: nil), "Needs 5 more days with it · Needs 5 more days without it")
+    }
+
+    // MARK: The sheet behind a result row
+
+    func testAClearLowerScoreHurts() {
+        XCTAssertEqual(Logic.detail(for: insight("a", mean: (26, 61), diff: -35, clear: true)).verdict, "Hurts")
+    }
+
+    func testAClearHigherScoreHelps() {
+        XCTAssertEqual(Logic.detail(for: insight("a", mean: (61, 26), diff: 35, clear: true)).verdict, "Helps")
+    }
+
+    func testADifferenceThatIsNotClearHasNoClearEffect() {
+        XCTAssertEqual(Logic.detail(for: insight("a", mean: (63, 48), diff: 15, clear: false)).verdict, "No clear effect")
+    }
+
+    func testTheSheetsPercentIsTheServersOne() {
+        var row = insight("a", mean: (26, 61), diff: -35, clear: true)
+        row.pct = -9.9
+        XCTAssertEqual(Logic.detail(for: row).percent, "\u{2212}10 %")
+    }
+
+    func testAMissingPercentShowsADash() {
+        XCTAssertEqual(Logic.detail(for: insight("a", mean: (26, 61), diff: -35, clear: true)).percent, "\u{2013}")
+    }
+
+    func testAMissingMeanShowsADash() {
+        var row = insight("a", mean: (26, 61), diff: -35, clear: true)
+        row.meanWith = nil
+        XCTAssertEqual(Logic.detail(for: row).meanWith, "\u{2013}")
+    }
+
+    func testTheSecondLagIsWordedAsTheScreenWordsIt() {
+        let row = insight("a", lag: 2, mean: (58, 55), diff: 3, clear: false)
+        XCTAssertEqual(Logic.detail(for: row).measureLine, "morning after Charge (WHOOP)")
+    }
+
+    func testTheServersSentenceIsPassedThroughUnchanged() {
+        var row = insight("a", mean: (26, 61), diff: -35, clear: true)
+        row.note = "A: 26 % with it against 61 % without. It does not prove the cause."
+        XCTAssertEqual(Logic.detail(for: row).note, "A: 26 % with it against 61 % without. It does not prove the cause.")
+    }
+
+    func testTheServersPercentDecodes() throws {
+        let doc = try decode("""
+        {"insights":[{"behaviour":"hard_day","pct":-9.9}]}
+        """)
+        XCTAssertEqual(doc.insights?.first?.pct, -9.9)
+    }
+
     func testAPercentBarIsTheMeanOutOfOneHundred() {
         XCTAssertEqual(Logic.barFraction(61, unit: "%"), 0.61, accuracy: 0.0001)
     }

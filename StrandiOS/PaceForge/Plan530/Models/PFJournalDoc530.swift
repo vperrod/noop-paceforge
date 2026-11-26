@@ -87,6 +87,8 @@ struct PFJournalDoc530: Codable, Equatable {
         var meanWith: Double?
         var meanWithout: Double?
         var diff: Double?
+        /// The difference in percent as the server works it out (-9.9); the phone never computes it.
+        var pct: Double?
         var clear: Bool?
         var note: String?
         var byAmount: [Bucket]?

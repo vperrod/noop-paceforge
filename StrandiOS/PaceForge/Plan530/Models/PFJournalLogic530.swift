@@ -71,7 +71,7 @@ enum PFJournalLogic530 {
     // MARK: Questions
 
     /// The questions a window asks, in the document's order. A question without a key cannot be stored and is left out, and so is one the
-    /// athlete hid in the journal's own editor. `extra` (the questions added on the phone) follow, up to the ten the list holds.
+    /// athlete hid in the journal's own editor. `extra` (the questions added on the phone) follow.
     static func questions(in list: [Question]?, window: String, hidden: Set<String> = [], extra: [Question] = [],
                           selectedKeys: [String]? = nil) -> [Question] {
         // nil supports older servers; an explicit empty assignment means no ask.
@@ -333,6 +333,56 @@ enum PFJournalLogic530 {
     static func progress(yes: Int?, no: Int?) -> Double {
         let have = min(max(yes ?? 0, 0), daysNeeded) + min(max(no ?? 0, 0), daysNeeded)
         return Double(have) / Double(daysNeeded * 2)
+    }
+
+    /// Which side of a collecting question is short of a result, and by how many days; nil when neither is.
+    static func missing(nYes: Int?, nNo: Int?) -> String? {
+        let sides: [(count: Int, words: String)] = [(nYes ?? 0, "with it"), (nNo ?? 0, "without it")]
+        let lines = sides.compactMap { side -> String? in
+            let short = daysNeeded - side.count
+            return short > 0 ? "Needs \(short) more \(short == 1 ? "day" : "days") \(side.words)" : nil
+        }
+        return lines.isEmpty ? nil : lines.joined(separator: " · ")
+    }
+
+    /// What the sheet behind one result row shows. A missing number reads as a dash.
+    struct DetailModel: Equatable {
+        /// Hurts | Helps | No clear effect
+        var verdict: String
+        var label: String
+        var percent: String
+        /// What the percent is of: the lag, the measure and the device.
+        var measureLine: String
+        var meanWith: String
+        var meanWithout: String
+        /// The two bars, 0 to 1 of the measure's range.
+        var fractionWith: Double
+        var fractionWithout: Double
+        var daysWith: String
+        var daysWithout: String
+        /// The server's sentence, unchanged.
+        var note: String?
+    }
+
+    static func detail(for insight: Insight) -> DetailModel {
+        let dash = "\u{2013}"
+        let unit = insight.unit ?? ""
+        var verdict = "No clear effect"
+        if insight.clear == true, let diff = insight.diff {
+            verdict = diff < 0 ? "Hurts" : "Helps"
+        }
+        let lagWords = lagTitle(insight.lag ?? 1, outcome: insight.outcome ?? "recovery").lowercased()
+        return DetailModel(verdict: verdict,
+                           label: insight.label ?? insight.behaviour ?? dash,
+                           percent: insight.pct.map { PFImpactFormat.pctText($0) } ?? dash,
+                           measureLine: "\(lagWords) \(insight.measure ?? dash) (\(insight.device ?? dash))",
+                           meanWith: insight.meanWith.map { valueText($0, unit: unit) } ?? dash,
+                           meanWithout: insight.meanWithout.map { valueText($0, unit: unit) } ?? dash,
+                           fractionWith: insight.meanWith.map { barFraction($0, unit: unit) } ?? 0,
+                           fractionWithout: insight.meanWithout.map { barFraction($0, unit: unit) } ?? 0,
+                           daysWith: insight.nWith.map { String($0) } ?? dash,
+                           daysWithout: insight.nWithout.map { String($0) } ?? dash,
+                           note: insight.note)
     }
 
     /// A mean as a bar: 0 to 1 of the measure's range.

@@ -145,6 +145,23 @@ final class Journal530UITests: XCTestCase {
         XCTAssertFalse(app.element("pf530-insight-clear-bedtime_late").exists, "The morning after shows no clear effect for it.")
     }
 
+    func testAResultRowOpensItsSheetAndDoneClosesIt() throws {
+        let app = try launch(open: "journal-insights")
+        let row = app.element("pf530-insight-row-bedtime_late")
+        XCTAssertTrue(row.waitForExistence(timeout: 30), "The clear result should be a row to tap.")
+        XCTAssertTrue(reveal(row, in: app), "The row should be reachable.")
+        row.tap()
+        let sheet = app.element("pf530-insight-detail")
+        XCTAssertTrue(sheet.waitForExistence(timeout: 20), "A tap should open the sheet behind the result.")
+        attach(app, "5e behaviour insight detail")
+        let done = app.element("pf530-insight-detail-done")
+        XCTAssertTrue(done.waitForExistence(timeout: 10), "The sheet should offer Done.")
+        done.tap()
+        let closed = NSPredicate(format: "exists == false")
+        expectation(for: closed, evaluatedWith: sheet)
+        waitForExpectations(timeout: 20)
+    }
+
     // MARK: 5f Customise
 
     func testCustomiseListsTheQuestionsAndTheCoachSuggestions() throws {
