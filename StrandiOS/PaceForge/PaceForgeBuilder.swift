@@ -181,6 +181,7 @@ enum PFBuilder {
             currentWeekIndex: weeks.currentIndex,
             insights: insights(fitness: raw.fitness, projection: raw.projection, hyrox: raw.hyrox, today: today)
         )
+        snapshot.sessions = allWorkouts
         snapshot.athleteFitness = PFAthleteParse.fitness(raw.fitness)
         snapshot.athleteDocs = PFAthleteParse.documents(profile: raw.profile, benchmarks: raw.benchmarks)
         snapshot.body = body(raw.body)
@@ -272,6 +273,7 @@ enum PFBuilder {
                 kept.coach = fresh.coach
                 kept.weeks = fresh.weeks
                 kept.currentWeekIndex = fresh.currentWeekIndex
+                kept.sessions = fresh.sessions
                 kept.insights = fresh.insights
                 kept.sleepNights = fresh.sleepNights
                 kept.trimp = fresh.trimp
@@ -394,6 +396,7 @@ enum PFBuilder {
             currentWeekIndex: weeks.currentIndex,
             insights: insights(fitness: raw.fitness, projection: raw.projection, hyrox: raw.hyrox, today: today)
         )
+        snapshot.sessions = allWorkouts
         applyScoreSeries(&snapshot, raw: raw)
         snapshot.athleteFitness = PFAthleteParse.fitness(raw.fitness)
         return snapshot

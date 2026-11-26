@@ -11,6 +11,8 @@ struct PFSnapshot {
     var coach: PFCoach
     var weeks: [PFWeek]
     var currentWeekIndex: Int = 0
+    /// Every planned and booked session with no date window (`weeks` holds three weeks only), rest days left out.
+    var sessions: [PFWorkout] = []
     var insights: PFInsights
     var body: PFBodyDoc?
     var activities: [String: PFActivity] = [:]

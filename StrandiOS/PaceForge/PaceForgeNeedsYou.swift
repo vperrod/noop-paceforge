@@ -72,6 +72,8 @@ struct PFNeedsItem: Equatable, Identifiable {
     /// A critical question: its id (the server's, without the "question:" prefix of the item id) and the options one tap answers with.
     var questionID: String?
     var options: [PFQuestionOption] = []
+    /// The words of the question's Dismiss button; nil when the server lists no dismiss ("which workout?" can only be answered).
+    var dismissLabel: String?
     /// The day a feel answer is for; nil answers for today.
     var feelDate: String?
     var run: PFTreadmillRun?
@@ -190,6 +192,7 @@ enum PFNeedsParse {
             guard let question = ref["id"].text else { return nil }
             out.questionID = question
             out.options = j["actions"].array.compactMap(option)
+            out.dismissLabel = j["actions"].array.first { $0["decision"].text == "dismiss" }.flatMap { $0["label"].text }
         case .feel:
             out.feelDate = metric["date"].text
         case .workoutQuestions:
@@ -200,7 +203,7 @@ enum PFNeedsParse {
         return out
     }
 
-    /// An action that carries a `value` is an answer; the Dismiss action has none and the card always offers Dismiss itself.
+    /// An action that carries a `value` is an answer; the Dismiss action has none and is read into `dismissLabel`.
     private static func option(_ action: PFJ) -> PFQuestionOption? {
         guard let label = action["label"].text, let value = action["value"].text else { return nil }
         return PFQuestionOption(label: label, value: value)

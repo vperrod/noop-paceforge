@@ -61,6 +61,8 @@ enum PFJobName: String, Equatable {
     case truecoachReplanUndo = "truecoach-replan-undo"
     /// The athlete's own effort and minutes on a planned session (build 544); both null clears the choice. A calendar-style write: never replayed.
     case sessionEffort = "session-effort"
+    /// Which session a recording counts as: link it to a planned or booked one (replacing that one's recording), or unmatch it.
+    case matchEdit = "match-edit"
 
     /// How long a job is expected to take from the request to "done", in seconds, from the contract: a photo read is 5 s to about 4.5 min
     /// (the local vision model is shared), a Garmin sync about 8 s and a minute or more behind a Garmin rate limit, the rest run inline.
@@ -72,7 +74,7 @@ enum PFJobName: String, Equatable {
         case .journalCapture: return 90
         case .saveRpe, .adjustToday, .coachFeedback, .niggleAdd, .niggleResolve, .calendarEdit, .sessionState, .sessionDrop, .easyMode, .easyModeEnd, .saveEvents, .hyroxSimAdd,
              .eventUpdate, .planHours, .dayoffAdd, .dayoffRemove, .journalList, .journalProposal, .journalCaptureConfirm, .saveMemory, .stepGoalSet,
-             .manualWorkout, .manualWorkoutEdit, .manualWorkoutDelete, .manualWorkoutComment, .queryChart, .experiment, .sessionEffort: return 30
+             .manualWorkout, .manualWorkoutEdit, .manualWorkoutDelete, .manualWorkoutComment, .queryChart, .experiment, .sessionEffort, .matchEdit: return 30
         case .strengthImportPreview, .strengthImport: return 60
         case .activityEditPropose, .activityEditConfirm, .activityEditReject, .activityEditUndo, .hrZonesAdd: return 30
         case .sessionSwap, .addSession: return 60
@@ -215,6 +217,15 @@ enum PFJobInputs {
             guard (15...240).contains(minutes) else { return nil }
             return ["mode": "time", "minutes": minutes]
         }
+    }
+
+    /// `match-edit`: `{"action": "link", "activity_id": n, "session_id": id}`, or `{"action": "unlink", "activity_id": n}` when
+    /// `sessionID` is nil. The id goes as a number; a ride or strap recording has none and cannot be matched.
+    static func matchEdit(activityID: String?, sessionID: String?) -> [String: Any]? {
+        guard let id = PFActivityEditRules.recordingID(activityID) else { return nil }
+        guard let sessionID else { return ["action": "unlink", "activity_id": id] }
+        guard !sessionID.isEmpty else { return nil }
+        return ["action": "link", "activity_id": id, "session_id": sessionID]
     }
 
     /// `coach`: `{"instruction": text}`, 1 to 2000 characters. An order in plain words; a question goes to the chat instead.

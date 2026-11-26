@@ -139,6 +139,28 @@ final class PaceForgeNeedsYouTests: XCTestCase {
         XCTAssertEqual(PFNeedsAnswer.question(id: "q7", value: "alcohol").body["id"] as? String, "q7")
     }
 
+    func testAQuestionWithAListedDismissCarriesItsLabel() {
+        XCTAssertEqual(PFNeedsParse.items(json(questionDocument))[0].dismissLabel, "Dismiss")
+    }
+
+    func testAQuestionWithoutAListedDismissHasNone() {
+        let document = """
+        {"items":[{"id":"question:w1","kind":"question","title":"Which workout?","available":true,"ref":{"kind":"question","id":"w1"},
+          "actions":[{"label":"Strength","kind":"question","value":"s1"}]}]}
+        """
+        XCTAssertNil(PFNeedsParse.items(json(document))[0].dismissLabel)
+    }
+
+    func testMatchEditLinkSendsTheActionANumericActivityAndTheSession() {
+        XCTAssertEqual(PFJobInputs.matchEdit(activityID: "91", sessionID: "s1").map { $0 as NSDictionary },
+                       ["action": "link", "activity_id": 91, "session_id": "s1"] as NSDictionary)
+    }
+
+    func testMatchEditUnlinkSendsNoSession() {
+        XCTAssertEqual(PFJobInputs.matchEdit(activityID: "91", sessionID: nil).map { $0 as NSDictionary },
+                       ["action": "unlink", "activity_id": 91] as NSDictionary)
+    }
+
     func testQuestionAnswerBodyCarriesTheValue() {
         XCTAssertEqual(PFNeedsAnswer.question(id: "q7", value: "alcohol").body["value"] as? String, "alcohol")
     }

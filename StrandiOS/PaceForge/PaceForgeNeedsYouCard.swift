@@ -287,13 +287,11 @@ private struct PFNeedsProposalRow: View {
 
 // MARK: Critical question
 
-/// A missing fact that would change a reading: the question, why it matters, one tap per option and a Dismiss.
+/// A missing fact that would change a reading: the question, why it matters, one tap per option, and a Dismiss when the server lists one.
 private struct PFNeedsQuestionRow: View {
     let item: PFNeedsItem
 
     @EnvironmentObject private var model: PFModel
-
-    private static let dismissTitle = "Dismiss"
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -305,8 +303,10 @@ private struct PFNeedsQuestionRow: View {
                     }
                 }
             }
-            PFNeedsButton(title: Self.dismissTitle, id: "pf-needs-question-dismiss-\(item.id)") {
-                answer(.questionDismiss(id: questionID))
+            if let dismissTitle = item.dismissLabel {
+                PFNeedsButton(title: dismissTitle, id: "pf-needs-question-dismiss-\(item.id)") {
+                    answer(.questionDismiss(id: questionID))
+                }
             }
         }
     }

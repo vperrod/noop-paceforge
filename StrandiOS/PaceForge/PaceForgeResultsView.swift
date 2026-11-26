@@ -22,9 +22,19 @@ extension PFResultsSheet {
 /// A completed session's results, like the PaceForge web activity detail: summary, heart-rate and pace
 /// charts, zones, splits, effort, planned-versus-actual and the coach's review.
 struct PFResultsSheet: View {
-    let workout: PFWorkout
     let snapshot: PFSnapshot
-    var onAskCoach: ((String) -> Void)? = nil
+    var onAskCoach: ((String) -> Void)?
+
+    private let opened: PFWorkout
+    /// What the sheet shows after he changed the recording's match here; nil until then.
+    @State private var rematched: PFWorkout?
+    private var workout: PFWorkout { rematched ?? opened }
+
+    init(workout: PFWorkout, snapshot: PFSnapshot, onAskCoach: ((String) -> Void)? = nil) {
+        opened = workout
+        self.snapshot = snapshot
+        self.onAskCoach = onAskCoach
+    }
 
     @EnvironmentObject private var model: PFModel
     @Environment(\.dismiss) private var dismiss
@@ -180,6 +190,9 @@ struct PFResultsSheet: View {
             PFActivityEditEntry(activityID: activity.id, name: activity.name ?? workout.name ?? "Recording", type: activity.type,
                                 durationS: activity.durationS, others: PFEditCandidate.others(for: activity, in: currentSnapshot))
         }
+        if let activity, PFActivityEditRules.recordingID(activity.id) != nil {
+            PFMatchControl(activity: activity, sessions: currentSnapshot.sessions) { showMatch($0, of: activity) }
+        }
         if let detail {
             PFHeartRateCard(samples: detail.samples, splits: race == nil ? detail.splits : [], avgHr: activity?.avgHr, hrNote: race?.hrNote, isRace: race != nil)
             if race == nil, !detail.zones.isEmpty { PFZonesCard(zones: detail.zones) }
@@ -219,6 +232,21 @@ struct PFResultsSheet: View {
             }
         }
         PFResultsRating(workout: activeWorkout, rpe: rpe, photoSummary: activeActivityID.flatMap { currentSnapshot.photoSummaries[$0] })
+    }
+
+    /// Shows the sheet as the recording is matched now: the picked session (its only recording, as the server's link leaves it),
+    /// or the recording on its own after Unmatch.
+    private func showMatch(_ sessionID: String?, of activity: PFActivity) {
+        selectedActivityID = activity.id
+        if let sessionID, var session = currentSnapshot.sessions.first(where: { $0.id == sessionID }) {
+            session.activityId = activity.id
+            session.matchedActivityIds = [activity.id]
+            rematched = session
+        } else {
+            var alone = PFRecording.workout(activity, currentSnapshot)
+            alone.coachSessionID = nil
+            rematched = alone
+        }
     }
 
     private var workoutDiscussion: some View {
