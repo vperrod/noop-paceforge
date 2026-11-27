@@ -147,6 +147,16 @@ struct PFDailyBrief {
     var updateCount = 0
     /// One plain line on what moved since yesterday, written by the server.
     var changes: String?
+    /// Training status and focus as Garmin and PaceForge each say them; nil when the server sends no `signals` block.
+    var signals: PFBodySignals?
+}
+
+/// `state.daily_brief.signals`: two sources, two different measures, never merged. Every value may be missing.
+struct PFBodySignals: Equatable {
+    var statusGarmin: String?
+    var statusPaceforge: String?
+    var focusGarmin: String?
+    var focusPaceforge: String?
 }
 struct PFPulse { var at: String?; var text: String }
 

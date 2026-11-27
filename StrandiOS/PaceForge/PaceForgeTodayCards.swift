@@ -162,6 +162,7 @@ private struct PFCallSheet: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
                     PFTodaysCallStoreHost()
+                    bodySignalsLink
                     if let brief = snapshot.today.brief { PFBriefCard(brief: brief, todayISO: snapshot.todayISO) }
                     PFDualReadinessHost()
                     PFDailyReportRow()
@@ -183,6 +184,17 @@ private struct PFCallSheet: View {
         .environment(\.pfExplainers, snapshot.explainerMap)
         .presentationDetents([.large])
         .containerIdentifier("pf-the-call-sheet")
+    }
+
+    private var bodySignalsLink: some View {
+        NavigationLink {
+            BodySignalsScreen(snapshot: snapshot)
+        } label: {
+            PFRow529(title: "Body signals", sub: "WHOOP, Garmin, PaceForge and how you feel, side by side", showsChevron: true)
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("body-signals-link")
+        .planCard529()
     }
 }
 

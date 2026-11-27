@@ -640,7 +640,14 @@ enum PFBuilder {
         out.updatedAt = b["updated_at"].text
         out.updateCount = b["update_count"].int ?? 0
         out.changes = b["changes"].text
+        out.signals = bodySignals(b["signals"])
         return out
+    }
+
+    private static func bodySignals(_ j: PFJ) -> PFBodySignals? {
+        guard j["status"].exists || j["focus"].exists else { return nil }
+        return PFBodySignals(statusGarmin: j["status"]["garmin"].text, statusPaceforge: j["status"]["paceforge_load_balance"].text,
+                             focusGarmin: j["focus"]["garmin"].text, focusPaceforge: j["focus"]["paceforge_running_zones"].text)
     }
 
     // MARK: Newer files (every field optional)
