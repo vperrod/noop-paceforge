@@ -125,7 +125,7 @@ extension Repository {
         }
         // A computed row's namespace does not say which device was worn: the score's stored input source does. A row
         // from before that was stored is WHOOP's only while no other brand has ever been paired; otherwise it has no name.
-        let isOnlyWhoop = devices.allSatisfy { $0.brand.caseInsensitiveCompare("WHOOP") == .orderedSame }
+        let isOnlyWhoop = ShareStrapRow.isOnlyWhoop(brands: devices.map(\.brand))
         for id in computedReadIds {
             for row in (try? await store.dailyMetrics(deviceId: id, from: from, to: to)) ?? [] {
                 var input: String?

@@ -23,6 +23,11 @@ struct ShareDayValues: Equatable {
 struct ShareStrapRow: Equatable {
     var values: ShareDayValues
     var provider: String
+
+    /// Whether every paired device is a WHOOP, from their brands. No brands (a device list that failed to load) is not.
+    static func isOnlyWhoop(brands: [String]) -> Bool {
+        !brands.isEmpty && brands.allSatisfy { $0.caseInsensitiveCompare("WHOOP") == .orderedSame }
+    }
 }
 
 struct ShareFigure: Equatable {

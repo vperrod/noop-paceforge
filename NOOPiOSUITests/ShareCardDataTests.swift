@@ -85,6 +85,10 @@ final class ShareCardDataTests: XCTestCase {
         XCTAssertEqual(result.hrv, figure(70, average: 50, "Oura"))
     }
 
+    func testAnEmptyDeviceListIsNotOnlyWhoop() {
+        XCTAssertFalse(ShareStrapRow.isOnlyWhoop(brands: []))
+    }
+
     func testAnOlderDayIsNamedAfterTheDeviceThatMeasuredIt() {
         let shown = values("2030-03-09", hrv: 90)
         XCTAssertEqual(figures(shown, rows: rows([shown])).sourceLine, "WHOOP data")
