@@ -23,7 +23,7 @@ final class CoachingChargeUITests: XCTestCase {
         XCTAssertNotEqual(garmin, "40")
         XCTAssertEqual(text(app, "merged-today"), garmin, "Precondition: Garmin leads the merged day.")
         XCTAssertEqual(text(app, "coaching-today"), "40")
-        XCTAssertTrue(text(app, "coach-today").contains(": charge 40, Garmin Charge \(garmin) (reference only), "),
+        XCTAssertTrue(text(app, "coach-today").contains(":, charge 40, Garmin Charge \(garmin) (reference only), "),
                       text(app, "coach-today"))
     }
 
@@ -32,7 +32,7 @@ final class CoachingChargeUITests: XCTestCase {
         let garmin = text(app, "garmin-today")
         XCTAssertEqual(text(app, "merged-today"), garmin, "Precondition: the merged day carries Garmin's Charge.")
         XCTAssertEqual(text(app, "coaching-today"), "missing")
-        XCTAssertTrue(text(app, "coach-today").contains(": charge —, Garmin Charge \(garmin) (reference only), "),
+        XCTAssertTrue(text(app, "coach-today").contains(":, charge —, Garmin Charge \(garmin) (reference only), "),
                       text(app, "coach-today"))
         XCTAssertTrue(text(app, "coach-average").hasPrefix("charge: 40, "), text(app, "coach-average"))
     }
@@ -40,7 +40,7 @@ final class CoachingChargeUITests: XCTestCase {
     func testReportsCarryBothLabelledAndNeverABlend() {
         let app = launch(scenario: "led")
         XCTAssertTrue(text(app, "coach-yesterday")
-            .contains(": charge 40, Garmin Charge \(text(app, "garmin-yesterday")) (reference only), "),
+            .contains(":, charge 40, Garmin Charge \(text(app, "garmin-yesterday")) (reference only), "),
                       text(app, "coach-yesterday"))
         XCTAssertTrue(text(app, "coach-average").hasPrefix("charge: 40, "), text(app, "coach-average"))
         // The strap's figure stays exactly 40 beside a different Garmin one: nothing is blended.
