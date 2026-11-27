@@ -125,6 +125,10 @@ func nearestTrendPoint(to date: Date, in points: [TrendPoint]) -> TrendPoint? {
 public struct TrendChart: View {
 
     public var points: [TrendPoint]
+    /// A second device's readings of the same metric (Garmin beside the WHOOP strap's `points`), drawn as their own
+    /// dashed line in `comparisonColor`: never joined to `points` or averaged with them. Line mode only.
+    public var comparisonPoints: [TrendPoint]
+    public var comparisonColor: Color
     /// The gradient the line/area is stroked with (defaults to the recovery scale).
     public var gradient: Gradient
     /// The value range mapped onto the gradient (0 → bottom color, max → top color).
@@ -194,10 +198,14 @@ public struct TrendChart: View {
         workoutTimeAxis: ClosedRange<Date>? = nil,
         yAxisStep: Double? = nil,
         showsBarValues: Bool = false,
-        largeSelection: Bool = false
+        largeSelection: Bool = false,
+        comparisonPoints: [TrendPoint] = [],
+        comparisonColor: Color = NoopLook.trendDown
     ) {
         let sorted = points.sorted { $0.date < $1.date }
         self.points = sorted
+        self.comparisonPoints = comparisonPoints.sorted { $0.date < $1.date }
+        self.comparisonColor = comparisonColor
         self.gradient = gradient
         self.valueRange = valueRange
         self.showsArea = showsArea
@@ -275,7 +283,9 @@ public struct TrendChart: View {
     /// Spans `displayPoints`, the set the marks are actually built from, rather than `points`. Bucketing
     /// keeps the extremes, so the two agree today; deriving the axis from a collection the chart is not
     /// drawing is the kind of thing that stops being true quietly.
-    private var axisDays: [Date] { ChartAxisDays.spanning(displayPoints.map(\.date)) }
+    private var axisDays: [Date] {
+        ChartAxisDays.spanning((displayPoints.map(\.date) + comparisonPoints.map(\.date)).sorted())
+    }
 
     // Map data values onto the unit interval for gradient stops.
     private func unit(_ value: Double) -> Double {
@@ -377,6 +387,23 @@ public struct TrendChart: View {
                     .interpolationMethod(.catmullRom)
                     .lineStyle(StrokeStyle(lineWidth: 2.5, lineCap: .round, lineJoin: .round))
                     .foregroundStyle(lineStroke)
+                }
+                ForEach(comparisonPoints) { p in
+                    LineMark(
+                        x: .value("Date", p.date),
+                        y: .value("Value", p.value),
+                        series: .value("Segment", "comparison " + p.segment)
+                    )
+                    .lineStyle(StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round, dash: [6, 5]))
+                    .foregroundStyle(comparisonColor)
+                }
+                // A one-day stretch has no line to draw, so its dot is the only mark of that reading.
+                if comparisonPoints.count <= 60 {
+                    ForEach(comparisonPoints) { p in
+                        PointMark(x: .value("Date", p.date), y: .value("Value", p.value))
+                            .symbolSize(12)
+                            .foregroundStyle(comparisonColor)
+                    }
                 }
                 // 18pt dots are invisible on dense series (e.g. a 365-day year) but still cost the
                 // GPU a mark each — hide them past a threshold; the line carries the data there. The gate

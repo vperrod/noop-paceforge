@@ -37,6 +37,14 @@ enum WeeklyGoalMetric: String, CaseIterable, Codable, Identifiable {
         }
     }
 
+    /// Whose figures the target counts: sleep is the WHOOP strap's, workouts come from every source.
+    var sourceLabel: String {
+        switch self {
+        case .sleepHours, .sleepConsistency, .windDown: return "WHOOP"
+        case .zone45Minutes, .steps: return "All sources"
+        }
+    }
+
     /// One line on what is counted.
     var detail: String {
         switch self {

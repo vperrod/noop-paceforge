@@ -823,9 +823,9 @@ private struct FitnessAgeSection: View {
     private var fitnessAgeMetric: MetricDescriptor? { MetricCatalog.all.first { $0.key == "fitness_age" } }
 
     /// Build the readiness verdict from the same signals IntelligenceEngine feeds the engine: the last 7
-    /// computed/imported days give the resting-HR + activity coverage counts; the profile gives the rest.
+    /// strap days (computed or WHOOP-imported) give the resting-HR + activity coverage counts; the profile gives the rest.
     private var readiness: FitnessAgeReadiness {
-        let last7 = repo.days.suffix(7)
+        let last7 = repo.strapDays.suffix(7)
         let rhrDays = last7.compactMap { $0.restingHr }.count
         let activityDays = last7.compactMap { $0.strain }.count
         return FitnessAgeEngine.assessReadiness(
@@ -841,7 +841,7 @@ private struct FitnessAgeSection: View {
     /// shared with the Today card's `MetricDetailView` tap-through so both surfaces show the SAME countdown.
     private func fitnessReadyLead() -> String {
         fitnessReadyLeadCopy(
-            rhrDays: repo.days.suffix(7).compactMap { $0.restingHr }.count,
+            rhrDays: repo.strapDays.suffix(7).compactMap { $0.restingHr }.count,
             hasAge: profile.age > 0, hasSex: !profile.sex.isEmpty)
     }
 
@@ -849,6 +849,7 @@ private struct FitnessAgeSection: View {
         VStack(alignment: .leading, spacing: NoopMetrics.gap) {
             SectionHeader("Fitness Age", overline: "Weekly",
                           trailing: fitnessAge != nil ? String(localized: "vs age \(profile.age)") : nil)
+            SourceNote(text: "Nights and activity days are counted from the WHOOP strap.")
             content
         }
         .sheet(item: $fitnessSheet) { which in
@@ -1273,7 +1274,7 @@ private struct VitalitySection: View {
     @State private var loaded = false
 
     private var contributions: [VitalityEngine.Contribution] {
-        let last7 = repo.days.suffix(7)
+        let last7 = repo.strapDays.suffix(7)
         let nights = last7.compactMap { $0.totalSleepMin }.map { Double($0) / 60.0 }.filter { $0 > 0 }
         let hrvs = last7.compactMap { $0.avgHrv }
         let rhrs = last7.compactMap { $0.restingHr }.map(Double.init)
@@ -1298,6 +1299,7 @@ private struct VitalitySection: View {
         VStack(alignment: .leading, spacing: NoopMetrics.gap) {
             SectionHeader("Vitality", overline: "Weekly",
                           trailing: bodyAge != nil ? String(localized: "Body Age \(Int((bodyAge ?? 0).rounded()))") : nil)
+            SourceNote(text: "Body Age and what drives it come from the WHOOP strap's sleep, resting heart rate, HRV and steps.")
             if let v = vitality, let ba = bodyAge {
                 hero(vitality: v, bodyAge: ba)
             } else if loaded {

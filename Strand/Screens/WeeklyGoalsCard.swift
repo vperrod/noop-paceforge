@@ -35,7 +35,7 @@ enum WeeklyGoalsLoader {
         let endDate = calendar.date(byAdding: .day, value: 7, to: startDate) ?? startDate.addingTimeInterval(7 * 86_400)
         let usualFrom = startDate.addingTimeInterval(-14 * 86_400)
 
-        let metrics = Dictionary(repo.days.map { ($0.day, $0) }, uniquingKeysWith: { first, _ in first })
+        let metrics = Dictionary(repo.strapDays.map { ($0.day, $0) }, uniquingKeysWith: { first, _ in first })
         // Main sleeps (long enough not to be a nap), by the day they ended. Of several in one day the longest wins.
         var longest: [String: (length: Int, bedtime: Int)] = [:]
         var prior: [Int] = []
@@ -244,6 +244,7 @@ struct WeeklyGoalRing: View {
                 .multilineTextAlignment(.center)
                 .lineLimit(2)
                 .minimumScaleFactor(0.8)
+            PFSourceTag(source: progress.metric.sourceLabel)
             if let soFar = progress.soFar, !needsReminder {
                 Text(verbatim: soFar)
                     .font(StrandFont.caption)

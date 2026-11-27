@@ -175,7 +175,10 @@ struct PFHighlightsBody: View {
             Text(hiding.text(value.display ?? value.label ?? ""))
                 .font(LookFont.text(12, weight: .semibold))
                 .foregroundStyle(NoopLook.textSecondary)
-            Text([value.source, value.date.flatMap(PFDocDate.shortDate)].compactMap { $0 }.joined(separator: " \u{00B7} "))
+            // This slot is the Garmin side: when the server names only who worked it out (PaceForge), the device is added.
+            let device = (value.source ?? "").contains("Garmin") ? nil : "Garmin data"
+            Text([value.source, device, value.date.flatMap(PFDocDate.shortDate)].compactMap { $0 }
+                .joined(separator: " \u{00B7} "))
                 .font(LookFont.text(11, weight: .medium))
                 .foregroundStyle(NoopLook.textTertiary)
         }

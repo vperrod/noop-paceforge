@@ -35,6 +35,21 @@ enum HostedTrendData {
         return (points(window(days, .all), value), .all)
     }
 
+    /// One metric's WHOOP and Garmin points over the same window: the smallest one at or wider than `selected` in
+    /// which either device has a reading. The two stay separate series, and a day without a reading is a gap.
+    static func resolveBySource(whoop: [DailyMetric], garmin: [DailyMetric], selected: TrendsView.Range,
+                                value: (DailyMetric) -> Double?)
+        -> (whoop: [TrendPoint], garmin: [TrendPoint], effective: TrendsView.Range) {
+        func split(_ r: TrendsView.Range) -> (whoop: [TrendPoint], garmin: [TrendPoint], effective: TrendsView.Range) {
+            (SourceSplit.gapped(points(window(whoop, r), value)), SourceSplit.gapped(points(window(garmin, r), value)), r)
+        }
+        for r in selected.widening {
+            let found = split(r)
+            if !found.whoop.isEmpty || !found.garmin.isEmpty { return found }
+        }
+        return split(.all)
+    }
+
     /// The trailing window of `days`, anchored on today's local day exactly as the tab anchors it.
     private static func window(_ days: [DailyMetric], _ r: TrendsView.Range) -> [DailyMetric] {
         guard let n = r.days, n > 0 else { return days }
@@ -70,7 +85,8 @@ enum HostedTrendData {
 /// One Trends metric trend, rendered as a Today host card (#today-hosted-cards).
 ///
 /// Draws the same `ChartCard` + `TrendChart` pair the Trends tab draws, from the same resolved points,
-/// so the hosted copy cannot become a second chart of the same numbers.
+/// so the hosted copy cannot become a second chart of the same numbers. WHOOP is the solid line and Garmin
+/// the dashed one; Effort is the strap's alone.
 ///
 /// What it does NOT carry is the range selector. A home-screen card has nowhere to put one and no place
 /// to persist a per-card choice, so each takes a fixed trailing month and keeps the tab's widening
@@ -78,7 +94,8 @@ enum HostedTrendData {
 /// chosen. Twin of the Kotlin `TrendHostCard`.
 struct HostedTrendCard: View {
     let card: HostedCard
-    let days: [DailyMetric]
+    let whoopDays: [DailyMetric]
+    let garminDays: [DailyMetric]
     /// The wearer's Effort scale, resolved by the host rather than read here: only one of the three
     /// cards needs it, and Today already has it for its own tiles.
     let effortScale: EffortScale
@@ -98,7 +115,7 @@ struct HostedTrendCard: View {
             // printed numbers follow the Effort-scale toggle, converted inside `fmt`, exactly as the
             // Trends tab does it (#268).
             chart(title: "Effort", unit: "/ \(UnitFormatter.effortScaleMax(effortScale))",
-                  colour: StrandPalette.effortColor, fallback: 0...100, value: { $0.strain },
+                  colour: StrandPalette.effortColor, fallback: 0...100, showsGarmin: false, value: { $0.strain },
                   fmt: { UnitFormatter.effortDisplay($0, scale: effortScale) })
         default:
             EmptyView()
@@ -108,25 +125,29 @@ struct HostedTrendCard: View {
     @ViewBuilder
     private func chart(title: LocalizedStringKey, unit: String, colour: Color,
                        fallback: ClosedRange<Double>,
+                       showsGarmin: Bool = true,
                        value: @escaping (DailyMetric) -> Double?,
                        fmt: @escaping (Double) -> String) -> some View {
-        let resolved = HostedTrendData.resolve(days: days, selected: .month, value: value)
-        let pts = resolved.points
-        let avg = pts.isEmpty ? nil : pts.map(\.value).reduce(0, +) / Double(pts.count)
-        // The unit rides with the average. The Trends tab carries it in a footer of min/mean/max, which
-        // a home-screen card has no room for, so without this the number would appear bare.
-        let trailing = avg.map { "\(fmt($0)) \(unit)" }
-        ChartCard(title: title, subtitle: nil, trailing: trailing,
+        let resolved = HostedTrendData.resolveBySource(whoop: whoopDays, garmin: showsGarmin ? garminDays : [],
+                                                       selected: .month, value: value)
+        // The unit rides with each device's average. The Trends tab carries it in a footer, which a home-screen
+        // card has no room for, so without this the number would appear bare.
+        let averages = SourceSplit.averages(whoop: resolved.whoop, garmin: resolved.garmin) { "\(fmt($0)) \(unit)" }
+        ChartCard(title: title, subtitle: averages, trailing: nil,
                   height: NoopMetrics.chartHeight, tint: colour) {
-            TrendChart(points: pts,
+            TrendChart(points: resolved.whoop,
                        gradient: Gradient(colors: [colour.opacity(0.35), colour]),
-                       valueRange: HostedTrendData.valueRange(pts, fallback: fallback),
-                       showsArea: true,
+                       valueRange: HostedTrendData.valueRange(resolved.whoop + resolved.garmin, fallback: fallback),
+                       showsArea: false,
                        // Hover OFF. The card sits inside a NavigationLink, so a scrubbing gesture here
                        // would compete with the tap that opens the metric — the same conflict that
                        // keeps the tap-to-log card out of the navigation map. The Trends tab keeps the
                        // scrub; the Today host mirrors only the display, as the hosted Stages card does.
-                       showsHover: false)
+                       showsHover: false,
+                       comparisonPoints: resolved.garmin)
+        } footer: {
+            SourceLegend(showsWhoop: !resolved.whoop.isEmpty, showsGarmin: !resolved.garmin.isEmpty,
+                         whoopColor: colour)
         }
         .accessibilityElement(children: .combine)
         // The average goes into the spoken label, not just the visible corner. `children: .combine`
@@ -134,7 +155,7 @@ struct HostedTrendCard: View {
         // silently drops the one number on the card: VoiceOver announced "Heart rate variability" and
         // nothing else. Composed rather than interpolated into a localized string, so it needs no new
         // catalog entry for what is a title the app already has plus a formatted value.
-        .accessibilityLabel(trailing.map { Text(title) + Text(verbatim: ", \($0)") } ?? Text(title))
+        .accessibilityLabel(averages.map { Text(title) + Text(verbatim: ", \($0)") } ?? Text(title))
     }
 
 }

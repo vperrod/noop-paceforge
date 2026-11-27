@@ -205,6 +205,8 @@ struct SleepView: View {
                             .padding(.top, -24)
                             .staggeredAppear(index: 0)
                         #endif
+                        SourceNote(text: "Sleep scores, typicals and need on this screen are worked out from WHOOP nights.")
+                            .accessibilityIdentifier("sleep-source-note")
                         #if os(iOS)
                         PFPageNote(key: "sleep")
                         // One stages card (in bed and efficiency, hours and restorative sleep against the usual, the four stages, the
@@ -513,8 +515,8 @@ struct SleepView: View {
     private func performanceScore(for night: Night) -> Double? {
         let wakeDay = Repository.localDayKey(Date(timeIntervalSince1970: TimeInterval(night.session.endTs)))
         if let p = repo.importedSleep[wakeDay]?.performancePct { return p }
-        guard let daily = repo.days.last(where: { $0.day == wakeDay }) else { return nil }
-        let nightlyHours = repo.days.compactMap { row -> Double? in
+        guard let daily = repo.strapDays.last(where: { $0.day == wakeDay }) else { return nil }
+        let nightlyHours = repo.strapDays.compactMap { row -> Double? in
             guard let minutes = row.totalSleepMin, minutes > 0 else { return nil }
             return minutes / 60.0
         }
@@ -1671,7 +1673,7 @@ struct SleepView: View {
     /// plus the mean — WHOOP's "typical range". Pass nil for total asleep. Returns nil below 5
     /// scored nights (honest cold-start: no fabricated range from a few days).
     private func stageTypical(_ stage: SleepStage?) -> (lo: Double, hi: Double, mean: Double)? {
-        let values: [Double] = repo.days.suffix(30).compactMap { d in
+        let values: [Double] = repo.strapDays.suffix(30).compactMap { d in
             switch stage {
             case nil:     return d.totalSleepMin
             case .light?: return d.lightMin
@@ -1698,7 +1700,7 @@ struct SleepView: View {
 
     /// 30-day mean restorative minutes (deep + REM per scored night).
     private func restorativeTypical() -> Double? {
-        let values: [Double] = repo.days.suffix(30).compactMap { d in
+        let values: [Double] = repo.strapDays.suffix(30).compactMap { d in
             guard let deep = d.deepMin, let rem = d.remMin else { return nil }
             let v = deep + rem
             return v > 0 ? v : nil
@@ -1924,7 +1926,8 @@ struct SleepView: View {
         // The memoized model values keep the Sleep-tab perf (no per-render recompute); the Today host
         // builds AsleepDurationData itself from the same source, so the two render identical numbers.
         AsleepDurationCard(data: AsleepDurationData(points: model.trendPoints,
-                                                    typicalTotalMin: model.typicalTotalMin))
+                                                    typicalTotalMin: model.typicalTotalMin,
+                                                    garmin: AsleepDurationData.build(days: repo.garminDays).points))
     }
 
     /// Compare only after the screen has loaded the refreshed blocks and scoring has settled.
@@ -1982,7 +1985,7 @@ struct SleepView: View {
     /// nil when there is no usable latest night (renders empty state).
     private func buildModel() -> SleepModel? {
         SleepModel.build(SleepModelInputs(
-            days: repo.days,
+            days: repo.strapDays,
             sleeps: repo.sleeps,
             allSessions: allSessions,
             importedSleep: repo.importedSleep,

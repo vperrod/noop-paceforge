@@ -883,6 +883,7 @@ struct WorkoutsView: View {
         if !grid.isEmpty {
             VStack(alignment: .leading, spacing: NoopMetrics.gap) {
                 SectionHeader("Active calories", overline: "Last 13 weeks")
+                SourceNote(source: "All sources", text: "Calories and the streak count workouts from every source.")
                 NoopCard(tint: StrandPalette.effortColor) {
                     VStack(alignment: .leading, spacing: 12) {
                         // Quarter total + current streak. Both come from the pure builder; the streak
@@ -1003,7 +1004,9 @@ struct WorkoutsView: View {
         let totalKmRaw = distancesM.reduce(0, +) / 1000.0
         let modal = modalSport(from: groups)
 
-        return LazyVGrid(columns: tileColumns, alignment: .leading, spacing: NoopMetrics.gap) {
+        return VStack(alignment: .leading, spacing: NoopMetrics.gap) {
+          SourceNote(source: "All sources", text: "These totals add up workouts from every source. Each workout row names its own.")
+          LazyVGrid(columns: tileColumns, alignment: .leading, spacing: NoopMetrics.gap) {
             StatTile(label: "Total Workouts",
                      value: "\(totalCount)",
                      caption: effectiveRange.caption,
@@ -1026,6 +1029,7 @@ struct WorkoutsView: View {
                          ? (modal.count == 1 ? String(localized: "1 session") : String(localized: "\(modal.count) sessions"))
                          : nil,
                      accent: StrandPalette.textPrimary)
+          }
         }
     }
 

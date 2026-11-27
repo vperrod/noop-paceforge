@@ -2512,7 +2512,8 @@ struct TodayView: View {
             // The Trends charts, drawn by the tab's own ChartCard + TrendChart from the SAME resolved
             // points. `HostedTrendData` walks the `days` already in hand, so unlike the sleep model and
             // the stress curve there is no read behind these and nothing to gate.
-            HostedTrendCard(card: card, days: repo.days, effortScale: effortScale)
+            HostedTrendCard(card: card, whoopDays: repo.strapDays, garminDays: repo.garminDays,
+                            effortScale: effortScale)
         case .stressToday:
             // READ-ONLY, like `stages`: the Stress tab keeps the interactive timeline and this mirrors
             // only the display. `DaytimeLoadLine` is the tab's OWN line, so the host cannot drift into
@@ -2538,7 +2539,7 @@ struct TodayView: View {
                     }
                 }
             }
-        case .asleepDuration: AsleepDurationCard(data: AsleepDurationData.build(days: repo.days))
+        case .asleepDuration: AsleepDurationCard(data: AsleepDurationData.build(days: repo.strapDays, garmin: repo.garminDays))
         case .stagesVsTypical:
             // Renders from the shared SleepModel built in loadAll() (same inputs as the Sleep tab). Until the
             // async build lands — or on a device with no usable latest night — show the graceful placeholder,

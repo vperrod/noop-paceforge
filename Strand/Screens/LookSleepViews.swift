@@ -23,7 +23,7 @@ struct LookLastNightSleepCard: View {
     private var priorNights: [DailyMetric] {
         let wake = Date(timeIntervalSince1970: TimeInterval(night.session.endTs))
         let key = LookDayKey.key(wake, calendar: calendar)
-        return Array(repo.days.filter { $0.day < key }.suffix(30))
+        return Array(repo.strapDays.filter { $0.day < key }.suffix(30))
     }
 
     private var typicalHours: Double? {
@@ -53,7 +53,7 @@ struct LookLastNightSleepCard: View {
                     .foregroundStyle(NoopLook.textPrimary)
                 HStack(spacing: 4) {
                     Text("Today").foregroundStyle(NoopLook.textPrimary)
-                    Text("vs. prior 30 days").foregroundStyle(NoopLook.textSecondary)
+                    Text("vs. prior 30 WHOOP days").foregroundStyle(NoopLook.textSecondary)
                 }
                 .font(LookFont.text(15, weight: .medium))
             }

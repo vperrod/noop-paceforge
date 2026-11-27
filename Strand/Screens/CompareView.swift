@@ -11,9 +11,9 @@ import WhoopStore
 // catalog, choose a time window, and read them on a single normalized overlay
 // chart (each metric min–max scaled to 0–1 within the window so different units
 // share an axis). Below, every pair of selected metrics gets a live Pearson-r
-// correlation readout with a plain-English conclusion. Pure read-side: each
-// metric loads from repo.resolvedSeries (freshest-wins across imported / NOOP-computed /
-// compatible Apple Health, PR#196); everything else is derived in-view.
+// correlation readout with a plain-English conclusion. Pure read-side: a WHOOP
+// metric loads from the strap alone (repo.exploreSeries), any other from repo.resolvedSeries
+// (PR#196); everything else is derived in-view.
 
 // yyyy-MM-dd → Date, fixed UTC / en_US_POSIX (per task spec).
 private let compareDayParser: DateFormatter = {
@@ -335,7 +335,10 @@ struct CompareView: View {
     /// Compare on a stale pre-sync snapshot.
     private func loadSelected() async {
         for metric in selected {
-            let s = await repo.resolvedSeries(key: metric.key, source: metric.source).values
+            // A WHOOP entry is plotted and correlated from the strap alone; Garmin's metrics are their own entries.
+            let s = metric.source == Repository.whoopSource
+                ? await repo.exploreSeries(key: metric.key, source: metric.source)
+                : await repo.resolvedSeries(key: metric.key, source: metric.source).values
             fullSeries[metric.id] = s
         }
         loadedOnce = true

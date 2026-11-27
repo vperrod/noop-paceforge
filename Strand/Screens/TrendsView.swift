@@ -105,6 +105,8 @@ struct TrendsView: View {
     // widened) computation.
     private struct ResolvedMetric {
         var points: [TrendPoint]
+        /// Garmin's own series over the same window, for the vitals both devices measure; empty otherwise.
+        var garmin: [TrendPoint] = []
         var effective: Range
         var widened: Bool
         var caption: String
@@ -151,9 +153,9 @@ struct TrendsView: View {
         resolvedCache.get(repo: repo, range: range, restRevision: sleepPerfRevision,
                           day: Repository.localDayKey(Date()), locale: locale.identifier) {
             ResolvedMetrics(recovery: resolve(in: repo.strapDays) { $0.recovery },  // Charge is the strap's
-                            hrv: resolve { $0.avgHrv },
-                            rhr: resolve { $0.restingHr.map(Double.init) },
-                            strain: resolve { $0.strain },
+                            hrv: resolveBySource { $0.avgHrv },
+                            rhr: resolveBySource { $0.restingHr.map(Double.init) },
+                            strain: resolve(in: repo.strapDays) { $0.strain },
                             rest: resolve { sleepPerfByDay[$0.day] })
         }
     }
@@ -168,6 +170,15 @@ struct TrendsView: View {
         return ResolvedMetric(points: r.points, effective: r.effective,
                               widened: r.effective != range,
                               caption: caption(count: r.points.count, eff: r.effective))
+    }
+
+    /// WHOOP's and Garmin's series of one vital over the same window, kept apart.
+    private func resolveBySource(_ value: (DailyMetric) -> Double?) -> ResolvedMetric {
+        let r = HostedTrendData.resolveBySource(whoop: repo.strapDays, garmin: repo.garminDays,
+                                                selected: range, value: value)
+        return ResolvedMetric(points: r.whoop, garmin: r.garmin, effective: r.effective,
+                              widened: r.effective != range,
+                              caption: caption(count: max(r.whoop.count, r.garmin.count), eff: r.effective))
     }
 
     /// Caption text from an already-resolved count + effective range. Mirrors
@@ -348,7 +359,7 @@ struct TrendsView: View {
                         // Both rebuild a chart or a year of cells from the whole history, so they re-evaluate only when the
                         // history, the range or the appearance changes, not on every unrelated publish of the repository or
                         // the tab shell (these tabs stay alive behind the one on screen).
-                        MemoizedByKey(key: historyKey) { TrainingLoadCard(days: repo.days) }
+                        MemoizedByKey(key: historyKey) { TrainingLoadCard(days: repo.strapDays) }
                             .equatable()
                             .staggeredAppear(index: 5)
                         MemoizedByKey(key: historyKey) { yearStrip }
@@ -499,9 +510,10 @@ struct TrendsView: View {
         return parts.isEmpty ? nil : parts.joined(separator: " \u{00B7} ")
     }
 
-    /// "Average 52 ms": the mean of the selected range, for a section's one line.
+    /// "Average WHOOP 52 ms · Garmin 40 ms": each device's mean of the selected range, for a section's one line.
     private func averageIntro(_ metric: ResolvedMetric, unit: String) -> String? {
-        mean(metric.points).map { String(localized: "Average") + " \(Int($0.rounded())) " + unit }
+        SourceSplit.averages(whoop: metric.points, garmin: metric.garmin) { "\(Int($0.rounded())) " + unit }
+            .map { String(localized: "Average") + " " + $0 }
     }
 
     /// The week card, then the closed sections: Week in review, Charge (range switch, chart and year calendar), HRV, resting heart
@@ -535,12 +547,12 @@ struct TrendsView: View {
                      id: "trends-rhr") {
             rhrChart(metrics.rhr)
         }
-        PFDisclosure(title: "Effort", intro: "Daily effort over time", startsOpen: false, nested: false, id: "trends-effort") {
+        PFDisclosure(title: "Effort", intro: "Daily WHOOP effort over time", startsOpen: false, nested: false, id: "trends-effort") {
             effortChart(metrics.strain)
         }
         // Long-horizon training load (CTL/ATL/TSB). Uses the FULL history, not the range window.
-        PFDisclosure(title: "Training load", intro: "Fitness, fatigue and form", startsOpen: false, nested: false, id: "trends-load") {
-            MemoizedByKey(key: historyKey) { TrainingLoadCard(days: repo.days) }
+        PFDisclosure(title: "Training load", intro: "Fitness, fatigue and form from WHOOP effort", startsOpen: false, nested: false, id: "trends-load") {
+            MemoizedByKey(key: historyKey) { TrainingLoadCard(days: repo.strapDays) }
                 .equatable()
         }
         PFDisclosure(title: "Export", intro: "Trends report", startsOpen: false, nested: false, id: "trends-export") {
@@ -814,7 +826,8 @@ struct TrendsView: View {
             tip: StrandPalette.metricPurple,
             tint: nil,
             higherIsBetter: true,
-            range: valueRange(hrvPts, fallback: 20...120),
+            garmin: hrv.garmin,
+            range: valueRange(hrvPts + hrv.garmin, fallback: 20...120),
             fmt: { "\(Int($0.rounded()))" }
         )
     }
@@ -830,7 +843,8 @@ struct TrendsView: View {
             tip: StrandPalette.metricRose,
             tint: nil,
             higherIsBetter: false,
-            range: valueRange(rhrPts, fallback: 40...80),
+            garmin: rhr.garmin,
+            range: valueRange(rhrPts + rhr.garmin, fallback: 40...80),
             fmt: { "\(Int($0.rounded()))" }
         )
     }
@@ -844,6 +858,7 @@ struct TrendsView: View {
             accessibilityTitle: String(localized: "Effort"),
             metricKey: "strain",
             points: strainPts,
+            subtitle: SourceSplit.whoop,
             // WHOOP: Effort/Strain is always BLUE — a deep→bright blue line, not the amber ramp.
             gradient: gradient(StrandPalette.effortColor),
             tip: StrandPalette.effortColor,
@@ -868,19 +883,21 @@ struct TrendsView: View {
         tip: Color,
         tint: Color?,
         higherIsBetter: Bool?,
+        // Garmin's own series of the same vital, drawn dashed beside the strap's; nil for a strap-only metric.
+        garmin: [TrendPoint]? = nil,
         range: ClosedRange<Double>,
         fmt: @escaping (Double) -> String
     ) -> some View {
         let avg = mean(pts)
         let card = ChartCard(
             title: title,
-            subtitle: subtitle,
-            trailing: avg.map(fmt),
+            subtitle: garmin.flatMap { SourceSplit.averages(whoop: pts, garmin: $0) { "\(fmt($0)) \(unit)" } } ?? subtitle,
+            trailing: garmin == nil ? avg.map(fmt) : nil,
             height: NoopMetrics.chartHeight,
             tint: tint,
             chart: {
-                if pts.count >= 2 {
-                    glowChart(points: pts, gradient: gradient, valueRange: range,
+                if pts.count + (garmin?.count ?? 0) >= 2 {
+                    glowChart(points: pts, garmin: garmin ?? [], gradient: gradient, valueRange: range,
                               tip: tip, valueFormat: { "\(fmt($0)) \(unit)" },
                               accessibilityLabel: String(localized: "\(accessibilityTitle) trend"))
                 } else {
@@ -888,15 +905,21 @@ struct TrendsView: View {
                 }
             },
             footer: {
-                HStack {
-                    ChartFooter([
-                        // Plain "MEAN" to match the bare MIN/MAX columns; the unit moves into
-                        // the value (e.g. "58 ms") so uppercasing can't render a shouty "MEAN MS".
-                        ("Mean", avg.map { "\(fmt($0)) \(unit)" } ?? "—"),
-                        ("Min", pts.map(\.value).min().map(fmt) ?? "—"),
-                        ("Max", pts.map(\.value).max().map(fmt) ?? "—"),
-                    ])
-                    changeChip(pts, higherIsBetter: higherIsBetter, fmt: fmt)
+                VStack(alignment: .leading, spacing: NoopMetrics.space2) {
+                    if let garmin {
+                        SourceLegend(showsWhoop: !pts.isEmpty, showsGarmin: !garmin.isEmpty, whoopColor: tip)
+                    }
+                    // The figures under the chart are the strap's alone.
+                    HStack {
+                        ChartFooter([
+                            // Plain "MEAN" to match the bare MIN/MAX columns; the unit moves into
+                            // the value (e.g. "58 ms") so uppercasing can't render a shouty "MEAN MS".
+                            (garmin == nil ? "Mean" : "WHOOP mean", avg.map { "\(fmt($0)) \(unit)" } ?? "—"),
+                            ("Min", pts.map(\.value).min().map(fmt) ?? "—"),
+                            ("Max", pts.map(\.value).max().map(fmt) ?? "—"),
+                        ])
+                        changeChip(pts, higherIsBetter: higherIsBetter, fmt: fmt)
+                    }
                 }
             }
         )
@@ -970,18 +993,21 @@ struct TrendsView: View {
     /// fill contrast does the rest. The "now" end-cap is a small dot pinned to the final sample.
     /// Pure presentation: it forwards every value to the locked `TrendChart` unchanged.
     @ViewBuilder
-    private func glowChart(points pts: [TrendPoint], gradient: Gradient, valueRange: ClosedRange<Double>,
+    private func glowChart(points pts: [TrendPoint], garmin: [TrendPoint] = [], gradient: Gradient,
+                           valueRange: ClosedRange<Double>,
                            tip: Color, valueFormat: @escaping (Double) -> String,
                            accessibilityLabel: String) -> some View {
         // One crisp, interactive line + area — flat, no blurred glow copy underneath (WHOOP language).
         // The "now" end-cap is drawn INSIDE this chart (nowCapColor) so it's mapped by the chart's own
         // scales and lands on the line — the previous sibling overlay guessed the plot insets and
         // floated the dot left/below the curve (#458).
+        // Two devices are always two lines: bars and the area fill belong to a single series.
         TrendChart(points: pts, gradient: gradient, valueRange: valueRange,
-                   showsArea: true,
-                   showsBars: TrendChartStyle(rawValue: trendChartStyleRaw) == .bar,
+                   showsArea: garmin.isEmpty,
+                   showsBars: garmin.isEmpty && TrendChartStyle(rawValue: trendChartStyleRaw) == .bar,
                    height: NoopMetrics.chartHeight, valueFormat: valueFormat,
-                   accessibilityLabel: accessibilityLabel, nowCapColor: tip)
+                   accessibilityLabel: accessibilityLabel, nowCapColor: tip,
+                   comparisonPoints: garmin)
     }
 
     private var sparsePlaceholder: some View {

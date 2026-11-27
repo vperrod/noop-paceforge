@@ -15,6 +15,8 @@ import WhoopStore
 struct AsleepDurationData {
     let points: [TrendPoint]
     let typicalTotalMin: Double?
+    /// Garmin's nights, drawn dashed beside the strap's. `points` and the typical stay the strap's alone.
+    var garmin: [TrendPoint] = []
 
     /// yyyy-MM-dd → Date (en_US_POSIX, UTC) — matches `SleepView.dayParser`.
     private static let dayParser: DateFormatter = {
@@ -28,6 +30,12 @@ struct AsleepDurationData {
     /// Trailing 30 days of total sleep in HOURS, falling back to all nights with data when the trailing
     /// window is too sparse (verbatim of `SleepView.durationTrendPoints`). `typicalTotalMin` is the mean
     /// asleep minutes across nights with data (verbatim of `SleepView.typicalTotalMin`).
+    static func build(days: [DailyMetric], garmin: [DailyMetric]) -> AsleepDurationData {
+        var data = build(days: days)
+        data.garmin = build(days: garmin).points
+        return data
+    }
+
     static func build(days: [DailyMetric]) -> AsleepDurationData {
         func mk(_ slice: ArraySlice<DailyMetric>) -> [TrendPoint] {
             slice.compactMap { d -> TrendPoint? in
@@ -55,24 +63,31 @@ struct AsleepDurationCard: View {
             SectionHeader("Asleep duration", overline: "Trend")
             ChartCard(
                 title: "Hours asleep",
-                subtitle: String(localized: "Per night, trailing 30 days"),
-                trailing: avg.map { String(localized: "\(String(format: "%.1f", $0)) h avg") },
+                subtitle: data.garmin.isEmpty ? String(localized: "Per night, trailing 30 days")
+                    : SourceSplit.averages(whoop: pts, garmin: data.garmin) { String(format: "%.1f h avg", $0) },
+                trailing: data.garmin.isEmpty ? avg.map { String(localized: "\(String(format: "%.1f", $0)) h avg") } : nil,
                 height: NoopMetrics.chartHeight,
                 tint: StrandPalette.restColor,
                 chart: {
-                    if pts.count >= 2 {
-                        TrendChart(points: pts,
+                    if pts.count + data.garmin.count >= 2 {
+                        // Two devices are two lines with their own gaps; one device keeps its bars.
+                        TrendChart(points: data.garmin.isEmpty ? pts : SourceSplit.gapped(pts),
                                    gradient: StrandPalette.restGradient,
-                                   valueRange: Self.trendRange(pts),
-                                   showsBars: true,
+                                   valueRange: Self.trendRange(pts + data.garmin),
+                                   showsArea: false,
+                                   showsBars: data.garmin.isEmpty,
                                    height: NoopMetrics.chartHeight,
                                    valueFormat: { String(format: "%.1f h", $0) },
-                                   accessibilityLabel: String(localized: "Hours asleep trend"))
+                                   accessibilityLabel: String(localized: "Hours asleep trend"),
+                                   comparisonPoints: SourceSplit.gapped(data.garmin))
                     } else {
                         Self.sparsePlaceholder
                     }
                 },
                 footer: {
+                    VStack(alignment: .leading, spacing: NoopMetrics.space2) {
+                    SourceLegend(showsWhoop: !pts.isEmpty, showsGarmin: !data.garmin.isEmpty,
+                                 whoopColor: StrandPalette.restColor)
                     HStack {
                         ChartFooter([
                             ("Avg",    avg.map { String(format: "%.1f h", $0) } ?? "—"),
@@ -81,6 +96,7 @@ struct AsleepDurationCard: View {
                             ("Nights", "\(pts.count)"),
                         ])
                         durationTrendStat(pts)
+                    }
                     }
                 }
             )

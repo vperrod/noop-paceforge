@@ -46,6 +46,7 @@ struct SleepPlannerView: View {
             if let data {
                 VStack(alignment: .leading, spacing: NoopMetrics.sectionGap) {
                     hero(data)
+                    SourceNote(text: "Need, sleep debt and yesterday's Effort come from WHOOP days.")
                     wakeCard(data)
                     goalCard(data)
                     needCard(data)

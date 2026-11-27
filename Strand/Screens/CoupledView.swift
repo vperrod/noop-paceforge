@@ -452,7 +452,7 @@ struct CoupledView: View {
                                 Text("\(Self.hoursMinutes(asleep)) slept")
                                     .font(StrandFont.headline)
                                     .foregroundStyle(StrandPalette.textPrimary)
-                                Text("\(Self.hoursMinutes(sleepNeedForDay)) needed")
+                                Text("\(Self.hoursMinutes(sleepNeedForDay)) needed \u{00B7} WHOOP")
                                     .font(StrandFont.subhead)
                                     .foregroundStyle(StrandPalette.textSecondary)
                             } else {
@@ -500,7 +500,7 @@ struct CoupledView: View {
     /// The personal sleep need (minutes): the recent-mean total sleep, never below a 7.5h floor. Byte-for-byte
     /// the same rule as SleepView.sleepNeedMin so the two screens agree.
     private var sleepNeedMin: Double {
-        let banked = repo.days.compactMap { $0.totalSleepMin }.filter { $0 > 0 }
+        let banked = repo.strapDays.compactMap { $0.totalSleepMin }.filter { $0 > 0 }
         let mean = banked.isEmpty ? nil : banked.reduce(0, +) / Double(banked.count)
         return Swift.max(450, mean ?? 450)   // 450 min = 7.5h
     }

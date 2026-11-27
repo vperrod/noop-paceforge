@@ -114,7 +114,7 @@ enum SleepPlannerLoader {
             + "\(WindDownNudge.perDayWakeOverrides.sorted { $0.key < $1.key })|\(Int(now.timeIntervalSince1970 / 1800))"
         if let memo, memo.key == key { return memo.data }
 
-        let days = repo.days
+        let days = repo.strapDays
         let logicalKey = BodyVitalSigns.logicalDayKey(now)
         let todayRow = Repository.resolveToday(days: days, logicalKey: logicalKey, localKey: Repository.localDayKey(now))
         let todayKey = todayRow?.day ?? logicalKey

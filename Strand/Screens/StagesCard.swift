@@ -595,7 +595,7 @@ struct StageDetailView: View {
     /// plus the mean — WHOOP's "typical range". Pass nil for total asleep. Returns nil below 5
     /// scored nights (honest cold-start: no fabricated range from a few days).
     private func stageTypical(_ stage: SleepStage?) -> (lo: Double, hi: Double, mean: Double)? {
-        let values: [Double] = repo.days.suffix(30).compactMap { d in
+        let values: [Double] = repo.strapDays.suffix(30).compactMap { d in
             switch stage {
             case nil:     return d.totalSleepMin
             case .light?: return d.lightMin
@@ -622,7 +622,7 @@ struct StageDetailView: View {
 
     /// 30-day mean restorative minutes (deep + REM per scored night).
     private func restorativeTypical() -> Double? {
-        let values: [Double] = repo.days.suffix(30).compactMap { d in
+        let values: [Double] = repo.strapDays.suffix(30).compactMap { d in
             guard let deep = d.deepMin, let rem = d.remMin else { return nil }
             let v = deep + rem
             return v > 0 ? v : nil

@@ -1054,7 +1054,7 @@ struct MetricDetailView: View {
                         // `what` is a LocalizedStringKey; the lead is an already-resolved String, so wrap
                         // it in an interpolation (renders verbatim) rather than passing it as a lookup key.
                         VStack(alignment: .leading, spacing: NoopMetrics.space2) {
-                            ComingSoon(what: "\(fitnessReadyLeadCopy(rhrDays: repo.days.suffix(7).compactMap { $0.restingHr }.count, hasAge: profile.age > 0, hasSex: !profile.sex.isEmpty))", symbol: "figure.run")
+                            ComingSoon(what: "\(fitnessReadyLeadCopy(rhrDays: repo.strapDays.suffix(7).compactMap { $0.restingHr }.count, hasAge: profile.age > 0, hasSex: !profile.sex.isEmpty))", symbol: "figure.run")
                             // Force the weekly recompute NOW from stored data (works offline), then re-read.
                             if refreshing {
                                 ProgressView().controlSize(.small).tint(StrandPalette.accent)
@@ -1178,7 +1178,14 @@ struct MetricDetailView: View {
         let requestedRange = range
         let resolution: MetricSeriesResolution
         let loadedSeries: [(day: String, value: Double)]
-        if isStepsDetail {
+        if isStepsDetail && metric.source == Repository.whoopSource {
+            // The WHOOP steps entry is the strap's alone; a day without a WHOOP count is a gap. Garmin is its
+            // own entry in the catalog.
+            loadedSeries = await repo.exploreSeries(
+                key: metric.key, source: metric.source,
+                fullHistory: MetricDetailSteps.requiresFullHistory(metricKey: metric.key, range: requestedRange))
+            resolution = await repo.resolvedSeries(key: metric.key, source: metric.source, fullHistory: true).whoopOnly
+        } else if isStepsDetail {
             // Steps have one authoritative daily input for values and provenance. ALL deliberately reads
             // the store-backed full-history resolver instead of the bounded in-memory Explore cache.
             let fullHistory = MetricDetailSteps.requiresFullHistory(
@@ -1198,7 +1205,8 @@ struct MetricDetailView: View {
         } else {
             // Preserve the generic explorer's established value path and load order.
             loadedSeries = await repo.exploreSeries(key: metric.key, source: metric.source)
-            resolution = await repo.resolvedSeries(key: metric.key, source: metric.source)
+            // Who supplied each plotted day: for a WHOOP entry only WHOOP layers, as the line itself is.
+            resolution = await repo.resolvedSeries(key: metric.key, source: metric.source).whoopOnly
         }
         // A range tap changes the task identity. Do not let a cancelled bounded read overwrite a newer
         // full-history ALL read (or vice versa) if the underlying store await completes late.

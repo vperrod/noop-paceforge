@@ -101,6 +101,17 @@ extension DailyMetricSource {
     }
 }
 
+extension MetricSeriesResolution {
+    /// What a WHOOP-labelled place may show: when the strap's series was asked for, the days the resolver filled in
+    /// from Garmin or Apple Health are dropped. Any other request is returned as it is.
+    var whoopOnly: MetricSeriesResolution {
+        guard requestedSource == Repository.whoopSource else { return self }
+        return MetricSeriesResolution(
+            requestedSource: requestedSource, candidates: candidates,
+            points: points.filter { $0.source != "paceforge-garmin" && $0.source != Repository.appleHealthSource })
+    }
+}
+
 struct SourcedDailyMetric: Equatable {
     let metric: DailyMetric
     let source: DailyMetricSource
@@ -202,6 +213,8 @@ final class Repository: ObservableObject {
     /// Every place that presents a figure as WHOOP or the strap, and all coaching, reads this, never `days`, where Garmin can
     /// fill or lead a day.
     @Published private(set) var strapDays: [DailyMetric] = []
+    /// Garmin's own daily rows (through PaceForge), oldest first: what a screen shows as "Garmin" beside the strap's.
+    var garminDays: [DailyMetric] { vitalRows.filter { $0.source == .paceForgeGarmin }.map(\.metric) }
     /// Garmin's Charge by day, for reports to carry beside the strap's as a reference (`GarminChargeReference`). It drives nothing.
     @Published private(set) var garminCharge: [String: Double] = [:]
     /// The days on which Garmin's Charge and readings lead the strap's in `days` (see `mergePaceForgeGarmin`).
