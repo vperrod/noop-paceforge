@@ -205,10 +205,15 @@ struct SleepView: View {
                             .padding(.top, -24)
                             .staggeredAppear(index: 0)
                         #endif
-                        SourceNote(text: "Sleep scores, typicals and need on this screen are worked out from WHOOP nights.")
-                            .accessibilityIdentifier("sleep-source-note")
+                        // One child with the page note: this column is at the ten-child limit.
+                        Group {
+                            SourceNote(text: "Sleep scores, typicals and need on this screen are worked out from WHOOP nights.")
+                                .accessibilityIdentifier("sleep-source-note")
+                            #if os(iOS)
+                            PFPageNote(key: "sleep")
+                            #endif
+                        }
                         #if os(iOS)
-                        PFPageNote(key: "sleep")
                         // One stages card (in bed and efficiency, hours and restorative sleep against the usual, the four stages, the
                         // movement and partly-recorded notes), then Night detail. Last night's sleep (a second copy of the same
                         // numbers) is off the iPhone's Sleep tab.
