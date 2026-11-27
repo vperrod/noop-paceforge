@@ -107,24 +107,14 @@ struct EarlyStartScreen: View {
             NavigationLink {
                 EarlyStartPlanScreen(currentWake: data.plannerWake, bed: data.bed, targetWake: wake, startDay: start, eventDay: event)
             } label: {
-                planLabel
+                TimingPrimaryLabel(title: "Make plan")
             }
             .buttonStyle(.plain)
             .accessibilityIdentifier("early-start-make")
         } else {
-            planLabel
-                .opacity(0.4)
+            TimingPrimaryLabel(title: "Make plan", isDisabled: true)
                 .accessibilityLabel("Make plan. Enter the day, the wake time and the start day first.")
         }
-    }
-
-    private var planLabel: some View {
-        Text("Make plan")
-            .lookCaps(13)
-            .foregroundStyle(Color.black.opacity(0.85))
-            .frame(maxWidth: .infinity, minHeight: 48)
-            .background(Capsule().fill(StrandPalette.accent))
-            .contentShape(Capsule())
     }
 
     @ViewBuilder private func sheet(_ field: Field) -> some View {
@@ -264,8 +254,8 @@ struct EarlyStartPlanScreen: View {
     private var shiftCard: some View {
         VStack(alignment: .leading, spacing: 8) {
             PFOver529(text: "Shift per day")
-            Text("1 h").lookNumeral(40).foregroundStyle(NoopLook.textPrimary)
-            Text("Get bright light when you wake. In a small trial, 1 h a day with bright light for 3 days moved the body clock about 1.5 h. Race performance was not tested. In bed is the time on the evening before each wake.")
+            Text("1\u{00A0}h").lookNumeral(40).foregroundStyle(NoopLook.textPrimary)
+            Text("Get bright light when you wake. In a small trial, 1\u{00A0}h a day with bright light for 3 days moved the body clock about 1.5\u{00A0}h. Race performance was not tested. In bed is the time on the evening before each wake.")
                 .font(PFPlanFont543.text(13.5))
                 .foregroundStyle(NoopLook.textSecondary)
                 .lineSpacing(3)

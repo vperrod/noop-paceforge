@@ -102,7 +102,7 @@ struct BodySignalsScreen: View {
             words("Status", signals?.statusGarmin, source: "Garmin", id: "signals-status-garmin")
             PFDivider529()
             words("Load balance", signals?.statusPaceforge, source: "PaceForge", id: "signals-status-paceforge")
-            note("PaceForge: your training-load balance and its 7-day trend. It measures something other than Garmin's status.")
+            note("PaceForge: your training-load balance and its 7\u{2011}day trend. It measures something other than Garmin's status.")
         }
     }
 

@@ -49,17 +49,18 @@ struct AwardsSection: View {
     private func streakCard(_ streak: Int) -> some View {
         HStack(spacing: 16) {
             VStack(alignment: .leading, spacing: 2) {
-                PFOver529(text: "Current streak")
+                HStack(spacing: 8) {
+                    PFOver529(text: "Current streak")
+                    PFSourceTag(source: "WHOOP")
+                }
                 Text("\(streak)")
                     .lookNumeral(56)
                     .foregroundStyle(NoopLook.textPrimary)
                     .accessibilityIdentifier("awards-streak-count")
-                HStack(spacing: 6) {
-                    Text("day\(streak == 1 ? "" : "s") in a row with a Charge")
-                        .font(PFPlanFont543.text(13.5))
-                        .foregroundStyle(NoopLook.textSecondary)
-                    PFSourceTag(source: "WHOOP")
-                }
+                Text("day\(streak == 1 ? "" : "s") in a row with a Charge")
+                    .font(PFPlanFont543.text(13.5))
+                    .foregroundStyle(NoopLook.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             Spacer(minLength: 8)
             PFBadgeIcon(symbol: AwardKind.chargeStreak.symbol, color: AwardKind.chargeStreak.color, size: 72,
@@ -247,26 +248,25 @@ struct AwardCelebrationScreen: View {
             VStack(spacing: 18) {
                 Spacer()
                 PFBadgeIcon(symbol: celebration.kind.symbol, color: celebration.kind.color, size: 150)
-                Text("\(celebration.step)")
-                    .lookNumeral(96)
-                    .foregroundStyle(NoopLook.textPrimary)
-                Text(celebration.kind.phrase(celebration.step))
-                    .font(LookFont.text(24, weight: .bold))
-                    .foregroundStyle(NoopLook.textPrimary)
-                    .multilineTextAlignment(.center)
-                    .accessibilityIdentifier("award-celebration-title")
+                VStack(spacing: 4) {
+                    Text("\(celebration.step)")
+                        .lookNumeral(96)
+                        .foregroundStyle(NoopLook.textPrimary)
+                    // The number is above, so the words follow it without repeating it.
+                    Text(celebration.kind.phrase(celebration.step).drop { $0.isNumber || $0 == " " })
+                        .font(LookFont.text(24, weight: .bold))
+                        .foregroundStyle(NoopLook.textPrimary)
+                        .multilineTextAlignment(.center)
+                }
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(celebration.kind.phrase(celebration.step))
+                .accessibilityIdentifier("award-celebration-title")
                 Text("A new level in \(celebration.kind.title). Shown once.")
                     .font(LookFont.text(15, weight: .medium))
                     .foregroundStyle(NoopLook.textSecondary)
                     .multilineTextAlignment(.center)
                 Spacer()
-                Button(action: onDone) {
-                    Text("Done")
-                        .lookCaps(13)
-                        .foregroundStyle(Color.black.opacity(0.85))
-                        .frame(maxWidth: .infinity, minHeight: 50)
-                        .background(Capsule().fill(StrandPalette.accent))
-                }
+                Button(action: onDone) { TimingPrimaryLabel(title: "Done") }
                 .buttonStyle(.plain)
                 .accessibilityIdentifier("award-celebration-done")
             }
@@ -289,10 +289,18 @@ private struct ConfettiBurst: View {
     @State private var start = Date()
     @State private var isOver = false
 
+    /// `-ConfettiStill` (DEBUG) holds the burst one moment in, so a UI test can picture it.
+    private static let stillAt: Double? = {
+        #if DEBUG
+        if CommandLine.arguments.contains("-ConfettiStill") { return 1.1 }
+        #endif
+        return nil
+    }()
+
     var body: some View {
-        TimelineView(.animation(paused: isOver)) { context in
+        TimelineView(.animation(paused: isOver || Self.stillAt != nil)) { context in
             Canvas { canvas, size in
-                let t = context.date.timeIntervalSince(start)
+                let t = Self.stillAt ?? context.date.timeIntervalSince(start)
                 guard t < Self.seconds else { return }
                 for piece in 0..<Self.pieces {
                     // A fixed scatter per piece: the fractional part of a multiple of an irrational number.
@@ -358,7 +366,8 @@ struct AwardChallengesScreen: View {
                     .font(PFPlanFont543.text(15, weight: .semibold))
                     .foregroundStyle(NoopLook.textPrimary)
                 Spacer(minLength: 8)
-                TextField("you choose", text: $targetText)
+                TextField("How many", text: $targetText,
+                          prompt: Text("you choose").font(PFPlanFont543.text(13.5)).foregroundColor(NoopLook.textSecondary))
                     .keyboardType(.numberPad)
                     .focused($isTyping)
                     .multilineTextAlignment(.trailing)
@@ -382,15 +391,19 @@ struct AwardChallengesScreen: View {
     }
 
     private var startButton: some View {
-        PFPillButton529(title: "Start", isMain: true, isDisabled: kind == nil || target == nil || endDay == nil) {
+        let isDisabled = kind == nil || target == nil || endDay == nil
+        return Button {
             guard let kind, let target, let endDay else { return }
             store.start(kind: kind, target: target, endDay: endDay)
             self.kind = nil
             targetText = ""
             self.endDay = nil
             isTyping = false
+        } label: {
+            TimingPrimaryLabel(title: "Start", isDisabled: isDisabled)
         }
-        .frame(maxWidth: .infinity)
+        .buttonStyle(.plain)
+        .disabled(isDisabled)
         .accessibilityIdentifier("challenge-start")
     }
 

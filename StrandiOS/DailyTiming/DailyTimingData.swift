@@ -95,8 +95,8 @@ enum DailyTimingLoader {
             return (c.hour ?? 0) * 60 + (c.minute ?? 0)
         }
 
-        // The same bedtime the sleep planner draws, PaceForge's need and bedtime included when it has them.
-        await PFDailyIntelStore.shared.refreshIfStale()
+        // The same bedtime the sleep planner draws, PaceForge's need and bedtime included when it has them. Nothing here waits for
+        // the network: the screen draws from what the phone holds and reloads when a refresh changes it.
         var planner = await SleepPlannerLoader.load(repo: repo, alarmMinutes: alarmMinutes, now: now)
         let preset = SleepPlannerStore.preset
         if let need = PFDailyIntelStore.shared.current?.sleepNeed {
@@ -129,7 +129,6 @@ enum DailyTimingLoader {
             .prefix(2)
             .map { TimingJournalLine(day: $0.day, yes: $0.answeredYes) }
 
-        await PFUnified.model.refreshIfStale()
         let snapshot = PFUnified.model.snapshot
         func sessions(_ day: String) -> [TimingSession] {
             (snapshot?.sessions ?? []).filter { $0.date == day && $0.status != "optional" }.map {
@@ -138,9 +137,18 @@ enum DailyTimingLoader {
             }
         }
 
+        let wokeAt = asleep == nil ? nil : nights[today]?.wakeMinutes
+        // Up before the planner's wake time, the planner still counts to this morning: tonight's bedtime is the one after this
+        // morning's wake.
+        var bedDate = plan.bedtime
+        if let wokeAt, let wokeDate = calendar.date(bySettingHour: wokeAt / 60, minute: wokeAt % 60, second: 0, of: now),
+           bedDate < wokeDate {
+            bedDate = calendar.date(byAdding: .day, value: 1, to: bedDate) ?? bedDate
+        }
+
         return DailyTimingData(
-            today: today, now: now, bed: minutes(plan.bedtime), bedDate: plan.bedtime, bedSource: source, plannerWake: wake,
-            wokeAt: asleep == nil ? nil : nights[today]?.wakeMinutes, asleepMin: asleep,
+            today: today, now: now, bed: minutes(plan.bedtime), bedDate: bedDate, bedSource: source, plannerWake: wake,
+            wokeAt: wokeAt, asleepMin: asleep,
             pattern: DailyTiming.pattern(nights, today: today), ateClose: Array(meals),
             todaySessions: sessions(today), tomorrowSessions: sessions(DailyTiming.addDays(today, 1)),
             classSlots: snapshot?.classSlots ?? [:],

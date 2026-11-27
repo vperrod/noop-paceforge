@@ -37,6 +37,11 @@ private struct DailyTimingHost<Content: View>: View {
             classOverride = TimingClassTimeStore.minutes(loaded.today)
         }
         .onAppear { if let day = data?.today { classOverride = TimingClassTimeStore.minutes(day) } }
+        // Beside the load, never ahead of it.
+        .task {
+            await intel.refreshIfStale()
+            await model.refreshIfStale()
+        }
     }
 }
 
@@ -157,7 +162,9 @@ struct DailyTimingTodayCard: View {
                 .padding(.bottom, 6)
                 if let next {
                     let text = TimingCueText.make(next, data: data, classOverride: classOverride)
-                    TimingCueRow(text: TimingCueText(title: "Next: \(text.title.lowercasedFirst)", sub: text.sub, strength: nil,
+                    // A session keeps its own name; the other cues read on from "Next:".
+                    let title = next.kind == .session ? text.title : text.title.lowercasedFirst
+                    TimingCueRow(text: TimingCueText(title: "Next: \(title)", sub: text.sub, strength: nil,
                                                      symbol: text.symbol, color: text.color),
                                  time: next.minutes.map(DailyTiming.clock), showsChevron: false)
                     PFDivider529()
@@ -291,7 +298,8 @@ enum TimingDates {
         formatter.locale = Locale(identifier: "en_GB")
         formatter.timeZone = TimeZone(secondsFromGMT: 0)
         formatter.dateFormat = format
-        return formatter.string(from: date)
+        // No-break spaces: a date never splits over two lines.
+        return formatter.string(from: date).replacingOccurrences(of: " ", with: "\u{00A0}")
     }
 
     static func weekdayDayMonth(_ day: String) -> String { text(day, "EEE d MMM") }
@@ -571,6 +579,21 @@ struct TimingSessionScreen: View {
             }
         }
         .planCard529(padding: 16)
+    }
+}
+
+/// The full-width filled button of these screens; greyed, not faded, while it cannot be used.
+struct TimingPrimaryLabel: View {
+    let title: String
+    var isDisabled = false
+
+    var body: some View {
+        Text(title)
+            .lookCaps(13)
+            .foregroundStyle(isDisabled ? NoopLook.textTertiary : Color.black.opacity(0.85))
+            .frame(maxWidth: .infinity, minHeight: 50)
+            .background(Capsule().fill(isDisabled ? NoopLook.row : StrandPalette.accent))
+            .contentShape(Capsule())
     }
 }
 

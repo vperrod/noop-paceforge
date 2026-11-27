@@ -6,6 +6,7 @@ final class AwardsUITests: XCTestCase {
     private func launch(_ variant: String) throws -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments += ["--demo-seed", "-theme.appearance", "dark", "-AwardsFixture", variant, "-PaceForgeFixture"]
+        if variant == "celebrate" { app.launchArguments.append("-ConfettiStill") }
         let url = try XCTUnwrap(Bundle(for: Self.self).url(forResource: "PaceForgeFixture", withExtension: "json"))
         app.launchEnvironment["PF_FIXTURE_JSON"] = try Fixtures529.merged(Data(contentsOf: url))
         app.launch()
@@ -76,6 +77,9 @@ final class AwardsUITests: XCTestCase {
         app.element("challenge-target").typeText("10")
         tap("challenge-end", in: app)
         XCTAssertTrue(app.element("timing-picker-set").waitForExistence(timeout: 10))
+        // A later day of the fixture's month, so the card reads as a span; the day number as a whole word.
+        let later = app.datePickers.buttons.matching(NSPredicate(format: "label MATCHES %@", ".*\\b28\\b.*")).firstMatch
+        if later.waitForExistence(timeout: 5) { later.tap() }
         app.element("timing-picker-set").tap()
         XCTAssertTrue(start.isEnabled)
         start.tap()

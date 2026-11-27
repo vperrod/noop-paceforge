@@ -20,8 +20,16 @@ final class DailyTimingUITests: XCTestCase {
         add(screenshot)
     }
 
+    /// Mounted and clear of the tab bar, read from the frame: `isHittable` records a failure ("Activation point invalid") when it is
+    /// asked about an element that is mounted but still below the screen.
+    private func isOnScreen(_ element: XCUIElement, in app: XCUIApplication) -> Bool {
+        guard element.exists else { return false }
+        let frame = element.frame
+        return !frame.isEmpty && frame.midY > 0 && frame.midY < app.frame.height - 110
+    }
+
     private func reveal(_ element: XCUIElement, in app: XCUIApplication, maxSwipes: Int = 30) {
-        for _ in 0..<maxSwipes where !(element.exists && element.isHittable) {
+        for _ in 0..<maxSwipes where !(isOnScreen(element, in: app) && element.isHittable) {
             let from = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.62))
             let to = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.32))
             from.press(forDuration: 0.05, thenDragTo: to, withVelocity: .slow, thenHoldForDuration: 0.1)
