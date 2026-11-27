@@ -297,9 +297,13 @@ private struct ConfettiBurst: View {
                 for piece in 0..<Self.pieces {
                     // A fixed scatter per piece: the fractional part of a multiple of an irrational number.
                     func scatter(_ factor: Double) -> Double { (Double(piece + 1) * factor).truncatingRemainder(dividingBy: 1) }
-                    let x = size.width * scatter(0.6180339887) + 24 * sin(t * (1.5 + 2 * scatter(0.7320508)) + Double(piece))
-                    let speed = size.height * (0.22 + 0.28 * scatter(0.4142135))
-                    let y = -size.height * 0.45 * scatter(0.2360679) + speed * t + 60 * t * t
+                    let width = Double(size.width)
+                    let height = Double(size.height)
+                    let sway: Double = 24 * sin(t * (1.5 + 2 * scatter(0.7320508)) + Double(piece))
+                    let x: Double = width * scatter(0.6180339887) + sway
+                    let speed: Double = height * (0.22 + 0.28 * scatter(0.4142135))
+                    let startY: Double = -height * 0.45 * scatter(0.2360679)
+                    let y: Double = startY + speed * t + 60 * t * t
                     var shape = canvas
                     shape.translateBy(x: x, y: y)
                     shape.rotate(by: .radians(t * (2 + 6 * scatter(0.3166247)) + Double(piece)))

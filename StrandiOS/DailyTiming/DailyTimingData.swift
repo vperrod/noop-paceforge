@@ -21,7 +21,7 @@ struct TimingJournalLine: Equatable {
     var yes: Bool
 }
 
-struct DailyTimingData: Equatable {
+struct DailyTimingData {
     var today: String
     var now: Date
     /// Tonight's bedtime in minutes after midnight, and the moment it falls on.
@@ -121,7 +121,7 @@ enum DailyTimingLoader {
                                      lengthSec: session.endTs - session.effectiveStartTs)
         }
         let nights = DailyTiming.mainNights(blocks)
-        let asleep = strapRow?.totalSleepMin.flatMap { $0 > 0 ? $0 : nil }
+        let asleep = strapRow.flatMap(\.totalSleepMin).flatMap { $0 > 0 ? $0 : nil }
 
         let meals = await repo.journalEntries(days: DailyTiming.patternNights)
             .filter { $0.question == mealQuestion }
