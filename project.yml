@@ -510,6 +510,9 @@ targets:
       - StrandTests/LiveShapes/PaceForgeRealShapes.json
       # The share cards' figure logic, compiled into the test bundle so ShareCardDataTests can call it.
       - StrandiOS/Share/ShareCardData.swift
+      # The daily timing arithmetic and the app's caffeine rule, for DailyTimingLogicTests.
+      - StrandiOS/DailyTiming/DailyTimingLogic.swift
+      - Strand/Data/CaffeineLog.swift
     settings:
       base:
         GENERATE_INFOPLIST_FILE: YES
