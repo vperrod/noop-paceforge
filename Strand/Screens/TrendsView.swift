@@ -363,7 +363,8 @@ struct TrendsView: View {
         }
         // #436 — present the offline trends-report exporter (range picker + PDF export).
         .sheet(isPresented: $showingReport) {
-            TrendsReportSheet(days: repo.days)
+            // The report says its readings come from the strap.
+            TrendsReportSheet(days: repo.strapDays)
         }
         // #732 — load the resolved sleep_performance series so Rest plots the SAME composite the Today
         // Rest score uses (not raw efficiency). Mirrors TodayView's restScore read. Keyed on the day

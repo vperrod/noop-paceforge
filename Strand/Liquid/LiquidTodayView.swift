@@ -190,6 +190,8 @@ struct LiquidTodayView: View {
     // readiness on EVERY re-render (every HR notify, every canvas frame that invalidates, every scroll).
     // Resolve both ONCE per data/day change in load() and read the cache in body (O(1)).
     @State private var cachedDisplayDay: DailyMetric?
+    /// The strap's own row for the day on screen: what the strap dials (Rest, Charge, Effort) and the Day share card read.
+    @State private var cachedStrapDay: DailyMetric?
     @State private var cachedReadiness: ReadinessEngine.Readiness?
     /// The recovery-INDEPENDENT prior-day vitals carry (HRV / RHR / respiratory), resolved ONCE in load()
     /// alongside cachedDisplayDay. Fixes the v8 rollover blank: after 04:00, before tonight's sleep scores,
@@ -301,7 +303,7 @@ struct LiquidTodayView: View {
 
     /// Match classic Today's existing legacy-night judgement, including its selected-day gate.
     private var chargeLegacyRRGap: Bool {
-        guard let day = displayDay, day.recovery == nil else { return false }
+        guard let day = cachedStrapDay, day.recovery == nil else { return false }
         return Whoop5RR.legacyUnscorableNight(
             strictWhoop5: whoop5StrictRR, day: day.day,
             firstRecordedDay: firstRecordedRRDay, firstScorableDay: firstScorableRRDay,
@@ -1164,20 +1166,24 @@ struct LiquidTodayView: View {
     }
 
     /// The Day card for the day on screen. A Charge carried from an earlier night is not this day's, so it stays off.
-    private func dayShareCard() -> ShareCardModel {
-        let day = displayDay
+    private func dayShareCard() async -> ShareCardModel {
+        let day = cachedStrapDay
+        let key = displayDay?.day ?? selectedDayKey
         var charge: Double?
         if case .scored(let pct) = chargeDisplay { charge = pct }
-        let shown = ShareDayValues(day: day?.day ?? selectedDayKey, charge: charge, sleepMin: day?.totalSleepMin,
+        let shown = ShareDayValues(day: key, charge: charge, sleepMin: day?.totalSleepMin,
                                    effort: effortStrain(day), hrv: day?.avgHrv, restingHr: day?.restingHr.map(Double.init))
-        let whoopRows = repo.vitalRows.filter { $0.source == .whoopImport || $0.source == .noopComputed }
-        let figures = ShareDayFigures.make(shown: shown, history: repo.days.map { ShareDayValues(metric: $0) },
-                                           whoopRows: whoopRows.map { ShareDayValues(metric: $0.metric) },
-                                           strapLiveEffort: selectedDayOffset == 0 ? liveTodayStrain : nil,
-                                           hidesScores: hideScoresOn, calendar: .current)
-        // The strap rows are read from the active device's ids, so the source line names that device.
-        let provider = TodayView.todayScoreProviderLabel(sourceId: repo.deviceId, brand: repo.activeDeviceBrand())
-        return .day(figures, dayKey: shown.day, effortScale: effortScale, provider: provider)
+        let liveEffort = selectedDayOffset == 0 ? liveTodayStrain : nil
+        let history = repo.strapDays.map { ShareDayValues(metric: $0) }
+        // The 30 days the averages cover, and a day to spare for the night keyed on its wake day.
+        let from = Repository.localDayKey(Calendar.current.date(byAdding: .day, value: -31, to: selectedLogicalDay)
+                                          ?? selectedLogicalDay)
+        let rows = await repo.shareStrapRows(from: from, to: key)
+        // The live Effort is scored from the active device's heart rate.
+        let liveProvider = TodayView.todayScoreProviderLabel(sourceId: repo.deviceId, brand: repo.activeDeviceBrand())
+        let figures = ShareDayFigures.make(shown: shown, history: history, rows: rows, strapLiveEffort: liveEffort,
+                                           liveProvider: liveProvider, hidesScores: hideScoresOn, calendar: .current)
+        return .day(figures, dayKey: key, effortScale: effortScale)
     }
 
     private var lookTopBarRow: some View {
@@ -1743,7 +1749,7 @@ struct LiquidTodayView: View {
                         // The reason the count is not moving, when nights are arriving empty. Sits under
                         // the progress rather than replacing it: the wearer needs both the number and why.
                         if let why = chargeDisplay.calibrationReason(
-                            dayKeys: repo.days.map(\.day), nightlyHrv: repo.days.map(\.avgHrv),
+                            dayKeys: repo.strapDays.map(\.day), nightlyHrv: repo.strapDays.map(\.avgHrv),
                             today: Repository.logicalDayKey(Date())) {
                             Text(why).font(StrandFont.caption)
                                 .foregroundStyle(StrandPalette.textSecondary)
@@ -2402,7 +2408,8 @@ struct LiquidTodayView: View {
         // Resolve the O(days) lookups ONCE here (not on every body re-render): the selected day and the
         // readiness verdict. Both scan repo.days (up to 599 rows); doing it per-render was the stutter.
         let day = resolveDisplayDay()
-        early.append { cachedDisplayDay = day }
+        let strapDay = repo.strapDay(day?.day)
+        early.append { cachedDisplayDay = day; cachedStrapDay = strapDay }
         let rrPolicy = await readRRUnitPolicy()
         early.append {
             whoop5StrictRR = rrPolicy.strict
@@ -2433,16 +2440,16 @@ struct LiquidTodayView: View {
         let calNights = (selectedDayOffset == 0)
             ? RecoveryScorer.calibrationNights(nightlyHrv: repo.chargeBaselines?.hrvHistory.values ?? [],
                                                dayKeys: repo.chargeBaselines?.hrvHistory.dayKeys ?? [],
-                                               hasRecovery: day?.recovery != nil)
+                                               hasRecovery: strapDay?.recovery != nil)
             : nil
         let priorScored = TodayView.lastScoredRecoveryDay(
-            days: repo.days, selectedDayKey: tkey,
+            days: repo.strapDays, selectedDayKey: tkey,
             isToday: selectedDayOffset == 0,
-            todayScored: day?.recovery != nil,
+            todayScored: strapDay?.recovery != nil,
             isCalibrating: calNights != nil
         )
         let newChargeDisplay = ChargeDisplay.resolve(
-            todayRecovery: day?.recovery,
+            todayRecovery: strapDay?.recovery,
             priorScored: priorScored,
             calibrationNights: calNights,
             todayKey: tkey)
@@ -2483,7 +2490,7 @@ struct LiquidTodayView: View {
             // so a live value on the formula's yardstick outvoted an override set because the real
             // maximum is above it. See `ProfileStore.effortHRmax`.
             let maxHR = profile.effortHRmax
-            let restHR = day?.restingHr.map(Double.init) ?? StrainScorer.defaultRestingHR
+            let restHR = strapDay?.restingHr.map(Double.init) ?? StrainScorer.defaultRestingHR
             let method = PuffinExperiment.effortMethod
             let sex = profile.sex
             // Fingerprinting and scoring a full day's HR samples is pure work. Keep it off the
@@ -2539,6 +2546,8 @@ struct LiquidTodayView: View {
         // history doesn't stutter the UI. Snapshot the inputs (value types) into the detached task.
         let storedStress = await stressA
         let daysSnapshot = repo.days
+        // The Stress score sits on the "NOOP strap" Stress Monitor card, so it is worked out from the strap's days.
+        let strapSnapshot = repo.strapDays
 
         // #430 parity: the day-keyed series the DETAILED Key-Metrics tiles graph — a trailing CALENDAR
         // window ending on the selected day (not the last-N stored rows, which on an old import showed
@@ -2567,7 +2576,9 @@ struct LiquidTodayView: View {
         let energyKcalSpark: [(String, Double)] = Set(winImportedKcal.keys).union(winOnDeviceKcal.keys).sorted()
             .compactMap { day in (winImportedKcal[day] ?? winOnDeviceKcal[day]).map { (day, $0) } }
         let newSparks: [String: [(String, Double)]] = [
-            "recovery": sparkRows.compactMap { r in r.recovery.map { (r.day, $0) } },
+            // The Charge tile's own trend: the strap's, like the number above it.
+            "recovery": repo.strapDays.filter { $0.day >= sparkCutoff && $0.day <= selectedDayKey }
+                .compactMap { r in r.recovery.map { (r.day, $0) } },
             "strain": sparkRows.compactMap { r in r.strain.map { (r.day, $0) } },
             "hrv": sparkRows.compactMap { r in r.avgHrv.map { (r.day, $0) } },
             "rhr": sparkRows.compactMap { r in r.restingHr.map { (r.day, Double($0)) } },
@@ -2590,7 +2601,7 @@ struct LiquidTodayView: View {
         ]
         late.append { kSparks = newSparks }
         let newStress = await Task.detached(priority: .utility) {
-            StressModel(days: daysSnapshot, stored: storedStress)?.score
+            StressModel(days: strapSnapshot, stored: storedStress)?.score
         }.value
         let fitnessSeries = await fitA
         let newFitnessAge = fitnessSeries.last?.value   // history-wide latest banked (not day-scoped)
@@ -2788,8 +2799,8 @@ struct LiquidTodayView: View {
         // night for > staleDays), say so directly instead of "still learning your baseline" — the honest
         // calibrating state with its reason attached. `stale` is always > staleDays (14), so always plural.
         if readiness.level == .insufficient,
-           let stale = Baselines.nightsSinceNewestValidNight(dayKeys: repo.days.map(\.day),
-                                                             nightlyHrv: repo.days.map(\.avgHrv),
+           let stale = Baselines.nightsSinceNewestValidNight(dayKeys: repo.strapDays.map(\.day),
+                                                             nightlyHrv: repo.strapDays.map(\.avgHrv),
                                                              today: Repository.logicalDayKey(Date())),
            stale > Baselines.staleDays {
             return String(localized: "No new nights from your strap for \(stale) days. Check it's connected and saving data.")
@@ -3348,11 +3359,11 @@ private let headerClusterSpacing = NoopMetrics.space3
 #if os(iOS)
 /// The Share button on the top bar's second line: opens the share editor on the day's card.
 private struct LiquidShareButton: View {
-    let makeCard: @MainActor () -> ShareCardModel
+    let makeCard: @MainActor () async -> ShareCardModel
     @State private var card: ShareCardModel?
 
     var body: some View {
-        Button { card = makeCard() } label: {
+        Button { Task { card = await makeCard() } } label: {
             Image(systemName: "square.and.arrow.up")
                 .font(.system(size: 14, weight: .bold))
                 .foregroundStyle(StrandPalette.textPrimary)

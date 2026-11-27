@@ -6,9 +6,8 @@ import StrandDesign
 // drawing so they can be tested on their own (ShareCardDataTests compiles this file). A figure with no data is nil
 // and the card leaves it off.
 //
-// The Day card carries the strap's figures only (WHOOP, for a WHOOP wearer). Today's merged day can hold a figure
-// Garmin filled in, so every figure, on the shown day and in the days behind its average, is kept only when a strap
-// row of that same day carries the same value. Garmin and WHOOP are never averaged together.
+// The Day card carries the strap days only (never Garmin). Each figure is traced to the device that measured it on its own
+// day, a figure no device can be named for is left off, and an average holds only the days that same device measured.
 
 /// One day's figures that can go on the Day card. Effort is on the stored 0-100 scale.
 struct ShareDayValues: Equatable {
@@ -18,22 +17,20 @@ struct ShareDayValues: Equatable {
     var effort: Double?
     var hrv: Double?
     var restingHr: Double?
+}
 
-    /// Only the figures that one of `whoopRows` (this day's WHOOP rows, from before the merge) carries unchanged.
-    func keepingWhoop(_ whoopRows: [ShareDayValues]) -> ShareDayValues {
-        func kept(_ field: KeyPath<ShareDayValues, Double?>) -> Double? {
-            guard let value = self[keyPath: field], whoopRows.contains(where: { $0[keyPath: field] == value }) else { return nil }
-            return value
-        }
-        return ShareDayValues(day: day, charge: kept(\.charge), sleepMin: kept(\.sleepMin), effort: kept(\.effort),
-                              hrv: kept(\.hrv), restingHr: kept(\.restingHr))
-    }
+/// One stored row of a day, from before any merge, with the name of the device that measured it.
+struct ShareStrapRow: Equatable {
+    var values: ShareDayValues
+    var provider: String
 }
 
 struct ShareFigure: Equatable {
     var value: Double
-    /// The app's 30-day mean of the days before the shown one (`LookBaseline.mean`), nil when it has none.
+    /// The app's 30-day mean of the days before the shown one (`LookBaseline.mean`) that the same device measured,
+    /// nil when it has none.
     var average: Double?
+    var provider: String
 }
 
 struct ShareDayFigures: Equatable {
@@ -43,37 +40,46 @@ struct ShareDayFigures: Equatable {
     var hrv: ShareFigure?
     var restingHr: ShareFigure?
 
-    var isEmpty: Bool { charge == nil && sleepMin == nil && effort == nil && hrv == nil && restingHr == nil }
+    /// "WHOOP data", naming every device that measured a figure on the card. nil on a card with no figure.
+    var sourceLine: String? {
+        var names: [String] = []
+        for figure in [charge, sleepMin, effort, hrv, restingHr].compactMap({ $0 }) where !names.contains(figure.provider) {
+            names.append(figure.provider)
+        }
+        return names.isEmpty ? nil : "\(names.joined(separator: " + ")) data"
+    }
 
-    /// "WHOOP data": `provider` is the active device's name as the app prints it. nil on a card with no figure.
-    func sourceLine(provider: String) -> String? { isEmpty ? nil : "\(provider) data" }
-
-    /// `shown` is the day on screen and `history` the merged days; `whoopRows` are the WHOOP rows behind them.
-    /// `strapLiveEffort` is today's Effort scored live from the strap's heart rate, which no stored row carries yet.
-    /// `hidesScores` is Settings > Hide numbers: Charge and Effort stay off the card.
-    static func make(shown: ShareDayValues, history: [ShareDayValues], whoopRows: [ShareDayValues],
-                     strapLiveEffort: Double?, hidesScores: Bool, calendar: Calendar) -> ShareDayFigures {
-        let whoopByDay = Dictionary(grouping: whoopRows, by: \.day)
-        let earlier = history.filter { $0.day < shown.day }.map { $0.keepingWhoop(whoopByDay[$0.day] ?? []) }
-        var own = shown.keepingWhoop(whoopByDay[shown.day] ?? [])
-        if let strapLiveEffort, shown.effort == strapLiveEffort { own.effort = strapLiveEffort }
+    /// `shown` is the strap day on screen and `history` the strap days; `rows` are the stored rows behind them, in the
+    /// order the merge prefers them. `strapLiveEffort` is today's Effort scored live from the heart rate of the device
+    /// `liveProvider`, which no stored row carries yet. `hidesScores` is Settings > Hide numbers: Charge and Effort stay off.
+    static func make(shown: ShareDayValues, history: [ShareDayValues], rows: [ShareStrapRow],
+                     strapLiveEffort: Double?, liveProvider: String, hidesScores: Bool,
+                     calendar: Calendar) -> ShareDayFigures {
+        let rowsByDay = Dictionary(grouping: rows, by: \.values.day)
         let date = LookDayKey.date(shown.day, calendar: calendar)
 
-        func figure(_ field: KeyPath<ShareDayValues, Double?>, zeroIsData: Bool = false) -> ShareFigure? {
-            guard let value = own[keyPath: field], value.isFinite, zeroIsData || value > 0 else { return nil }
-            let rows = earlier.compactMap { day -> (day: String, value: Double)? in
-                guard let v = day[keyPath: field], zeroIsData || v > 0 else { return nil }
+        func provider(_ day: String, _ field: KeyPath<ShareDayValues, Double?>, _ value: Double) -> String? {
+            rowsByDay[day]?.first { $0.values[keyPath: field] == value }?.provider
+        }
+
+        func figure(_ field: KeyPath<ShareDayValues, Double?>, zeroIsData: Bool = false,
+                    live: Double? = nil) -> ShareFigure? {
+            guard let value = shown[keyPath: field], value.isFinite, zeroIsData || value > 0,
+                  let measuredBy = value == live ? liveProvider : provider(shown.day, field, value) else { return nil }
+            let earlier = history.compactMap { day -> (day: String, value: Double)? in
+                guard day.day < shown.day, let v = day[keyPath: field], zeroIsData || v > 0,
+                      provider(day.day, field, v) == measuredBy else { return nil }
                 return (day: day.day, value: v)
             }
             let average = date.flatMap {
-                LookBaseline.mean(of: LookSeries.points(rows, calendar: calendar), before: $0, calendar: calendar)
+                LookBaseline.mean(of: LookSeries.points(earlier, calendar: calendar), before: $0, calendar: calendar)
             }
-            return ShareFigure(value: value, average: average)
+            return ShareFigure(value: value, average: average, provider: measuredBy)
         }
 
         return ShareDayFigures(charge: hidesScores ? nil : figure(\.charge, zeroIsData: true),
                                sleepMin: figure(\.sleepMin),
-                               effort: hidesScores ? nil : figure(\.effort, zeroIsData: true),
+                               effort: hidesScores ? nil : figure(\.effort, zeroIsData: true, live: strapLiveEffort),
                                hrv: figure(\.hrv),
                                restingHr: figure(\.restingHr))
     }

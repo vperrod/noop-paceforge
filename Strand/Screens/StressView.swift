@@ -99,7 +99,7 @@ struct StressView: View {
             }
         }
         .onAppear { rebuildModelIfNeeded() }
-        .onChangeCompat(of: repo.days) { _ in rebuildModelIfNeeded() }
+        .onChangeCompat(of: repo.strapDays) { _ in rebuildModelIfNeeded() }
         .task(id: repo.refreshSeq) { await load() }
     }
 
@@ -211,10 +211,10 @@ struct StressView: View {
     /// actually changed since the last build. Equality is an O(n) value compare,
     /// far cheaper than the model rebuild it guards.
     private func rebuildModelIfNeeded() {
-        let signature = StressInputs(days: repo.days, stored: storedSeries)
+        let signature = StressInputs(days: repo.strapDays, stored: storedSeries)
         guard signature != modelSignature else { return }
         modelSignature = signature
-        model = StressModel(days: repo.days, stored: storedSeries)
+        model = StressModel(days: repo.strapDays, stored: storedSeries)
     }
 
     // MARK: Loaded content

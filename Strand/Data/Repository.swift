@@ -198,6 +198,11 @@ final class Repository: ObservableObject {
 
     /// Daily metrics (recovery/strain/sleep/HRV/RHR…) over the recent window, oldest→newest.
     @Published var days: [DailyMetric] = []
+    /// The strap's days alone (WHOOP import and NOOP's scoring of the strap), with nothing from Garmin or activity files.
+    /// Every place that presents a figure as WHOOP or the strap reads this, never `days`, where Garmin can fill or lead a day.
+    @Published private(set) var strapDays: [DailyMetric] = []
+    /// The days on which Garmin's Charge and readings lead the strap's in `days` (see `mergePaceForgeGarmin`).
+    private var garminLedDays: Set<String> = []
     /// The Charge baselines (HRV, resting HR, respiration) resolved from the imported and own daily rows
     /// with the engine's own rule (#2525), recomputed on every `refresh()`. The single funnel every Charge
     /// readout below the headline reads (the "What shaped it" rows, the calibration count, the confidence
@@ -639,13 +644,13 @@ final class Repository: ObservableObject {
     /// bookkeeping, never drives the UI (like `todayHistoryWideLoadedSeq`).
     private var widgetAnchorMemo = WidgetAnchorMemo()
 
-    /// Memoized `widgetAnchor(days: self.days)` for the Live Activity's ~1-3 Hz `onReceive` closures, which
+    /// Memoized `widgetAnchor(days: self.strapDays)` for the Live Activity's ~1-3 Hz `onReceive` closures, which
     /// otherwise re-derive the anchor (two `DateFormatter` formats + up to two full-history scans) on every
-    /// live-HR tick. Recomputes only when `days` changes (`refreshSeq`) or the day rolls — byte-identical to
+    /// live-HR tick. Recomputes only when `strapDays` changes (`refreshSeq`) or the day rolls — byte-identical to
     /// the static overload. Call THIS from the per-tick live surfaces; tests use the pure 3-arg overload.
     func cachedWidgetAnchor(now: Date = Date()) -> DailyMetric? {
         widgetAnchorMemo.resolve(
-            days: days,
+            days: strapDays,
             seq: refreshSeq,
             logicalKey: Self.logicalDayKey(now),
             localKey: Self.localDayKey(now)
@@ -872,6 +877,8 @@ final class Repository: ObservableObject {
     private struct MergedCaches {
         let importedSleep: [String: ImportedSleepFigures]
         let days: [DailyMetric]
+        let strapDays: [DailyMetric]
+        let garminLedDays: Set<String>
         let chargeBaselines: ChargeBaselines.Resolved
         let sleeps: [CachedSleepSession]
         let vitalRows: [SourcedDailyMetric]
@@ -1044,15 +1051,15 @@ final class Repository: ObservableObject {
             // and IntelligenceEngine re-keys the computed DAILY row from it; collect those edited days so the
             // merge lets the computed row's SLEEP fields win there (imports still win on every un-edited day).
             let editedDays = Self.userEditedDays(compSleep)
+            let strap = Self.mergeDaily(imported: imported, computed: computed, userEditedDays: editedDays)
+            let withGarmin = Self.mergePaceForgeGarmin(
+                into: strap, paceForgeGarmin,
+                preserveRecoveryDays: Set(imported.filter { $0.recovery != nil }.map(\.day)))
             return MergedCaches(
                 importedSleep: fig,
-                days: Self.mergeActivityFileSteps(
-                    into: Self.mergePaceForgeGarmin(
-                        into: Self.mergeDaily(imported: imported, computed: computed,
-                                              userEditedDays: editedDays),
-                            paceForgeGarmin,
-                            preserveRecoveryDays: Set(imported.filter { $0.recovery != nil }.map(\.day))),
-                    activityFile),
+                days: Self.mergeActivityFileSteps(into: withGarmin.days, activityFile),
+                strapDays: strap,
+                garminLedDays: withGarmin.garminLedDays,
                 // From the two buckets BEFORE `mergeDaily` blends them: the rule needs to know which nights
                 // are imported and which are the wearer's own.
                 chargeBaselines: ChargeBaselines.resolve(imported: imported, own: computed,
@@ -1076,6 +1083,8 @@ final class Repository: ObservableObject {
         // is what stops the analyze-tail's burst of refresh() calls each re-firing TodayView.loadAll().
         let unchanged = loaded
             && merged.days == days
+            && merged.strapDays == strapDays
+            && merged.garminLedDays == garminLedDays
             && merged.chargeBaselines == chargeBaselines
             && merged.sleeps == sleeps
             && merged.importedSleep == importedSleep
@@ -1087,6 +1096,8 @@ final class Repository: ObservableObject {
         // the intraday-updating views reload exactly once for this real change.
         self.importedSleep = merged.importedSleep
         self.days = merged.days
+        self.strapDays = merged.strapDays
+        self.garminLedDays = merged.garminLedDays
         self.chargeBaselines = merged.chargeBaselines
         self.sleeps = merged.sleeps
         self.vitalRows = merged.vitalRows
@@ -1165,8 +1176,10 @@ final class Repository: ObservableObject {
     /// an imported WHOOP recovery score remains authoritative.
     nonisolated static func mergePaceForgeGarmin(into base: [DailyMetric],
                                                  _ garmin: [DailyMetric],
-                                                 preserveRecoveryDays: Set<String> = []) -> [DailyMetric] {
-        guard !garmin.isEmpty else { return base }
+                                                 preserveRecoveryDays: Set<String> = [])
+        -> (days: [DailyMetric], garminLedDays: Set<String>) {
+        guard !garmin.isEmpty else { return (base, []) }
+        var garminLedDays = Set<String>()
         var byDay = Dictionary(base.map { ($0.day, $0) }, uniquingKeysWith: { _, last in last })
         for row in paceForgeGarminRecoveryRows(garmin) {
             if let existing = byDay[row.day] {
@@ -1177,6 +1190,7 @@ final class Repository: ObservableObject {
                 // DailyMetric is immutable: choose Garmin as the winner only when it actually produced a
                 // score, then let the normal source coalescer fill any fields Garmin lacks.
                 let useGarminRecovery = !preserveRecoveryDays.contains(row.day) && row.recovery != nil
+                if useGarminRecovery { garminLedDays.insert(row.day) }
                 byDay[row.day] = useGarminRecovery
                     ? coalesceDay(row, existing)
                     : coalesceDay(existing, row)
@@ -1184,7 +1198,7 @@ final class Repository: ObservableObject {
                 byDay[row.day] = row
             }
         }
-        return byDay.values.sorted { $0.day < $1.day }
+        return (byDay.values.sorted { $0.day < $1.day }, garminLedDays)
     }
 
     /// Derive NOOP's transparent Garmin-based recovery proxy from Garmin's overnight HRV and resting HR.
@@ -1303,12 +1317,20 @@ final class Repository: ObservableObject {
     }
 
     /// The source that supplied a value in the merged `days` for `day`: the WHOOP import first, then the strap's own scoring, then Garmin,
-    /// the order `mergeDaily` and `mergePaceForgeGarmin` fill an empty field in. Apple Health rows are not part of `days`.
+    /// the order `mergeDaily` and `mergePaceForgeGarmin` fill an empty field in. On a Garmin-led day Garmin comes first, as in that
+    /// merge. Apple Health rows are not part of `days`.
     func dailySourceLabel(day: String, hasValue: (DailyMetric) -> Bool) -> String? {
-        vitalRows
+        let isGarminLed = garminLedDays.contains(day)
+        func rank(_ source: DailyMetricSource) -> Int { isGarminLed && source == .paceForgeGarmin ? -1 : source.vitalPriority }
+        return vitalRows
             .filter { $0.metric.day == day && $0.source != .appleHealth && hasValue($0.metric) }
-            .min { $0.source.vitalPriority < $1.source.vitalPriority }?
+            .min { rank($0.source) < rank($1.source) }?
             .source.attributionLabel
+    }
+
+    /// The strap's own row for a day; nil when the strap has none, whatever `days` holds for it.
+    func strapDay(_ day: String?) -> DailyMetric? {
+        strapDays.last { $0.day == day }
     }
 
     /// Same precedence for sleep sessions, keyed by the day the night ends on.
@@ -2636,7 +2658,7 @@ final class Repository: ObservableObject {
     ///  1. the imported metricSeries under `deviceId` (a real WHOOP export);
     ///  2. the COMPUTED metricSeries under `computedDeviceId` , for keys written there but absent from
     ///     the DailyMetric columns (notably `sleep_performance`, IntelligenceEngine's Rest composite);
-    ///  3. the merged daily metrics (`self.days`, imported ∪ computed) for keys with a DailyMetric
+    ///  3. the strap's daily metrics (`strapDays`, imported ∪ computed, no Garmin) for keys with a DailyMetric
     ///     column , the same key→column map InsightsView.dailyOutcome / Android's dailyPick use,
     ///     extended to the full daily column set.
     /// Any OTHER source (apple-health / nutrition-csv / noop-mood) reads only its own series, unchanged.
@@ -2657,10 +2679,10 @@ final class Repository: ObservableObject {
         // real import always wins over the computed strap value.
         var byDay: [String: Double] = [:]
 
-        // Layer 3 (lowest): merged daily column for keys that have one. `self.days` is the published
-        // imported ∪ computed daily cache (parameter `days` is the lookback window, not this).
-        for d in self.days where byDay[d.day] == nil {
-            if let v = Self.dailyColumn(key: key, day: d, history: self.days) { byDay[d.day] = v }
+        // Layer 3 (lowest): the strap's daily column for keys that have one (parameter `days` is the lookback window).
+        // These series are shown as WHOOP, so a day only Garmin recorded stays empty.
+        for d in strapDays where byDay[d.day] == nil {
+            if let v = Self.dailyColumn(key: key, day: d, history: strapDays) { byDay[d.day] = v }
         }
         // Layer 2: computed metricSeries (covers sleep_performance, which has no daily column). UNION the
         // active strap's computed sibling + the canonical computed sibling (canonical first so the active
@@ -2678,7 +2700,7 @@ final class Repository: ObservableObject {
     }
 
     /// Who supplied `day`'s point of `exploreSeries(key:source:)`, walking the same layers in the same order: the WHOOP import's own series,
-    /// then the strap's computed series, then the merged daily column (itself WHOOP import, strap or Garmin). Any other source is read
+    /// then the strap's computed series, then the strap's daily column. Any other source is read
     /// verbatim, so it names itself. nil when the day has no point or the source has no friendly name.
     func exploreSeriesSourceLabel(key: String, source: String, day: String) async -> String? {
         guard source == Self.whoopSource else {
@@ -2697,7 +2719,11 @@ final class Repository: ObservableObject {
         for id in computedReadIds {
             if let rows = try? await store.metricSeries(deviceId: id, key: key, from: day, to: day), !rows.isEmpty { return "WHOOP strap" }
         }
-        return dailySourceLabel(day: day) { Self.dailyColumn(key: key, day: $0) != nil }
+        return vitalRows
+            .filter { ($0.source == .whoopImport || $0.source == .noopComputed) && $0.metric.day == day
+                && Self.dailyColumn(key: key, day: $0.metric) != nil }
+            .min { $0.source.vitalPriority < $1.source.vitalPriority }?
+            .source.attributionLabel
     }
 
     /// #1705: reduce a `skin_temp` window to a single scale; every other key passes through untouched.
@@ -2862,7 +2888,7 @@ final class Repository: ObservableObject {
         // The merged daily column, which `exploreSeries` layers under the WHOOP series, is handled by the
         // pure half below: in-memory over the already-published `days`, with `contains` short-circuiting
         // on the first day that carries the key — nothing like the 60 full merges it replaces.
-        return Self.nonEmptyMetricIDs(catalog, keysBySource: keysBySource, days: days,
+        return Self.nonEmptyMetricIDs(catalog, keysBySource: keysBySource, days: strapDays,
                                       whoopSource: canonicalDeviceId)
     }
 

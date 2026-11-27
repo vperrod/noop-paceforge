@@ -16,10 +16,19 @@ final class ShareCardDataTests: XCTestCase {
         ShareDayValues(day: day, charge: charge, sleepMin: sleep, effort: effort, hrv: hrv, restingHr: rhr)
     }
 
-    private func figures(_ shown: ShareDayValues, history: [ShareDayValues] = [], whoopRows: [ShareDayValues]? = nil,
+    private func figures(_ shown: ShareDayValues, history: [ShareDayValues] = [], rows: [ShareStrapRow]? = nil,
                          strapLiveEffort: Double? = nil, hidesScores: Bool = false) -> ShareDayFigures {
-        ShareDayFigures.make(shown: shown, history: history, whoopRows: whoopRows ?? history + [shown],
-                             strapLiveEffort: strapLiveEffort, hidesScores: hidesScores, calendar: calendar)
+        ShareDayFigures.make(shown: shown, history: history, rows: rows ?? self.rows(history + [shown]),
+                             strapLiveEffort: strapLiveEffort, liveProvider: "WHOOP", hidesScores: hidesScores,
+                             calendar: calendar)
+    }
+
+    private func rows(_ days: [ShareDayValues], _ provider: String = "WHOOP") -> [ShareStrapRow] {
+        days.map { ShareStrapRow(values: $0, provider: provider) }
+    }
+
+    private func figure(_ value: Double, average: Double? = nil, _ provider: String = "WHOOP") -> ShareFigure {
+        ShareFigure(value: value, average: average, provider: provider)
     }
 
     private let earlier = ["2030-03-10", "2030-03-11", "2030-03-12"]
@@ -28,7 +37,7 @@ final class ShareCardDataTests: XCTestCase {
         let history = zip(earlier, [40.0, 50, 60]).map { values($0.0, charge: $0.1) }
             + [values("2030-03-13", charge: 99), values("2030-03-14", charge: 1)]
         XCTAssertEqual(figures(values("2030-03-13", charge: 99), history: history).charge,
-                       ShareFigure(value: 99, average: 50))
+                       figure(99, average: 50))
     }
 
     func testAverageCoversThirtyDaysBeforeTheShownDay() {
@@ -40,23 +49,22 @@ final class ShareCardDataTests: XCTestCase {
 
     func testTooFewEarlierDaysGiveNoAverage() {
         let history = [values("2030-03-11", rhr: 40), values("2030-03-12", rhr: 42)]
-        XCTAssertEqual(figures(values("2030-03-13", rhr: 44), history: history).restingHr,
-                       ShareFigure(value: 44, average: nil))
+        XCTAssertEqual(figures(values("2030-03-13", rhr: 44), history: history).restingHr, figure(44))
     }
 
     func testMissingAndZeroReadingsAreLeftOff() {
         let result = figures(values("2030-03-13", sleep: 0, hrv: nil, rhr: 44))
-        XCTAssertEqual(result, ShareDayFigures(restingHr: ShareFigure(value: 44, average: nil)))
+        XCTAssertEqual(result, ShareDayFigures(restingHr: figure(44)))
     }
 
     func testZeroEffortIsAScore() {
         XCTAssertEqual(figures(values("2030-03-13", effort: 0)).effort?.value, 0)
     }
 
-    func testAFigureNoWhoopRowCarriesIsLeftOff() {
+    func testAFigureNoStoredRowCarriesIsLeftOff() {
         let shown = values("2030-03-13", charge: 77, rhr: 44)
-        let result = figures(shown, whoopRows: [values("2030-03-13", charge: 12, rhr: 44)])
-        XCTAssertEqual(result, ShareDayFigures(restingHr: ShareFigure(value: 44, average: nil)))
+        let result = figures(shown, rows: rows([values("2030-03-13", charge: 12, rhr: 44)]))
+        XCTAssertEqual(result, ShareDayFigures(restingHr: figure(44)))
     }
 
     func testAverageSkipsDaysFilledByAnotherSource() {
@@ -64,26 +72,42 @@ final class ShareCardDataTests: XCTestCase {
         var merged = history
         merged[0].restingHr = 80
         let shown = values("2030-03-13", rhr: 44)
-        // The WHOOP rows have no resting HR on 9 Mar: the merged 80 came from somewhere else.
-        let whoop = [values("2030-03-09")] + Array(history.dropFirst()) + [shown]
-        XCTAssertEqual(figures(shown, history: merged, whoopRows: whoop).restingHr?.average, 40)
+        // The stored rows have no resting HR on 9 Mar: the 80 came from somewhere else.
+        let stored = [values("2030-03-09")] + Array(history.dropFirst()) + [shown]
+        XCTAssertEqual(figures(shown, history: merged, rows: rows(stored)).restingHr?.average, 40)
+    }
+
+    func testAverageNeverMixesTwoDevices() {
+        let older = ["2030-03-07", "2030-03-08", "2030-03-09"].map { values($0, hrv: 90) }
+        let recent = earlier.map { values($0, hrv: 50) }
+        let shown = values("2030-03-13", hrv: 70)
+        let result = figures(shown, history: older + recent, rows: rows(older) + rows(recent + [shown], "Oura"))
+        XCTAssertEqual(result.hrv, figure(70, average: 50, "Oura"))
+    }
+
+    func testAnOlderDayIsNamedAfterTheDeviceThatMeasuredIt() {
+        let shown = values("2030-03-09", hrv: 90)
+        XCTAssertEqual(figures(shown, rows: rows([shown])).sourceLine, "WHOOP data")
+    }
+
+    func testSourceLineNamesEveryDeviceOnTheCard() {
+        let hrvRow = values("2030-03-13", hrv: 70)
+        let rhrRow = values("2030-03-13", rhr: 44)
+        let result = figures(values("2030-03-13", hrv: 70, rhr: 44), rows: rows([hrvRow], "Oura") + rows([rhrRow]))
+        XCTAssertEqual(result.sourceLine, "Oura + WHOOP data")
     }
 
     func testLiveStrapEffortStaysWithoutAStoredRow() {
-        XCTAssertEqual(figures(values("2030-03-13", effort: 12), whoopRows: [], strapLiveEffort: 12).effort?.value, 12)
+        XCTAssertEqual(figures(values("2030-03-13", effort: 12), rows: [], strapLiveEffort: 12).effort, figure(12))
     }
 
     func testHiddenScoresStayOffTheCard() {
         let result = figures(values("2030-03-13", charge: 77, sleep: 400, effort: 55), hidesScores: true)
-        XCTAssertEqual(result, ShareDayFigures(sleepMin: ShareFigure(value: 400, average: nil)))
-    }
-
-    func testSourceLineNamesTheGivenDevice() {
-        XCTAssertEqual(figures(values("2030-03-13", rhr: 44)).sourceLine(provider: "Oura"), "Oura data")
+        XCTAssertEqual(result, ShareDayFigures(sleepMin: figure(400)))
     }
 
     func testCardWithNoFigureHasNoSourceLine() {
-        XCTAssertNil(figures(values("2030-03-13")).sourceLine(provider: "WHOOP"))
+        XCTAssertNil(figures(values("2030-03-13")).sourceLine)
     }
 
     private let cardPixels = CGSize(width: 960, height: 1620)

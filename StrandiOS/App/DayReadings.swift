@@ -567,7 +567,8 @@ struct RecoveryThreeReadings: View {
 
     /// NOOP's own numbers for today, from the phone's own store (not from PaceForge's copy of them).
     private var noop: NoopTodayReadings {
-        let today = repo.today
+        // The strap's own row: Garmin's reading of the same day is quoted beside it under its own name.
+        let today = repo.strapDay(repo.today?.day)
         let effort = today?.strain.map { UnitFormatter.effortDisplay($0, scale: effortScale) }
         return NoopTodayReadings(charge: today?.recovery, effortText: effort,
                                  effortUnit: "/\(UnitFormatter.effortScaleMax(effortScale))")

@@ -37,8 +37,7 @@ struct ShareCardModel: Identifiable {
     var content: Content
     var source: String?
 
-    @MainActor static func day(_ figures: ShareDayFigures, dayKey: String, effortScale: EffortScale,
-                               provider: String) -> ShareCardModel {
+    @MainActor static func day(_ figures: ShareDayFigures, dayKey: String, effortScale: EffortScale) -> ShareCardModel {
         func stat(_ label: String, _ figure: ShareFigure?, color: Color = .white, text: (Double) -> String) -> Stat? {
             figure.map { Stat(label: label, value: text($0.value), average: $0.average.map { "avg \(text($0))" }, color: color) }
         }
@@ -59,7 +58,7 @@ struct ShareCardModel: Identifiable {
             stat("Resting HR", figures.restingHr, text: whole),
         ].compactMap { $0 }
         return ShareCardModel(heading: PFDocDate.dayMonthYear(dayKey) ?? dayKey, content: .day(ring: ring, stats: stats),
-                              source: figures.sourceLine(provider: provider))
+                              source: figures.sourceLine)
     }
 
     @MainActor static func workout(_ row: WorkoutRow, effortScale: EffortScale, distanceSystem: UnitSystem) -> ShareCardModel {
@@ -106,6 +105,38 @@ extension ShareDayValues {
     init(metric: DailyMetric) {
         self.init(day: metric.day, charge: metric.recovery, sleepMin: metric.totalSleepMin, effort: metric.strain,
                   hrv: metric.avgHrv, restingHr: metric.restingHr.map(Double.init))
+    }
+}
+
+extension Repository {
+    /// The stored rows behind the strap days from `from` to `to`, each named after the device that measured it, in the
+    /// order the merge prefers them (imported before computed, the active device first).
+    func shareStrapRows(from: String, to: String) async -> [ShareStrapRow] {
+        guard let store = await storeHandle() else { return [] }
+        let devices = (try? DeviceRegistryStore(dbQueue: store.registryWriter).all()) ?? []
+        func name(_ id: String) -> String {
+            TodayView.todayScoreProviderLabel(sourceId: id, brand: devices.first { $0.id == id }?.brand)
+        }
+        var out: [ShareStrapRow] = []
+        for id in importedReadIds {
+            for row in (try? await store.dailyMetrics(deviceId: id, from: from, to: to)) ?? [] {
+                out.append(ShareStrapRow(values: ShareDayValues(metric: row), provider: name(id)))
+            }
+        }
+        // A computed row's namespace does not say which device was worn: the score's stored input source does. A row
+        // from before that was stored is WHOOP's only while no other brand has ever been paired; otherwise it has no name.
+        let isOnlyWhoop = devices.allSatisfy { $0.brand.caseInsensitiveCompare("WHOOP") == .orderedSame }
+        for id in computedReadIds {
+            for row in (try? await store.dailyMetrics(deviceId: id, from: from, to: to)) ?? [] {
+                var input: String?
+                for key in ["recovery", "strain", "sleep_performance"] where input == nil {
+                    input = (try? await store.scoreInputSource(deviceId: id, day: row.day, key: key)) ?? nil
+                }
+                guard let provider = input.map(name) ?? (isOnlyWhoop ? name(Repository.whoopSource) : nil) else { continue }
+                out.append(ShareStrapRow(values: ShareDayValues(metric: row), provider: provider))
+            }
+        }
+        return out
     }
 }
 
@@ -431,9 +462,11 @@ struct ShareCardRenderHarness: View {
         let earlier = ["2030-03-10", "2030-03-11", "2030-03-12"].map {
             ShareDayValues(day: $0, charge: 55, sleepMin: 404, effort: 44, hrv: 55, restingHr: 46)
         }
-        let figures = ShareDayFigures.make(shown: shown, history: earlier + [shown], whoopRows: earlier + [shown],
-                                           strapLiveEffort: nil, hidesScores: false, calendar: .current)
-        return .day(figures, dayKey: shown.day, effortScale: .hundred, provider: "WHOOP")
+        let figures = ShareDayFigures.make(shown: shown, history: earlier,
+                                           rows: (earlier + [shown]).map { ShareStrapRow(values: $0, provider: "WHOOP") },
+                                           strapLiveEffort: nil, liveProvider: "WHOOP", hidesScores: false,
+                                           calendar: .current)
+        return .day(figures, dayKey: shown.day, effortScale: .hundred)
     }
 
     private var fixturePhoto: UIImage {

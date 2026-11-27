@@ -363,7 +363,8 @@ struct EffortBreakdownView: View {
         let end = max(start, now - 1)
 
         let hr = await repo.hrSamples(from: start, to: end, limit: 200_000)
-        let day = repo.today ?? repo.days.last(where: { $0.day == dayKey })
+        // The page explains the strap's Effort, so the resting heart rate is the strap's.
+        let day = repo.strapDay(dayKey)
         let storedRest = day?.restingHr
         let restHR = storedRest.map(Double.init) ?? StrainScorer.defaultRestingHR
         let maxHR = profile.effortHRmax

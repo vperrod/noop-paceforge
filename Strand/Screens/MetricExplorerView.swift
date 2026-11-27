@@ -1272,8 +1272,8 @@ struct MetricDetailView: View {
         // An absolute may live in EITHER column (#622: a WHOOP CSV import writes absolute °C into
         // `skinTempDevC`), so both count here and in the series below.
         skinTempNote = nil
-        if metric.key == "skin_temp" {
-            let days = repo.days
+        if metric.key == "skin_temp" && metric.source == Repository.whoopSource {
+            let days = repo.strapDays
             let anyAbsolute = days.contains { row in
                 row.skinTempC != nil
                     || row.skinTempDevC.map(VitalBands.isAbsoluteSkinTemp) == true
