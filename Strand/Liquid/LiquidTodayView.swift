@@ -1019,6 +1019,7 @@ struct LiquidTodayView: View {
                 .accessibilityIdentifier("today-my-day-header")
             // One row for the morning read and, in the evening, the day in review.
             if shows(.bookend) { PFTodayBookendRow() }
+            if selectedDayOffset == 0 { DailyTimingTodayCard() }
         }
         // Stage 2: the My Day cards.
         if mountStage >= 2 {

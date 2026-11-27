@@ -182,6 +182,7 @@ enum PFBuilder {
             insights: insights(fitness: raw.fitness, projection: raw.projection, hyrox: raw.hyrox, today: today)
         )
         snapshot.sessions = allWorkouts
+        snapshot.classSlots = classSlots(state["settings"]["routine"])
         snapshot.athleteFitness = PFAthleteParse.fitness(raw.fitness)
         snapshot.athleteDocs = PFAthleteParse.documents(profile: raw.profile, benchmarks: raw.benchmarks)
         snapshot.body = body(raw.body)
@@ -397,6 +398,7 @@ enum PFBuilder {
             insights: insights(fitness: raw.fitness, projection: raw.projection, hyrox: raw.hyrox, today: today)
         )
         snapshot.sessions = allWorkouts
+        snapshot.classSlots = classSlots(state["settings"]["routine"])
         applyScoreSeries(&snapshot, raw: raw)
         snapshot.athleteFitness = PFAthleteParse.fitness(raw.fitness)
         return snapshot
@@ -599,6 +601,19 @@ enum PFBuilder {
     }
 
     // MARK: Today
+
+    private static func classSlots(_ routine: PFJ) -> [String: PFClassSlot] {
+        var out: [String: PFClassSlot] = [:]
+        for day in ["mon", "tue", "wed", "thu", "fri", "sat", "sun"] {
+            for slot in routine[day].array where slot["kind"].string == "class" {
+                let clock = (slot["start"].string ?? "").split(separator: ":").compactMap { Int($0) }
+                guard clock.count == 2, (0..<24).contains(clock[0]), (0..<60).contains(clock[1]) else { continue }
+                out[day] = PFClassSlot(startMinutes: clock[0] * 60 + clock[1], minutes: slot["minutes"].int)
+                break
+            }
+        }
+        return out
+    }
 
     private static func dailyBrief(_ b: PFJ) -> PFDailyBrief? {
         guard let headline = b["headline"].text else { return nil }

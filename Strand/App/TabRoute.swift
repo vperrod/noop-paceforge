@@ -22,6 +22,8 @@ enum TabRoute: Hashable {
     case myDay
     /// Sleep Planner: tonight's need, a goal and a bedtime (the Today and Sleep entry cards).
     case sleepPlanner
+    /// Today's timing: the day's cues counted back from the planned bedtime (the Today card). iPhone only; elsewhere the planner.
+    case dailyTiming
     /// One metric's detail page by `MetricCatalog` key — the same tap-through Today's cards and
     /// Trends' small-multiples share. Each card opens ITS metric (2026-07-02: not the shared
     /// Health screen).
@@ -96,6 +98,12 @@ extension View {
             case .fullDayChart: FullDayChartView()
             case .myDay: MyDayView()
             case .sleepPlanner: SleepPlannerView()
+            case .dailyTiming:
+                #if os(iOS)
+                DailyTimingScreen()
+                #else
+                SleepPlannerView()
+                #endif
             case .metric(let key):
                 // Every caller passes a catalog key, so the fallback is theoretical; Health is the
                 // catch-all vitals surface. (Pre-#198 Trends fell back to the Explorer instead —

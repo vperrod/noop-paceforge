@@ -73,6 +73,9 @@ struct PFSnapshot {
     /// The Garmin profile, PaceForge's race forecast and the filed benchmarks (`profile.json`, `analytics.json`, `benchmarks.json`); nil when the server has none of them.
     var athleteDocs: PFAthleteDocs?
 
+    /// The usual class slot of each weekday ("mon" ... "sun") from `state.settings.routine`; the first class of a day.
+    var classSlots: [String: PFClassSlot] = [:]
+
     /// The rides of one day.
     func rides(on date: String) -> [PFRide] { rides.filter { $0.date == date } }
 
@@ -90,6 +93,9 @@ struct PFSnapshot {
 }
 
 struct PFSleepNight { var date: String; var minutes: Double }
+
+/// A class time of the weekly routine: a usual time, not a booking.
+struct PFClassSlot: Equatable { var startMinutes: Int; var minutes: Int? }
 
 // MARK: Today
 
