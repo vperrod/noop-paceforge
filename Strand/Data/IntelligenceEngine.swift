@@ -960,6 +960,110 @@ final class IntelligenceEngine: ObservableObject {
                             // #1545: carried beside `workouts` because it explains the times that list is
                             // EMPTY, and the emit happens in the main-actor loop below, not here.
                             detectionFunnel: WorkoutDetector.DetectionFunnel?)] = []   // #195: carried from loop 1
+        // Device-registry snapshot for per-day owner resolution (invariant I2 , a day's scores come from
+        // exactly ONE source). Read once before the loop: the paired-device list + the active id are
+        // stable for the run. With only the seeded 'my-whoop' row paired (the default and every
+        // single-WHOOP install) the active strap is `deviceId`, so `resolveDayOwner` below returns
+        // `deviceId` for every day and the per-day reads are byte-identical to the pre-I2 behaviour.
+        let registry = DeviceRegistryStore(dbQueue: store.registryWriter)
+        // #1567: `try?` used to swallow this read, and an empty device list is NOT a neutral outcome —
+        // every day then resolves to `.whoop5` (see `skinTempFamily(forOwner:devices:)`), so a WHOOP 4.0's
+        // raw skin-temp ADC is read as centidegrees, misses the 28–42 °C worn gate, and the night yields
+        // nothing. `regDevices` also supplies the owner's model/brand below, so a failed read degrades more
+        // than skin temp alone. Still non-fatal — the pass proceeds on exactly the fallbacks it always did
+        // — but it no longer does so in silence. The Kotlin twin reaches this state by a different route (a
+        // caller omitting `ownerSource`), hence the different cause token; see `registryUnavailableLine`.
+        let regDevices: [PairedDevice]
+        do {
+            regDevices = try registry.all()
+        } catch {
+            regDevices = []
+            diagnosticSink?(AnalyticsEngine.registryUnavailableLine(importedDeviceId: deviceId), nil)
+        }
+        let regActiveId = (try? registry.activeDeviceId()) ?? deviceId
+
+        // Floor `now` to LOCAL midnight (#277) so each `dayStart` lands on a local-day boundary and the
+        // day keys are LOCAL calendar days, consistent with the dashboard's local "today" lookup. A
+        // west-of-UTC user's evening crosses midnight UTC; bucketing by UTC put it in the next UTC day,
+        // which the local read never found (Toronto/UTC-4 report).
+        let nowLocalMidnight = Self.midnightLocal(now, offsetSec: tzOffset)
+
+        // ── Learned habitual midsleep (#547) ──────────────────────────────────
+        // Compute the user's habitual midsleep ONCE per run from the trailing sleep history so the
+        // main-night scored pick aligns to their REAL bedtime (a late/shift sleeper), not a fixed clock
+        // band. Read the stored sleep sessions (imported WHOOP-export + computed "-noop") over the
+        // analysis window, make one HistoryBlock per session keyed by the LOCAL calendar day of its
+        // midpoint, and let the learner pick the longest block per day (so naps drop out automatically).
+        // Returns nil under `habitualMinDays` of history → cold-start: every `analyzeDay`/`sleepEditedDaily`
+        // call below stays on the overnight-band bonus. The same value threads into both seams so analytics
+        // and the Sleep tab resolve to the identical block. (#547)
+        let (habitualMidsleepSec, nightlyHours) = await Self.computeHabitualSleep(
+            store: store, importedId: deviceId, computedId: deviceId + "-noop",
+            windowStart: nowLocalMidnight - maxDays * 86_400 - StreamReadCap.lookbackSeconds,
+            windowEnd: now, finishedBefore: nowLocalMidnight, offsetSec: tzOffset)
+        // Wave 0 (SL1/T1): personal sleep REGULARITY + population-anchored NEED, computed ONCE from the
+        // trailing per-night durations and threaded to every analyzeDay below (mirrors the midsleep
+        // learner just above — one personal trait per run, applied to the whole re-scored history so
+        // Rest stops running on a flat neutral-0.5 consistency and a fixed 8 h need). Recent 28-night
+        // window for regularity (a recent-behaviour signal); full history for the need's upper-quartile
+        // "unrestricted nights" estimate. Both degrade honestly on thin history (consistency → nil →
+        // neutral term; need → population default), so cold-start is unchanged.
+        let sleepConsistency = VitalityEngine.sleepConsistency(nightlyHours: Array(nightlyHours.suffix(28)))
+        let sleepNeedHours = AnalyticsEngine.Rest.personalizedNeedHours(nightlyHours: nightlyHours,
+                                                                        age: profile.age)
+
+        // ── FIX 1 (main-actor jank): run the ENTIRE per-day enumeration OFF the main actor ───────────
+        // Every `await store.…` read inside this loop has its continuation RESUME on the main actor
+        // (the engine is `@MainActor`), so on a fresh-import 4000-day pass the ~32 000 read-resumes
+        // monopolise the main actor for ~1 minute and SwiftUI can't render. The per-day reads + scoring
+        // touch NO `@Published`/`repo`/`profile` state , only the captured immutable inputs, the
+        // `WhoopStore` actor, the nonisolated `registry`, and the pure `resolveDayOwner` /
+        // `bandSleepStateSamples` / `AnalyticsEngine.analyzeDay`. So we hoist the whole loop into ONE
+        // `Task.detached(priority:.utility)` whose continuations resume OFF the main actor, then hop back
+        // here only to fold the results into `@Published`-feeding state and `refresh()` once at the end.
+        // The per-day SCORING ORDER, the `hr.count >= 200` skip, and the maxDays semantics are unchanged;
+        // only the executor the reads resume on changes. Diagnostic (#691) lines are computed inside (pure
+        // inputs) and returned so they can be replayed through `diagnosticSink` here, in the SAME order.
+        let computedId = deviceId + "-noop"
+        // Bind `deviceId` (a MainActor instance `let`) to a local Sendable `String` so the @Sendable
+        // detached closure captures the VALUE, never `self` (which would be an isolation violation).
+        let ownerFallbackId = deviceId
+        // Sleep & Rest test mode (E5): read the zero-cost gate ONCE here (a single Bool) and capture it
+        // into the detached loop. When false (the default), no per-day trace sink is built and analyzeDay
+        // runs its byte-identical default path. When true, each day collects its gate-trace + Rest line,
+        // replayed below through `diagnosticSink` tagged `.sleep` in per-day order.
+        let sleepTraceActive = TestCentre.active(.sleep)
+        // HRV & Autonomic test mode (#141): read the zero-cost gate ONCE. When true, each day collects the
+        // nightly per-window RMSSD (by stage) + the whole-night/deep-only/last-SWS summary, replayed below
+        // tagged `.hrv`. When false (the default), no HRV trace is built and analyzeDay's path is unchanged.
+        let hrvTraceActive = TestCentre.active(.hrv)
+        // HRV window (#141): read ONCE. When the user picked WHOOP-style, the nightly HRV is RMSSD over deep
+        // sleep only; default whole-night otherwise. Captured into the detached loop, threaded to analyzeDay.
+        let deepHrvWindow = UserDefaults.standard.string(forKey: UnitPrefs.hrvWindowKey) == HrvWindow.deep.rawValue
+        // Steps test mode: read the zero-cost gate ONCE here (a single Bool) and capture it into the detached
+        // loop. When false (the default), no raw-counter trace is built per day. When true, each day collects
+        // the 5/MG cumulative @57 series + wrap-aware deltas + dropped deltas, replayed below tagged `.steps`.
+        // The trace recomputes the SAME wrap-aware sum analyzeDay already did, so the steps total is unchanged.
+        let stepsTraceActive = TestCentre.active(.steps)
+        // #103/queue-11a: read the SpO₂ candidate display toggle ONCE here (off the detached executor,
+        // matching the other toggle reads above). When ON, each night's candidate mean (WHOOP:
+        // `spo2_candidate_82`; Oura: ceiling@100 `0x6F`, see the per-day block below) is written to
+        // metricSeries as "spo2_candidate" under the "-noop" device ID, so the Blood Oxygen tile can
+        // surface it as a "strap estimate (unverified)" fallback. Default OFF per the derived-biosignal
+        // rule (CLAUDE.md) — neither candidate is a validated calibration.
+        let spo2CandidateDisplayOn = PuffinExperiment.spo2CandidateDisplayEnabled
+        // #1545: the Effort TRIMP recipe, read ONCE per pass. Global (same for every day), so it folds
+        // into the config signature below rather than the per-day key.
+        let effortMethodGlobal = PuffinExperiment.effortMethod
+        // Effort v2: every scored day carries the recipe version it was scored with, so a day keeps its v1
+        // figure until it is recomputed and the PaceForge server knows whether to rebuild it.
+        let effortVersionGlobal = PuffinExperiment.effortVersion
+        let dayCycleMode = DayCycleMode.persisted(UserDefaults.standard.string(forKey: DayCycleMode.storageKey))
+
+        // Zero the per-day probe counters so the line emitted after the steps phase describes THIS pass
+        // and never accumulates across the back-to-back passes an offload storm is made of. Must precede
+        // the day loop below, which is the scoring half of the owner probes. See `StoreProbeTally`.
+        _ = StoreProbeRecorder.take()
         // ── #1005 BATTERY: per-day reuse cache setup (see `dayScanCache`) ────────────────────────────
         // The stager toggles are read per-day inside the loop below, but they are global (same value every
         // day); read them ONCE here too so the config signature can fold them without reaching into the
