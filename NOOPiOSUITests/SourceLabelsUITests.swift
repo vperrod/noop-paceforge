@@ -42,8 +42,11 @@ final class SourceLabelsUITests: XCTestCase {
         XCTAssertTrue(app.wait(for: .runningForeground, timeout: 30))
         sleep(8)
         attach(app, "A1 Today top")
-        let garmin = labelled(app, "Garmin")
-        XCTAssertTrue(reveal(garmin, in: app, maxSwipes: 25), "Today should name Garmin beside the strap's vitals.")
+        // The Key Metrics HRV tile carries the strap's reading with Garmin's on a line of its own. ("Garmin" alone would
+        // also match the PaceForge rings' caption at the top of Today.)
+        let garmin = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "label MATCHES %@", "(?s).*Garmin [0-9]+ ms.*")).firstMatch
+        XCTAssertTrue(reveal(garmin, in: app, maxSwipes: 30), "Today should give Garmin's HRV beside the strap's.")
         attach(app, "A1 Today vitals by source")
     }
 
