@@ -55,6 +55,11 @@ enum WeeklyDigestSource {
             effortDisplayFactor: effortDisplayFactor)
     }
 
+    /// Garmin's Charge over the digest's own week, to sit beside the strap's.
+    static func garminChargeLine(_ digest: WeeklyDigest, _ garmin: [String: Double]) -> String? {
+        GarminChargeReference.line(garmin, from: digest.weekStart, to: digest.weekEnd)
+    }
+
     /// The 0–100 Rest composite for a persisted day, via AnalyticsEngine's display-path
     /// helper (duration-vs-need / efficiency / restorative / consistency). Returns nil
     /// for a day with no in-bed sleep / missing efficiency, so non-sleep days are simply
@@ -72,14 +77,15 @@ struct WeeklyDigestCard: View {
     @EnvironmentObject var repo: Repository
 
     var body: some View {
-        let digest = WeeklyDigestSource.digest(from: repo.days, anchorDay: Repository.localDayKey(Date()))
+        let digest = WeeklyDigestSource.digest(from: repo.strapDays, anchorDay: Repository.localDayKey(Date()))
         if digest.isEmpty {
             EmptyView()
         } else {
             // Content owns its own frosted cards (the domain score row + the signals
             // card), so it's no longer wrapped in an outer NoopCard — that would double
             // the frost. The compact flag trims it to the three headline scores.
-            WeeklyDigestContent(digest: digest, compact: true)
+            WeeklyDigestContent(digest: digest, compact: true,
+                                garminChargeLine: WeeklyDigestSource.garminChargeLine(digest, repo.garminCharge))
         }
     }
 }
@@ -104,14 +110,15 @@ struct WeeklyDigestView: View {
                     ? "A weekly digest needs a few days of history. Wear your strap or import your WHOOP export in Data Sources."
                     : "Loading your history…")
             } else {
-                let digest = WeeklyDigestSource.digest(from: repo.days, anchorDay: Repository.localDayKey(Date()))
+                let digest = WeeklyDigestSource.digest(from: repo.strapDays, anchorDay: Repository.localDayKey(Date()))
                 if digest.isEmpty {
                     DataPendingNote(
                         title: "No readings this week yet",
                         message: "Once this week has a day or two of data, your week-in-review appears here.")
                 } else {
                     VStack(alignment: .leading, spacing: NoopMetrics.sectionGap) {
-                        WeeklyDigestContent(digest: digest, compact: false)
+                        WeeklyDigestContent(digest: digest, compact: false,
+                                            garminChargeLine: WeeklyDigestSource.garminChargeLine(digest, repo.garminCharge))
                     }
                 }
             }
@@ -143,6 +150,8 @@ struct WeeklyDigestContent: View {
     let digest: WeeklyDigest
     var compact: Bool = false
     var showsHeader: Bool = true
+    /// Garmin's Charge for the same week, shown under the scores as a reference; nil leaves it off.
+    var garminChargeLine: String? = nil
 
     /// The Effort display scale (#268), so the Week-in-review Effort gauge matches the Today tile
     /// and the Trends small-multiple instead of being stuck on "of 100". Charge/Rest stay 0–100.
@@ -176,6 +185,13 @@ struct WeeklyDigestContent: View {
 
             // The three headline scores, each with a domain-tinted gauge and week-over-week context.
             scoreRow
+
+            if let garminChargeLine, digest.summary(.charge) != nil {
+                Text(verbatim: garminChargeLine)
+                    .font(StrandFont.footnote)
+                    .foregroundStyle(StrandPalette.textTertiary)
+                    .accessibilityIdentifier("digest-garmin-charge")
+            }
 
             // Focal points + secondary signals + balance footer in one frosted card.
             detailCard

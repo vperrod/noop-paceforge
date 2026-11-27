@@ -362,10 +362,12 @@ final class AppModel: ObservableObject {
         }
         // HR-zone haptic coaching watches the smoothed bpm.
         $bpm.sink { [weak self] hr in self?.coachZone(hr) }.store(in: &hrCancellables)
-        // Illness/strain early-warning recomputes when the daily history changes.
-        repo.$days.sink { [weak self] days in
+        // Illness/strain early-warning recomputes when the strap's daily history changes.
+        repo.$strapDays.sink { [weak self] days in
             self?.evaluateIllness(days)
             self?.evaluateStrainTarget()
+        }.store(in: &hrCancellables)
+        repo.$days.sink { [weak self] _ in
             // Keep the battery night-guard's learned bedtime warm off the same signal (throttled inside).
             self?.refreshHabitualMidsleep()
         }.store(in: &hrCancellables)
@@ -2043,7 +2045,7 @@ final class AppModel: ObservableObject {
 
     private func evaluateIllness(_ days: [DailyMetric]) {
         guard behavior.illnessWatch, days.count >= 14,
-              let latestDay = days.last?.day, latestDay == repo.today?.day else {
+              let latestDay = days.last?.day, latestDay == repo.strapToday?.day else {
             healthAlert = nil; illnessSignal = nil; illnessDistance = nil; return
         }
         Task { [weak self] in
@@ -2081,7 +2083,7 @@ final class AppModel: ObservableObject {
                                     hardOrLateWorkout: Bool, alreadyUnwell: Bool) {
         // A newer day can arrive while the journal read is in flight. Never publish the older
         // task's alert over that day's result.
-        guard days.last?.day == repo.days.last?.day, days.last?.day == repo.today?.day else { return }
+        guard days.last?.day == repo.strapDays.last?.day, days.last?.day == repo.strapToday?.day else { return }
         let previous = healthAlert
         let recent = Array(days.suffix(2))
         let latest = days[days.count - 1]
@@ -2200,7 +2202,7 @@ final class AppModel: ObservableObject {
     /// day gate makes this safe to fire on every days republish; nil recovery (calibrating) yields a
     /// nil band → no target → no notification. Android twin: AppViewModel's days-collector call.
     func evaluateStrainTarget() {
-        guard let row = repo.today else { return }
+        guard let row = repo.strapToday else { return }
         // A personal recovery-to-strain nudge is only meaningful when strain came from an imported
         // WHOOP score. The strap-side score is NOOP's HR-only estimate, not WHOOP's native value; do not
         // present that estimate as an authoritative target attainment.
@@ -2216,7 +2218,7 @@ final class AppModel: ObservableObject {
     /// flips , the repo.$days sink only fires on data changes, so a flip would otherwise wait
     /// for the next refresh.
     func reevaluateIllness() {
-        evaluateIllness(repo.days)
+        evaluateIllness(repo.strapDays)
     }
 
     // MARK: - v5 skin-temp suite engines (cycle phase + body clock)

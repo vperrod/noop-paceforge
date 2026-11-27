@@ -406,7 +406,7 @@ struct WorkoutsView: View {
     /// auto-clears. Copy is "usually"/"personal pattern" framed (the engine's own wording) — never a
     /// law. Computes off the freshly reloaded sessions + the merged daily Charge.
     private func showPostLogNote(forSport sport: String) async {
-        let costs = InsightsView.computeActivityCosts(workouts: allRows, days: repo.days)
+        let costs = InsightsView.computeActivityCosts(workouts: allRows, days: repo.strapDays)
         guard let match = costs.first(where: { $0.sport == sport }) else {
             await MainActor.run { postLogNote = nil }
             return

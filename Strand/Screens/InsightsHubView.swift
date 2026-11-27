@@ -588,7 +588,7 @@ final class InsightsHubViewModel: ObservableObject {
 
         // Outcome series: imported metricSeries ∪ the DailyMetric column fallback so an
         // account-free (strap-only) user still gets effects — the exact contract InsightsView uses.
-        let mergedDays = repo.days
+        let mergedDays = repo.strapDays
         var byKey: [String: [String: Double]] = [:]
         for key in outcomeKeys {
             let s = await repo.series(key: key, source: "my-whoop")

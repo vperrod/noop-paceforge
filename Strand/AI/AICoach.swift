@@ -345,9 +345,11 @@ final class AICoachEngine: ObservableObject {
     }
 
     /// Contextual suggestion chips for the composer, derived from today's bands via `CoachSuggestions`.
-    /// Reads only on-device `repo.days`; pure, byte-identical to the Android twin. Returns the stable
-    /// generic fallback when there is no usable data for today.
-    var suggestions: [String] { CoachSuggestions.suggestions(for: repo.days.last, recent: repo.days) }
+    /// Reads the strap's days only; pure, byte-identical to the Android twin. Returns the stable generic fallback when
+    /// the strap has nothing for the newest day.
+    var suggestions: [String] {
+        CoachSuggestions.suggestions(for: repo.strapDay(repo.days.last?.day), recent: repo.strapDays)
+    }
 
     /// K7: Follow-up suggestion chips shown after each assistant reply. These are generic
     /// conversational follow-ups (not data-derived) so the user can dig deeper without typing.
@@ -1145,7 +1147,7 @@ final class AICoachEngine: ObservableObject {
         }
         if !byBehaviour.isEmpty {
             let outcomeByDay = Dictionary(
-                repo.days.compactMap { d in d.recovery.map { (d.day, $0) } },
+                repo.strapDays.compactMap { d in d.recovery.map { (d.day, $0) } },
                 uniquingKeysWith: { _, last in last })
             let ranked = EffectRanker.rank(behaviors: byBehaviour, controls: controls,
                                            outcomeByDay: outcomeByDay, outcome: "Charge")
@@ -1328,7 +1330,15 @@ final class AICoachEngine: ObservableObject {
     /// recovery/strain/sleep-hours/HRV/restingHR where present, plus 30-day averages, plus a few
     /// recent workouts. Kept well under ~1500 tokens. If there's no data, it says so.
     func buildContext() -> String {
-        let days = repo.days // oldest → newest
+        // Every figure is the strap's. A day only Garmin scored keeps its line, so the strap's reading shows as missing
+        // beside the Garmin reference.
+        let garmin = repo.garminCharge
+        let strapByDay = Dictionary(repo.strapDays.map { ($0.day, $0) }, uniquingKeysWith: { _, last in last })
+        let days = Set(strapByDay.keys).union(garmin.keys).sorted().map { day in  // oldest → newest
+            strapByDay[day] ?? DailyMetric(day: day, totalSleepMin: nil, efficiency: nil, deepMin: nil, remMin: nil,
+                                           lightMin: nil, disturbances: nil, restingHr: nil, avgHrv: nil,
+                                           recovery: nil, strain: nil, exerciseCount: nil)
+        }
         var lines: [String] = ["USER BIOMETRIC SUMMARY (the user's own wearable data):"]
 
         guard !days.isEmpty else {
@@ -1345,11 +1355,17 @@ final class AICoachEngine: ObservableObject {
         lines.append("Recent days (newest first) — charge(0-100), effort(0-100), rest/sleep(h), "
                      + "deep/REM/light(h), eff(%), HRV(ms), RHR(bpm). A dash means NOT MEASURED, not zero:")
         for d in recent {
-            lines.append("  " + dayLine(d))
+            lines.append("  " + dayLine(d, garminCharge: garmin[d.day]))
         }
 
         // 30-day averages.
         let last30 = Array(days.suffix(30))
+        let garminAverage = GarminChargeReference.line(garmin, from: last30.first?.day ?? "", to: last30.last?.day ?? "")
+        if garminAverage != nil {
+            lines.insert("charge is the WHOOP strap's. Garmin Charge is a second device's score, given only as a reference to "
+                         + "keep in mind: it must not drive numbers, targets, states or alerts. Never average or combine it "
+                         + "with charge, and never use it where charge is missing.", at: 1)
+        }
         lines.append("")
         lines.append("30-day averages:")
         lines.append("  charge: \(avgInt(last30.compactMap { $0.recovery }))"
@@ -1357,6 +1373,7 @@ final class AICoachEngine: ObservableObject {
                      + ", sleep: \(avgSleepHours(last30))h"
                      + ", HRV: \(avgInt(last30.compactMap { $0.avgHrv })) ms"
                      + ", RHR: \(avgInt(last30.compactMap { $0.restingHr.map(Double.init) })) bpm")
+        if let garminAverage { lines.append("  " + garminAverage) }
         // Additional vitals when present (#124, the coach used to see only recovery/strain/sleep/HRV/RHR).
         lines.append("  SpO2: \(avgInt(last30.compactMap { $0.spo2Pct }))%"
                      + ", respiration: \(avgOne(last30.compactMap { $0.respRateBpm }))/min"
@@ -1399,9 +1416,13 @@ final class AICoachEngine: ObservableObject {
     /// Swift's `buildContext()` takes no arguments (it reads the repo), unlike the Kotlin twin which is
     /// handed the day list — so without this the formatter has no seam and the Swift half of a change
     /// with fifteen Kotlin tests would ship untested.
-    func dayLine(_ d: DailyMetric) -> String {
+    func dayLine(_ d: DailyMetric, garminCharge: Double? = nil) -> String {
         var parts: [String] = [d.day + ":"]
         parts.append("charge " + (d.recovery.map { "\(Int($0.rounded()))" } ?? "—"))
+        if let garminCharge,
+           let reference = GarminChargeReference.line([d.day: garminCharge], from: d.day, to: d.day) {
+            parts.append(reference)
+        }
         parts.append("effort " + (d.strain.map { String(format: "%.1f", $0) } ?? "—"))
         parts.append("rest " + (d.totalSleepMin.map { String(format: "%.1fh", $0 / 60) } ?? "—"))
         // The stage breakdown and efficiency, which the coach could not see at all: a user asked why it

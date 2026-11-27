@@ -196,6 +196,8 @@ struct TrendsReportPage: View {
     /// SwiftUI environment lookup is not guaranteed to carry the live value. Defaults to `.stored`
     /// so a preview or a caller that has not resolved them still renders.
     var units: ReportDisplayUnits = .stored
+    /// Garmin's Charge over the report's own window, shown on the Charge card as a reference; nil leaves it off.
+    var garminChargeLine: String? = nil
 
     /// The fixed page width used for the PDF render. ~ A4 portrait at 72dpi-ish density.
     static let pageWidth: CGFloat = 612
@@ -296,6 +298,12 @@ struct TrendsReportPage: View {
                         .font(StrandFont.bodyNumber)
                         .foregroundStyle(StrandPalette.textPrimary)
                     trendChip(stat)
+                }
+
+                if metric == .recovery, let garminChargeLine {
+                    Text(verbatim: garminChargeLine)
+                        .font(StrandFont.footnote)
+                        .foregroundStyle(StrandPalette.textTertiary)
                 }
 
                 // Sparkline over the window (decorative; the numbers below are the read).
@@ -440,6 +448,7 @@ struct TrendsReportPage: View {
 /// Trends screen's "Export trends report" button.
 struct TrendsReportSheet: View {
     let days: [DailyMetric]
+    var garminCharge: [String: Double] = [:]
     @EnvironmentObject private var repo: Repository
     @Environment(\.dismiss) private var dismiss
     @State private var range: ReportRange = .days90
@@ -494,7 +503,8 @@ struct TrendsReportSheet: View {
     private func page(for report: RangeReport) -> TrendsReportPage {
         TrendsReportPage(report: report, range: range,
                          series: seriesMap(start: report.start, end: report.end),
-                         generatedOn: generatedOn, units: units)
+                         generatedOn: generatedOn, units: units,
+                         garminChargeLine: GarminChargeReference.line(garminCharge, from: report.start, to: report.end))
     }
 
     var body: some View {

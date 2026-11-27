@@ -150,7 +150,7 @@ struct TrendsView: View {
     private var resolvedMetrics: ResolvedMetrics {
         resolvedCache.get(repo: repo, range: range, restRevision: sleepPerfRevision,
                           day: Repository.localDayKey(Date()), locale: locale.identifier) {
-            ResolvedMetrics(recovery: resolve { $0.recovery },
+            ResolvedMetrics(recovery: resolve(in: repo.strapDays) { $0.recovery },  // Charge is the strap's
                             hrv: resolve { $0.avgHrv },
                             rhr: resolve { $0.restingHr.map(Double.init) },
                             strain: resolve { $0.strain },
@@ -158,13 +158,13 @@ struct TrendsView: View {
         }
     }
 
-    private func resolve(_ value: (DailyMetric) -> Double?) -> ResolvedMetric {
+    private func resolve(in source: [DailyMetric]? = nil, _ value: (DailyMetric) -> Double?) -> ResolvedMetric {
         // Find the smallest range ≥ selected whose window has ≥1 point, keeping
         // that window's points so we don't re-filter to read them back.
         // The windowing lives in `HostedTrendData` so the Today host cards resolve EXACTLY as this tab
         // does. Shared rather than copied: the widening fallback is what a wearer with two weeks of
         // history depends on, and a second implementation would drift the moment either side was tuned.
-        let r = HostedTrendData.resolve(days: repo.days, selected: range, value: value)
+        let r = HostedTrendData.resolve(days: source ?? repo.days, selected: range, value: value)
         return ResolvedMetric(points: r.points, effective: r.effective,
                               widened: r.effective != range,
                               caption: caption(count: r.points.count, eff: r.effective))
@@ -364,7 +364,7 @@ struct TrendsView: View {
         // #436 — present the offline trends-report exporter (range picker + PDF export).
         .sheet(isPresented: $showingReport) {
             // The report says its readings come from the strap.
-            TrendsReportSheet(days: repo.strapDays)
+            TrendsReportSheet(days: repo.strapDays, garminCharge: repo.garminCharge)
         }
         // #732 — load the resolved sleep_performance series so Rest plots the SAME composite the Today
         // Rest score uses (not raw efficiency). Mirrors TodayView's restScore read. Keyed on the day
@@ -421,7 +421,7 @@ struct TrendsView: View {
     /// self-hides only when there's no data in ANY week (an all-empty history), matching the old card.
     @ViewBuilder
     private var weeklyDigestNav: some View {
-        let digest = WeeklyDigestSource.digest(from: repo.days, anchorDay: weekAnchorDay)
+        let digest = WeeklyDigestSource.digest(from: repo.strapDays, anchorDay: weekAnchorDay)
         // Only hide the navigation entirely when the WHOLE history is empty — an empty PAST week still
         // shows the header + chevrons so the user can step to a week that does hold data.
         if repo.days.isEmpty {
@@ -443,13 +443,15 @@ struct TrendsView: View {
                 title: "No readings this week",
                 message: "Step to another week with the arrows above to see its review.")
         } else {
-            WeeklyDigestContent(digest: digest, compact: true, showsHeader: false)
+            let garminChargeLine = WeeklyDigestSource.garminChargeLine(digest, repo.garminCharge)
+            WeeklyDigestContent(digest: digest, compact: true, showsHeader: false, garminChargeLine: garminChargeLine)
                 .padding(.top, NoopMetrics.space1)
             // Share this week's recap as an image. Renders the digest card (with its header) to a
             // PNG off-screen and hands it to the share sheet / Save panel — reuses TrendsReport's
             // ImageRenderer path. Only offered when the week actually holds data.
             NoopButton("Share recap", systemImage: "square.and.arrow.up", kind: .secondary) {
-                let page = WeeklyDigestContent(digest: digest, compact: true, showsHeader: true)
+                let page = WeeklyDigestContent(digest: digest, compact: true, showsHeader: true,
+                                               garminChargeLine: garminChargeLine)
                     .frame(width: 380)
                     .padding(24)
                     .background(StrandPalette.surfaceBase)
@@ -466,7 +468,7 @@ struct TrendsView: View {
     @ViewBuilder
     private var weekHero: some View {
         if !repo.days.isEmpty {
-            let digest = WeeklyDigestSource.digest(from: repo.days, anchorDay: weekAnchorDay)
+            let digest = WeeklyDigestSource.digest(from: repo.strapDays, anchorDay: weekAnchorDay)
             NoopCard {
                 VStack(alignment: .leading, spacing: NoopMetrics.cardInnerSpacing) {
                     weekNavBar(digest: digest)
@@ -486,7 +488,10 @@ struct TrendsView: View {
     /// "Charge 61 · Effort 52 · Rest 70": the week's means, for the scores the week had readings for.
     private func weekHeadline(_ digest: WeeklyDigest) -> String? {
         var parts: [String] = []
-        if let s = digest.summary(.charge), s.thisWeek.n > 0 { parts.append(String(localized: "Charge") + " \(Int(s.thisWeek.mean.rounded()))") }
+        if let s = digest.summary(.charge), s.thisWeek.n > 0 {
+            parts.append(String(localized: "Charge") + " \(Int(s.thisWeek.mean.rounded()))")
+            if let garmin = WeeklyDigestSource.garminChargeLine(digest, repo.garminCharge) { parts.append(garmin) }
+        }
         if let s = digest.summary(.effort), s.thisWeek.n > 0 {
             parts.append(String(localized: "Effort") + " " + UnitFormatter.effortDisplay(s.thisWeek.mean, scale: effortScale))
         }
@@ -507,7 +512,7 @@ struct TrendsView: View {
         PFDisclosure(title: "Week in review", intro: "Charge, effort and rest for the week", startsOpen: false, nested: false,
                      id: "trends-week") {
             VStack(alignment: .leading, spacing: NoopMetrics.cardInnerSpacing) {
-                weekReviewBody(digest: WeeklyDigestSource.digest(from: repo.days, anchorDay: weekAnchorDay))
+                weekReviewBody(digest: WeeklyDigestSource.digest(from: repo.strapDays, anchorDay: weekAnchorDay))
             }
         }
         PFDisclosure(title: "Charge", intro: "Charge over time and the year calendar", startsOpen: false, nested: false,
@@ -906,13 +911,13 @@ struct TrendsView: View {
 
     private var yearStrip: some View {
         // Always show at least a full year for context; expand to all history on ALL.
-        let stripDays = max(range.days ?? repo.days.count, 365)
-        let recent = repo.days.suffix(stripDays)
+        let stripDays = max(range.days ?? repo.strapDays.count, 365)
+        let recent = repo.strapDays.suffix(stripDays)
         let recoveryDays: [RecoveryDay] = recent.compactMap { d in
             guard let dt = date(d.day) else { return nil }
             return RecoveryDay(date: dt, score: d.recovery)
         }
-        let title = (range == .all && repo.days.count > 365) ? String(localized: "Charge (all history)") : String(localized: "Charge (past year)")
+        let title = (range == .all && repo.strapDays.count > 365) ? String(localized: "Charge (all history)") : String(localized: "Charge (past year)")
         return NoopCard {
             VStack(alignment: .leading, spacing: NoopMetrics.cardInnerSpacing) {
                 SectionHeader("\(title)", overline: "Calendar", trailing: String(localized: "\(recoveryDays.filter { $0.score != nil }.count) days"))

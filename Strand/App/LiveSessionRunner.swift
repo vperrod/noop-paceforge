@@ -100,10 +100,10 @@ final class LiveSessionRunner: ObservableObject {
         // Resting HR: today's own, else the most recent banked night's. The engine needs *a* baseline
         // to place the band, so a never-slept-yet install gets a deliberately ordinary 60 — the band it
         // yields is conservative, and the first banked night replaces it for every later session.
-        let resting = repo.today?.restingHr
-            ?? repo.days.last(where: { $0.restingHr != nil })?.restingHr
+        let resting = repo.strapToday?.restingHr
+            ?? repo.strapDays.last(where: { $0.restingHr != nil })?.restingHr
             ?? 60
-        chargeAtStart = repo.today?.recovery
+        chargeAtStart = repo.strapToday?.recovery
         let config = LiveSessionEngine.Config(restingHR: Double(resting),
                                               hrMax: Double(profile.hrMax),
                                               charge: chargeAtStart)

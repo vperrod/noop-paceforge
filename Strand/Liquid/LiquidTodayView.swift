@@ -933,13 +933,13 @@ struct LiquidTodayView: View {
     // MARK: - Look (dark, WHOOP-style layout): dials, monitor tiles, top bar
 
     /// Today's Effort target, read the way EffortTargetCard reads it, so the Effort dial can draw its target.
-    private var effortReadingKey: String { EffortTargetReading.inputKey(days: repo.days, effortScaleRaw: effortScaleRaw) }
+    private var effortReadingKey: String { EffortTargetReading.inputKey(days: repo.strapDays, effortScaleRaw: effortScaleRaw) }
 
     @MainActor private func refreshEffortReading() {
         #if DEBUG
         if let fixture = PlannerFixture.effortReading { effortReading = fixture; return }
         #endif
-        effortReading = EffortTargetReading.make(days: repo.days, effortScale: effortScale)
+        effortReading = EffortTargetReading.make(days: repo.strapDays, effortScale: effortScale)
     }
 
     /// Which dials Today has data for: NOOP's own (Charge or Rest scored) and PaceForge's (Today's call from a file of today).
@@ -2416,7 +2416,7 @@ struct LiquidTodayView: View {
             firstRecordedRRDay = rrPolicy.firstRecorded
             firstScorableRRDay = rrPolicy.firstScorable
         }
-        let newReadiness = ReadinessEngine.evaluate(days: repo.days, today: day?.day)
+        let newReadiness = ReadinessEngine.evaluate(days: repo.strapDays, today: day?.day)
         early.append { cachedReadiness = newReadiness }
         // Prior-day vitals carry, resolved ONCE here (never in body). Bound to today's own key so it can't
         // echo today's still-forming row; only on today (a past day's own row is the whole story).
@@ -2760,7 +2760,7 @@ struct LiquidTodayView: View {
     /// pass (readinessWord + synthLine + readiness.summary). The fallback runs only in the brief window
     /// before the first load() populates the cache.
     private var readiness: ReadinessEngine.Readiness {
-        cachedReadiness ?? ReadinessEngine.evaluate(days: repo.days, today: cachedDisplayDay?.day)
+        cachedReadiness ?? ReadinessEngine.evaluate(days: repo.strapDays, today: cachedDisplayDay?.day)
     }
 
     /// One card-level provenance label. Identical winners collapse to one name; mixed scores show at most

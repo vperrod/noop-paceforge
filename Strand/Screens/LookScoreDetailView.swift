@@ -415,7 +415,7 @@ struct LookScoreDetailView: View {
         guard !Task.isCancelled else { return }
         series = out
         if kind == .effort {
-            effortReading = EffortTargetReading.make(days: repo.days, effortScale: effortScale)
+            effortReading = EffortTargetReading.make(days: repo.strapDays, effortScale: effortScale)
         }
         if kind == .charge {
             chargeDrivers = currentChargeDrivers()

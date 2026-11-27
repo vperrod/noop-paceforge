@@ -199,8 +199,11 @@ final class Repository: ObservableObject {
     /// Daily metrics (recovery/strain/sleep/HRV/RHR…) over the recent window, oldest→newest.
     @Published var days: [DailyMetric] = []
     /// The strap's days alone (WHOOP import and NOOP's scoring of the strap), with nothing from Garmin or activity files.
-    /// Every place that presents a figure as WHOOP or the strap reads this, never `days`, where Garmin can fill or lead a day.
-    @Published private(set) var strapDays: [DailyMetric] = []
+    /// Every place that presents a figure as WHOOP or the strap, and all coaching, reads this, never `days`, where Garmin can
+    /// fill or lead a day.
+    @Published var strapDays: [DailyMetric] = []
+    /// Garmin's Charge by day, for reports to carry beside the strap's as a reference (`GarminChargeReference`). It drives nothing.
+    @Published private(set) var garminCharge: [String: Double] = [:]
     /// The days on which Garmin's Charge and readings lead the strap's in `days` (see `mergePaceForgeGarmin`).
     private var garminLedDays: Set<String> = []
     /// The Charge baselines (HRV, resting HR, respiration) resolved from the imported and own daily rows
@@ -879,6 +882,7 @@ final class Repository: ObservableObject {
         let days: [DailyMetric]
         let strapDays: [DailyMetric]
         let garminLedDays: Set<String>
+        let garminCharge: [String: Double]
         let chargeBaselines: ChargeBaselines.Resolved
         let sleeps: [CachedSleepSession]
         let vitalRows: [SourcedDailyMetric]
@@ -1060,6 +1064,7 @@ final class Repository: ObservableObject {
                 days: Self.mergeActivityFileSteps(into: withGarmin.days, activityFile),
                 strapDays: strap,
                 garminLedDays: withGarmin.garminLedDays,
+                garminCharge: withGarmin.garminCharge,
                 // From the two buckets BEFORE `mergeDaily` blends them: the rule needs to know which nights
                 // are imported and which are the wearer's own.
                 chargeBaselines: ChargeBaselines.resolve(imported: imported, own: computed,
@@ -1085,6 +1090,7 @@ final class Repository: ObservableObject {
             && merged.days == days
             && merged.strapDays == strapDays
             && merged.garminLedDays == garminLedDays
+            && merged.garminCharge == garminCharge
             && merged.chargeBaselines == chargeBaselines
             && merged.sleeps == sleeps
             && merged.importedSleep == importedSleep
@@ -1098,6 +1104,7 @@ final class Repository: ObservableObject {
         self.days = merged.days
         self.strapDays = merged.strapDays
         self.garminLedDays = merged.garminLedDays
+        self.garminCharge = merged.garminCharge
         self.chargeBaselines = merged.chargeBaselines
         self.sleeps = merged.sleeps
         self.vitalRows = merged.vitalRows
@@ -1177,11 +1184,12 @@ final class Repository: ObservableObject {
     nonisolated static func mergePaceForgeGarmin(into base: [DailyMetric],
                                                  _ garmin: [DailyMetric],
                                                  preserveRecoveryDays: Set<String> = [])
-        -> (days: [DailyMetric], garminLedDays: Set<String>) {
-        guard !garmin.isEmpty else { return (base, []) }
+        -> (days: [DailyMetric], garminLedDays: Set<String>, garminCharge: [String: Double]) {
+        guard !garmin.isEmpty else { return (base, [], [:]) }
+        let scored = paceForgeGarminRecoveryRows(garmin)
         var garminLedDays = Set<String>()
         var byDay = Dictionary(base.map { ($0.day, $0) }, uniquingKeysWith: { _, last in last })
-        for row in paceForgeGarminRecoveryRows(garmin) {
+        for row in scored {
             if let existing = byDay[row.day] {
                 // `paceForgeGarminRecoveryRows` scores from Garmin's own overnight HRV/RHR/sleep history.
                 // The old merge retained a non-nil NOOP strap estimate, so Garmin could never affect a
@@ -1198,7 +1206,9 @@ final class Repository: ObservableObject {
                 byDay[row.day] = row
             }
         }
-        return (byDay.values.sorted { $0.day < $1.day }, garminLedDays)
+        let garminCharge = Dictionary(scored.compactMap { row in row.recovery.map { (row.day, $0) } },
+                                      uniquingKeysWith: { _, last in last })
+        return (byDay.values.sorted { $0.day < $1.day }, garminLedDays, garminCharge)
     }
 
     /// Derive NOOP's transparent Garmin-based recovery proxy from Garmin's overnight HRV and resting HR.
@@ -1326,6 +1336,14 @@ final class Repository: ObservableObject {
             .filter { $0.metric.day == day && $0.source != .appleHealth && hasValue($0.metric) }
             .min { rank($0.source) < rank($1.source) }?
             .source.attributionLabel
+    }
+
+    /// `today` resolved over the strap's days alone: what coaching reads. nil when the strap has no row for it.
+    var strapToday: DailyMetric? {
+        let now = Date()
+        return Repository.resolveToday(days: strapDays,
+                                       logicalKey: Repository.logicalDayKey(now),
+                                       localKey: Repository.localDayKey(now))
     }
 
     /// The strap's own row for a day; nil when the strap has none, whatever `days` holds for it.

@@ -146,7 +146,7 @@ struct EffortTargetCard: View {
     @AppStorage(UnitPrefs.effortScaleKey) private var effortScaleRaw = EffortScale.hundred.rawValue
     @State private var reading: EffortTargetReading?
 
-    private var key: String { EffortTargetReading.inputKey(days: repo.days, effortScaleRaw: effortScaleRaw) }
+    private var key: String { EffortTargetReading.inputKey(days: repo.strapDays, effortScaleRaw: effortScaleRaw) }
 
     var body: some View {
         NoopCard(tint: StrandPalette.effortColor) {
@@ -195,7 +195,7 @@ struct EffortTargetCard: View {
         if let fixture = PlannerFixture.effortReading { reading = fixture; return }
         #endif
         let scale = UnitPrefs.resolveEffortScale(effortScaleRaw)
-        reading = EffortTargetReading.make(days: repo.days, effortScale: scale)
+        reading = EffortTargetReading.make(days: repo.strapDays, effortScale: scale)
     }
 }
 
@@ -207,7 +207,7 @@ struct EffortTargetInline: View {
     @AppStorage(UnitPrefs.effortScaleKey) private var effortScaleRaw = EffortScale.hundred.rawValue
     @State private var reading: EffortTargetReading?
 
-    private var key: String { EffortTargetReading.inputKey(days: repo.days, effortScaleRaw: effortScaleRaw) }
+    private var key: String { EffortTargetReading.inputKey(days: repo.strapDays, effortScaleRaw: effortScaleRaw) }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -229,6 +229,6 @@ struct EffortTargetInline: View {
         if let fixture = PlannerFixture.effortReading { reading = fixture; return }
         #endif
         let scale = UnitPrefs.resolveEffortScale(effortScaleRaw)
-        reading = EffortTargetReading.make(days: repo.days, effortScale: scale)
+        reading = EffortTargetReading.make(days: repo.strapDays, effortScale: scale)
     }
 }

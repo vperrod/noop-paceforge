@@ -201,7 +201,7 @@ struct MindSection: View {
 
         // Candidate body signals from the merged daily cache (the same source the
         // rest of Insights reads), shaped into the (day, value) form mood uses.
-        let days = repo.days
+        let days = repo.strapDays
         func bodySeries(_ pick: (DailyMetric) -> Double?) -> [(day: String, value: Double)] {
             days.compactMap { d in pick(d).map { (day: d.day, value: $0) } }
         }

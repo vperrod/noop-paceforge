@@ -424,7 +424,7 @@ struct InsightsView: View {
 
         // Daily metrics for the strap-only outcome fallback (merged, imported-wins). The view is
         // MainActor-isolated, so reading the published cache here is on the right actor.
-        let mergedDays = repo.days
+        let mergedDays = repo.strapDays
 
         // Outcome series (Whoop) → both [day:value] dictionaries and ordered series. The imported
         // metricSeries only exists after a CSV import; fill the days it doesn't cover from the

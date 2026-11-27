@@ -49,9 +49,9 @@ struct CoupledView: View {
     /// Today's all-source workout count materialized onto the same physiological cycle as the other cards.
     @State private var workoutsToday: Int = 0
 
-    /// The day the coupled read describes, today's resolved row (the same `resolveToday` #304/#144 boundary
-    /// Today anchors on), never a second store read.
-    private var day: DailyMetric? { repo.today }
+    /// The day the coupled read describes, the strap's resolved row for today (the same `resolveToday` #304/#144
+    /// boundary Today anchors on), never a second store read.
+    private var day: DailyMetric? { repo.strapToday }
 
     /// Today's day key, tracking the resolved row when one exists (the Today idiom).
     private var todayKey: String { day?.day ?? Repository.logicalDayKey(Date()) }
@@ -85,7 +85,7 @@ struct CoupledView: View {
     /// but the defect was identical here: the twins agreed with each other and were both wrong.
     private var carriedRecoveryDay: DailyMetric? {
         TodayView.lastScoredRecoveryDay(
-            days: repo.days, selectedDayKey: todayKey,
+            days: repo.strapDays, selectedDayKey: todayKey,
             isToday: true,   // the Coupled view has no day selector; it is always today
             todayScored: day?.recovery != nil,
             isCalibrating: calibrationNights != nil)
@@ -112,7 +112,7 @@ struct CoupledView: View {
     private var sleepPerformance: Double? {
         guard let d = day else { return nil }
         if let p = repo.importedSleep[d.day]?.performancePct { return p }
-        let nightlyHours = repo.days.compactMap { row -> Double? in
+        let nightlyHours = repo.strapDays.compactMap { row -> Double? in
             guard let minutes = row.totalSleepMin, minutes > 0 else { return nil }
             return minutes / 60.0
         }
@@ -127,7 +127,7 @@ struct CoupledView: View {
     /// scored day today's own key wins, so Coupled's pill can't diverge from Today's onto yesterday (#787).
     private var readinessLevel: ReadinessEngine.Level {
         let anchor = (isCarryingRecovery ? carriedRecoveryDay?.day : day?.day) ?? Repository.logicalDayKey(Date())
-        return ReadinessEngine.evaluate(days: repo.days, today: anchor).level
+        return ReadinessEngine.evaluate(days: repo.strapDays, today: anchor).level
     }
 
     var body: some View {

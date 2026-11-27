@@ -42,7 +42,8 @@ extension WidgetSnapshot {
     @MainActor
     static func publish(from model: AppModel) async {
         await refreshWidgetPresence()
-        let days = model.repo.days
+        // The widget mirrors Today's strap dials and its Effort target is coaching: all of it reads the strap's days.
+        let days = model.repo.strapDays
         let now = Date()
         // The recovery-derived anchor: today's row when it's scored, else the freshest STRICTLY-PRIOR
         // scored day carried over. Resolved through the SHARED `Repository.widgetAnchor`, the ONE selector
@@ -51,8 +52,7 @@ extension WidgetSnapshot {
         // pre-04:00 carve-out and the #547 future-day guard it folds in). The `$0.day < carriedKey` bound
         // inside the helper (matching `TodayView.selectedDayKey`) means a stale scored row can never
         // re-surface AS today.
-        // The widget mirrors Today's strap dials, so its scores and vitals are the strap's. The Effort target keeps `days`.
-        let day = Repository.widgetAnchor(days: model.repo.strapDays, now: now)
+        let day = Repository.widgetAnchor(days: days, now: now)
         // Rest (sleep_performance) for that same anchor day. exploreSeries merges imported + on-device,
         // exactly like the Today Rest tile. The tail fallback (restSeries.last) is ONLY valid when the
         // anchor day IS the local today: early in a fresh day today's Rest row may not exist yet, so we
