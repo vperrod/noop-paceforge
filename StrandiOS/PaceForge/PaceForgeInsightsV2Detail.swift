@@ -892,6 +892,8 @@ struct PFSleepDetail: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
+            SourceNote(source: SourceSplit.garmin,
+                       text: "PaceForge works bedtime, wake time, hours and sleep debt out from Garmin's nights.")
             consistencyCard
             PFWhatMovedSection(intelKey: "sleep_hours")
             debtCard

@@ -82,6 +82,7 @@ struct PFInsightsView: View {
                 PFFigure(value: String(Safe.int(insights.atl)), unit: nil, label: "Fatigue (ATL)")
                 PFFigure(value: signed(insights.tsb), unit: nil, label: "Form (TSB)")
             }
+            SourceNote(source: "All sources", text: "PaceForge works these out from the training load of every source.")
             PFLoadChart(insights: insights)
                 .frame(height: 220)
                 .accessibilityIdentifier("pf-load-chart")
