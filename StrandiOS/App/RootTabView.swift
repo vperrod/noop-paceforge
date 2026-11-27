@@ -221,6 +221,7 @@ struct RootTabView: View {
             tab(HealthHostView(), "Health", "heart.text.square", path: $tabPaths[3], scrollSignal: scrollTop[3]).tag(3)
         }
         .tint(StrandPalette.accent)
+        .modifier(AwardCelebrationModifier())
         .toolbar(lookTabBar ? .hidden : .automatic, for: .tabBar)
         .overlay(alignment: .bottom) {
             if lookTabBar {

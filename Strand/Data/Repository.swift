@@ -3053,7 +3053,8 @@ final class Repository: ObservableObject {
     /// dismissible and exportable; new scoring passes neither create nor reconcile them (#2187).
     /// Dismissed spans are still filtered HERE so every consumer (Workouts, Today, Coach) preserves the
     /// user's prior "not a workout" decisions and the confirmation card cannot resurrect those windows.
-    func workoutRows(days: Int = 4000) async -> [WorkoutRow] {
+    /// `reconcilesHr: false` skips the per-row heart-rate reads for a caller that only counts the list.
+    func workoutRows(days: Int = 4000, reconcilesHr: Bool = true) async -> [WorkoutRow] {
         guard let store = await ensureStore() else { return [] }
         let now = Int(Date().timeIntervalSince1970)
         let lo = now - days * 86_400, hi = now + 86_400
@@ -3088,6 +3089,7 @@ final class Repository: ObservableObject {
             deduped = WorkoutSource.dedupCrossSource(filtered)
         }
         let visible = deduped.sorted { $0.startTs > $1.startTs }
+        if !reconcilesHr { return visible }
         return await reconcileWorkoutHrWithTrace(visible, store: store)
     }
 

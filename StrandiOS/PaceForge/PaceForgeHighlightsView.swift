@@ -46,6 +46,8 @@ struct PFHighlightsScreen: View {
 
     var body: some View {
         PFDocScreen(title: "Highlights", identifier: "pf-highlights") {
+            // Awards are counted on the phone, so they show whether or not PaceForge's document does.
+            AwardsSection()
             PFDocStateView(state: store.docs.highlights, didLoad: store.didLoad, title: "Highlights", icon: "star",
                            identifier: "pf-highlights") { highlights, item in
                 PFHighlightsBody(highlights: highlights, item: item)
