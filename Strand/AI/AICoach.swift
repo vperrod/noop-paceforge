@@ -1354,8 +1354,10 @@ final class AICoachEngine: ObservableObject {
         lines.append("")
         lines.append("Recent days (newest first) — charge(0-100), effort(0-100), rest/sleep(h), "
                      + "deep/REM/light(h), eff(%), HRV(ms), RHR(bpm). A dash means NOT MEASURED, not zero:")
+        let garminActivity = repo.vitalRows.filter { $0.source == .paceForgeGarmin }.map(\.metric)
         for d in recent {
             lines.append("  " + dayLine(d, garminCharge: garmin[d.day]))
+            lines += GarminActivityReference.lines(garminActivity, from: d.day, to: d.day).map { "    " + $0 }
         }
 
         // 30-day averages.
@@ -1365,6 +1367,13 @@ final class AICoachEngine: ObservableObject {
             lines.insert("charge is the WHOOP strap's. Garmin Charge is a second device's score, given only as a reference to "
                          + "keep in mind: it must not drive numbers, targets, states or alerts. Never average or combine it "
                          + "with charge, and never use it where charge is missing.", at: 1)
+        }
+        let garminActivityAverages = GarminActivityReference.lines(garminActivity, from: last30.first?.day ?? "",
+                                                                   to: last30.last?.day ?? "", unit: "/day")
+        if !garminActivityAverages.isEmpty {
+            lines.insert("steps and active energy are the WHOOP strap's. Lines marked Garmin (reference only) are a second "
+                         + "device's figures: they must not drive numbers, targets, states or alerts. Never add, average or "
+                         + "combine them with the strap's, and never use them where the strap's are missing.", at: 1)
         }
         lines.append("")
         lines.append("30-day averages:")
@@ -1380,6 +1389,7 @@ final class AICoachEngine: ObservableObject {
                      + ", skin-temp deviation: \(avgOne(last30.compactMap { $0.skinTempDevC }))°C"
                      + ", steps: \(avgInt(last30.compactMap { $0.steps.map(Double.init) }))/day"
                      + ", active energy: \(avgInt(last30.compactMap { $0.activeKcalEst }))kcal/day")
+        lines += garminActivityAverages.map { "  " + $0 }
 
         return lines.joined(separator: "\n")
     }
