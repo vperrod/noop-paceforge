@@ -1080,11 +1080,11 @@ struct SettingsView: View {
     /// Theme (System / Light / Dark) on every platform, plus the iOS app-icon choice. The Theme picker
     /// writes `AppearanceMode.storageKey`, which both app roots read via `.preferredColorScheme`; because
     /// every palette token is a dynamic `Color(light:dark:)`, the whole UI re-resolves on change.
-    /// Day streak (#569): consecutive days with a Charge score, computed on-device from the merged
-    /// daily metrics. A day qualifies when its `DailyMetric` has a `recovery` value. The math is the
-    /// pure `StreakCalculator` (Swift/Kotlin twin).
+    /// Charge streak (#569): consecutive days with a WHOOP Charge. It reads `strapDays`, so a day whose
+    /// only Charge comes from Garmin does not count. The math is the pure `StreakCalculator`
+    /// (Swift/Kotlin twin).
     private var streakCard: some View {
-        let days = model.repo.days
+        let days = model.repo.strapDays
         let today = AnalyticsEngine.dayString(Int(Date().timeIntervalSince1970),
                                               offsetSec: TimeZone.current.secondsFromGMT())
         let s = StreakCalculator.streaks(dayKeys: days.map { $0.day },
@@ -1092,7 +1092,11 @@ struct SettingsView: View {
                                          today: today)
         return NoopCard(tint: StrandPalette.accent) {
             VStack(alignment: .leading, spacing: 12) {
-                Text("Streak").strandOverline()
+                HStack {
+                    Text("Charge streak").strandOverline()
+                    Spacer()
+                    PFSourceTag(source: "WHOOP")
+                }
                 HStack(alignment: .firstTextBaseline, spacing: 8) {
                     Text(verbatim: "\(s.current)")
                         .font(StrandFont.number(30))
@@ -1104,6 +1108,9 @@ struct SettingsView: View {
                 Text(s.longest == 1 ? "Longest: 1 day" : "Longest: \(s.longest) days")
                     .font(StrandFont.footnote)
                     .foregroundStyle(StrandPalette.textSecondary)
+                Text("Counts days with a WHOOP Charge only")
+                    .font(StrandFont.footnote)
+                    .foregroundStyle(StrandPalette.textTertiary)
             }
         }
     }

@@ -201,7 +201,7 @@ final class Repository: ObservableObject {
     /// The strap's days alone (WHOOP import and NOOP's scoring of the strap), with nothing from Garmin or activity files.
     /// Every place that presents a figure as WHOOP or the strap, and all coaching, reads this, never `days`, where Garmin can
     /// fill or lead a day.
-    @Published var strapDays: [DailyMetric] = []
+    @Published private(set) var strapDays: [DailyMetric] = []
     /// Garmin's Charge by day, for reports to carry beside the strap's as a reference (`GarminChargeReference`). It drives nothing.
     @Published private(set) var garminCharge: [String: Double] = [:]
     /// The days on which Garmin's Charge and readings lead the strap's in `days` (see `mergePaceForgeGarmin`).
