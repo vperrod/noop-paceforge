@@ -1270,8 +1270,6 @@ private struct VitalitySection: View {
     @EnvironmentObject var profile: ProfileStore
     @State private var vitality: Double?
     @State private var bodyAge: Double?
-    /// The weekly Body Age series, for the pace-of-aging card.
-    @State private var bodyAgeSeries: [(day: String, value: Double)] = []
     @State private var loaded = false
 
     private var contributions: [VitalityEngine.Contribution] {
@@ -1307,7 +1305,12 @@ private struct VitalitySection: View {
             } else {
                 ComingSoon(what: "Reading your Vitality…", symbol: "sparkles")
             }
-            if loaded { PaceOfAgingCard(series: bodyAgeSeries, today: Repository.localDayKey(Date())) }
+            #if os(iOS)
+            // One pace of aging: Healthspan's, from the PaceForge server.
+            IndexSection("Pace of aging") {
+                IndexRow("One number, in Healthspan", "hourglass", TabRoute.healthspan, id: "vitals-pace-in-healthspan")
+            }
+            #endif
         }
         .task(id: repo.refreshSeq) { await load() }
     }
@@ -1390,9 +1393,7 @@ private struct VitalitySection: View {
 
     private func load() async {
         vitality = (await repo.exploreSeries(key: "vitality", source: "my-whoop")).last?.value
-        let ageSeries = await repo.exploreSeries(key: "body_age", source: "my-whoop")
-        bodyAgeSeries = ageSeries
-        bodyAge = ageSeries.last?.value
+        bodyAge = (await repo.exploreSeries(key: "body_age", source: "my-whoop")).last?.value
         loaded = true
     }
 }

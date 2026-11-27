@@ -143,7 +143,7 @@ final class WhoopGapsUITests: XCTestCase {
 
     // MARK: Pace of aging
 
-    func testHealthShowsPaceOfAging() {
+    func testBodyAgePointsToTheOnePaceOfAgingInHealthspan() {
         let app = launch()
         let tab = app.shellTab("Health")
         XCTAssertTrue(tab.waitForExistence(timeout: 30))
@@ -153,16 +153,10 @@ final class WhoopGapsUITests: XCTestCase {
         XCTAssertTrue(vitals.waitForExistence(timeout: 20), "Health should have a Vitals chip.")
         vitals.tap()
         app.openSection("vitals-body-age")
-        let card = element(app, "pace-of-aging-card")
-        XCTAssertTrue(reveal(card, in: app, maxSwipes: 20), "Health should show the Pace of aging card under Vitality.")
-        XCTAssertTrue(element(app, "pace-of-aging-value").exists || element(app, "pace-of-aging-calibrating").exists,
-                      "The card shows a pace or says how many weekly readings it still needs.")
-        attach(app, "74 Pace of aging")
-        let info = element(app, "pace-of-aging-info")
-        XCTAssertTrue(info.waitForExistence(timeout: 5))
-        info.tap()
-        XCTAssertTrue(element(app, "pace-of-aging-info-sheet").waitForExistence(timeout: 10))
-        attach(app, "74 Pace of aging info")
+        let row = element(app, "vitals-pace-in-healthspan")
+        XCTAssertTrue(reveal(row, in: app, maxSwipes: 20), "Body age should point to Healthspan for the pace of aging.")
+        XCTAssertFalse(element(app, "pace-of-aging-card").exists, "The 30-day pace card is gone.")
+        attach(app, "74 Body age pace of aging pointer")
     }
 
     // MARK: Coach

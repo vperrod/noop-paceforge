@@ -620,23 +620,20 @@ final class IntelligenceEngine: ObservableObject {
 
     /// Manual "refresh Fitness Age" (the button on the not-ready card): recompute the weekly Fitness Age NOW
     /// from the PERSISTED merged daily history , NO raw-HR rescoring , and upsert it. Same gate
-    /// (`fitnessAgeRows`) + date/window logic as the recompute pass, so it reads exactly what the readiness
-    /// card shows. Light + works offline (stored data only). Returns true if a value was written. Mirrors
-    /// the Android `recomputeFitnessAgeOnly`.
-    func recomputeFitnessAgeOnly(maxDays: Int = 21) async -> Bool {
+    /// (`fitnessAgeRows`) + week (`savedWeek`) as the recompute pass. Light + works offline (stored data
+    /// only). Returns true if a value was written. Mirrors the Android `recomputeFitnessAgeOnly`.
+    func recomputeFitnessAgeOnly() async -> Bool {
         guard let store = await repo.storeHandle() else { return false }
         let computedId = deviceId + "-noop"
         let now = Int(Date().timeIntervalSince1970)
         let tzOffset = TimeZone.current.secondsFromGMT()
         let nowLocalMidnight = Self.midnightLocal(now, offsetSec: tzOffset)
         let newestDay = AnalyticsEngine.dayString(nowLocalMidnight, offsetSec: tzOffset)
-        let oldestDay = AnalyticsEngine.dayString(nowLocalMidnight - (maxDays - 1) * 86_400, offsetSec: tzOffset)
-        let gate7 = Array((await repo.dailyMetrics(fromDay: oldestDay, toDay: newestDay))
-            .sorted { $0.day < $1.day }.suffix(7))
+        let satKey = Self.saturdayKey(onOrBefore: newestDay)
         let rows = Self.fitnessAgeRows(
-            gateDays: gate7, age: profile.age, sex: profile.sex, waistCm: profile.waistCm,
-            heightCm: profile.heightCm, weightKg: profile.weightKg, computedId: computedId,
-            satKey: Self.saturdayKey(onOrBefore: newestDay))
+            gateDays: await savedWeek(ending: satKey, store: store, computedId: computedId),
+            age: profile.age, sex: profile.sex, waistCm: profile.waistCm,
+            heightCm: profile.heightCm, weightKg: profile.weightKg, computedId: computedId, satKey: satKey)
         if !rows.isEmpty {
             try? await store.persistMetricSeriesWithProvenance(
                 points: rows,
@@ -645,6 +642,17 @@ final class IntelligenceEngine: ObservableObject {
             )
         }
         return !rows.isEmpty
+    }
+
+    /// The saved days a weekly row keyed `satKey` is built from: that Saturday and the six days before it,
+    /// the strap's computed rows under any imported ones. Nothing later, so a finished week's row keeps
+    /// describing its own week.
+    private func savedWeek(ending satKey: String, store: WhoopStore, computedId: String) async -> [DailyMetric] {
+        var from = satKey
+        for _ in 0..<6 { from = ChargeBaselines.dayBefore(from) ?? from }
+        let computed = (try? await store.dailyMetrics(deviceId: computedId, from: from, to: satKey)) ?? []
+        return Repository.mergeDaily(imported: await repo.dailyMetrics(fromDay: from, toDay: satKey),
+                                     computed: computed)
     }
 
     /// Completion flag for the shared full-history Effort and sleep-wear repair pass.
@@ -2403,12 +2411,6 @@ final class IntelligenceEngine: ObservableObject {
         // (Today / Recovery / Strain / Sleep / Trends), not just this screen, reads them. The
         // Repository merges these UNDER any imported "my-whoop" rows, so a real WHOOP import
         // always wins; this only fills the days the strap collected but no import covered.
-        // Snapshot the persisted/merged daily history BEFORE the upsert + stale-evict below , the
-        // accumulated view the readiness card + dashboard read (incl. IMPORTED Apple Health / Health Connect
-        // resting HR, which the engine's computed-only `dailies` never carries). Captured here so the
-        // Fitness Age gate can't be undercut by this pass's own scoring/eviction. Windowed to the range.
-        let faPriorDaily = await repo.dailyMetrics(fromDay: oldestDay, toDay: newestDay)
-
         // Score provenance is metric-specific and lives outside dayOwnership (which remains solely a
         // resolver override). Persist scores + provenance atomically so a failed write can never label an
         // older score with a newer provider. The last row for a duplicate day wins, matching the upsert.
@@ -2498,30 +2500,16 @@ final class IntelligenceEngine: ObservableObject {
         }
         markPostLoopPhase("persist")
         // ── Fitness Age (Phase 2) , weekly, keyed to the week's Saturday ────────────────────────────
-        // Roll the last 7 computed days into the Nes/HUNT inputs and upsert a weekly Fitness Age (+ an
-        // optional VO₂max when a waist is set) under the same "-noop" source. Idempotent on the Saturday
-        // key, so the number refines through the week and finalises on Saturday. Engine = FitnessAgeEngine
-        // (StrandAnalytics), fully unit-tested; the body term cancels so the headline needs no body metric.
-        let fa7 = dailies.sorted { $0.day < $1.day }.suffix(7)
-        let faRHRs = fa7.compactMap { $0.restingHr }.map(Double.init)
-        // The Fitness Age gate + compute read the PERSISTED/MERGED last-7 days , the SAME history the
-        // readiness card + dashboard show , NOT this pass's freshly scored `dailies`. A recompute only
-        // re-scores nights whose raw HR still lives in the store, so a nightly wearer whose card reads
-        // "7 of 7 nights" could still leave the engine seeing <4 RHR nights on `dailies`, and Fitness Age
-        // never computed (Vitality did , it needs only 3 of ANY input, which is why Body Age showed but
-        // Fitness Age did not). Kept SEPARATE from `fa7` so Vitality (below), which already computes, is
-        // untouched. Gate on the UNION of the pre-rewrite persisted history and THIS pass's fresh scores
-        // (by day, fresh wins), so an RHR night counts whether it survives in the store, was just scored,
-        // or came from an import. The gate + compute live in `fitnessAgeRows`, shared with the manual
-        // "refresh Fitness Age" button so the two can never drift.
-        var faGateByDay: [String: DailyMetric] = [:]
-        for d in faPriorDaily { faGateByDay[d.day] = d }
-        for d in dailies { faGateByDay[d.day] = d }
-        let faGate7 = Array(faGateByDay.values.sorted { $0.day < $1.day }.suffix(7))
+        // Roll the week ending that Saturday into the Nes/HUNT inputs and upsert a weekly Fitness Age (+ an
+        // optional VO₂max when a waist is set) under the same "-noop" source. The days are read back from the
+        // store after this pass saved them (`savedWeek`), so the row never takes a later day and a week with
+        // no saved days writes nothing. Engine = FitnessAgeEngine (StrandAnalytics), fully unit-tested; the
+        // body term cancels so the headline needs no body metric.
+        let satKey = IntelligenceEngine.saturdayKey(onOrBefore: newestDay)
+        let week = await savedWeek(ending: satKey, store: store, computedId: computedId)
         let faPts = Self.fitnessAgeRows(
-            gateDays: faGate7, age: profile.age, sex: profile.sex, waistCm: profile.waistCm,
-            heightCm: profile.heightCm, weightKg: profile.weightKg, computedId: computedId,
-            satKey: IntelligenceEngine.saturdayKey(onOrBefore: newestDay))
+            gateDays: week, age: profile.age, sex: profile.sex, waistCm: profile.waistCm,
+            heightCm: profile.heightCm, weightKg: profile.weightKg, computedId: computedId, satKey: satKey)
         if !faPts.isEmpty {
             try? await store.persistMetricSeriesWithProvenance(
                 points: faPts,
@@ -2531,23 +2519,23 @@ final class IntelligenceEngine: ObservableObject {
         }
 
         // ── Vitality / Body Age (Phase 7) , weekly, keyed to the week's Saturday ────────────────────
-        // Roll the last 7 days' wearable signals into the mortality-hazard model and upsert a weekly
+        // Roll the same week's wearable signals into the mortality-hazard model and upsert a weekly
         // Vitality (0–100) + Body Age. VitalityEngine gates on ≥3 inputs, so a sparse week writes nothing.
         // (VO₂max is omitted here , fitness is already its own Fitness Age headline; Vitality leans on
         // resting HR, sleep duration + regularity, HRV-vs-age-norm, and steps.)
-        let vNights = fa7.compactMap { $0.totalSleepMin }.map { Double($0) / 60.0 }.filter { $0 > 0 }
-        let vHRVs = fa7.compactMap { $0.avgHrv }
-        let vSteps = fa7.compactMap { $0.steps }.map(Double.init)
+        let weekRHRs = week.compactMap { $0.restingHr }.map(Double.init)
+        let vNights = week.compactMap { $0.totalSleepMin }.map { Double($0) / 60.0 }.filter { $0 > 0 }
+        let vHRVs = week.compactMap { $0.avgHrv }
+        let vSteps = week.compactMap { $0.steps }.map(Double.init)
         let vInputs = VitalityEngine.Inputs(
             chronoAge: Double(profile.age),
-            restingHR: faRHRs.isEmpty ? nil : IntelligenceEngine.medianOf(faRHRs),
+            restingHR: weekRHRs.isEmpty ? nil : IntelligenceEngine.medianOf(weekRHRs),
             sleepHours: vNights.isEmpty ? nil : vNights.reduce(0, +) / Double(vNights.count),
             sleepConsistency: VitalityEngine.sleepConsistency(nightlyHours: vNights),
             rmssd: vHRVs.isEmpty ? nil : IntelligenceEngine.medianOf(vHRVs),
             rmssdNorm: VitalityEngine.rmssdNorm(forAge: Double(profile.age)),
             steps: vSteps.isEmpty ? nil : vSteps.reduce(0, +) / Double(vSteps.count))
         if let vRes = VitalityEngine.compute(vInputs) {
-            let satKey = IntelligenceEngine.saturdayKey(onOrBefore: newestDay)
             _ = try? await store.upsertMetricSeries([
                 MetricPoint(day: satKey, key: "vitality", value: vRes.vitality),
                 MetricPoint(day: satKey, key: "body_age", value: vRes.bodyAge),
