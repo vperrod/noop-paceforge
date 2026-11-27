@@ -427,6 +427,7 @@ targets:
           - $(PRODUCT_BUNDLE_IDENTIFIER).stalebattery
         NSBluetoothAlwaysUsageDescription: "NOOP connects directly to your WHOOP strap over Bluetooth to read heart rate, R-R intervals, battery, and sensor data locally on your iPhone. Nothing leaves your device."
         NSLocationWhenInUseUsageDescription: "NOOP records your route during an outdoor workout to show distance, pace, and a map, and keeps recording while the screen is off. The route stays on your device. Nothing leaves it."
+        NSPhotoLibraryAddUsageDescription: "NOOP saves a share card to your photo library only when you choose Save Image in the share sheet."
         NSFaceIDUsageDescription: "NOOP uses Face ID to unlock the PaceForge tab when you turn that lock on. Nothing leaves your device."
         NSHealthShareUsageDescription: "NOOP reads your own Apple Health data on-device to compute recovery, strain, and sleep. Nothing leaves your device."
         NSHealthUpdateUsageDescription: "NOOP writes the metrics it computes from your strap back into Apple Health, on-device and only when you allow it."
@@ -507,6 +508,8 @@ targets:
         buildPhase: resources
       # The live documents' shapes with every value replaced (PaceForgeRealShapesUITests).
       - StrandTests/LiveShapes/PaceForgeRealShapes.json
+      # The share cards' figure logic, compiled into the test bundle so ShareCardDataTests can call it.
+      - StrandiOS/Share/ShareCardData.swift
     settings:
       base:
         GENERATE_INFOPLIST_FILE: YES
@@ -514,6 +517,8 @@ targets:
         TEST_TARGET_NAME: NOOPiOS
     dependencies:
       - target: NOOPiOS
+      # LookBaseline, for ShareCardData.
+      - package: StrandDesign
 
   # WidgetKit + Live Activity extension — the iOS analogue of the macOS menu-bar
   # extra. Reads a tiny snapshot the app publishes into the shared App Group.

@@ -669,6 +669,9 @@ enum DemoScreens {
         // The Phase 4 screens (Phase4UITests): PaceForge's highlights, healthspan, journal-impact and monthly-report documents
         // (from the synthetic fixture), the Stress monitor and the dashboard editor.
         case "highlights": return AnyView(PFHighlightsScreen())
+        // The share cards (ShareCardsUITests): their images from made-up figures, and a made-up workout's detail screen.
+        case "sharecards": return AnyView(ShareCardRenderHarness())
+        case "shareworkout": return AnyView(WorkoutDetailView(row: ShareCardRenderHarness.fixtureWorkout))
         case "healthspan": return AnyView(PFHealthspanScreen())
         case "journalimpact": return AnyView(PFJournalImpactScreen())
         case "monthlyreport": return AnyView(PFMonthlyReportScreen())

@@ -111,6 +111,12 @@ enum FileExport {
     }
 
     #if os(iOS)
+    /// The share sheet for an image (the share cards), stacked over whatever sheet is up.
+    @MainActor
+    static func shareImage(_ image: UIImage) {
+        present(activityItems: [image], cleanup: [])
+    }
+
     /// Present `UIActivityViewController` and, once it closes, best-effort remove the URLs in
     /// `cleanup` so staged exports don't accumulate in `temporaryDirectory` across runs.
     @MainActor

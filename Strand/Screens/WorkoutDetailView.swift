@@ -108,6 +108,11 @@ struct WorkoutDetailView: View {
                 Button("Done") { dismiss() }
             }
         }
+        #if os(iOS)
+        .shareCardToolbar("share-card-workout") {
+            ShareCardModel.workout(row, effortScale: effortScale, distanceSystem: distanceUnitSystem)
+        }
+        #endif
         .task { await load() }
     }
 
@@ -754,6 +759,10 @@ struct WorkoutDetailView: View {
     }
     private func durationLabel(_ s: Double?) -> String {
         guard let s, s > 0 else { return "–" }
+        return Self.durationText(s)
+    }
+    /// "1h 5m" / "19m" for a duration above zero (the Workout share card prints it too).
+    static func durationText(_ s: Double) -> String {
         let total = Int(s.rounded())
         let h = total / 3600, m = (total % 3600) / 60
         if h > 0 { return String(localized: "\(h)h \(m)m") }
@@ -763,7 +772,8 @@ struct WorkoutDetailView: View {
         guard let m, m > 0 else { return "–" }
         return UnitFormatter.distanceFromMeters(m, system: distanceUnitSystem)
     }
-    private func grouped(_ v: Double) -> String {
+    private func grouped(_ v: Double) -> String { Self.grouped(v) }
+    static func grouped(_ v: Double) -> String {
         Self.intFmt.string(from: NSNumber(value: Int(v.rounded()))) ?? "\(Int(v.rounded()))"
     }
     private static let intFmt: NumberFormatter = {

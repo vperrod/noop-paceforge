@@ -1158,8 +1158,24 @@ struct LiquidTodayView: View {
                 if phase4Store.streakChip != nil { PFStreakChipView() }
                 Spacer(minLength: 0)
                 LiquidAddButton()
+                LiquidShareButton(makeCard: dayShareCard)
             }
         }
+    }
+
+    /// The Day card for the day on screen. A Charge carried from an earlier night is not this day's, so it stays off.
+    private func dayShareCard() -> ShareCardModel {
+        let day = displayDay
+        var charge: Double?
+        if case .scored(let pct) = chargeDisplay { charge = pct }
+        let shown = ShareDayValues(day: day?.day ?? selectedDayKey, charge: charge, sleepMin: day?.totalSleepMin,
+                                   effort: effortStrain(day), hrv: day?.avgHrv, restingHr: day?.restingHr.map(Double.init))
+        let whoopRows = repo.vitalRows.filter { $0.source == .whoopImport || $0.source == .noopComputed }
+        let figures = ShareDayFigures.make(shown: shown, history: repo.days.map { ShareDayValues(metric: $0) },
+                                           whoopRows: whoopRows.map { ShareDayValues(metric: $0.metric) },
+                                           strapLiveEffort: selectedDayOffset == 0 ? liveTodayStrain : nil,
+                                           hidesScores: hideScoresOn, calendar: .current)
+        return .day(figures, dayKey: shown.day, effortScale: effortScale)
     }
 
     private var lookTopBarRow: some View {
@@ -2870,8 +2886,11 @@ struct LiquidTodayView: View {
 
     private var sleepText: String {
         guard let m = displayDay?.totalSleepMin else { return "–" }
-        return "\(Int(m) / 60)h \(Int(m) % 60)m"
+        return Self.sleepDurationText(m)
     }
+
+    /// "7h 33m": the Sleep card's text, also the Day share card's.
+    nonisolated static func sleepDurationText(_ minutes: Double) -> String { "\(Int(minutes) / 60)h \(Int(minutes) % 60)m" }
 
     private var stepsText: String {
         guard let s = stepCount else { return "–" }
@@ -3322,6 +3341,27 @@ private struct HeaderControlsWidthKey: PreferenceKey {
 private let headerClusterSpacing = NoopMetrics.space1
 #else
 private let headerClusterSpacing = NoopMetrics.space3
+#endif
+
+#if os(iOS)
+/// The Share button on the top bar's second line: opens the share editor on the day's card.
+private struct LiquidShareButton: View {
+    let makeCard: @MainActor () -> ShareCardModel
+    @State private var card: ShareCardModel?
+
+    var body: some View {
+        Button { card = makeCard() } label: {
+            Image(systemName: "square.and.arrow.up")
+                .font(.system(size: 14, weight: .bold))
+                .foregroundStyle(StrandPalette.textPrimary)
+                .frame(width: NoopMetrics.compactControlSize, height: NoopMetrics.compactControlSize)
+        }
+        .nativeLiquidGlassHeaderButton()
+        .accessibilityLabel("Share")
+        .accessibilityIdentifier("share-card-today")
+        .sheet(item: $card) { ShareCardEditor(model: $0) }
+    }
+}
 #endif
 
 private struct LiquidAddButton: View {

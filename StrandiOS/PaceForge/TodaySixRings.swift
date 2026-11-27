@@ -45,6 +45,11 @@ struct SixRingNoopInput {
     let route: TabRoute?
     /// The name's tap: the scoring guide.
     let onGuide: () -> Void
+
+    /// A score as its dial prints it (the Day share card prints it the same way).
+    static func valueText(_ score: Double, decimals: Int) -> String {
+        decimals > 0 ? String(format: "%.\(decimals)f", locale: AppLanguage.activeLocale, score) : String(Safe.int(score))
+    }
 }
 
 /// The strap's three dials as one WHOOP-size row, Garmin's three as a second row of the same size and style directly under it, and
@@ -113,10 +118,7 @@ private struct TodayNoopRingGroup: View {
     }
 
     private static func spec(_ input: SixRingNoopInput) -> SixRingSpec {
-        let text = input.score.map { score in
-            input.decimals > 0 ? String(format: "%.\(input.decimals)f", locale: AppLanguage.activeLocale, score)
-                               : String(Safe.int(score))
-        }
+        let text = input.score.map { SixRingNoopInput.valueText($0, decimals: input.decimals) }
         return SixRingSpec(name: input.name, fraction: input.score.map { LookDial.fraction($0, max: input.maxValue) } ?? 0,
                            color: input.tint, valueText: text ?? "\u{2013}", unitText: input.score == nil ? nil : input.unit,
                            target: input.target, identifier: "six-rings-noop-\(input.name.lowercased())")

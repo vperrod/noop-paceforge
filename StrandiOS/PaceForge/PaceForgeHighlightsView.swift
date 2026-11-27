@@ -51,6 +51,13 @@ struct PFHighlightsScreen: View {
                 PFHighlightsBody(highlights: highlights, item: item)
             }
         }
+        .shareCardToolbar("share-card-streak", makeCard: streakCard)
+    }
+
+    /// The Streak card of the streak the page leads with; nil (no button) while no streak is alive.
+    private var streakCard: (@MainActor () -> ShareCardModel)? {
+        guard let lead = PFHighlightsLogic.leadStreak(store.docs.highlights.value?.streaks ?? []) else { return nil }
+        return { ShareCardModel.streak(lead) }
     }
 }
 
