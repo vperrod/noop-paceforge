@@ -53,7 +53,7 @@ final class DailyTimingLogicTests: XCTestCase {
     }
 
     func testAnEveningSessionStatesTheGapToBed() {
-        XCTAssertEqual(DailyTiming.gapToBed(start: at(19), durationMin: 45, bed: at(22, 52)), 187)
+        XCTAssertEqual(DailyTiming.gapToBed(start: at(18), durationMin: 40, bed: at(21, 30)), 170)
     }
 
     func testASessionAcrossMidnightEndsAfterBed() {

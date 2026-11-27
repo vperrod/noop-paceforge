@@ -172,29 +172,29 @@ enum DailyTimingFixture {
     }
 
     static var earlyInputs: EarlyStartInputs {
-        variant == "early" ? EarlyStartInputs(eventDay: "2030-04-02", wake: 3 * 60 + 45, startDay: "2030-03-30") : EarlyStartInputs()
+        variant == "early" ? EarlyStartInputs(eventDay: "2030-04-02", wake: 4 * 60, startDay: "2030-03-30") : EarlyStartInputs()
     }
 
     static var data: DailyTimingData? {
         guard let variant else { return nil }
         let weekend = variant == "weekend"
         let today = weekend ? "2030-03-15" : "2030-03-13"
-        let bed = 22 * 60 + 40
+        let bed = 21 * 60 + 50
         let now = Date()
-        // Bedtime is 14 h 40 after "now", so "now" reads as 08:00.
+        // Bedtime is 13 h 50 after "now", so "now" reads as 08:00.
         let bedDate = now.addingTimeInterval(Double(bed - 8 * 60) * 60)
-        let strength = TimingSession(id: "s1", name: "Synthetic strength", durationMin: 60, isClass: false)
-        let hyrox = TimingSession(id: "s2", name: "Synthetic HYROX class", durationMin: 45, isClass: true)
-        let saturday = TimingSession(id: "s3", name: "Synthetic Saturday class", durationMin: 50, isClass: true)
+        let strength = TimingSession(id: "s1", name: "Synthetic strength", durationMin: 35, isClass: false)
+        let hyrox = TimingSession(id: "s2", name: "Synthetic HYROX class", durationMin: 40, isClass: true)
+        let saturday = TimingSession(id: "s3", name: "Synthetic Saturday class", durationMin: 55, isClass: true)
         var data = DailyTimingData(
-            today: today, now: now, bed: bed, bedDate: bedDate, bedSource: DailyTimingData.paceForgeBedSource(need: "8 h 10"),
-            plannerWake: 6 * 60 + 15, wokeAt: 5 * 60 + 48, asleepMin: variant == "short" ? 372 : 436,
-            pattern: DailyTiming.Pattern(weekdayWake: 5 * 60 + 52, weekendWake: 7 * 60 + 5, weekdayNights: 10, weekendNights: 4),
+            today: today, now: now, bed: bed, bedDate: bedDate, bedSource: DailyTimingData.paceForgeBedSource(need: "7 h 50"),
+            plannerWake: 6 * 60 + 30, wokeAt: 5 * 60 + 20, asleepMin: variant == "short" ? 351 : 447,
+            pattern: DailyTiming.Pattern(weekdayWake: 6 * 60 + 5, weekendWake: 8 * 60 + 25, weekdayNights: 9, weekendNights: 3),
             ateClose: [TimingJournalLine(day: "2030-03-12", yes: true), TimingJournalLine(day: "2030-03-11", yes: false)],
             todaySessions: [variant == "evening" ? hyrox : strength],
             tomorrowSessions: weekend ? [saturday] : [],
-            classSlots: ["wed": PFClassSlot(startMinutes: 19 * 60, minutes: 60),
-                         "sat": PFClassSlot(startMinutes: 7 * 60, minutes: 60)],
+            classSlots: ["wed": PFClassSlot(startMinutes: 18 * 60 + 20, minutes: 50),
+                         "sat": PFClassSlot(startMinutes: 8 * 60 + 30, minutes: 50)],
             race: PFNextRace(name: "Synthetic HYROX race", date: "2030-04-02", daysOut: 20, goalTime: nil))
         if variant == "nodata" {
             data.wokeAt = nil

@@ -115,9 +115,9 @@ enum AwardsFixture {
         guard let i = args.firstIndex(of: "-AwardsFixture"), args.index(after: i) < args.endIndex else { return nil }
         let celebrates = args[args.index(after: i)] == "celebrate"
         let today = "2030-03-13"
-        let green = celebrates ? 25 : 21
-        let days = (0..<42).map { back in
-            AwardDay(day: DailyTiming.addDays(today, back - 41), charge: back < green ? 78 : 52,
+        let green = celebrates ? 25 : 17
+        let days = (0..<38).map { back in
+            AwardDay(day: DailyTiming.addDays(today, back - 37), charge: back < green ? 78 : 52,
                      asleepMin: back % 2 == 0 ? 440 : 395, strain21: back % 14 == 0 ? 15.2 : 11.0)
         }
         let activity = (0..<37).map { DailyTiming.addDays(today, -$0) }

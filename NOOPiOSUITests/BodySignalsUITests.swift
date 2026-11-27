@@ -47,7 +47,7 @@ final class BodySignalsUITests: XCTestCase {
     func testEverySourceIsNamedAndAMissingValueStaysMissing() throws {
         let app = try launch(signals: [
             "status": ["garmin": "Synthetic productive", "paceforge_load_balance": "grey"],
-            "focus": ["garmin": "Synthetic aerobic high shortage", "paceforge_running_zones": NSNull()],
+            "focus": ["garmin": "Synthetic low aerobic shortage", "paceforge_running_zones": NSNull()],
         ])
         open(app)
         XCTAssertEqual(app.element("signals-whoop-hrv").label, "Current calculation, WHOOP: 46 ms")

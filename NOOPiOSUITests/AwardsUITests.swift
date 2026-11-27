@@ -57,7 +57,7 @@ final class AwardsUITests: XCTestCase {
         tap("award-row-greenDays", in: app)
         XCTAssertTrue(app.element("award-step-25").waitForExistence(timeout: 20))
         XCTAssertEqual(app.element("award-step-10").label, "10: Earned")
-        XCTAssertEqual(app.element("award-step-25").label, "25: 4 to go")
+        XCTAssertEqual(app.element("award-step-25").label, "25: 8 to go")
         attach(app, "Awards 02 One award")
         back(app)
         tap("award-row-activities", in: app)
