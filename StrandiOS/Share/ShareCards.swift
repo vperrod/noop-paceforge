@@ -37,7 +37,8 @@ struct ShareCardModel: Identifiable {
     var content: Content
     var source: String?
 
-    @MainActor static func day(_ figures: ShareDayFigures, dayKey: String, effortScale: EffortScale) -> ShareCardModel {
+    @MainActor static func day(_ figures: ShareDayFigures, dayKey: String, effortScale: EffortScale,
+                               provider: String) -> ShareCardModel {
         func stat(_ label: String, _ figure: ShareFigure?, color: Color = .white, text: (Double) -> String) -> Stat? {
             figure.map { Stat(label: label, value: text($0.value), average: $0.average.map { "avg \(text($0))" }, color: color) }
         }
@@ -58,7 +59,7 @@ struct ShareCardModel: Identifiable {
             stat("Resting HR", figures.restingHr, text: whole),
         ].compactMap { $0 }
         return ShareCardModel(heading: PFDocDate.dayMonthYear(dayKey) ?? dayKey, content: .day(ring: ring, stats: stats),
-                              source: figures.isEmpty ? nil : "WHOOP data")
+                              source: figures.sourceLine(provider: provider))
     }
 
     @MainActor static func workout(_ row: WorkoutRow, effortScale: EffortScale, distanceSystem: UnitSystem) -> ShareCardModel {
@@ -236,10 +237,14 @@ struct ShareCardView: View {
 
 @MainActor
 enum ShareCardRenderer {
+    /// Image pixels per card point.
+    static let scale: CGFloat = 3
+    static var pixelSize: CGSize { CGSize(width: ShareCardView.size.width * scale, height: ShareCardView.size.height * scale) }
+
     /// The card as an opaque 960 x 1620 image.
     static func image(_ model: ShareCardModel, photo: UIImage?) -> UIImage? {
         let renderer = ImageRenderer(content: ShareCardView(model: model, photo: photo).environment(\.colorScheme, .dark))
-        renderer.scale = 3
+        renderer.scale = scale
         renderer.isOpaque = true
         var image: UIImage?
         UITraitCollection(userInterfaceStyle: .dark).performAsCurrent { image = renderer.uiImage }
@@ -257,6 +262,8 @@ struct ShareCardEditor: View {
     @State private var isShowingPhoto = false
     @State private var isPickerOpen = false
     @State private var pickerItem: PhotosPickerItem?
+    /// Why the last pick shows no photo.
+    @State private var photoProblem: String?
 
     private var shownPhoto: UIImage? { isShowingPhoto ? photo : nil }
 
@@ -272,8 +279,18 @@ struct ShareCardEditor: View {
                     .accessibilityElement(children: .combine)
                     .accessibilityIdentifier("share-card-preview")
             }
+            if let photoProblem {
+                Text(photoProblem)
+                    .font(LookFont.text(13))
+                    .foregroundStyle(.white)
+                    .multilineTextAlignment(.center)
+                    .accessibilityIdentifier("share-editor-photo-problem")
+            }
             HStack(spacing: 8) {
-                chip("Card", isOn: !isShowingPhoto, id: "share-editor-card") { isShowingPhoto = false }
+                chip("Card", isOn: !isShowingPhoto, id: "share-editor-card") {
+                    isShowingPhoto = false
+                    photoProblem = nil
+                }
                 // With no photo yet this opens Apple's picker; the card stays until a photo is chosen.
                 chip("Photo", isOn: isShowingPhoto, id: "share-editor-photo") {
                     if photo == nil { isPickerOpen = true } else { isShowingPhoto = true }
@@ -342,11 +359,20 @@ struct ShareCardEditor: View {
     }
 
     @MainActor private func load(_ item: PhotosPickerItem) async {
+        photoProblem = nil
         let data = try? await item.loadTransferable(type: Data.self)
         // Cleared so that picking the same picture again is seen as a new pick.
         pickerItem = nil
-        guard let data, let picked = UIImage(data: data) else { return }
-        photo = picked
+        let target = ShareCardRenderer.pixelSize
+        let picked = await Task.detached(priority: .userInitiated) {
+            data.flatMap { SharePhoto.downscaled($0, covering: target) }
+        }.value
+        guard let picked else {
+            isShowingPhoto = false
+            photoProblem = "That photo couldn't be read."
+            return
+        }
+        photo = UIImage(cgImage: picked)
         isShowingPhoto = true
     }
 }
@@ -407,7 +433,7 @@ struct ShareCardRenderHarness: View {
         }
         let figures = ShareDayFigures.make(shown: shown, history: earlier + [shown], whoopRows: earlier + [shown],
                                            strapLiveEffort: nil, hidesScores: false, calendar: .current)
-        return .day(figures, dayKey: shown.day, effortScale: .hundred)
+        return .day(figures, dayKey: shown.day, effortScale: .hundred, provider: "WHOOP")
     }
 
     private var fixturePhoto: UIImage {

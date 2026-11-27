@@ -1,12 +1,14 @@
 import Foundation
+import ImageIO
 import StrandDesign
 
-// Which figures go on the Day and Workout share cards, apart from the drawing so they can be tested on their own
-// (ShareCardDataTests compiles this file). A figure with no data is nil and the card leaves it off.
+// Which figures go on the Day and Workout share cards, and how large a picked photo is decoded, apart from the
+// drawing so they can be tested on their own (ShareCardDataTests compiles this file). A figure with no data is nil
+// and the card leaves it off.
 //
-// The Day card is a WHOOP card. Today's merged day can hold a figure Garmin filled in, so every figure, on the shown
-// day and in the days behind its average, is kept only when a WHOOP row of that same day carries the same value.
-// Garmin and WHOOP are never averaged together.
+// The Day card carries the strap's figures only (WHOOP, for a WHOOP wearer). Today's merged day can hold a figure
+// Garmin filled in, so every figure, on the shown day and in the days behind its average, is kept only when a strap
+// row of that same day carries the same value. Garmin and WHOOP are never averaged together.
 
 /// One day's figures that can go on the Day card. Effort is on the stored 0-100 scale.
 struct ShareDayValues: Equatable {
@@ -42,6 +44,9 @@ struct ShareDayFigures: Equatable {
     var restingHr: ShareFigure?
 
     var isEmpty: Bool { charge == nil && sleepMin == nil && effort == nil && hrv == nil && restingHr == nil }
+
+    /// "WHOOP data": `provider` is the active device's name as the app prints it. nil on a card with no figure.
+    func sourceLine(provider: String) -> String? { isEmpty ? nil : "\(provider) data" }
 
     /// `shown` is the day on screen and `history` the merged days; `whoopRows` are the WHOOP rows behind them.
     /// `strapLiveEffort` is today's Effort scored live from the strap's heart rate, which no stored row carries yet.
@@ -90,5 +95,34 @@ struct ShareWorkoutFigures: Equatable {
         self.kcal = kcal.flatMap { $0 > 0 ? $0 : nil }
         self.distanceM = distanceM.flatMap { $0 > 0 ? $0 : nil }
         self.effort = effort
+    }
+}
+
+/// A picked photo, decoded only as large as the card's image needs.
+enum SharePhoto {
+    /// The longest side to decode at, so the upright picture still covers `target` in aspect-fill. Never above its own.
+    static func maxPixelSide(upright: CGSize, covering target: CGSize) -> Int {
+        let longest = max(upright.width, upright.height)
+        let needed = max(target.width * longest / upright.width, target.height * longest / upright.height)
+        return Int(min(longest, needed).rounded(.up))
+    }
+
+    /// The upright, downscaled picture (an ImageIO thumbnail: the full-size picture is never held).
+    /// nil when `data` is not a picture that can be read.
+    static func downscaled(_ data: Data, covering target: CGSize) -> CGImage? {
+        guard let source = CGImageSourceCreateWithData(data as CFData, [kCGImageSourceShouldCache: false] as CFDictionary),
+              let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
+              let width = properties[kCGImagePropertyPixelWidth] as? Int,
+              let height = properties[kCGImagePropertyPixelHeight] as? Int, width > 0, height > 0 else { return nil }
+        // EXIF orientations 5 to 8 turn the picture by a quarter.
+        let isTurned = (properties[kCGImagePropertyOrientation] as? Int ?? 1) >= 5
+        let upright = CGSize(width: isTurned ? height : width, height: isTurned ? width : height)
+        let options: [CFString: Any] = [
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceCreateThumbnailWithTransform: true,
+            kCGImageSourceShouldCacheImmediately: true,
+            kCGImageSourceThumbnailMaxPixelSize: maxPixelSide(upright: upright, covering: target),
+        ]
+        return CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary)
     }
 }

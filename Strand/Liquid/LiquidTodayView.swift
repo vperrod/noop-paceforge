@@ -1175,7 +1175,9 @@ struct LiquidTodayView: View {
                                            whoopRows: whoopRows.map { ShareDayValues(metric: $0.metric) },
                                            strapLiveEffort: selectedDayOffset == 0 ? liveTodayStrain : nil,
                                            hidesScores: hideScoresOn, calendar: .current)
-        return .day(figures, dayKey: shown.day, effortScale: effortScale)
+        // The strap rows are read from the active device's ids, so the source line names that device.
+        let provider = TodayView.todayScoreProviderLabel(sourceId: repo.deviceId, brand: repo.activeDeviceBrand())
+        return .day(figures, dayKey: shown.day, effortScale: effortScale, provider: provider)
     }
 
     private var lookTopBarRow: some View {

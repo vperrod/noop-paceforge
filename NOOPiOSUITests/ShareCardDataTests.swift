@@ -1,3 +1,5 @@
+import ImageIO
+import UniformTypeIdentifiers
 import XCTest
 
 /// The figures behind the share cards (StrandiOS/Share/ShareCardData.swift, compiled into this bundle). Plain unit
@@ -74,6 +76,50 @@ final class ShareCardDataTests: XCTestCase {
     func testHiddenScoresStayOffTheCard() {
         let result = figures(values("2030-03-13", charge: 77, sleep: 400, effort: 55), hidesScores: true)
         XCTAssertEqual(result, ShareDayFigures(sleepMin: ShareFigure(value: 400, average: nil)))
+    }
+
+    func testSourceLineNamesTheGivenDevice() {
+        XCTAssertEqual(figures(values("2030-03-13", rhr: 44)).sourceLine(provider: "Oura"), "Oura data")
+    }
+
+    func testCardWithNoFigureHasNoSourceLine() {
+        XCTAssertNil(figures(values("2030-03-13")).sourceLine(provider: "WHOOP"))
+    }
+
+    private let cardPixels = CGSize(width: 960, height: 1620)
+
+    private func jpeg(width: Int, height: Int, orientation: Int = 1) throws -> Data {
+        let context = try XCTUnwrap(CGContext(data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: 0,
+                                              space: CGColorSpaceCreateDeviceRGB(),
+                                              bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue))
+        let image = try XCTUnwrap(context.makeImage())
+        let data = NSMutableData()
+        let destination = try XCTUnwrap(CGImageDestinationCreateWithData(data, UTType.jpeg.identifier as CFString, 1, nil))
+        CGImageDestinationAddImage(destination, image, [kCGImagePropertyOrientation: orientation] as CFDictionary)
+        XCTAssertTrue(CGImageDestinationFinalize(destination))
+        return data as Data
+    }
+
+    private func decodedSize(_ data: Data) throws -> CGSize {
+        let image = try XCTUnwrap(SharePhoto.downscaled(data, covering: cardPixels))
+        return CGSize(width: image.width, height: image.height)
+    }
+
+    func testLargePhotoIsDecodedJustLargeEnoughToCoverTheCard() throws {
+        XCTAssertEqual(try decodedSize(jpeg(width: 4000, height: 3000)), CGSize(width: 2160, height: 1620))
+    }
+
+    func testTurnedPhotoComesOutUprightAndCoversTheCard() throws {
+        // Orientation 6: stored landscape, shown portrait.
+        XCTAssertEqual(try decodedSize(jpeg(width: 4000, height: 3000, orientation: 6)), CGSize(width: 1215, height: 1620))
+    }
+
+    func testSmallPhotoIsNotEnlarged() throws {
+        XCTAssertEqual(try decodedSize(jpeg(width: 400, height: 300)), CGSize(width: 400, height: 300))
+    }
+
+    func testUnreadablePhotoGivesNothing() {
+        XCTAssertNil(SharePhoto.downscaled(Data("not a picture".utf8), covering: cardPixels))
     }
 
     func testWorkoutLeavesOutMissingAndZeroReadings() {

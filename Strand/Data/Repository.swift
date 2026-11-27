@@ -2259,6 +2259,13 @@ final class Repository: ObservableObject {
         return devices.first(where: { $0.id == deviceId })?.displayName
     }
 
+    /// The active device's registered brand ("WHOOP", "Oura"); nil before the store opens or for an unregistered id.
+    func activeDeviceBrand() -> String? {
+        guard let store else { return nil }
+        let devices = (try? DeviceRegistryStore(dbQueue: store.registryWriter).all()) ?? []
+        return devices.first(where: { $0.id == deviceId })?.brand
+    }
+
     /// Whether the active strap has EVER banked a sample of `metric` (#623) — distinguishes a strap that
     /// never produces it (honest "not supported on this strap" copy) from one with just an unsynced window.
     /// Only SpO₂/respiration are asked; any other metric returns true so the generic empty copy stands.
