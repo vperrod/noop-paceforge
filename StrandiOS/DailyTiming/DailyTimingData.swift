@@ -42,6 +42,11 @@ struct DailyTimingData {
     var classSlots: [String: PFClassSlot] = [:]
     var race: PFNextRace?
 
+    /// The bed line when PaceForge's need sets it. No-break spaces keep "8 h 10" on one line.
+    static func paceForgeBedSource(need: String) -> String {
+        "PaceForge: you need about \(need.replacingOccurrences(of: " ", with: "\u{00A0}"))"
+    }
+
     var hasLastNight: Bool { asleepMin != nil }
     var tomorrow: String { DailyTiming.addDays(today, 1) }
     var isShortNight: Bool { DailyTiming.needsNap(asleepMin: asleepMin) }
@@ -106,7 +111,7 @@ enum DailyTimingLoader {
         let wake = minutes(plan.wake)
         let source: String
         if let need = planner.intelNeed {
-            source = "PaceForge: you need about \(need.needText ?? DailyTiming.duration(need.needMin))"
+            source = DailyTimingData.paceForgeBedSource(need: need.needText ?? DailyTiming.duration(need.needMin))
         } else {
             source = "Sleep planner: \(preset.title) goal, wake \(DailyTiming.clock(wake))"
         }
@@ -182,7 +187,7 @@ enum DailyTimingFixture {
         let hyrox = TimingSession(id: "s2", name: "Synthetic HYROX class", durationMin: 45, isClass: true)
         let saturday = TimingSession(id: "s3", name: "Synthetic Saturday class", durationMin: 50, isClass: true)
         var data = DailyTimingData(
-            today: today, now: now, bed: bed, bedDate: bedDate, bedSource: "PaceForge: you need about 8 h 10",
+            today: today, now: now, bed: bed, bedDate: bedDate, bedSource: DailyTimingData.paceForgeBedSource(need: "8 h 10"),
             plannerWake: 6 * 60 + 15, wokeAt: 5 * 60 + 48, asleepMin: variant == "short" ? 372 : 436,
             pattern: DailyTiming.Pattern(weekdayWake: 5 * 60 + 52, weekendWake: 7 * 60 + 5, weekdayNights: 10, weekendNights: 4),
             ateClose: [TimingJournalLine(day: "2030-03-12", yes: true), TimingJournalLine(day: "2030-03-11", yes: false)],
