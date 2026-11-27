@@ -3039,6 +3039,7 @@ public enum SleepStager {
                 while j < seg.endIndex && seg[j].ts < upper { j += 1 }
             }
             let bucket = seg[i..<j].map { Double($0.rrMs) }
+            let hasFiller = seg[i..<j].contains(where: isWhoop4Filler)
             if !isFinal { i = j }
             // Full clean (range + Malik ectopic rejection), not just range — matches the
             // analyze() pipeline. The 0x2A37 RR on a WHOOP 5/MG is PPG-derived and noisier
@@ -3050,7 +3051,9 @@ public enum SleepStager {
             // The same `minBeats` floor the spot reading and the SDNN index apply. The night is a plain mean
             // over windows, so without it a window left with a handful of clean beats (a dropout, a
             // movement-shredded stretch, a short final window) weighed as much as a full five minutes.
-            let rmssd: Double? = (cleaned.nn.count >= HRVAnalyzer.minBeats)
+            // A window holding any WHOOP 4.0 filler is left out whole: removing only the filler beats does not
+            // fix the stretch around them (see `isWhoop4Filler`).
+            let rmssd: Double? = (!hasFiller && cleaned.nn.count >= HRVAnalyzer.minBeats)
                 ? HRVAnalyzer.rmssdGapAware(cleaned.nn, cleaned.contiguous) : nil
             let center = t + windowS / 2
             let stage = stages.first { center >= $0.start && center < $0.end }?.stage ?? "?"
@@ -3058,6 +3061,18 @@ public enum SleepStager {
             t += windowS
         } while t < end
         return out
+    }
+
+    /// Whether this is a filler a WHOOP 4.0 strap sends in place of a measured beat: exactly 500 or 333 ms on
+    /// its history and realtime transports. Its standard-BLE feed carries the same two in that
+    /// characteristic's 1/1024 s unit, which arrive here as 477 and 317 ms. Other straps' channels never
+    /// match; the WHOOP 5/MG fill has its own rule at the store (`whoop5RrFillFlagSQL`).
+    static func isWhoop4Filler(_ beat: RRInterval) -> Bool {
+        switch beat.srcChannel {
+        case .whoop4Historical, .whoop4Realtime: return beat.rrMs == 500 || beat.rrMs == 333
+        case .whoop4Standard: return beat.rrMs == 477 || beat.rrMs == 317
+        default: return false
+        }
     }
 
     /// The LAST contiguous run of deep-stage windows in `windows` — the WHOOP-style "last slow-wave-sleep"
