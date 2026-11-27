@@ -840,10 +840,10 @@ struct TodayView: View {
 
     /// The ordered "What shaped it" Charge drivers for the displayed Charge ring, PLUS the confidence tier
     /// computed from the SAME folded HRV baseline. PURE derivation from the SAME `displayDay` (post-#814
-    /// union-read row) the ring already shows, plus the HRV/RHR/resp baselines `repo.chargeBaselines`
+    /// union-read row) the ring already shows, plus the HRV/RHR/resp baselines `repo.scoredChargeBaselines`
     /// resolved with the engine's own rule (#2525), so a row can NEVER describe a term the ring's number
     /// didn't use. This is NOT a second store read: it reads only data already resolved into
-    /// `repo.chargeBaselines`/`displayDay`. nil for a calibrating / cold-start night (no usable HRV baseline
+    /// `repo.scoredChargeBaselines`/`displayDay`. nil for a calibrating / cold-start night (no usable HRV baseline
     /// or no value), so the sheet gates through to the calibration countdown instead.
     ///
     /// PERF: this replaces the two separate computed properties (`chargeDrivers` +
@@ -852,7 +852,7 @@ struct TodayView: View {
     /// and the sheet reads drivers + confidence out of a single sheet-local `let`.
     private func chargeBreakdown() -> (drivers: [ChargeDriver], confidence: ScoreConfidence)? {
         guard let row = chargeBreakdownRow else { return nil }
-        guard let baselines = repo.chargeBaselines else { return nil }
+        guard let baselines = repo.scoredChargeBaselines else { return nil }
         return ChargeBreakdownWiring.breakdown(baselines: baselines, row: row, sleepPerfPercent: restScore)
     }
 

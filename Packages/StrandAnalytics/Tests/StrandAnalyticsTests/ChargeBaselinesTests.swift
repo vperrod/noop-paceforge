@@ -352,3 +352,43 @@ final class ChargeBaselinesTests: XCTestCase {
     c=39 anchor=2025-10-01 n=14 first=2025-09-11 last=2025-09-24 seeded=1 own=12 imp=8 nils=1 sum=714.5
     """
 }
+
+/// A night is scored against the days before it only.
+final class ChargeScoringNightBaselinesTests: XCTestCase {
+    private func row(_ day: String, hrv: Double, skin: Double? = nil) -> DailyMetric {
+        DailyMetric(day: day, totalSleepMin: nil, efficiency: nil, deepMin: nil, remMin: nil, lightMin: nil,
+                    disturbances: nil, restingHr: 50, avgHrv: hrv, recovery: nil, strain: nil,
+                    exerciseCount: nil, spo2Pct: nil, skinTempDevC: nil, respRateBpm: 15, skinTempC: skin)
+    }
+
+    private func resolved(scoring day: String, own: [DailyMetric]) -> ChargeBaselines.Resolved {
+        ChargeBaselines.resolve(imported: [], own: own, anchorDay: ChargeBaselines.dayBefore(day) ?? "",
+                                hrvEpoch: 0, recoveryEpoch: 0)
+    }
+
+    /// 2026-10-01 ... 2026-10-31, one night a day.
+    private let october = (1...31).map { String(format: "2026-10-%02d", $0) }
+
+    func testDayBeforeCrossesAMonthBoundary() {
+        XCTAssertEqual(ChargeBaselines.dayBefore("2026-03-01"), "2026-02-28")
+    }
+
+    func testBaselineHoldsExactlyThe21DaysBeforeTheNight() {
+        let own = october.map { row($0, hrv: 50, skin: 34) }
+        XCTAssertEqual(resolved(scoring: "2026-10-25", own: own).hrvHistory.dayKeys,
+                       Array(october[3...23]))
+    }
+
+    func testTheNightItselfAndLaterNightsDoNotChangeItsBaseline() {
+        let calm = october.map { row($0, hrv: 50, skin: 34) }
+        let wild = october.map { $0 < "2026-10-25" ? row($0, hrv: 50, skin: 34) : row($0, hrv: 200, skin: 40) }
+        XCTAssertEqual(resolved(scoring: "2026-10-25", own: wild), resolved(scoring: "2026-10-25", own: calm))
+    }
+
+    func testRespirationFoldsOnTheLaterDeviceEraCut() {
+        let own = october.map { row($0, hrv: 50) }
+        let cut = ChargeBaselines.resolve(imported: [], own: own, anchorDay: "2026-10-24", hrvEpoch: 0,
+                                          recoveryEpoch: 0, respEpoch: 1_792_886_400)   // 2026-10-25
+        XCTAssertEqual(cut.resp.nValid, 0)
+    }
+}

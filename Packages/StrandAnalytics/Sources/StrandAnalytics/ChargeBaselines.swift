@@ -131,26 +131,41 @@ public enum ChargeBaselines {
         public let hrv: BaselineState
         public let restingHR: BaselineState
         public let resp: BaselineState
+        /// Skin temperature has no imported counterpart, so it is folded from the own nights alone.
+        public let skinHistory: History
+        public let skinTemp: BaselineState
 
         public init(hrvHistory: History, restingHRHistory: History, respHistory: History,
-                    hrv: BaselineState, restingHR: BaselineState, resp: BaselineState) {
+                    hrv: BaselineState, restingHR: BaselineState, resp: BaselineState,
+                    skinHistory: History, skinTemp: BaselineState) {
             self.hrvHistory = hrvHistory
             self.restingHRHistory = restingHRHistory
             self.respHistory = respHistory
             self.hrv = hrv
             self.restingHR = restingHR
             self.resp = resp
+            self.skinHistory = skinHistory
+            self.skinTemp = skinTemp
         }
     }
 
-    /// Resolve HRV, resting-HR and respiration baselines from stored rows: `imported` are the imported
-    /// vendor rows, `own` the NOOP-computed ("-noop") rows. HRV folds on `hrvEpoch`, resting HR and
-    /// respiration on `recoveryEpoch`, exactly as the engine does. The engine additionally cuts respiration
-    /// at a device-era boundary (#459), which needs a per-night source the stored rows do not carry; the
+    /// The anchor for scoring the night of `day`: the day before it, so a night's baseline holds only the
+    /// `windowDays` days before it, never the night itself or a later one. nil for an unparseable key.
+    public static func dayBefore(_ day: String) -> String? {
+        Baselines.isoEpochDay(day).map { AnalyticsEngine.dayString(($0 - 1) * 86_400) }
+    }
+
+    /// Resolve the Charge baselines from daily rows: `imported` are the imported vendor rows, `own` the
+    /// NOOP-computed ("-noop") rows. HRV folds on `hrvEpoch`, resting HR, respiration and skin temperature on
+    /// `recoveryEpoch`. `respEpoch` is the engine's later device-era cut for respiration (#459), which needs a
+    /// per-night source the stored rows do not carry; without it respiration folds on `recoveryEpoch`, and the
     /// two agree for every single-brand history. Kotlin twin: `ChargeBaselines.resolve`.
     public static func resolve(imported: [DailyMetric], own: [DailyMetric], anchorDay: String,
-                               hrvEpoch: Double, recoveryEpoch: Double) -> Resolved {
+                               hrvEpoch: Double, recoveryEpoch: Double,
+                               respEpoch: Double? = nil) -> Resolved {
+        let respCut = respEpoch ?? recoveryEpoch
         let hrvCfg = Baselines.hrvCfg, rhrCfg = Baselines.restingHRCfg, respCfg = Baselines.respCfg
+        let skinCfg = Baselines.metricCfg["skin_temp"]!
         let hrvHistory = history(imported: imported.map { (day: $0.day, value: $0.avgHrv) },
                                  own: own.map { (day: $0.day, value: $0.avgHrv) },
                                  anchorDay: anchorDay, cfg: hrvCfg, baselineEpoch: hrvEpoch)
@@ -159,7 +174,9 @@ public enum ChargeBaselines {
                                  anchorDay: anchorDay, cfg: rhrCfg, baselineEpoch: recoveryEpoch)
         let respHistory = history(imported: imported.map { (day: $0.day, value: $0.respRateBpm) },
                                   own: own.map { (day: $0.day, value: $0.respRateBpm) },
-                                  anchorDay: anchorDay, cfg: respCfg, baselineEpoch: recoveryEpoch)
+                                  anchorDay: anchorDay, cfg: respCfg, baselineEpoch: respCut)
+        let skinHistory = history(imported: [], own: own.map { (day: $0.day, value: $0.skinTempC) },
+                                  anchorDay: anchorDay, cfg: skinCfg, baselineEpoch: recoveryEpoch)
         return Resolved(
             hrvHistory: hrvHistory, restingHRHistory: rhrHistory, respHistory: respHistory,
             hrv: Baselines.foldHistory(hrvHistory.values, dayKeys: hrvHistory.dayKeys, cfg: hrvCfg,
@@ -167,7 +184,10 @@ public enum ChargeBaselines {
             restingHR: Baselines.foldHistory(rhrHistory.values, dayKeys: rhrHistory.dayKeys, cfg: rhrCfg,
                                              baselineEpoch: recoveryEpoch),
             resp: Baselines.foldHistory(respHistory.values, dayKeys: respHistory.dayKeys, cfg: respCfg,
-                                        baselineEpoch: recoveryEpoch))
+                                        baselineEpoch: respCut),
+            skinHistory: skinHistory,
+            skinTemp: Baselines.foldHistory(skinHistory.values, dayKeys: skinHistory.dayKeys,
+                                            cfg: skinCfg, baselineEpoch: recoveryEpoch))
     }
 
     /// The Recovery test-mode line naming what each Charge baseline was folded from this pass. Per metric,

@@ -212,6 +212,9 @@ final class Repository: ObservableObject {
     /// tier), so none of them can fold a different history than the score was computed against. nil until
     /// the first refresh.
     @Published private(set) var chargeBaselines: ChargeBaselines.Resolved?
+    /// The baselines the latest scored night was scored against (the days before it), for that score's
+    /// explanation. `chargeBaselines` is the next night's: what the calibration countdown reads.
+    @Published private(set) var scoredChargeBaselines: ChargeBaselines.Resolved?
     /// Cached sleep sessions over the recent window, oldest→newest.
     @Published var sleeps: [CachedSleepSession] = []
     /// Imported (export-verbatim) sleep figures by day. Empty until a WHOOP import lands.
@@ -884,6 +887,7 @@ final class Repository: ObservableObject {
         let garminLedDays: Set<String>
         let garminCharge: [String: Double]
         let chargeBaselines: ChargeBaselines.Resolved
+        let scoredChargeBaselines: ChargeBaselines.Resolved
         let sleeps: [CachedSleepSession]
         let vitalRows: [SourcedDailyMetric]
         let freshness: RepositoryFreshness
@@ -1028,9 +1032,9 @@ final class Repository: ObservableObject {
         let compSleep = await unionComputedSleepSessions(store: store, from: lo, to: hi)
 
         // #2525: the Charge baselines' inputs, read on the main actor before detaching: today's local day
-        // (the same local-calendar key the engine anchors its fold on) and the two recalibration epochs the
+        // (the same local-calendar key the engine scores today under) and the two recalibration epochs the
         // engine reads from the same UserDefaults keys.
-        let chargeAnchorDay = AnalyticsEngine.dayString(nowTs, offsetSec: TimeZone.current.secondsFromGMT(for: now))
+        let chargeToday = AnalyticsEngine.dayString(nowTs, offsetSec: TimeZone.current.secondsFromGMT(for: now))
         let hrvEpoch = Baselines.hrvBaselineEpoch()
         let recoveryEpoch = Baselines.recoveryBaselineEpoch()
 
@@ -1068,8 +1072,13 @@ final class Repository: ObservableObject {
                 // From the two buckets BEFORE `mergeDaily` blends them: the rule needs to know which nights
                 // are imported and which are the wearer's own.
                 chargeBaselines: ChargeBaselines.resolve(imported: imported, own: computed,
-                                                         anchorDay: chargeAnchorDay,
+                                                         anchorDay: ChargeBaselines.dayBefore(chargeToday) ?? "",
                                                          hrvEpoch: hrvEpoch, recoveryEpoch: recoveryEpoch),
+                scoredChargeBaselines: ChargeBaselines.resolve(
+                    imported: imported, own: computed,
+                    anchorDay: ChargeBaselines.dayBefore(
+                        strap.last(where: { $0.recovery != nil })?.day ?? chargeToday) ?? "",
+                    hrvEpoch: hrvEpoch, recoveryEpoch: recoveryEpoch),
                 sleeps: Self.mergeSleep(imported: impSleep, computed: compSleep),
                 vitalRows: Self.sourceRows(imported: imported, computed: computed,
                                            paceForgeGarmin: paceForgeGarmin, apple: apple),
@@ -1092,6 +1101,7 @@ final class Repository: ObservableObject {
             && merged.garminLedDays == garminLedDays
             && merged.garminCharge == garminCharge
             && merged.chargeBaselines == chargeBaselines
+            && merged.scoredChargeBaselines == scoredChargeBaselines
             && merged.sleeps == sleeps
             && merged.importedSleep == importedSleep
             && merged.vitalRows == vitalRows
@@ -1106,6 +1116,7 @@ final class Repository: ObservableObject {
         self.garminLedDays = merged.garminLedDays
         self.garminCharge = merged.garminCharge
         self.chargeBaselines = merged.chargeBaselines
+        self.scoredChargeBaselines = merged.scoredChargeBaselines
         self.sleeps = merged.sleeps
         self.vitalRows = merged.vitalRows
         self.freshness = merged.freshness

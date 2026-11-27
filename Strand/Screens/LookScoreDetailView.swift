@@ -297,7 +297,7 @@ struct LookScoreDetailView: View {
     private var readout: ScoreReadout.Lines {
         switch kind {
         case .charge:
-            return ScoreReadout.charge(score: latest?.value, drivers: chargeDrivers, hrvBaseline: repo.chargeBaselines?.hrv)
+            return ScoreReadout.charge(score: latest?.value, drivers: chargeDrivers, hrvBaseline: repo.scoredChargeBaselines?.hrv)
         case .effort:
             return ScoreReadout.effort(progress: effortReading?.progress,
                                        zones13Min: valueOnLatestDay("hr_zones13_min"),
@@ -426,7 +426,7 @@ struct LookScoreDetailView: View {
 
     /// The same drivers the Charge sheet shows, for the latest scored day.
     @MainActor private func currentChargeDrivers() -> [ChargeDriver] {
-        guard let baselines = repo.chargeBaselines,
+        guard let baselines = repo.scoredChargeBaselines,
               let row = repo.strapDays.last(where: { $0.recovery != nil }) else { return [] }
         let rest = LookSeries.latest(points("sleep_performance"))?.value
         return ChargeBreakdownWiring.breakdown(baselines: baselines, row: row, sleepPerfPercent: rest)?.drivers ?? []
@@ -434,7 +434,7 @@ struct LookScoreDetailView: View {
 
     /// Charge in two parts for the same day and inputs as the drivers above.
     @MainActor private func currentChargeSplit() -> ChargeSplit? {
-        guard let baselines = repo.chargeBaselines,
+        guard let baselines = repo.scoredChargeBaselines,
               let row = repo.strapDays.last(where: { $0.recovery != nil }) else { return nil }
         let rest = LookSeries.latest(points("sleep_performance"))?.value
         return ChargeBreakdownWiring.split(baselines: baselines, row: row, sleepPerfPercent: rest)
