@@ -2314,7 +2314,7 @@ struct SleepView: View {
 
     /// Efficiency in percent. Prefer the stored session value, else asleep / time-in-bed.
     private func efficiencyPct(_ night: Night) -> Double? {
-        if let stored = night.session.efficiency ?? repo.today?.efficiency {
+        if let stored = night.session.efficiency ?? repo.strapDay(repo.today?.day)?.efficiency {
             return stored <= 1.0 ? stored * 100 : stored
         }
         let bed = night.timeInBed

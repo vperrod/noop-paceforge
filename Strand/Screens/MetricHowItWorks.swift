@@ -136,7 +136,7 @@ struct MetricHowItWorksSheet: View {
     @State private var showGuide = false
 
     /// Nights with an HRV reading: the series every baseline in these cards is learned from.
-    private var hrvNights: Int { repo.days.compactMap(\.avgHrv).filter { $0 > 0 }.count }
+    private var hrvNights: Int { repo.strapDays.compactMap(\.avgHrv).filter { $0 > 0 }.count }
 
     var body: some View {
         VStack(spacing: 0) {

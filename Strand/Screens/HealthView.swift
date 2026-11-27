@@ -1424,7 +1424,7 @@ private struct VitalsSection: View {
     @State private var hrvOverCountByDay: [String: Double] = [:]   // #1118
 
     /// Nights with an HRV reading, the series the vital baselines are learned from.
-    private var hrvNights: Int { repo.days.compactMap(\.avgHrv).filter { $0 > 0 }.count }
+    private var hrvNights: Int { repo.strapDays.compactMap(\.avgHrv).filter { $0 > 0 }.count }
 
     var body: some View {
         let readings = BodyVitalSigns.readings(

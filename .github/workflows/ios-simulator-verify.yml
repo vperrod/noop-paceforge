@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       only:
-        description: "Optional space-separated -only-testing identifiers, e.g. NOOPiOSUITests/LookScreensUITests. Empty runs every UI test."
+        description: "Optional space-separated -only-testing identifiers, e.g. NOOPiOSUITests/LookScreensUITests. StrandTests/... entries run those unit tests on the macOS Strand scheme. Empty runs every UI test."
         required: false
         default: ""
       optimized:
@@ -42,7 +42,22 @@ jobs:
           OPTIMIZED: ${{ inputs.optimized }}
         run: |
           only=()
-          for t in $ONLY; do only+=("-only-testing:$t"); done
+          unit=()
+          for t in $ONLY; do
+            case "$t" in
+              StrandTests/*) unit+=("-only-testing:$t") ;;
+              *) only+=("-only-testing:$t") ;;
+            esac
+          done
+          status=0
+          # The app's unit tests belong to the macOS Strand scheme; the iOS scheme holds only the UI tests.
+          if [ ${#unit[@]} -gt 0 ]; then
+            xcodebuild -scheme Strand -configuration Debug -destination 'platform=macOS' \
+              -derivedDataPath build/derivedData-mac \
+              CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+              "${unit[@]}" test || status=$?
+            if [ ${#only[@]} -eq 0 ]; then exit $status; fi
+          fi
           flags=()
           if [ "$OPTIMIZED" = "true" ]; then
             flags+=(SWIFT_OPTIMIZATION_LEVEL=-O SWIFT_COMPILATION_MODE=wholemodule GCC_OPTIMIZATION_LEVEL=s)
@@ -52,7 +67,8 @@ jobs:
             -derivedDataPath build/derivedData \
             -resultBundlePath build/NOOPiOS.xcresult \
             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
-            "${flags[@]}" "${only[@]}" test
+            "${flags[@]}" "${only[@]}" test || status=$?
+          exit $status
       - name: Summarize test results
         if: always()
         run: |

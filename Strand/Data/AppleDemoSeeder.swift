@@ -51,6 +51,12 @@ enum AppleDemoSeeder {
     /// Steps the fixture gives the newest day, so a test can assert the exact figure.
     static let garminFixtureTodaySteps = 9_119
 
+    /// UI-test fixture for the screens that show both devices: with `--demo-seed --demo-garmin-vitals`, a
+    /// `paceforge-garmin` row carries made-up HRV, resting HR, respiration and sleep for the last
+    /// `garminVitalsDays` days but one, so each chart has a second series with a gap.
+    static var garminVitalsRequested: Bool { CommandLine.arguments.contains("--demo-garmin-vitals") }
+    static let garminVitalsDays = 30
+
     /// Seed only if requested AND the store is empty. Safe to call on every launch.
     static func seedIfRequested(into store: WhoopStore) async {
         guard requested else { return }
@@ -58,7 +64,7 @@ enum AppleDemoSeeder {
         let existing = (try? await store.dailyMetrics(deviceId: whoop, from: "0000-00-00", to: "9999-99-99")) ?? []
         // The steps fixture reseeds over a store another test already seeded: the upserts are idempotent and the seed deterministic, so
         // Apple Health's steps for the last days are overwritten with nothing and the Garmin rows take over.
-        guard existing.isEmpty || garminStepsRequested else { return }
+        guard existing.isEmpty || garminStepsRequested || garminVitalsRequested else { return }
         do { try await seed(into: store) }
         catch { NSLog("AppleDemoSeeder: seed failed — \(error)") }
     }
@@ -188,6 +194,13 @@ enum AppleDemoSeeder {
                     disturbances: nil, restingHr: nil, avgHrv: nil, recovery: nil, strain: nil,
                     exerciseCount: nil, spo2Pct: nil, skinTempDevC: nil, respRateBpm: nil,
                     steps: garminFixtureTodaySteps - (DAYS - 1 - i) * 100))
+            }
+            if garminVitalsRequested && i >= DAYS - garminVitalsDays && i != DAYS - 8 {
+                garminRows.append(DailyMetric(
+                    day: day, totalSleepMin: Double(390 + (i % 5) * 12), efficiency: nil, deepMin: 70, remMin: 90,
+                    lightMin: Double(230 + (i % 5) * 12), disturbances: nil, restingHr: 62 + i % 4,
+                    avgHrv: Double(33 + (i % 6) * 2), recovery: nil, strain: nil, exerciseCount: nil,
+                    spo2Pct: nil, skinTempDevC: nil, respRateBpm: 13.5 + Double(i % 3) * 0.3))
             }
             appleRows.append(AppleDaily(
                 day: day, steps: garminOnly ? nil : steps,
