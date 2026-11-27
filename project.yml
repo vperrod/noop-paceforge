@@ -513,6 +513,8 @@ targets:
       # The daily timing arithmetic and the app's caffeine rule, for DailyTimingLogicTests.
       - StrandiOS/DailyTiming/DailyTimingLogic.swift
       - Strand/Data/CaffeineLog.swift
+      # Award and challenge counting, for AwardsLogicTests.
+      - StrandiOS/Awards/AwardsLogic.swift
     settings:
       base:
         GENERATE_INFOPLIST_FILE: YES
@@ -522,6 +524,8 @@ targets:
       - target: NOOPiOS
       # LookBaseline, for ShareCardData.
       - package: StrandDesign
+      # StreakCalculator, for AwardsLogic.
+      - package: StrandAnalytics
 
   # WidgetKit + Live Activity extension — the iOS analogue of the macOS menu-bar
   # extra. Reads a tiny snapshot the app publishes into the shared App Group.
