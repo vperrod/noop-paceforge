@@ -69,8 +69,10 @@ final class SourceLabelsUITests: XCTestCase {
         XCTAssertTrue(note.waitForExistence(timeout: 30), "Sleep should say its figures come from WHOOP nights.")
         reveal(note, in: app)
         attach(app, "A3 Sleep source note")
-        let duration = labelled(app, "Hours asleep trend")
-        reveal(duration, in: app, maxSwipes: 30)
+        // The card gives each device's own average, which only a chart carrying both series does.
+        let both = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "label MATCHES %@", "(?s).*WHOOP [0-9.]+ h avg .+ Garmin [0-9.]+ h avg.*")).firstMatch
+        XCTAssertTrue(reveal(both, in: app, maxSwipes: 30), "Asleep duration should carry a WHOOP and a Garmin series.")
         attach(app, "A2 Sleep duration two series")
     }
 

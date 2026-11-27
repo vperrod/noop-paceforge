@@ -549,14 +549,14 @@ struct CoupledView: View {
     }
 
     /// The ordered Charge drivers for the displayed ring PLUS the confidence tier from the SAME HRV
-    /// baseline — the exact TodayView derivation (pure engine scoring against `repo.scoredChargeBaselines`, the
+    /// baseline — the exact TodayView derivation (pure engine scoring against `repo.chargeBaselines(scoring:)`, the
     /// personal baselines resolved with the engine's own rule, #2525). nil for a calibrating / cold-start
     /// night, which gates the sheet through to the countdown instead. PERF: mirrors
     /// TodayView.chargeBreakdown() — the baselines are resolved once per refresh, so a body evaluation of
     /// the open sheet folds nothing.
     private func chargeBreakdown() -> (drivers: [ChargeDriver], confidence: ScoreConfidence)? {
         guard let row = breakdownRow else { return nil }
-        guard let baselines = repo.scoredChargeBaselines else { return nil }
+        guard let baselines = repo.chargeBaselines(scoring: row.day) else { return nil }
         return ChargeBreakdownWiring.breakdown(baselines: baselines, row: row, sleepPerfPercent: sleepPerformance)
     }
 

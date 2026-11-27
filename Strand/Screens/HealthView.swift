@@ -822,12 +822,12 @@ private struct FitnessAgeSection: View {
     /// The catalog descriptor backing the trend sheet + accent.
     private var fitnessAgeMetric: MetricDescriptor? { MetricCatalog.all.first { $0.key == "fitness_age" } }
 
-    /// Build the readiness verdict from the same signals IntelligenceEngine feeds the engine: the last 7
-    /// strap days (computed or WHOOP-imported) give the resting-HR + activity coverage counts; the profile gives the rest.
+    /// Build the readiness verdict from the same signals IntelligenceEngine feeds the engine: the strap days
+    /// (computed or WHOOP-imported) of the week ending Saturday give the resting-HR + activity coverage counts; the profile gives the rest.
     private var readiness: FitnessAgeReadiness {
-        let last7 = repo.strapDays.suffix(7)
-        let rhrDays = last7.compactMap { $0.restingHr }.count
-        let activityDays = last7.compactMap { $0.strain }.count
+        let week = IntelligenceEngine.weeklyRowDays(repo.strapDays, today: Repository.localDayKey(Date()))
+        let rhrDays = week.compactMap { $0.restingHr }.count
+        let activityDays = week.compactMap { $0.strain }.count
         return FitnessAgeEngine.assessReadiness(
             hasAge: profile.age > 0,
             hasSex: !profile.sex.isEmpty,
@@ -841,7 +841,8 @@ private struct FitnessAgeSection: View {
     /// shared with the Today card's `MetricDetailView` tap-through so both surfaces show the SAME countdown.
     private func fitnessReadyLead() -> String {
         fitnessReadyLeadCopy(
-            rhrDays: repo.strapDays.suffix(7).compactMap { $0.restingHr }.count,
+            rhrDays: IntelligenceEngine.weeklyRowDays(repo.strapDays, today: Repository.localDayKey(Date()))
+                .compactMap { $0.restingHr }.count,
             hasAge: profile.age > 0, hasSex: !profile.sex.isEmpty)
     }
 
@@ -849,7 +850,7 @@ private struct FitnessAgeSection: View {
         VStack(alignment: .leading, spacing: NoopMetrics.gap) {
             SectionHeader("Fitness Age", overline: "Weekly",
                           trailing: fitnessAge != nil ? String(localized: "vs age \(profile.age)") : nil)
-            SourceNote(text: "Nights and activity days are counted from the WHOOP strap.")
+            SourceNote(text: "Nights and activity days are counted from the WHOOP strap, over the week to Saturday.")
             content
         }
         .sheet(item: $fitnessSheet) { which in
@@ -1274,11 +1275,11 @@ private struct VitalitySection: View {
     @State private var loaded = false
 
     private var contributions: [VitalityEngine.Contribution] {
-        let last7 = repo.strapDays.suffix(7)
-        let nights = last7.compactMap { $0.totalSleepMin }.map { Double($0) / 60.0 }.filter { $0 > 0 }
-        let hrvs = last7.compactMap { $0.avgHrv }
-        let rhrs = last7.compactMap { $0.restingHr }.map(Double.init)
-        let steps = last7.compactMap { $0.steps }.map(Double.init)
+        let week = IntelligenceEngine.weeklyRowDays(repo.strapDays, today: Repository.localDayKey(Date()))
+        let nights = week.compactMap { $0.totalSleepMin }.map { Double($0) / 60.0 }.filter { $0 > 0 }
+        let hrvs = week.compactMap { $0.avgHrv }
+        let rhrs = week.compactMap { $0.restingHr }.map(Double.init)
+        let steps = week.compactMap { $0.steps }.map(Double.init)
         func mean(_ a: [Double]) -> Double? { a.isEmpty ? nil : a.reduce(0, +) / Double(a.count) }
         // Aggregate EXACTLY as the stored headline does (IntelligenceEngine), so this "what's driving it"
         // breakdown reconciles with the Vitality / Body Age number it explains rather than being recomputed

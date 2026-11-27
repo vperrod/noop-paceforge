@@ -52,6 +52,15 @@ final class WeeklyAgeRowWindowTests: XCTestCase {
         XCTAssertEqual(withLaterDays, alone)
     }
 
+    func testReadinessAndDriversCountTheWeekToSaturdayNotTheLatestSevenDays() {
+        // 2026-10-10 is a Saturday; the Wednesday after it still reads the week ending that Saturday.
+        let days = (1...14).map { row(String(format: "2026-10-%02d", $0), restingHr: 50) }
+
+        let week = IntelligenceEngine.weeklyRowDays(days, today: "2026-10-14")
+
+        XCTAssertEqual(week.map(\.day), (4...10).map { String(format: "2026-10-%02d", $0) })
+    }
+
     func testAWeekWithNoSavedDaysWritesNoRow() async throws {
         let before = (-13...(-7)).map { row(day(saturday, plus: $0), restingHr: 50) }
         let value = try await savedFitnessAge(before)

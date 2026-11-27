@@ -169,7 +169,7 @@ public struct FitnessReadinessItem: Equatable, Sendable {
     public let status: FitnessReadinessStatus
     public let required: Bool        // true → the number can't be computed without it
     public let role: FitnessReadinessRole
-    public let detail: String        // short hint, e.g. "4 of last 7 nights"
+    public let detail: String        // short hint, e.g. "4 of 7 nights"
     public init(key: String, label: String, status: FitnessReadinessStatus,
                 required: Bool, role: FitnessReadinessRole, detail: String) {
         self.key = key; self.label = label; self.status = status
@@ -224,10 +224,10 @@ extension FitnessAgeEngine {
                 detail: hasSex ? "Set" : "Add it in Settings"),
             FitnessReadinessItem(key: "rhr", label: "Resting heart rate",
                 status: coverageStatus(rhrDays, floor: minCoverageDays), required: true, role: .drivesAge,
-                detail: "\(rhrDays) of last 7 nights"),
+                detail: "\(rhrDays) of 7 nights"),
             FitnessReadinessItem(key: "activity", label: "Recent activity",
                 status: coverageStatus(activityDays, floor: minCoverageDays), required: false, role: .drivesAge,
-                detail: "\(activityDays) of last 7 days"),
+                detail: "\(activityDays) of 7 days"),
             FitnessReadinessItem(key: "bodyMetrics", label: "Height & weight",
                 status: hasHeightWeight ? .satisfied : .missing, required: false, role: .unlocksVO2max,
                 // Height/weight feed calories/BMI, not the VO₂max estimate (Nes uses waist; the Uth

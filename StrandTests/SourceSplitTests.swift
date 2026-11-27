@@ -37,6 +37,11 @@ final class SourceSplitTests: XCTestCase {
         XCTAssertEqual(SourceSplit.gapped([point(1, 1), point(2, 2), point(4, 3)]).map(\.segment), ["0", "0", "1"])
     }
 
+    func testOnlyOneDayStretchesAreLonePoints() {
+        let lone = TrendChart.loneSegmentPoints(SourceSplit.gapped([point(1, 1), point(2, 2), point(4, 3), point(6, 4)]))
+        XCTAssertEqual(lone.map(\.value), [3, 4])
+    }
+
     func testAWhoopRequestDropsTheDaysFilledFromGarminAndAppleHealth() {
         let points = [("2026-10-01", "my-whoop-noop"), ("2026-10-02", "paceforge-garmin"), ("2026-10-03", "apple-health")]
             .map { ResolvedMetricPoint(day: $0.0, value: 1, source: $0.1, sourceKey: "steps") }

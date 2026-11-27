@@ -644,12 +644,26 @@ final class IntelligenceEngine: ObservableObject {
         return !rows.isEmpty
     }
 
+    /// The first day of the week a weekly row keyed `satKey` covers: that Saturday and the six days before it.
+    static func weekFirstDay(ending satKey: String) -> String {
+        var first = satKey
+        for _ in 0..<6 { first = ChargeBaselines.dayBefore(first) ?? first }
+        return first
+    }
+
+    /// Those of `days` in the week the weekly row for `today` is built from: what Fitness Age readiness and the
+    /// Body Age drivers count, so they describe the same days as the stored figure.
+    static func weeklyRowDays(_ days: [DailyMetric], today: String) -> [DailyMetric] {
+        let saturday = saturdayKey(onOrBefore: today)
+        let first = weekFirstDay(ending: saturday)
+        return days.filter { $0.day >= first && $0.day <= saturday }
+    }
+
     /// The saved days a weekly row keyed `satKey` is built from: that Saturday and the six days before it,
     /// the strap's computed rows under any imported ones. Nothing later, so a finished week's row keeps
     /// describing its own week.
     private func savedWeek(ending satKey: String, store: WhoopStore, computedId: String) async -> [DailyMetric] {
-        var from = satKey
-        for _ in 0..<6 { from = ChargeBaselines.dayBefore(from) ?? from }
+        let from = Self.weekFirstDay(ending: satKey)
         let computed = (try? await store.dailyMetrics(deviceId: computedId, from: from, to: satKey)) ?? []
         return Repository.mergeDaily(imported: await repo.dailyMetrics(fromDay: from, toDay: satKey),
                                      computed: computed)
@@ -2002,7 +2016,7 @@ final class IntelligenceEngine: ObservableObject {
         // engine scores are written under `computedId`, never into `hist`.
         var respSourceByDay: [String: String] = [:]
         for (day, owner) in resolvedScoreOwnerByDay { respSourceByDay[day] = owner }
-        let respCandidateDays = Set(hist.map(\.day)).union(scoredNights.map { $0.daily.day }).sorted()
+        let respCandidateDays = Set(hist.map(\.day)).union(scoredNights.map { $0.daily.day })
         // rhr/resp/skin honour the Charge-wide recalibration epoch (noop.recoveryBaselineEpoch); 0 = no-op,
         // so the manual Recalibrate re-anchors the whole Charge build-up (HRV + resting HR + resp + skin)
         // together. The respiration baseline is additionally scoped to the CURRENT device era.
@@ -2025,16 +2039,8 @@ final class IntelligenceEngine: ObservableObject {
         // is not read. Rows the wearable-import fold wrote are another device's figures, not strap nights.
         let storedRows = (try? await store.dailyMetrics(deviceId: computedId, from: "0000-01-01",
                                                         to: "9999-12-31")) ?? []
-        let storedDays = Set(storedRows.map(\.day))
-        var importFoldDays: Set<String> = []
-        for source in Repository.wearableImportSources {
-            let rows = (try? await store.dailyMetrics(deviceId: source, from: "0000-01-01", to: "9999-12-31")) ?? []
-            for row in rows where storedDays.contains(row.day) {
-                if (try? await store.scoreInputSource(deviceId: computedId, day: row.day, key: "recovery")) == source {
-                    importFoldDays.insert(row.day)
-                }
-            }
-        }
+        let importFoldDays = await Repository.importFoldDays(store: store, computedIds: [computedId],
+                                                             days: Set(storedRows.map(\.day)))
         var ownByDay: [String: DailyMetric] = [:]
         for row in storedRows where (preserveUnscoredHistory || row.day < oldestDay) && !importFoldDays.contains(row.day) {
             ownByDay[row.day] = row
@@ -2044,11 +2050,24 @@ final class IntelligenceEngine: ObservableObject {
                                                          skinTempDevC: night.daily.skinTempDevC,
                                                          skinTempC: night.nightlySkin)
         }
-        let ownRows = Array(ownByDay.values)
+        let histByDay = Dictionary(hist.map { ($0.day, $0) }, uniquingKeysWith: { _, last in last })
+        // A night's folds only ever read the window before it, so each night is handed those days alone rather
+        // than the whole history to filter and sort again.
         func chargeHistory(scoring day: String) -> ChargeBaselines.Resolved {
-            let eraDays = respCandidateDays.filter { $0 <= day }
+            var window: [String] = []
+            var earlier = day
+            for _ in 0..<ChargeBaselines.windowDays {
+                guard let previous = ChargeBaselines.dayBefore(earlier) else { break }
+                earlier = previous
+                window.append(previous)
+            }
+            window.reverse()
+            // The device era (#459) is where the current brand's run starts: a switch older than the window
+            // cuts nothing inside it, so the window and the night itself give the same fold.
+            let eraDays = (window + [day]).filter(respCandidateDays.contains)
             let respEraEpoch = Baselines.deviceEraEpoch(eraDays.map { (day: $0, sourceId: respSourceByDay[$0] ?? deviceId) })
-            return ChargeBaselines.resolve(imported: hist, own: ownRows,
+            return ChargeBaselines.resolve(imported: window.compactMap { histByDay[$0] },
+                                           own: window.compactMap { ownByDay[$0] },
                                            anchorDay: ChargeBaselines.dayBefore(day) ?? "",
                                            hrvEpoch: hrvEpoch, recoveryEpoch: recoveryEpoch,
                                            respEpoch: max(recoveryEpoch, respEraEpoch))

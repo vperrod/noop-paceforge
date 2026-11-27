@@ -112,6 +112,20 @@ extension MetricSeriesResolution {
     }
 }
 
+/// What the Charge baselines are folded from: the imported rows, the strap's own scored rows and the two
+/// recalibration epochs.
+struct ChargeInputs: Equatable, Sendable {
+    let imported: [DailyMetric]
+    let own: [DailyMetric]
+    let hrvEpoch: Double
+    let recoveryEpoch: Double
+
+    func baselines(anchorDay: String) -> ChargeBaselines.Resolved {
+        ChargeBaselines.resolve(imported: imported, own: own, anchorDay: anchorDay,
+                                hrvEpoch: hrvEpoch, recoveryEpoch: recoveryEpoch)
+    }
+}
+
 struct SourcedDailyMetric: Equatable {
     let metric: DailyMetric
     let source: DailyMetricSource
@@ -224,10 +238,12 @@ final class Repository: ObservableObject {
     /// readout below the headline reads (the "What shaped it" rows, the calibration count, the confidence
     /// tier), so none of them can fold a different history than the score was computed against. nil until
     /// the first refresh.
+    /// The next night's baselines (the days before today): what the calibration countdown reads. A score's
+    /// explanation reads `chargeBaselines(scoring:)` for its own night.
     @Published private(set) var chargeBaselines: ChargeBaselines.Resolved?
-    /// The baselines the latest scored night was scored against (the days before it), for that score's
-    /// explanation. `chargeBaselines` is the next night's: what the calibration countdown reads.
-    @Published private(set) var scoredChargeBaselines: ChargeBaselines.Resolved?
+    /// The rows and recalibration epochs those baselines are folded from, kept to resolve any night's own.
+    private var chargeInputs: ChargeInputs?
+    private var scoredChargeCache: [String: ChargeBaselines.Resolved] = [:]
     /// Cached sleep sessions over the recent window, oldest→newest.
     @Published var sleeps: [CachedSleepSession] = []
     /// Imported (export-verbatim) sleep figures by day. Empty until a WHOOP import lands.
@@ -765,6 +781,23 @@ final class Repository: ObservableObject {
     /// daily metrics under the strap source, but a sideloaded/standalone HC source id is covered too).
     static let wearableImportSources = ["oura-import", "fitbit-import", "garmin-import", "oura-api", healthConnectSource]
 
+    /// Which of `days` hold a computed row the wearable-import fold wrote: another device's figures scored under
+    /// the strap's computed id. The Charge baselines (the engine's and the screens') leave them out.
+    nonisolated static func importFoldDays(store: WhoopStore, computedIds: [String],
+                                           days: Set<String>) async -> Set<String> {
+        var found: Set<String> = []
+        for source in await wearableImportSources {
+            let rows = (try? await store.dailyMetrics(deviceId: source, from: "0000-01-01", to: "9999-12-31")) ?? []
+            for row in rows where days.contains(row.day) {
+                for id in computedIds
+                where (try? await store.scoreInputSource(deviceId: id, day: row.day, key: "recovery")) == source {
+                    found.insert(row.day)
+                }
+            }
+        }
+        return found
+    }
+
     /// `yyyy-MM-dd` in the device's local zone, matching how `DailyMetric.day` is stored.
     // `nonisolated` so pure callers off the main actor (e.g. the extracted `SleepModel.build`) can key a
     // day the SAME way `DailyMetric.day` is stored. Pure date→string; no actor state is touched.
@@ -900,7 +933,7 @@ final class Repository: ObservableObject {
         let garminLedDays: Set<String>
         let garminCharge: [String: Double]
         let chargeBaselines: ChargeBaselines.Resolved
-        let scoredChargeBaselines: ChargeBaselines.Resolved
+        let chargeInputs: ChargeInputs
         let sleeps: [CachedSleepSession]
         let vitalRows: [SourcedDailyMetric]
         let freshness: RepositoryFreshness
@@ -1050,6 +1083,11 @@ final class Repository: ObservableObject {
         let chargeToday = AnalyticsEngine.dayString(nowTs, offsetSec: TimeZone.current.secondsFromGMT(for: now))
         let hrvEpoch = Baselines.hrvBaselineEpoch()
         let recoveryEpoch = Baselines.recoveryBaselineEpoch()
+        // The baselines leave out the same computed rows the engine does: the ones the wearable-import fold wrote.
+        let importFold = await Self.importFoldDays(store: store, computedIds: computedReadIds,
+                                                   days: Set(computed.map(\.day)))
+        let chargeInputs = ChargeInputs(imported: imported, own: computed.filter { !importFold.contains($0.day) },
+                                        hrvEpoch: hrvEpoch, recoveryEpoch: recoveryEpoch)
 
         // Export-verbatim sleep figures (long-format metricSeries rows from WhoopImporter).
         // SleepView prefers these per day over its APPROXIMATE recomputations.
@@ -1084,14 +1122,8 @@ final class Repository: ObservableObject {
                 garminCharge: withGarmin.garminCharge,
                 // From the two buckets BEFORE `mergeDaily` blends them: the rule needs to know which nights
                 // are imported and which are the wearer's own.
-                chargeBaselines: ChargeBaselines.resolve(imported: imported, own: computed,
-                                                         anchorDay: ChargeBaselines.dayBefore(chargeToday) ?? "",
-                                                         hrvEpoch: hrvEpoch, recoveryEpoch: recoveryEpoch),
-                scoredChargeBaselines: ChargeBaselines.resolve(
-                    imported: imported, own: computed,
-                    anchorDay: ChargeBaselines.dayBefore(
-                        strap.last(where: { $0.recovery != nil })?.day ?? chargeToday) ?? "",
-                    hrvEpoch: hrvEpoch, recoveryEpoch: recoveryEpoch),
+                chargeBaselines: chargeInputs.baselines(anchorDay: ChargeBaselines.dayBefore(chargeToday) ?? ""),
+                chargeInputs: chargeInputs,
                 sleeps: Self.mergeSleep(imported: impSleep, computed: compSleep),
                 vitalRows: Self.sourceRows(imported: imported, computed: computed,
                                            paceForgeGarmin: paceForgeGarmin, apple: apple),
@@ -1114,7 +1146,7 @@ final class Repository: ObservableObject {
             && merged.garminLedDays == garminLedDays
             && merged.garminCharge == garminCharge
             && merged.chargeBaselines == chargeBaselines
-            && merged.scoredChargeBaselines == scoredChargeBaselines
+            && merged.chargeInputs == chargeInputs
             && merged.sleeps == sleeps
             && merged.importedSleep == importedSleep
             && merged.vitalRows == vitalRows
@@ -1129,7 +1161,8 @@ final class Repository: ObservableObject {
         self.garminLedDays = merged.garminLedDays
         self.garminCharge = merged.garminCharge
         self.chargeBaselines = merged.chargeBaselines
-        self.scoredChargeBaselines = merged.scoredChargeBaselines
+        self.chargeInputs = merged.chargeInputs
+        self.scoredChargeCache = [:]
         self.sleeps = merged.sleeps
         self.vitalRows = merged.vitalRows
         self.freshness = merged.freshness
@@ -1371,6 +1404,15 @@ final class Repository: ObservableObject {
     }
 
     /// The strap's own row for a day; nil when the strap has none, whatever `days` holds for it.
+    /// The baselines the night of `day` was scored against: the days before it, never the night itself or a
+    /// later one. nil before the first refresh.
+    func chargeBaselines(scoring day: String) -> ChargeBaselines.Resolved? {
+        if let known = scoredChargeCache[day] { return known }
+        let resolved = chargeInputs?.baselines(anchorDay: ChargeBaselines.dayBefore(day) ?? "")
+        scoredChargeCache[day] = resolved
+        return resolved
+    }
+
     func strapDay(_ day: String?) -> DailyMetric? {
         strapDays.last { $0.day == day }
     }

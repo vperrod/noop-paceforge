@@ -1054,7 +1054,7 @@ struct MetricDetailView: View {
                         // `what` is a LocalizedStringKey; the lead is an already-resolved String, so wrap
                         // it in an interpolation (renders verbatim) rather than passing it as a lookup key.
                         VStack(alignment: .leading, spacing: NoopMetrics.space2) {
-                            ComingSoon(what: "\(fitnessReadyLeadCopy(rhrDays: repo.strapDays.suffix(7).compactMap { $0.restingHr }.count, hasAge: profile.age > 0, hasSex: !profile.sex.isEmpty))", symbol: "figure.run")
+                            ComingSoon(what: "\(fitnessReadyLeadCopy(rhrDays: IntelligenceEngine.weeklyRowDays(repo.strapDays, today: Repository.localDayKey(Date())).compactMap { $0.restingHr }.count, hasAge: profile.age > 0, hasSex: !profile.sex.isEmpty))", symbol: "figure.run")
                             // Force the weekly recompute NOW from stored data (works offline), then re-read.
                             if refreshing {
                                 ProgressView().controlSize(.small).tint(StrandPalette.accent)

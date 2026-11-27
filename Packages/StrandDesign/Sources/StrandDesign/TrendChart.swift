@@ -243,6 +243,12 @@ public struct TrendChart: View {
         }
     }
 
+    /// The points that are alone in their line segment, which a line mark cannot draw.
+    public static func loneSegmentPoints(_ points: [TrendPoint]) -> [TrendPoint] {
+        let sizes = Dictionary(points.map { ($0.segment, 1) }, uniquingKeysWith: +)
+        return points.filter { sizes[$0.segment] == 1 }
+    }
+
     /// The x-position the cursor is hovering, in chart-local coordinates.
     @State private var hoverX: CGFloat? = nil
 
@@ -397,26 +403,23 @@ public struct TrendChart: View {
                     .lineStyle(StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round, dash: [6, 5]))
                     .foregroundStyle(comparisonColor)
                 }
-                // A one-day stretch has no line to draw, so its dot is the only mark of that reading.
-                if comparisonPoints.count <= 60 {
-                    ForEach(comparisonPoints) { p in
-                        PointMark(x: .value("Date", p.date), y: .value("Value", p.value))
-                            .symbolSize(12)
-                            .foregroundStyle(comparisonColor)
-                    }
+                // A one-day stretch has no line to draw, so its dot is the only mark of that reading: drawn at any length.
+                ForEach(comparisonPoints.count <= 60 ? comparisonPoints : TrendChart.loneSegmentPoints(comparisonPoints)) { p in
+                    PointMark(x: .value("Date", p.date), y: .value("Value", p.value))
+                        .symbolSize(12)
+                        .foregroundStyle(comparisonColor)
                 }
                 // 18pt dots are invisible on dense series (e.g. a 365-day year) but still cost the
                 // GPU a mark each — hide them past a threshold; the line carries the data there. The gate
                 // stays on the full `points.count` (≤60 is never downsampled, so displayPoints == points).
-                if points.count <= 60 {
-                    ForEach(displayPoints) { p in
-                        PointMark(
-                            x: .value("Date", p.date),
-                            y: .value("Value", p.value)
-                        )
-                        .symbolSize(18)
-                        .foregroundStyle(StrandPalette.sample(stops: stops, at: unit(p.value)))
-                    }
+                // A one-point stretch between gaps is the exception: without its dot that reading would not show at all.
+                ForEach(points.count <= 60 ? displayPoints : TrendChart.loneSegmentPoints(displayPoints)) { p in
+                    PointMark(
+                        x: .value("Date", p.date),
+                        y: .value("Value", p.value)
+                    )
+                    .symbolSize(18)
+                    .foregroundStyle(StrandPalette.sample(stops: stops, at: unit(p.value)))
                 }
             }
         }

@@ -297,7 +297,7 @@ struct LookScoreDetailView: View {
     private var readout: ScoreReadout.Lines {
         switch kind {
         case .charge:
-            return ScoreReadout.charge(score: latest?.value, drivers: chargeDrivers, hrvBaseline: repo.scoredChargeBaselines?.hrv)
+            return ScoreReadout.charge(score: latest?.value, drivers: chargeDrivers, hrvBaseline: latestChargeRow.flatMap { repo.chargeBaselines(scoring: $0.day) }?.hrv)
         case .effort:
             return ScoreReadout.effort(progress: effortReading?.progress,
                                        zones13Min: valueOnLatestDay("hr_zones13_min"),
@@ -424,18 +424,20 @@ struct LookScoreDetailView: View {
         loaded = true
     }
 
+    private var latestChargeRow: DailyMetric? { repo.strapDays.last(where: { $0.recovery != nil }) }
+
     /// The same drivers the Charge sheet shows, for the latest scored day.
     @MainActor private func currentChargeDrivers() -> [ChargeDriver] {
-        guard let baselines = repo.scoredChargeBaselines,
-              let row = repo.strapDays.last(where: { $0.recovery != nil }) else { return [] }
+        guard let row = latestChargeRow,
+              let baselines = repo.chargeBaselines(scoring: row.day) else { return [] }
         let rest = LookSeries.latest(points("sleep_performance"))?.value
         return ChargeBreakdownWiring.breakdown(baselines: baselines, row: row, sleepPerfPercent: rest)?.drivers ?? []
     }
 
     /// Charge in two parts for the same day and inputs as the drivers above.
     @MainActor private func currentChargeSplit() -> ChargeSplit? {
-        guard let baselines = repo.scoredChargeBaselines,
-              let row = repo.strapDays.last(where: { $0.recovery != nil }) else { return nil }
+        guard let row = latestChargeRow,
+              let baselines = repo.chargeBaselines(scoring: row.day) else { return nil }
         let rest = LookSeries.latest(points("sleep_performance"))?.value
         return ChargeBreakdownWiring.split(baselines: baselines, row: row, sleepPerfPercent: rest)
     }
