@@ -287,6 +287,14 @@ enum SelfHostedPushClient {
         return " · hrr_garmin=" + json
     }
 
+    /// A Garmin night's sleep efficiency as the fraction 0...1 PaceForge sends. nil when it sends none (it cannot
+    /// derive one) or a value outside that range.
+    static func garminSleepEfficiency(_ item: [String: Any]) -> Double? {
+        guard let value = (item["efficiency"] as? NSNumber)?.doubleValue, value.isFinite,
+              (0...1).contains(value) else { return nil }
+        return value
+    }
+
     /// Fetch Garmin's own daily steps and SpO₂ from PaceForge into a separate source, preserving NOOP values.
     @MainActor
     @discardableResult
@@ -318,7 +326,7 @@ enum SelfHostedPushClient {
                 throw Failure.receiver("PaceForge returned an empty Garmin metric record.")
             }
             return DailyMetric(day: day, totalSleepMin: sleepSeconds.map { ($0 / 60).rounded() },
-                               efficiency: nil,
+                               efficiency: garminSleepEfficiency(item),
                                deepMin: deepSeconds.map { ($0 / 60).rounded() },
                                remMin: remSeconds.map { ($0 / 60).rounded() },
                                lightMin: lightSeconds.map { ($0 / 60).rounded() },
