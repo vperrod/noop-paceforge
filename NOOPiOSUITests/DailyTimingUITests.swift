@@ -28,8 +28,11 @@ final class DailyTimingUITests: XCTestCase {
         return !frame.isEmpty && frame.midY > 0 && frame.midY < app.frame.height - 110
     }
 
+    /// Stops asking as soon as the element can be tapped: each question is a snapshot of the whole (very long) Today screen, and a
+    /// `for ... where` loop would go on asking for every remaining turn, which left the app too busy to act on the next tap.
     private func reveal(_ element: XCUIElement, in app: XCUIApplication, maxSwipes: Int = 30) {
-        for _ in 0..<maxSwipes where !(isOnScreen(element, in: app) && element.isHittable) {
+        for _ in 0..<maxSwipes {
+            if isOnScreen(element, in: app) && element.isHittable { return }
             let from = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.62))
             let to = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.32))
             from.press(forDuration: 0.05, thenDragTo: to, withVelocity: .slow, thenHoldForDuration: 0.1)

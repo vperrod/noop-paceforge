@@ -38,7 +38,10 @@ final class BodySignalsUITests: XCTestCase {
     }
 
     private func reveal(_ element: XCUIElement, in app: XCUIApplication) {
-        for _ in 0..<12 where !(element.exists && element.isHittable) { app.swipeUp() }
+        for _ in 0..<12 {
+            if element.exists && element.isHittable { return }
+            app.swipeUp()
+        }
     }
 
     func testEverySourceIsNamedAndAMissingValueStaysMissing() throws {

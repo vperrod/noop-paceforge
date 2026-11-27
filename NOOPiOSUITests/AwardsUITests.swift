@@ -22,7 +22,8 @@ final class AwardsUITests: XCTestCase {
     }
 
     private func reveal(_ element: XCUIElement, in app: XCUIApplication, maxSwipes: Int = 20) {
-        for _ in 0..<maxSwipes where !(element.exists && element.isHittable) {
+        for _ in 0..<maxSwipes {
+            if element.exists && element.isHittable { return }
             let from = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.62))
             let to = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.32))
             from.press(forDuration: 0.05, thenDragTo: to, withVelocity: .slow, thenHoldForDuration: 0.1)
